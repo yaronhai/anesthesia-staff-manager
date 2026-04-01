@@ -90,6 +90,7 @@ export default function WorkerList({ workers, onEdit, onDelete }) {
             <th>תפקיד</th>
             <th>סוג העסקה</th>
             <th>טלפון</th>
+            <th>אימייל</th>
             <th>פעולות</th>
           </tr>
         </thead>
@@ -112,6 +113,7 @@ export default function WorkerList({ workers, onEdit, onDelete }) {
                 </span>
               </td>
               <td>{w.phone || '—'}</td>
+              <td>{w.email || '—'}</td>
               <td>
                 <button onClick={() => setViewing(w)} className="btn-view">צפייה</button>
                 <button onClick={() => onEdit(w)} className="btn-edit">עריכה</button>

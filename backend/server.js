@@ -222,7 +222,7 @@ app.post('/api/auth/login', (req, res) => {
   }
   const payload = { id: user.id, username: user.username, role: user.role, worker_id: user.worker_id };
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { ...payload, must_change_password: user.must_change_password } });
+  res.json({ token, user: { ...payload, email: user.email, must_change_password: user.must_change_password } });
 });
 
 app.post('/api/auth/change-password', requireAuth, (req, res) => {
