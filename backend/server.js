@@ -1,10 +1,13 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const Database = require('better-sqlite3');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
@@ -43,7 +46,7 @@ db.exec(`
     job_id INTEGER REFERENCES job_titles(id) ON DELETE SET NULL,
     employment_type_id INTEGER REFERENCES employment_types(id) ON DELETE SET NULL,
     phone TEXT,
-    email TEXT,
+    email TEXT NOT NULL DEFAULT '',
     notes TEXT,
     id_number TEXT,
     classification TEXT NOT NULL DEFAULT 'user',
@@ -54,9 +57,12 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    email TEXT,
     worker_id INTEGER REFERENCES workers(id) ON DELETE CASCADE,
     role TEXT NOT NULL DEFAULT 'user',
     must_change_password INTEGER NOT NULL DEFAULT 1,
+    reset_token TEXT,
+    reset_token_expires TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -79,6 +85,9 @@ const migrations = [
   'ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 1',
   'ALTER TABLE users ADD COLUMN worker_id INTEGER REFERENCES workers(id) ON DELETE CASCADE',
   'CREATE UNIQUE INDEX IF NOT EXISTS idx_worker_id_number ON workers(id_number) WHERE id_number IS NOT NULL',
+  'ALTER TABLE users ADD COLUMN email TEXT',
+  'ALTER TABLE users ADD COLUMN reset_token TEXT',
+  'ALTER TABLE users ADD COLUMN reset_token_expires TEXT',
 ];
 migrations.forEach(sql => { try { db.exec(sql); } catch {} });
 
@@ -118,10 +127,21 @@ if (db.prepare("SELECT COUNT(*) AS c FROM users WHERE username = 'admin'").get()
   db.prepare('INSERT INTO users (username, password_hash, role, must_change_password) VALUES (?, ?, ?, ?)')
     .run('admin', bcrypt.hashSync('admin123', 8), 'admin', 0);
 }
-// Ensure bootstrap admin never needs password change
 db.prepare("UPDATE users SET must_change_password = 0 WHERE username = 'admin'").run();
 
 const JWT_SECRET = 'anesthesia-dept-2024-secret-key';
+
+// ── Email transporter ────────────────────────────────────────────────────────
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 // ── Auth helpers ────────────────────────────────────────────────────────────
 
@@ -145,24 +165,24 @@ function requireAdmin(req, res, next) {
 
 // ── Worker ↔ User sync helpers ───────────────────────────────────────────────
 
-function createUserForWorker(worker_id, id_number, classification) {
+function createUserForWorker(worker_id, id_number, classification, email) {
   if (!id_number) return;
   const hash = bcrypt.hashSync(id_number, 8);
   try {
     db.prepare(
-      'INSERT INTO users (username, password_hash, worker_id, role, must_change_password) VALUES (?, ?, ?, ?, 1)'
-    ).run(id_number, hash, worker_id, classification);
-  } catch {} // username already exists — skip
+      'INSERT INTO users (username, password_hash, worker_id, role, must_change_password, email) VALUES (?, ?, ?, ?, 1, ?)'
+    ).run(id_number, hash, worker_id, classification, email || null);
+  } catch {}
 }
 
-function syncUserForWorker(worker_id, id_number, classification) {
+function syncUserForWorker(worker_id, id_number, classification, email) {
   if (!id_number) return;
   const user = db.prepare('SELECT id FROM users WHERE worker_id = ?').get(worker_id);
   if (user) {
-    db.prepare('UPDATE users SET username = ?, role = ? WHERE id = ?')
-      .run(id_number, classification, user.id);
+    db.prepare('UPDATE users SET username = ?, role = ?, email = ? WHERE id = ?')
+      .run(id_number, classification, email || null, user.id);
   } else {
-    createUserForWorker(worker_id, id_number, classification);
+    createUserForWorker(worker_id, id_number, classification, email);
   }
 }
 
@@ -215,6 +235,65 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'אימייל חסר' });
+
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  if (!user) return res.json({ ok: true }); // don't reveal whether email exists
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  db.prepare('UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?')
+    .run(token, expires, user.id);
+
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  const resetLink = `${appUrl}/?reset=${token}`;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject: 'איפוס סיסמא — מחלקת הרדמה',
+      html: `
+        <div dir="rtl" style="font-family:Arial,sans-serif;max-width:480px">
+          <h2>איפוס סיסמא</h2>
+          <p>קיבלנו בקשה לאיפוס הסיסמא שלך.</p>
+          <p style="margin:24px 0">
+            <a href="${resetLink}"
+               style="background:#2563eb;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-size:15px">
+              לחץ כאן לאיפוס סיסמא
+            </a>
+          </p>
+          <p style="color:#6b7280;font-size:13px">הקישור תקף לשעה אחת.</p>
+          <p style="color:#6b7280;font-size:13px">אם לא ביקשת איפוס סיסמא, התעלם מהודעה זו.</p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error('Email send error:', err.message);
+    return res.status(500).json({ error: 'שגיאה בשליחת אימייל. פנה למנהל המערכת.' });
+  }
+
+  res.json({ ok: true });
+});
+
+app.post('/api/auth/reset-password', (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'שדות לא תקינים' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE reset_token = ?').get(token);
+  if (!user) return res.status(400).json({ error: 'קישור לא תקין' });
+  if (new Date(user.reset_token_expires) < new Date()) {
+    return res.status(400).json({ error: 'הקישור פג תוקף, בקש קישור חדש' });
+  }
+  db.prepare(
+    'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL, must_change_password = 0 WHERE id = ?'
+  ).run(bcrypt.hashSync(newPassword, 8), user.id);
+  res.json({ ok: true });
+});
+
 // ── Workers ─────────────────────────────────────────────────────────────────
 
 app.get('/api/workers', requireAuth, (req, res) => {
@@ -224,6 +303,7 @@ app.get('/api/workers', requireAuth, (req, res) => {
 app.post('/api/workers', requireAdmin, (req, res) => {
   const { honorific_id, first_name, family_name, job_id, employment_type_id,
           phone, email, notes, id_number, classification } = req.body;
+  if (!email?.trim()) return res.status(400).json({ error: 'אימייל הוא שדה חובה' });
   const cls = classification || 'user';
   const idNum = id_number?.trim() || null;
   try {
@@ -232,8 +312,8 @@ app.post('/api/workers', requireAdmin, (req, res) => {
                            phone, email, notes, id_number, classification)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email, notes, idNum, cls);
-    createUserForWorker(lastInsertRowid, idNum, cls);
+           employment_type_id || null, phone, email.trim(), notes, idNum, cls);
+    createUserForWorker(lastInsertRowid, idNum, cls, email.trim());
     res.status(201).json(db.prepare(WORKER_SELECT + ' WHERE w.id = ?').get(lastInsertRowid));
   } catch (e) {
     if (e.message?.includes('UNIQUE') && e.message?.includes('id_number')) {
@@ -246,6 +326,7 @@ app.post('/api/workers', requireAdmin, (req, res) => {
 app.put('/api/workers/:id', requireAdmin, (req, res) => {
   const { honorific_id, first_name, family_name, job_id, employment_type_id,
           phone, email, notes, id_number, classification } = req.body;
+  if (!email?.trim()) return res.status(400).json({ error: 'אימייל הוא שדה חובה' });
   const cls = classification || 'user';
   const idNum = id_number?.trim() || null;
   try {
@@ -254,9 +335,9 @@ app.put('/api/workers/:id', requireAdmin, (req, res) => {
         employment_type_id=?, phone=?, email=?, notes=?, id_number=?, classification=?
       WHERE id=?
     `).run(honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email, notes, idNum, cls, req.params.id);
+           employment_type_id || null, phone, email.trim(), notes, idNum, cls, req.params.id);
     if (changes === 0) return res.status(404).json({ error: 'Worker not found' });
-    syncUserForWorker(Number(req.params.id), idNum, cls);
+    syncUserForWorker(Number(req.params.id), idNum, cls, email.trim());
     res.json(db.prepare(WORKER_SELECT + ' WHERE w.id = ?').get(req.params.id));
   } catch (e) {
     if (e.message?.includes('UNIQUE') && e.message?.includes('id_number')) {

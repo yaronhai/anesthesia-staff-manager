@@ -111,13 +111,14 @@ export default function WorkerForm({ initial, config, onSave, onCancel }) {
             />
           </label>
           <label>
-            אימייל
+            אימייל *
             <input
               name="email"
               type="email"
               value={form.email}
               onChange={handleChange}
               placeholder="לדוגמה: name@hospital.com"
+              required
             />
           </label>
         </div>
