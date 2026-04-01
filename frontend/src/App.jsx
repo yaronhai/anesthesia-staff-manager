@@ -5,6 +5,7 @@ import AdminPanel from './components/AdminPanel';
 import ShiftRequests from './components/ShiftRequests';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
+import RequestPasswordResetModal from './components/RequestPasswordResetModal';
 import './App.css';
 
 const API = '/api/workers';
@@ -21,6 +22,7 @@ export default function App() {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [] });
   const [filterJobId, setFilterJobId] = useState('');
   const [filterEmpTypeId, setFilterEmpTypeId] = useState('');
@@ -159,6 +161,7 @@ export default function App() {
           )}
           <div className="header-user">
             <span className="header-username">{currentUser.username}</span>
+            <button onClick={() => setShowPasswordReset(true)} className="btn-secondary" title="איפוס סיסמא">🔐</button>
             <button onClick={handleLogout} className="btn-logout">יציאה</button>
           </div>
         </div>
@@ -183,6 +186,10 @@ export default function App() {
 
       {showSettings && isAdmin && (
         <AdminPanel config={config} onConfigChange={setConfig} onClose={() => setShowSettings(false)} />
+      )}
+
+      {showPasswordReset && (
+        <RequestPasswordResetModal currentUser={currentUser} onClose={() => setShowPasswordReset(false)} />
       )}
 
       {activeTab === 'workers' && isAdmin && (

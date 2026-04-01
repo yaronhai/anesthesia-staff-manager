@@ -2,61 +2,57 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Project Guidelines
 
-**Anesthesia Workers Manager** — A full-stack Hebrew-language (RTL) web app for managing hospital anesthesia department staff. Data is persisted in Excel files (`.xlsx`) and JSON on disk — there is no database.
+### Code Style
+- Plain React with hooks (no state management library)
+- Hebrew strings throughout UI (RTL support)
+- Consistent naming: camelCase for variables, PascalCase for components
+- No linter or formatter configured; manual code quality
 
-## Development Commands
+### Architecture
+- **Backend**: Single-file Express app (server.js, 700+ lines) with SQLite database
+- **Frontend**: React 18 + Vite, tab-based UI without routing
+- **Database**: SQLite with WAL mode; migrations auto-run on startup
+- **Auth**: JWT-based with bcrypt hashing; worker creation auto-syncs user accounts
+- **Data Flow**: App.jsx orchestrates global state; components handle UI logic
 
-### Backend (port 5000)
+Major components:
+- Workers management (CRUD with auto-user creation)
+- Shift requests (calendar-based preferences)
+- Admin panel (config management)
+- Auth flow (login, password reset via email)
+
+### Build and Test
 ```bash
-cd backend
-npm install
-npm run dev     # nodemon auto-reload
-npm start       # production
+# Backend (port 5001)
+cd backend && npm install && npm run dev    # nodemon auto-reload
+npm start                                    # production
+
+# Frontend (port 3000)
+cd frontend && npm install && npm run dev   # Vite dev server
+npm run build                               # output to dist/
+npm run preview
 ```
 
-### Frontend (port 3000)
-```bash
-cd frontend
-npm install
-npm run dev     # Vite dev server
-npm run build   # output to dist/
-npm run preview # preview production build
-```
+No test framework configured. Agents should run build commands to validate changes.
 
-No test framework or linter is configured.
+### Conventions
+- ID Number as Username: Worker's `id_number` becomes login username
+- Worker ↔ User Sync: Editing worker auto-updates linked user
+- Shift Types: `morning`, `evening`, `oncall`
+- Preference Types: `can`, `prefer`, `cannot`
+- Hebrew Defaults: Job titles, employment types, honorifics seeded in Hebrew
+- No Soft Deletes: All deletions permanent
+- Port: Backend on 5001 (not 5000 as previously documented)
 
-## Architecture
+Potential pitfalls:
+- Hardcoded JWT secret; use .env for production
+- Email config required for password reset; fails silently if missing
+- No form validation on frontend; relies on backend
+- Stale data possible if config changes during modal use
 
-```
-frontend/src/          React 18 + Vite
-backend/server.js      Express REST API
-backend/data/          File-based persistence
-  workers.xlsx         All worker records
-  config.json          Job titles & employment types
-```
-
-The Vite dev server proxies `/api/*` to `http://localhost:5000`. The backend creates `data/` files on first write if they don't exist.
-
-### Frontend component hierarchy
-- **App.jsx** — global state, data fetching, orchestration
-  - **WorkerList.jsx** — table + inline `WorkerDetail` modal
-  - **WorkerForm.jsx** — add/edit modal; populates dropdowns from `config` prop
-  - **AdminPanel.jsx** — manage job titles and employment types via API
-
-### Backend data helpers (server.js)
-- `readWorkers()` / `writeWorkers()` — read/write `workers.xlsx` via the `xlsx` package
-- `readConfig()` / `writeConfig()` — read/write `config.json`; falls back to hardcoded Hebrew defaults if the file is absent
-
-### API surface
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET/POST/PUT/DELETE | `/api/workers` / `/api/workers/:id` | Worker CRUD |
-| GET | `/api/config` | Fetch config |
-| POST/DELETE | `/api/config/jobs` / `/api/config/jobs/:value` | Manage job titles |
-| POST/DELETE | `/api/config/employment-types` / `/api/config/employment-types/:value` | Manage employment types |
-
-## Known Bug
-
-`WorkerForm.jsx` lines 68 and 75 reference undefined variables `JOBS` and `EMP_TYPES`. They should use the local `jobs` and `empTypes` variables derived from the `config` prop (already defined at lines 6–7). This causes a runtime crash when the form is opened.
+## Known Issues
+- `WorkerForm.jsx` lines 68 and 75 reference undefined variables `JOBS` and `EMP_TYPES`. Use local `jobs` and `empTypes` from `config` prop.
+- Security: No rate limiting on auth endpoints
+- Data: Direct DB edits bypass sync logic
