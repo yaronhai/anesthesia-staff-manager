@@ -5,8 +5,14 @@ export default function RequestPasswordResetModal({ currentUser, onClose }) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
+  console.log('RequestPasswordResetModal currentUser:', currentUser);
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!currentUser.email) {
+      setError('האימייל אינו זמין. אנא צור קשר עם מנהל המערכת.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -33,6 +39,12 @@ export default function RequestPasswordResetModal({ currentUser, onClose }) {
           <div className="forgot-sent">
             <p>קישור לאיפוס הסיסמא נשלח אל {currentUser.email}</p>
             <p className="forgot-sent-note">בדוק את תיבת הדואר שלך (כולל ספאם).</p>
+            <button className="btn-secondary" onClick={onClose}>סגור</button>
+          </div>
+        ) : !currentUser.email ? (
+          <div className="forgot-sent">
+            <p className="error-msg">אימייל אינו זמין עבור משתמש זה.</p>
+            <p>אנא צור קשר עם מנהל המערכת כדי לעדכן את הפרטים שלך.</p>
             <button className="btn-secondary" onClick={onClose}>סגור</button>
           </div>
         ) : (

@@ -89,6 +89,7 @@ export default function App() {
   function handleCancel()     { setEditing(null);   setShowForm(false); }
 
   function handleLogin(token, user) {
+    console.log('Login user object:', user);
     localStorage.setItem('authToken', token);
     localStorage.setItem('currentUser', JSON.stringify(user));
     setAuthToken(token);
