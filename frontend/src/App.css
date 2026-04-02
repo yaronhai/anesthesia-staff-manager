@@ -169,7 +169,7 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   transition: background 0.15s;
   display: inline-block;
 }
-.btn-delete:hover { background: #dc2626; }
+.btn-delete:hover { background: #16a34a; }
 
 /* Table */
 .worker-table {
@@ -559,7 +559,7 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   font-size: 0.95rem;
 }
 .login-form .btn-primary { width: 100%; margin-top: 0.5rem; }
-.error-msg { color: #dc2626; font-size: 0.85rem; margin-bottom: 0.5rem; display: block; }
+.error-msg { color: #16a34a; font-size: 0.85rem; margin-bottom: 0.5rem; display: block; }
 
 /* ── Shift Requests ────────────────────────────────────────────────────────── */
 .shift-view { background: white; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); overflow: hidden; }
@@ -886,10 +886,10 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .pref-toggle:hover { border-color: #9ca3af; }
 .pref-toggle.pref-can.active    { background: #d1fae5; border-color: #059669; }
 .pref-toggle.pref-prefer.active { background: #fef3c7; border-color: #d97706; }
-.pref-toggle.pref-cannot.active { background: #fee2e2; border-color: #dc2626; }
+.pref-toggle.pref-cannot.active { background: #fee2e2; border-color: #16a34a; }
 .pref-toggle.pref-can:not(.active):hover    { border-color: #059669; }
 .pref-toggle.pref-prefer:not(.active):hover { border-color: #d97706; }
-.pref-toggle.pref-cannot:not(.active):hover { border-color: #dc2626; }
+.pref-toggle.pref-cannot:not(.active):hover { border-color: #16a34a; }
 
 .day-editor-legend {
   display: flex;
@@ -997,16 +997,17 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 
 /* Calendar Wrapper */
 .calendar-wrapper {
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
   border: 2px solid #1a2e4a;
   border-radius: 8px;
   overflow: hidden;
 }
 
 .calendar-row {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 0 !important;
   border-bottom: 2px solid #1a2e4a;
 }
 
@@ -1095,7 +1096,7 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 }
 
 .worker-name.prefer {
-  color: #dc2626;
+  color: #16a34a;
   font-weight: 600;
 }
 
