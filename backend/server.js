@@ -220,15 +220,19 @@ app.post('/api/auth/login', (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'שם משתמש או סיסמא שגויים' });
   }
-  // Get email from worker if user doesn't have one
+  // Get email and name from worker
   let email = user.email;
-  if (!email && user.worker_id) {
-    const worker = db.prepare('SELECT email FROM workers WHERE id = ?').get(user.worker_id);
-    email = worker?.email;
+  let displayName = user.username;
+  if (user.worker_id) {
+    const worker = db.prepare('SELECT email, first_name, family_name FROM workers WHERE id = ?').get(user.worker_id);
+    if (worker) {
+      email = email || worker.email;
+      displayName = `${worker.first_name} ${worker.family_name}`;
+    }
   }
   const payload = { id: user.id, username: user.username, role: user.role, worker_id: user.worker_id };
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { ...payload, email, must_change_password: user.must_change_password } });
+  res.json({ token, user: { ...payload, email, displayName, must_change_password: user.must_change_password } });
 });
 
 app.post('/api/auth/change-password', requireAuth, (req, res) => {

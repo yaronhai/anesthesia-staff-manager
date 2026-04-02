@@ -175,7 +175,7 @@ export default function App() {
             <button onClick={() => setShowSettings(true)} className="btn-settings">⚙️</button>
           )}
           <div className="header-user">
-            <span className="header-username">{currentUser.username}</span>
+            <span className="header-username">{currentUser.displayName || currentUser.username}</span>
             <button onClick={handleLogout} className="btn-logout">יציאה</button>
           </div>
         </div>
