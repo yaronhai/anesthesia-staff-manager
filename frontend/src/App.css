@@ -965,4 +965,202 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   color: #6b7280;
   margin-top: 0.5rem;
 }
+
+/* ── Monthly Report ────────────────────────────────────────────────────────── */
+.report-container {
+  background: white;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+}
+
+.report-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.report-header h2 {
+  margin: 0;
+  color: #1a2e4a;
+  font-size: 1.5rem;
+  min-width: 150px;
+}
+
+.report-toolbar {
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+/* Calendar Wrapper */
+.calendar-wrapper {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #1a2e4a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.calendar-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 2px solid #1a2e4a;
+}
+
+.calendar-row:last-child {
+  border-bottom: none;
+}
+
+.calendar-row.header {
+  background: #1a2e4a;
+  border-bottom: 2px solid #0f1419;
+}
+
+/* Header Cells */
+.calendar-header-cell {
+  padding: 0.75rem;
+  color: white;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Day Cells */
+.calendar-cell {
+  background: white;
+  border-right: 1px solid #cbd5e1;
+  min-height: 180px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+  overflow-y: auto;
+}
+
+.calendar-cell:nth-child(7n) {
+  border-right: none;
+}
+
+.calendar-cell.empty {
+  background: #f1f5f9;
+  border-right: 1px solid #cbd5e1;
+}
+
+.calendar-cell.empty:nth-child(7n) {
+  border-right: none;
+}
+
+.day-header {
+  font-weight: 700;
+  color: #1a2e4a;
+  font-size: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Shift Boxes */
+.shift-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0;
+  font-size: 0.75rem;
+}
+
+.shift-name {
+  font-weight: 700;
+  color: #1a2e4a;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding-bottom: 0.25rem;
+}
+
+.worker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.worker-name {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.worker-name.prefer {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.worker-name.can {
+  color: #0369a1;
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  .app {
+    box-shadow: none;
+  }
+
+  header {
+    display: none;
+  }
+
+  .tabs {
+    display: none;
+  }
+
+  .filters {
+    display: none;
+  }
+
+  .report-container {
+    padding: 1rem;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .report-header {
+    margin-bottom: 1rem;
+    gap: 1rem;
+  }
+
+  .report-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .report-toolbar {
+    display: none;
+  }
+
+  .calendar-wrapper {
+    page-break-inside: avoid;
+    border: 1px solid #333;
+  }
+
+  .calendar-cell {
+    page-break-inside: avoid;
+    border: 1px solid #333;
+    min-height: 100px;
+  }
+
+  .worker-name.prefer {
+    color: #000;
+    font-weight: 700;
+  }
+
+  .worker-name.can {
+    color: #000;
+  }
+}
 }
