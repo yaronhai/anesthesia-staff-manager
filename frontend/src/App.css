@@ -143,6 +143,20 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 }
 .btn-edit:hover { background: #d97706; }
 
+.btn-reset {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  margin-left: 0.2rem;
+  transition: background 0.15s;
+  display: inline-block;
+}
+.btn-reset:hover { background: #7c3aed; }
+
 .btn-delete {
   background: #ef4444;
   color: white;

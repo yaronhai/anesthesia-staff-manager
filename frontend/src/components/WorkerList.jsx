@@ -67,7 +67,7 @@ function WorkerDetail({ worker, onClose, onEdit }) {
   );
 }
 
-export default function WorkerList({ workers, onEdit, onDelete }) {
+export default function WorkerList({ workers, onEdit, onDelete, onResetPassword }) {
   const [viewing, setViewing] = useState(null);
 
   if (workers.length === 0) {
@@ -117,6 +117,11 @@ export default function WorkerList({ workers, onEdit, onDelete }) {
               <td>
                 <button onClick={() => setViewing(w)} className="btn-view">צפייה</button>
                 <button onClick={() => onEdit(w)} className="btn-edit">עריכה</button>
+                <button onClick={() => {
+                  if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
+                    onResetPassword(w.id);
+                  }
+                }} className="btn-reset">איפוס</button>
                 <button onClick={() => onDelete(w.id)} className="btn-delete">מחיקה</button>
               </td>
             </tr>

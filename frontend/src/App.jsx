@@ -84,12 +84,28 @@ export default function App() {
     fetchWorkers();
   }
 
+  async function handleResetPassword(id) {
+    try {
+      const res = await fetch(`/api/auth/reset-worker-password/${id}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert('שגיאה: ' + (data.error || 'איפוס נכשל'));
+      } else {
+        alert('סיסמא אופסה בהצלחה לתעודת הזהות של העובד');
+      }
+    } catch {
+      alert('שגיאת חיבור לשרת');
+    }
+  }
+
   function handleEdit(worker) { setEditing(worker); setShowForm(true); }
   function handleAdd()        { setEditing(null);   setShowForm(true); }
   function handleCancel()     { setEditing(null);   setShowForm(false); }
 
   function handleLogin(token, user) {
-    console.log('Login user object:', user);
     localStorage.setItem('authToken', token);
     localStorage.setItem('currentUser', JSON.stringify(user));
     setAuthToken(token);
@@ -220,7 +236,7 @@ export default function App() {
               onCancel={handleCancel}
             />
           )}
-          <WorkerList workers={filteredWorkers} onEdit={handleEdit} onDelete={handleDelete} />
+          <WorkerList workers={filteredWorkers} onEdit={handleEdit} onDelete={handleDelete} onResetPassword={handleResetPassword} />
         </>
       )}
 

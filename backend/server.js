@@ -300,6 +300,21 @@ app.post('/api/auth/reset-password', (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/auth/reset-worker-password/:workerId', requireAdmin, (req, res) => {
+  const { workerId } = req.params;
+  const worker = db.prepare('SELECT id_number FROM workers WHERE id = ?').get(workerId);
+  if (!worker) return res.status(404).json({ error: 'עובד לא נמצא' });
+
+  const user = db.prepare('SELECT id FROM users WHERE worker_id = ?').get(workerId);
+  if (!user) return res.status(404).json({ error: 'משתמש לא נמצא' });
+
+  const newPassword = bcrypt.hashSync(worker.id_number, 8);
+  db.prepare('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?')
+    .run(newPassword, user.id);
+
+  res.json({ ok: true });
+});
+
 // ── Workers ─────────────────────────────────────────────────────────────────
 
 app.get('/api/workers', requireAuth, (req, res) => {

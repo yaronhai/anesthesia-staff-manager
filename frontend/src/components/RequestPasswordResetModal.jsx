@@ -5,8 +5,6 @@ export default function RequestPasswordResetModal({ currentUser, onClose }) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
-  console.log('RequestPasswordResetModal currentUser:', currentUser);
-
   async function handleSubmit(e) {
     e.preventDefault();
     if (!currentUser.email) {
