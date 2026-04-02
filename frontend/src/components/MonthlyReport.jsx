@@ -111,15 +111,16 @@ export default function MonthlyReport({ token }) {
         {weeks.map((week, weekIdx) => (
           <div key={weekIdx} className="calendar-row">
             {week.map((day, dayIdx) => {
+              const uniqueKey = `week-${weekIdx}-day-${dayIdx}`;
               if (day === null) {
-                return <div key={dayIdx} className="calendar-cell empty"></div>;
+                return <div key={uniqueKey} className="calendar-cell empty"></div>;
               }
 
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               const dayData = reportData[dateStr];
 
               return (
-                <div key={day} className="calendar-cell">
+                <div key={uniqueKey} className="calendar-cell">
                   <div className="day-header">{day}</div>
 
                   {/* Morning Section */}

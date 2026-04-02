@@ -3,6 +3,7 @@ import WorkerList from './components/WorkerList';
 import WorkerForm from './components/WorkerForm';
 import AdminPanel from './components/AdminPanel';
 import ShiftRequests from './components/ShiftRequests';
+import MonthlyReport from './components/MonthlyReport';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import './App.css';
@@ -196,6 +197,14 @@ export default function App() {
         >
           בקשות משמרות
         </button>
+        {isAdmin && (
+          <button
+            className={`tab-btn${activeTab === 'report' ? ' active' : ''}`}
+            onClick={() => setActiveTab('report')}
+          >
+            דו"ח חודשי
+          </button>
+        )}
       </div>
 
       {showSettings && isAdmin && (
@@ -235,6 +244,10 @@ export default function App() {
 
       {activeTab === 'shifts' && (
         <ShiftRequests currentUser={currentUser} token={authToken} />
+      )}
+
+      {activeTab === 'report' && isAdmin && (
+        <MonthlyReport token={authToken} />
       )}
     </div>
   );
