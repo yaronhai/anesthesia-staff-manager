@@ -1989,11 +1989,19 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   padding: 0 1rem;
 }
 
+.room-view-body {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  margin-top: 1.5rem;
+}
+
 .room-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
-  margin-top: 2rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .room-card {
@@ -2084,6 +2092,167 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   color: white;
 }
 
+/* Morning/Evening shift sections */
+.room-shift-section {
+  border-top: 1px solid #f0f0f0;
+}
+
+.room-shift-section:first-of-type {
+  border-top: none;
+}
+
+.room-shift-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 1rem 0.2rem;
+}
+
+.room-shift-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.room-shift-time {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.room-shift-morning .room-shift-header { background: #fffbeb; }
+.room-shift-morning .room-shift-label  { color: #d97706; }
+.room-shift-evening .room-shift-header { background: #eef2ff; }
+.room-shift-evening .room-shift-label  { color: #4f46e5; }
+
+.room-shift-section .room-add-btn {
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+}
+
+.room-assignment-row {
+  cursor: pointer;
+}
+
+.room-assignment-time {
+  display: block;
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* Global shift times bar */
+.room-shift-times-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.88rem;
+  color: #374151;
+}
+
+.room-shift-times-bar input[type="time"] {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: #1a2e4a;
+}
+
+.room-shift-times-sep {
+  width: 1px;
+  height: 1.2rem;
+  background: #cbd5e1;
+  margin: 0 0.25rem;
+}
+
+/* Sidebar */
+.room-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  padding: 1rem;
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.room-sidebar-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1a2e4a;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.room-sidebar-section {
+  margin-bottom: 1.25rem;
+}
+
+.room-sidebar-section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+}
+
+.room-sidebar-empty {
+  font-size: 0.82rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.room-sidebar-worker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.room-sidebar-worker.pref-prefer  { background: #dcfce7; color: #166534; }
+.room-sidebar-worker.pref-can     { background: #dbeafe; color: #1e40af; }
+.room-sidebar-worker.pref-cannot  { background: #fee2e2; color: #991b1b; }
+
+.room-sidebar-pref {
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+/* Edit times hint */
+.room-edit-hint {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+/* Inline form groups (times) */
+.form-group-inline {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-group-inline > div {
+  flex: 1;
+}
+
 @media (max-width: 768px) {
   .room-view-container {
     padding: 1rem;
@@ -2107,5 +2276,15 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
     min-width: 150px;
     font-size: 0.9rem;
     padding: 0 0.5rem;
+  }
+
+  .room-view-body {
+    flex-direction: column-reverse;
+  }
+
+  .room-sidebar {
+    width: 100%;
+    position: static;
+    max-height: 300px;
   }
 }

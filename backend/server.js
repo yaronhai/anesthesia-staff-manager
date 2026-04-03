@@ -139,6 +139,39 @@ migrations.forEach(sql => { try { db.exec(sql); } catch {} });
   }
 }
 
+// Migrate worker_site_assignments to add shift_type, start_time, end_time
+{
+  const cols = db.prepare('PRAGMA table_info(worker_site_assignments)').all();
+  if (cols.length > 0 && !cols.some(c => c.name === 'shift_type')) {
+    db.exec(`
+      DROP TABLE IF EXISTS _wsa_old;
+      ALTER TABLE worker_site_assignments RENAME TO _wsa_old;
+
+      CREATE TABLE worker_site_assignments (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        worker_id   INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        date        TEXT    NOT NULL,
+        site_id     INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        position_id INTEGER NOT NULL REFERENCES site_positions(id) ON DELETE CASCADE,
+        shift_type  TEXT    NOT NULL DEFAULT 'morning'
+                            CHECK(shift_type IN ('morning', 'evening')),
+        start_time  TEXT,
+        end_time    TEXT,
+        notes       TEXT,
+        created_at  TEXT    DEFAULT (datetime('now')),
+        UNIQUE(worker_id, date, site_id, shift_type)
+      );
+
+      INSERT OR IGNORE INTO worker_site_assignments
+        (id, worker_id, date, site_id, position_id, shift_type, start_time, end_time, notes, created_at)
+      SELECT id, worker_id, date, site_id, position_id, 'morning', NULL, NULL, notes, created_at
+      FROM _wsa_old;
+
+      DROP TABLE _wsa_old;
+    `);
+  }
+}
+
 // ── Seed defaults ────────────────────────────────────────────────────────────
 
 ['רופא', 'עוזר רופא', 'טכנאי הרדמה', 'אחות', 'אחר'].forEach(n =>
@@ -597,14 +630,17 @@ app.get('/api/staffing/month-view', requireAdmin, (req, res) => {
 
   // Get assignments for month (optionally filtered by site)
   let assignmentsQuery = `
-    SELECT wsa.id, wsa.worker_id, wsa.date, wsa.site_id, wsa.position_id, wsa.notes,
-           s.name AS site_name, sp.position_name
+    SELECT wsa.id, wsa.worker_id, wsa.date, wsa.site_id, wsa.position_id,
+           wsa.shift_type, wsa.start_time, wsa.end_time, wsa.notes,
+           s.name AS site_name, sp.position_name,
+           w.first_name, w.family_name
     FROM worker_site_assignments wsa
     JOIN sites s ON wsa.site_id = s.id
     JOIN site_positions sp ON wsa.position_id = sp.id
+    JOIN workers w ON wsa.worker_id = w.id
     ${datePrefix ? 'WHERE wsa.date LIKE ?' : ''}
     ${siteId ? (datePrefix ? 'AND' : 'WHERE') + ' wsa.site_id = ?' : ''}
-    ORDER BY wsa.date, wsa.worker_id
+    ORDER BY wsa.date, wsa.site_id, wsa.shift_type, wsa.worker_id
   `;
 
   const params = [];
@@ -617,31 +653,49 @@ app.get('/api/staffing/month-view', requireAdmin, (req, res) => {
 });
 
 app.post('/api/worker-site-assignments', requireAdmin, (req, res) => {
-  const { worker_id, date, site_id, position_id, notes } = req.body;
+  const { worker_id, date, site_id, position_id, shift_type, start_time, end_time, notes } = req.body;
+  const shiftType = shift_type || 'morning';
+
   if (!worker_id || !date || !site_id || !position_id) {
     return res.status(400).json({ error: 'שדות חסרים' });
   }
+  if (!['morning', 'evening'].includes(shiftType)) {
+    return res.status(400).json({ error: 'סוג משמרת לא תקין' });
+  }
 
-  // Check if worker already assigned to different site on same date
-  const existing = db.prepare(`
+  // Check if worker already assigned to different site on same date+shift
+  const conflict = db.prepare(`
     SELECT COUNT(*) as c FROM worker_site_assignments
-    WHERE worker_id = ? AND date = ? AND site_id != ?
-  `).get(worker_id, date, site_id);
+    WHERE worker_id = ? AND date = ? AND shift_type = ? AND site_id != ?
+  `).get(worker_id, date, shiftType, site_id);
 
-  if (existing.c > 0) {
-    return res.status(400).json({ error: 'עובד כבר משוייך לאתר אחר ביום זה' });
+  if (conflict.c > 0) {
+    return res.status(400).json({ error: 'עובד כבר משוייך לאתר אחר במשמרת זו' });
   }
 
   try {
     db.prepare(`
-      INSERT INTO worker_site_assignments (worker_id, date, site_id, position_id, notes)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(worker_id, date, site_id, position_id) DO UPDATE SET notes = excluded.notes
-    `).run(worker_id, date, site_id, position_id, notes || null);
+      INSERT INTO worker_site_assignments (worker_id, date, site_id, position_id, shift_type, start_time, end_time, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(worker_id, date, site_id, shift_type) DO UPDATE SET
+        position_id = excluded.position_id,
+        start_time  = excluded.start_time,
+        end_time    = excluded.end_time,
+        notes       = excluded.notes
+    `).run(worker_id, date, site_id, position_id, shiftType, start_time || null, end_time || null, notes || null);
     res.json({ ok: true });
   } catch (err) {
-    res.status(400).json({ error: 'שגיאה בשמירת התמנייה' });
+    res.status(400).json({ error: 'שגיאה בשמירת השיבוץ' });
   }
+});
+
+app.put('/api/worker-site-assignments/:id', requireAdmin, (req, res) => {
+  const { start_time, end_time, notes } = req.body;
+  const { changes } = db.prepare(`
+    UPDATE worker_site_assignments SET start_time = ?, end_time = ?, notes = ? WHERE id = ?
+  `).run(start_time || null, end_time || null, notes || null, req.params.id);
+  if (changes === 0) return res.status(404).json({ error: 'שיבוץ לא נמצא' });
+  res.json({ ok: true });
 });
 
 app.delete('/api/worker-site-assignments/:id', requireAdmin, (req, res) => {

@@ -1,135 +1,215 @@
 import { useState, useEffect } from 'react';
 
+const PREF_LABEL = { prefer: 'מעדיף', can: 'יכול', cannot: 'לא יכול' };
+
 export default function DailyRoomView({ config, authToken }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [workers, setWorkers] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [shiftRequests, setShiftRequests] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [addingToSite, setAddingToSite] = useState(null);
-  const [newAssignment, setNewAssignment] = useState({ worker_id: null, position_id: null, notes: '' });
+
+  // Global shift time defaults (component state, not persisted)
+  const [morningStart, setMorningStart] = useState('07:00');
+  const [morningEnd, setMorningEnd] = useState('15:00');
+  const [eveningStart, setEveningStart] = useState('15:00');
+  const [eveningEnd, setEveningEnd] = useState('23:00');
+
+  // Add assignment modal
+  const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
+  const [newAssignment, setNewAssignment] = useState({ worker_id: null, position_id: null, start_time: '', end_time: '', notes: '' });
+
+  // Edit times modal
+  const [editingAssignment, setEditingAssignment] = useState(null);
+  const [editTimes, setEditTimes] = useState({ start_time: '', end_time: '', notes: '' });
 
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
   const day = viewDate.getDate();
   const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-  useEffect(() => {
-    fetchStaffingData();
-  }, [month, year, authToken]);
+  useEffect(() => { fetchAll(); }, [month, year, authToken]);
 
-  async function fetchStaffingData() {
+  async function fetchAll() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ month, year });
-      const res = await fetch(`/api/staffing/month-view?${params}`, {
-        headers: { 'Authorization': `Bearer ${authToken}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setWorkers(data.workers || []);
-        setAssignments(data.siteAssignments || []);
-      } else {
-        console.error('API error:', res.status, res.statusText);
+      const [staffRes, shiftRes] = await Promise.all([
+        fetch(`/api/staffing/month-view?${params}`, { headers: { Authorization: `Bearer ${authToken}` } }),
+        fetch(`/api/shift-requests/admin/all-with-workers?${params}`, { headers: { Authorization: `Bearer ${authToken}` } }),
+      ]);
+      if (staffRes.ok) {
+        const d = await staffRes.json();
+        setWorkers(d.workers || []);
+        setAssignments(d.siteAssignments || []);
+      }
+      if (shiftRes.ok) {
+        const d = await shiftRes.json();
+        setShiftRequests(d.requests || []);
       }
     } catch (err) {
-      console.error('Error fetching staffing data:', err);
+      console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }
   }
 
-  function getDayAssignmentsForSite(siteId) {
-    return assignments.filter(a => a.site_id === siteId && a.date === dateStr);
+  function prevDay()   { setViewDate(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)); }
+  function nextDay()   { setViewDate(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)); }
+  function prevMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, d.getDate())); }
+  function nextMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, d.getDate())); }
+  function prevYear()  { setViewDate(d => new Date(d.getFullYear() - 1, d.getMonth(), d.getDate())); }
+  function nextYear()  { setViewDate(d => new Date(d.getFullYear() + 1, d.getMonth(), d.getDate())); }
+
+  function getSiteShiftAssignments(siteId, shiftType) {
+    return assignments.filter(a => a.site_id === siteId && a.date === dateStr && a.shift_type === shiftType);
   }
 
-  function prevDay() {
-    setViewDate(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1));
-  }
-  function nextDay() {
-    setViewDate(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1));
-  }
-  function prevMonth() {
-    setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, d.getDate()));
-  }
-  function nextMonth() {
-    setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, d.getDate()));
-  }
-  function prevYear() {
-    setViewDate(d => new Date(d.getFullYear() - 1, d.getMonth(), d.getDate()));
-  }
-  function nextYear() {
-    setViewDate(d => new Date(d.getFullYear() + 1, d.getMonth(), d.getDate()));
+  const dayRequests = shiftRequests.filter(r => r.date === dateStr);
+  const morningRequests = dayRequests.filter(r => r.shift_type === 'morning');
+  const eveningRequests = dayRequests.filter(r => r.shift_type === 'evening');
+
+  function resolveTime(assignment, shiftType, field) {
+    if (assignment[field]) return assignment[field];
+    if (shiftType === 'morning') return field === 'start_time' ? morningStart : morningEnd;
+    return field === 'start_time' ? eveningStart : eveningEnd;
   }
 
-  async function deleteAssignment(assignmentId) {
-    try {
-      const res = await fetch(`/api/worker-site-assignments/${assignmentId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${authToken}` },
-      });
-      if (res.ok) {
-        fetchStaffingData();
-      }
-    } catch (err) {
-      console.error('Error deleting assignment:', err);
-    }
+  function openAddModal(siteId, siteName, shiftType) {
+    const defaultStart = shiftType === 'morning' ? morningStart : eveningStart;
+    const defaultEnd   = shiftType === 'morning' ? morningEnd   : eveningEnd;
+    setAddingTo({ site_id: siteId, site_name: siteName, shift_type: shiftType });
+    setNewAssignment({ worker_id: null, position_id: null, start_time: defaultStart, end_time: defaultEnd, notes: '' });
   }
 
-  function openAddModal(siteId, siteName) {
-    setAddingToSite({ site_id: siteId, site_name: siteName });
-    setNewAssignment({ worker_id: null, position_id: null, notes: '' });
-  }
-
-  function handleWorkerChange(workerId) {
-    setNewAssignment({ ...newAssignment, worker_id: parseInt(workerId), position_id: null });
-  }
-
-  function handlePositionChange(positionId) {
-    setNewAssignment({ ...newAssignment, position_id: parseInt(positionId) });
+  function openEditModal(assignment) {
+    setEditingAssignment(assignment);
+    setEditTimes({
+      start_time: assignment.start_time || '',
+      end_time:   assignment.end_time   || '',
+      notes:      assignment.notes      || '',
+    });
   }
 
   async function saveNewAssignment() {
-    if (!addingToSite || !newAssignment.worker_id || !newAssignment.position_id) return;
-
+    if (!addingTo || !newAssignment.worker_id || !newAssignment.position_id) return;
     try {
       const res = await fetch('/api/worker-site-assignments', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({
-          worker_id: newAssignment.worker_id,
-          date: dateStr,
-          site_id: addingToSite.site_id,
+          worker_id:   newAssignment.worker_id,
+          date:        dateStr,
+          site_id:     addingTo.site_id,
           position_id: newAssignment.position_id,
-          notes: newAssignment.notes || null,
+          shift_type:  addingTo.shift_type,
+          start_time:  newAssignment.start_time || null,
+          end_time:    newAssignment.end_time   || null,
+          notes:       newAssignment.notes      || null,
         }),
       });
-
       if (res.ok) {
-        fetchStaffingData();
-        setAddingToSite(null);
+        fetchAll();
+        setAddingTo(null);
       } else {
-        const error = await res.json();
-        alert('שגיאה: ' + (error.error || 'לא ניתן להוסיף שיבוץ'));
+        const err = await res.json();
+        alert('שגיאה: ' + (err.error || 'לא ניתן להוסיף שיבוץ'));
       }
     } catch (err) {
-      console.error('Error saving assignment:', err);
+      console.error(err);
       alert('שגיאת חיבור לשרת');
     }
   }
 
-  const positionsForSite = addingToSite
-    ? config.site_positions.filter(p => p.site_id === addingToSite.site_id)
+  async function saveEditTimes() {
+    try {
+      const res = await fetch(`/api/worker-site-assignments/${editingAssignment.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify(editTimes),
+      });
+      if (res.ok) { fetchAll(); setEditingAssignment(null); }
+      else { const e = await res.json(); alert('שגיאה: ' + (e.error || 'עדכון נכשל')); }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function deleteAssignment(id) {
+    try {
+      const res = await fetch(`/api/worker-site-assignments/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) fetchAll();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  const positionsForAddSite = addingTo
+    ? config.site_positions.filter(p => p.site_id === addingTo.site_id)
     : [];
 
   const dateLabel = viewDate.toLocaleDateString('he-IL', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+
+  function ShiftSection({ site, shiftType, label }) {
+    const siteAssignments = getSiteShiftAssignments(site.id, shiftType);
+    return (
+      <div className={`room-shift-section room-shift-${shiftType}`}>
+        <div className="room-shift-header">
+          <span className="room-shift-label">{label}</span>
+          <span className="room-shift-time">{shiftType === 'morning' ? morningStart : eveningStart}–{shiftType === 'morning' ? morningEnd : eveningEnd}</span>
+        </div>
+        <div className="room-card-content">
+          {siteAssignments.length === 0 ? (
+            <div className="room-empty">אין שיבוצים</div>
+          ) : (
+            <div className="room-assignments-list">
+              {siteAssignments.map(a => (
+                <div key={a.id} className="room-assignment-row" onClick={() => openEditModal(a)}>
+                  <span className="room-assignment-text">
+                    {a.position_name} · {a.first_name} {a.family_name}
+                    <span className="room-assignment-time">
+                      {resolveTime(a, shiftType, 'start_time')}–{resolveTime(a, shiftType, 'end_time')}
+                    </span>
+                  </span>
+                  <button
+                    className="btn-delete-small"
+                    onClick={e => { e.stopPropagation(); deleteAssignment(a.id); }}
+                    title="הסר שיבוץ"
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <button className="room-add-btn" onClick={() => openAddModal(site.id, site.name, shiftType)}>
+          + הוסף ({label})
+        </button>
+      </div>
+    );
+  }
+
+  function SidebarSection({ title, requests }) {
+    return (
+      <div className="room-sidebar-section">
+        <div className="room-sidebar-section-title">{title}</div>
+        {requests.length === 0 ? (
+          <div className="room-sidebar-empty">אין בקשות</div>
+        ) : (
+          requests.map(r => (
+            <div key={r.id} className={`room-sidebar-worker pref-${r.preference_type}`}>
+              <span>{r.first_name} {r.family_name}</span>
+              <span className="room-sidebar-pref">{PREF_LABEL[r.preference_type]}</span>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="room-view-container">
@@ -144,76 +224,61 @@ export default function DailyRoomView({ config, authToken }) {
           <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
           <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
         </div>
+        <div className="room-shift-times-bar">
+          <span>בוקר:</span>
+          <input type="time" value={morningStart} onChange={e => setMorningStart(e.target.value)} />
+          <span>–</span>
+          <input type="time" value={morningEnd} onChange={e => setMorningEnd(e.target.value)} />
+          <span className="room-shift-times-sep" />
+          <span>ערב:</span>
+          <input type="time" value={eveningStart} onChange={e => setEveningStart(e.target.value)} />
+          <span>–</span>
+          <input type="time" value={eveningEnd} onChange={e => setEveningEnd(e.target.value)} />
+        </div>
       </div>
 
       {!config.sites || config.sites.length === 0 ? (
-        <div className="loading">
-          ❌ אין אתרים מוגדרים. אנא הוסף אתרים בהגדרות (סמל הגדרות ⚙️)
-        </div>
+        <div className="loading">❌ אין אתרים מוגדרים. אנא הוסף אתרים בהגדרות ⚙️</div>
       ) : loading ? (
         <div className="loading">טוען...</div>
-      ) : !workers.length ? (
-        <div className="loading">אין עובדים בעדיין. אנא הוסף עובדים בטאב ניהול עובדים.</div>
       ) : (
-        <div className="room-cards-grid">
-          {config.sites.map(site => {
-            const siteAssignments = getDayAssignmentsForSite(site.id);
-            return (
+        <div className="room-view-body">
+          <div className="room-cards-grid">
+            {config.sites.map(site => (
               <div key={site.id} className="room-card">
                 <div className="room-card-title">{site.name}</div>
-                <div className="room-card-content">
-                  {siteAssignments.length === 0 ? (
-                    <div className="room-empty">אין שיבוצים</div>
-                  ) : (
-                    <div className="room-assignments-list">
-                      {siteAssignments.map(a => (
-                        <div key={a.id} className="room-assignment-row">
-                          <span className="room-assignment-text">
-                            {a.position_name} · {a.first_name || 'ללא שם'} {a.family_name || ''}
-                          </span>
-                          <button
-                            className="btn-delete-small"
-                            onClick={() => deleteAssignment(a.id)}
-                            title="הסר שיבוץ"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <button
-                  className="room-add-btn"
-                  onClick={() => openAddModal(site.id, site.name)}
-                >
-                  + הוסף שיבוץ
-                </button>
+                <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+                <ShiftSection site={site} shiftType="evening" label="ערב"/>
               </div>
-            );
-          })}
+            ))}
+          </div>
+
+          <div className="room-sidebar">
+            <div className="room-sidebar-title">בקשות משמרת — {dateStr}</div>
+            <SidebarSection title="בוקר" requests={morningRequests} />
+            <SidebarSection title="ערב" requests={eveningRequests} />
+          </div>
         </div>
       )}
 
-      {addingToSite && (
-        <div className="form-overlay" onClick={() => setAddingToSite(null)}>
+      {/* Add assignment modal */}
+      {addingTo && (
+        <div className="form-overlay" onClick={() => setAddingTo(null)}>
           <div className="assignment-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>הוסף שיבוץ לחדר</h3>
-              <button className="btn-close" onClick={() => setAddingToSite(null)}>✕</button>
+              <h3>הוסף שיבוץ — {addingTo.shift_type === 'morning' ? 'בוקר' : 'ערב'}</h3>
+              <button className="btn-close" onClick={() => setAddingTo(null)}>✕</button>
             </div>
-
             <div className="modal-body">
               <div className="modal-info">
-                <p><strong>אתר:</strong> {addingToSite.site_name}</p>
+                <p><strong>אתר:</strong> {addingTo.site_name}</p>
                 <p><strong>תאריך:</strong> {dateStr}</p>
               </div>
-
               <div className="form-group">
                 <label>עובד:</label>
                 <select
                   value={newAssignment.worker_id || ''}
-                  onChange={e => handleWorkerChange(e.target.value)}
+                  onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value), position_id: null })}
                 >
                   <option value="">בחר עובד...</option>
                   {workers.map(w => (
@@ -221,22 +286,30 @@ export default function DailyRoomView({ config, authToken }) {
                   ))}
                 </select>
               </div>
-
               {newAssignment.worker_id && (
                 <div className="form-group">
                   <label>תפקיד:</label>
                   <select
                     value={newAssignment.position_id || ''}
-                    onChange={e => handlePositionChange(e.target.value)}
+                    onChange={e => setNewAssignment({ ...newAssignment, position_id: parseInt(e.target.value) })}
                   >
                     <option value="">בחר תפקיד...</option>
-                    {positionsForSite.map(pos => (
+                    {positionsForAddSite.map(pos => (
                       <option key={pos.id} value={pos.id}>{pos.position_name}</option>
                     ))}
                   </select>
                 </div>
               )}
-
+              <div className="form-group form-group-inline">
+                <div>
+                  <label>שעת התחלה:</label>
+                  <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
+                </div>
+                <div>
+                  <label>שעת סיום:</label>
+                  <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
+                </div>
+              </div>
               <div className="form-group">
                 <label>הערות:</label>
                 <input
@@ -247,17 +320,67 @@ export default function DailyRoomView({ config, authToken }) {
                 />
               </div>
             </div>
-
             <div className="modal-footer">
               <div>
-                <button className="btn-secondary" onClick={() => setAddingToSite(null)}>ביטול</button>
+                <button className="btn-secondary" onClick={() => setAddingTo(null)}>ביטול</button>
                 <button
                   className="btn-primary"
                   onClick={saveNewAssignment}
                   disabled={!newAssignment.worker_id || !newAssignment.position_id}
-                >
-                  שמור
-                </button>
+                >שמור</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit times modal */}
+      {editingAssignment && (
+        <div className="form-overlay" onClick={() => setEditingAssignment(null)}>
+          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>עריכת שעות שיבוץ</h3>
+              <button className="btn-close" onClick={() => setEditingAssignment(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-info">
+                <p><strong>עובד:</strong> {editingAssignment.first_name} {editingAssignment.family_name}</p>
+                <p><strong>תפקיד:</strong> {editingAssignment.position_name}</p>
+                <p><strong>אתר:</strong> {editingAssignment.site_name}</p>
+              </div>
+              <div className="form-group form-group-inline">
+                <div>
+                  <label>שעת התחלה:</label>
+                  <input
+                    type="time"
+                    value={editTimes.start_time}
+                    onChange={e => setEditTimes({ ...editTimes, start_time: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>שעת סיום:</label>
+                  <input
+                    type="time"
+                    value={editTimes.end_time}
+                    onChange={e => setEditTimes({ ...editTimes, end_time: e.target.value })}
+                  />
+                </div>
+              </div>
+              <p className="room-edit-hint">השאר ריק לשימוש בשעות ברירת מחדל של המשמרת</p>
+              <div className="form-group">
+                <label>הערות:</label>
+                <input
+                  type="text"
+                  value={editTimes.notes}
+                  onChange={e => setEditTimes({ ...editTimes, notes: e.target.value })}
+                  placeholder="הערות אופציונליות..."
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <div>
+                <button className="btn-secondary" onClick={() => setEditingAssignment(null)}>ביטול</button>
+                <button className="btn-primary" onClick={saveEditTimes}>שמור</button>
               </div>
             </div>
           </div>
