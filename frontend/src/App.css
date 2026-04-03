@@ -2267,9 +2267,8 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .room-group-title {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #1a2e4a;
   margin-bottom: 0.1rem;
-  padding: 0 0.3rem;
+  padding: 0 0.3rem 0 0;
 }
 
 .room-cards-grid {
