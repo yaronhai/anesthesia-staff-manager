@@ -2252,17 +2252,38 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 
 .room-view-body {
   display: flex;
+  flex-direction: column;
   gap: 1.5rem;
-  align-items: flex-start;
   margin-top: 1.5rem;
+}
+
+.room-group-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.room-group-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a2e4a;
+  margin-bottom: 0.25rem;
+  padding: 0 0.5rem;
 }
 
 .room-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 0.5rem;
-  flex: 1;
-  min-width: 0;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.02);
+  transition: background-color 0.15s;
+}
+
+.room-cards-grid.drag-over {
+  background: rgba(37, 99, 235, 0.08);
+  border: 2px dashed #2563eb;
 }
 
 .room-card {
@@ -2274,11 +2295,16 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   background: #fff;
   overflow: hidden;
   cursor: pointer;
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, opacity 0.2s;
 }
 
 .room-card:hover {
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+.room-card.dragging {
+  opacity: 0.5;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 .room-card-expanded {

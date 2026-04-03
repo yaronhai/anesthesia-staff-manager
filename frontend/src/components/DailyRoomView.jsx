@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const PREF_LABEL = { prefer: 'מעדיף', can: 'יכול', cannot: 'לא יכול' };
 
@@ -187,6 +188,56 @@ export default function DailyRoomView({ config, authToken }) {
     } catch (err) {
       console.error(err);
     }
+  }
+
+  async function updateSiteGroup(siteId, groupId) {
+    try {
+      const res = await fetch(`/api/config/sites/${siteId}/group`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ group_id: groupId || null }),
+      });
+      if (res.ok) {
+        // Update config with new site groups/sites data
+        const newConfig = await res.json();
+        // Force refresh by fetching config
+        const configRes = await fetch('/api/config', {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (configRes.ok) {
+          // config is managed by parent, so this will update after parent refresh
+        }
+      }
+    } catch (err) {
+      console.error('Error updating site group:', err);
+    }
+  }
+
+  function onDragEnd(result) {
+    const { source, destination, draggableId } = result;
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId) return;
+
+    const siteId = parseInt(draggableId);
+    const targetGroupId = destination.droppableId === 'ungrouped' ? null : parseInt(destination.droppableId);
+
+    updateSiteGroup(siteId, targetGroupId);
+  }
+
+  function groupSitesByGroup(sites) {
+    const groups = {};
+    sites.forEach(site => {
+      const groupId = site.group_id ? String(site.group_id) : 'ungrouped';
+      if (!groups[groupId]) groups[groupId] = [];
+      groups[groupId].push(site);
+    });
+    return groups;
+  }
+
+  function getGroupName(groupId) {
+    if (groupId === 'ungrouped') return 'ללא קבוצה';
+    const group = config.site_groups?.find(g => g.id === parseInt(groupId));
+    return group?.name || 'ללא קבוצה';
   }
 
 
@@ -396,38 +447,60 @@ export default function DailyRoomView({ config, authToken }) {
           </div>
 
           <div className="room-view-body">
-            <div className="room-cards-grid">
-              {config.sites.map(site => (
-                <div
-                  key={site.id}
-                  className={`room-card${expandedSiteId === site.id ? ' room-card-expanded' : ''}`}
-                  onClick={() => setExpandedSiteId(expandedSiteId === site.id ? null : site.id)}
-                >
-                  <div className="room-card-title">
-                    <span>{site.name}</span>
-                    <span className="room-card-arrow">{expandedSiteId === site.id ? '▲' : '▼'}</span>
-                  </div>
-                  {expandedSiteId !== site.id && (
-                    <div className="room-card-summary">
-                      <div className="room-summary-row room-summary-morning">
-                        <span className="room-summary-icon">☀</span>
-                        <span>{morningNames(site.id) || '—'}</span>
+            <DragDropContext onDragEnd={onDragEnd}>
+              {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => (
+                <div key={groupId} className="room-group-section">
+                  <h3 className="room-group-title">{getGroupName(groupId)}</h3>
+                  <Droppable droppableId={groupId} direction="horizontal" type="SITE">
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`room-cards-grid${snapshot.isDraggingOver ? ' drag-over' : ''}`}
+                      >
+                        {sites.map((site, index) => (
+                          <Draggable key={site.id} draggableId={String(site.id)} index={index}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className={`room-card${expandedSiteId === site.id ? ' room-card-expanded' : ''}${snapshot.isDragging ? ' dragging' : ''}`}
+                                onClick={() => setExpandedSiteId(expandedSiteId === site.id ? null : site.id)}
+                              >
+                                <div className="room-card-title">
+                                  <span>{site.name}</span>
+                                  <span className="room-card-arrow">{expandedSiteId === site.id ? '▲' : '▼'}</span>
+                                </div>
+                                {expandedSiteId !== site.id && (
+                                  <div className="room-card-summary">
+                                    <div className="room-summary-row room-summary-morning">
+                                      <span className="room-summary-icon">☀</span>
+                                      <span>{morningNames(site.id) || '—'}</span>
+                                    </div>
+                                    <div className="room-summary-row room-summary-evening">
+                                      <span className="room-summary-icon">🌙</span>
+                                      <span>{eveningNames(site.id) || '—'}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {expandedSiteId === site.id && (
+                                  <div onClick={e => e.stopPropagation()}>
+                                    <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+                                    <ShiftSection site={site} shiftType="evening" label="ערב"/>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
                       </div>
-                      <div className="room-summary-row room-summary-evening">
-                        <span className="room-summary-icon">🌙</span>
-                        <span>{eveningNames(site.id) || '—'}</span>
-                      </div>
-                    </div>
-                  )}
-                  {expandedSiteId === site.id && (
-                    <div onClick={e => e.stopPropagation()}>
-                      <ShiftSection site={site} shiftType="morning" label="בוקר"/>
-                      <ShiftSection site={site} shiftType="evening" label="ערב"/>
-                    </div>
-                  )}
+                    )}
+                  </Droppable>
                 </div>
               ))}
-            </div>
+            </DragDropContext>
           </div>
         </>
       )}
