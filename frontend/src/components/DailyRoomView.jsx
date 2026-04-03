@@ -124,11 +124,12 @@ export default function DailyRoomView({ config, authToken }) {
         setAddingTo(null);
       } else {
         const err = await res.json();
+        console.error('POST error:', res.status, err);
         alert('שגיאה: ' + (err.error || 'לא ניתן להוסיף שיבוץ'));
       }
     } catch (err) {
-      console.error(err);
-      alert('שגיאת חיבור לשרת');
+      console.error('Network error:', err);
+      alert('שגיאת חיבור לשרת: ' + err.message);
     }
   }
 

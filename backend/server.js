@@ -656,10 +656,14 @@ app.post('/api/worker-site-assignments', requireAdmin, (req, res) => {
   const { worker_id, date, site_id, position_id, shift_type, start_time, end_time, notes } = req.body;
   const shiftType = shift_type || 'morning';
 
+  console.log('POST /api/worker-site-assignments:', { worker_id, date, site_id, position_id, shift_type, start_time, end_time, notes });
+
   if (!worker_id || !date || !site_id || !position_id) {
+    console.log('Missing fields');
     return res.status(400).json({ error: 'שדות חסרים' });
   }
   if (!['morning', 'evening'].includes(shiftType)) {
+    console.log('Invalid shift_type:', shiftType);
     return res.status(400).json({ error: 'סוג משמרת לא תקין' });
   }
 
