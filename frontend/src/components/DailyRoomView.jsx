@@ -19,6 +19,9 @@ export default function DailyRoomView({ config, authToken }) {
   // Expanded site modal
   const [expandedSiteId, setExpandedSiteId] = useState(null);
 
+  // Expanded groups
+  const [expandedGroups, setExpandedGroups] = useState({});
+
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
   const [newAssignment, setNewAssignment] = useState({ worker_id: null, start_time: '', end_time: '', notes: '' });
@@ -273,6 +276,21 @@ export default function DailyRoomView({ config, authToken }) {
     return workers.filter(w => !assignedWorkerIds.has(w.id)).sort((a, b) => a.first_name.localeCompare(b.first_name, 'he'));
   }
 
+  function toggleGroupExpanded(groupId) {
+    setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  }
+
+  function expandAllGroups() {
+    const allGroupIds = Object.keys(groupSitesByGroup(config.sites));
+    const expanded = {};
+    allGroupIds.forEach(id => { expanded[id] = true; });
+    setExpandedGroups(expanded);
+  }
+
+  function collapseAllGroups() {
+    setExpandedGroups({});
+  }
+
 
   const dateLabel = viewDate.toLocaleDateString('he-IL', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -409,9 +427,11 @@ export default function DailyRoomView({ config, authToken }) {
   return (
     <div className="room-view-container">
       <div className="room-view-header">
-        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+        <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
           <h2>שיבוצים לחדרים</h2>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ הדפס</button>
+          <button onClick={expandAllGroups} className="btn-primary btn-sm" title="הרחב את כל הקבוצות">▼ הרחב הכל</button>
+          <button onClick={collapseAllGroups} className="btn-secondary btn-sm" title="סגור את כל הקבוצות">▲ סגור הכל</button>
         </div>
         <div className="room-nav">
           <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
@@ -498,9 +518,14 @@ export default function DailyRoomView({ config, authToken }) {
             <DragDropContext onDragEnd={onDragEnd}>
               {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => {
                 const group = getGroup(groupId);
+                const isExpanded = expandedGroups[groupId];
                 return (
-                <div key={groupId} className="room-group-section" style={{backgroundColor: `${group.color}10`, borderColor: group.color}}>
-                  <h3 className="room-group-title" style={{color: group.color, borderLeft: `4px solid ${group.color}`}}>{group.name}</h3>
+                <div key={groupId} className="room-group-section" style={{backgroundColor: `${group.color}10`, borderColor: '#cbd5e1'}}>
+                  <h3 className="room-group-title" onClick={() => toggleGroupExpanded(groupId)} style={{color: group.color, borderLeft: `4px solid ${group.color}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <span>{group.name}</span>
+                    <span style={{fontSize: '0.7rem', marginLeft: '0.5rem'}}>{isExpanded ? '▲' : '▼'}</span>
+                  </h3>
+                  {isExpanded && (
                   <Droppable droppableId={groupId} direction="horizontal" type="SITE">
                     {(provided, snapshot) => (
                       <div
@@ -548,6 +573,7 @@ export default function DailyRoomView({ config, authToken }) {
                       </div>
                     )}
                   </Droppable>
+                  )}
                 </div>
               );
               })}
