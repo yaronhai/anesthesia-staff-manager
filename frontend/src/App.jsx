@@ -4,6 +4,7 @@ import WorkerForm from './components/WorkerForm';
 import AdminPanel from './components/AdminPanel';
 import ShiftRequests from './components/ShiftRequests';
 import MonthlyReport from './components/MonthlyReport';
+import WorkplaceStaffing from './components/WorkplaceStaffing';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import './App.css';
@@ -22,7 +23,7 @@ export default function App() {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [] });
+  const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [], sites: [], site_positions: [] });
   const [filterJobId, setFilterJobId] = useState('');
   const [filterEmpTypeId, setFilterEmpTypeId] = useState('');
 
@@ -205,10 +206,18 @@ export default function App() {
             דו"ח חודשי
           </button>
         )}
+        {isAdmin && (
+          <button
+            className={`tab-btn${activeTab === 'staffing' ? ' active' : ''}`}
+            onClick={() => setActiveTab('staffing')}
+          >
+            ניהול התמנויות אתר
+          </button>
+        )}
       </div>
 
       {showSettings && isAdmin && (
-        <AdminPanel config={config} onConfigChange={setConfig} onClose={() => setShowSettings(false)} />
+        <AdminPanel config={config} authToken={authToken} onConfigChange={setConfig} onClose={() => setShowSettings(false)} />
       )}
 
       {activeTab === 'workers' && isAdmin && (
@@ -248,6 +257,10 @@ export default function App() {
 
       {activeTab === 'report' && isAdmin && (
         <MonthlyReport token={authToken} />
+      )}
+
+      {activeTab === 'staffing' && isAdmin && (
+        <WorkplaceStaffing config={config} authToken={authToken} />
       )}
     </div>
   );

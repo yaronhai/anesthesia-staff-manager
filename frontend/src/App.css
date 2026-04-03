@@ -382,8 +382,12 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   grid-template-columns: repeat(3, 1fr);
 }
 
+.settings-grid-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
 @media (max-width: 700px) {
-  .settings-grid, .settings-grid-3 {
+  .settings-grid, .settings-grid-3, .settings-grid-5 {
     grid-template-columns: 1fr;
   }
 }
@@ -495,6 +499,25 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   padding: 0.4rem 0.8rem;
   font-size: 0.88rem;
   white-space: nowrap;
+}
+
+.site-selector {
+  margin-bottom: 0.75rem;
+}
+
+.site-selector select {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background-color: white;
+}
+
+.site-selector select:focus {
+  outline: none;
+  border-color: #2563eb;
 }
 
 .filters {
@@ -1626,4 +1649,306 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
     color: #000;
   }
 }
+
+/* ── Workplace Staffing ────────────────────────────────────────────────── */
+
+.staffing-container {
+  padding: 1rem;
+  direction: rtl;
+}
+
+.staffing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.staffing-header h2 {
+  margin: 0;
+  color: #1a2e4a;
+  font-size: 1.5rem;
+}
+
+.staffing-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.staffing-controls button {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.staffing-controls button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.current-month {
+  font-weight: 500;
+  color: #1a2e4a;
+  min-width: 120px;
+}
+
+.site-filter select {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+  max-width: 200px;
+}
+
+.site-filter select:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.staffing-grid {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+}
+
+.staffing-grid table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.staffing-grid thead {
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.staffing-grid th {
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  color: #1a2e4a;
+  border-right: 1px solid #f3f4f6;
+}
+
+.staffing-grid th.worker-name-col {
+  text-align: right;
+  border-right: 2px solid #d1d5db;
+  padding-right: 1rem;
+}
+
+.staffing-grid td {
+  padding: 0;
+  border-right: 1px solid #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+  height: 80px;
+  vertical-align: top;
+}
+
+.staffing-grid td.worker-name-col {
+  border-right: 2px solid #d1d5db;
+  background: #f9fafb;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.staffing-grid .day-cell {
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.staffing-grid .day-cell:hover {
+  background: #f0f9ff;
+}
+
+.staffing-grid .day-cell.today {
+  background: #fef3c7;
+}
+
+.cell-content {
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  height: 100%;
+}
+
+.assignment-chip {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #a7f3d0;
+}
+
+.assignment-chip span:first-child {
+  font-weight: 500;
+}
+
+.site-info {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.assignment-modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  direction: rtl;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #1a2e4a;
+  font-size: 1.1rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-info {
+  background: #f9fafb;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.modal-info p {
+  margin: 0.3rem 0;
+  color: #1a2e4a;
+}
+
+.modal-info strong {
+  color: #374151;
+}
+
+.form-group {
+  margin-bottom: 1.2rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 500;
+  color: #1a2e4a;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.form-group select,
+.form-group input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.modal-footer > div {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-delete {
+  padding: 0.6rem 1.2rem;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.btn-delete:hover {
+  background: #fecaca;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .staffing-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .staffing-controls {
+    width: 100%;
+    order: 3;
+  }
+
+  .staffing-grid table {
+    font-size: 0.8rem;
+  }
+
+  .staffing-grid td {
+    height: 60px;
+    padding: 0.25rem;
+  }
+
+  .staffing-grid th.day-col,
+  .staffing-grid td.day-cell {
+    padding: 0.25rem;
+    width: 45px;
+  }
+
+  .assignment-chip {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.3rem;
+  }
 }

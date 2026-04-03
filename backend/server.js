@@ -75,6 +75,32 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     UNIQUE(user_id, date, shift_type)
   );
+
+  CREATE TABLE IF NOT EXISTS sites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS site_positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    position_name TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(site_id, position_name)
+  );
+
+  CREATE TABLE IF NOT EXISTS worker_site_assignments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
+    site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    position_id INTEGER NOT NULL REFERENCES site_positions(id) ON DELETE CASCADE,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(worker_id, date, site_id, position_id)
+  );
 `);
 
 // ── Migrations (safe for existing DBs) ──────────────────────────────────────
@@ -121,6 +147,10 @@ migrations.forEach(sql => { try { db.exec(sql); } catch {} });
   db.prepare('INSERT OR IGNORE INTO employment_types (name) VALUES (?)').run(n));
 ['ד"ר', "פרופ'", 'מר', 'גברת', "גב'"].forEach(n =>
   db.prepare('INSERT OR IGNORE INTO honorifics (name) VALUES (?)').run(n));
+
+// Seed default sites
+['חדר ניתוח 1', 'חדר ניתוח 2', 'IVF', 'גסטרו'].forEach(n =>
+  db.prepare('INSERT OR IGNORE INTO sites (name) VALUES (?)').run(n));
 
 // Bootstrap admin (not tied to a worker — for initial system setup)
 if (db.prepare("SELECT COUNT(*) AS c FROM users WHERE username = 'admin'").get().c === 0) {
@@ -193,6 +223,13 @@ function getConfig() {
     jobs: db.prepare('SELECT id, name FROM job_titles ORDER BY id').all(),
     employment_types: db.prepare('SELECT id, name FROM employment_types ORDER BY id').all(),
     honorifics: db.prepare('SELECT id, name FROM honorifics ORDER BY id').all(),
+    sites: db.prepare('SELECT id, name, description FROM sites ORDER BY name').all(),
+    site_positions: db.prepare(`
+      SELECT sp.id, sp.site_id, sp.position_name, s.name AS site_name
+      FROM site_positions sp
+      JOIN sites s ON sp.site_id = s.id
+      ORDER BY sp.site_id, sp.position_name
+    `).all(),
   };
 }
 
@@ -512,5 +549,105 @@ app.delete('/api/config/honorifics/:id', requireAdmin, (req, res) => {
   res.json(getConfig());
 });
 
+// Sites config endpoints
+app.post('/api/config/sites', requireAdmin, (req, res) => {
+  const { name, description } = req.body;
+  console.log('POST /api/config/sites - name:', name);
+  if (!name?.trim()) return res.status(400).json({ error: 'שם אתר חובה' });
+  try {
+    db.prepare('INSERT INTO sites (name, description) VALUES (?, ?)')
+      .run(name.trim(), description?.trim() || null);
+    const config = getConfig();
+    console.log('Site added, sites count:', config.sites.length);
+    res.json(config);
+  } catch (err) {
+    console.error('Error adding site:', err.message);
+    res.status(400).json({ error: 'שם אתר כפול' });
+  }
+});
+
+app.delete('/api/config/sites/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM sites WHERE id=?').run(req.params.id);
+  res.json(getConfig());
+});
+
+// Site positions config endpoints
+app.post('/api/config/sites/:siteId/positions', requireAdmin, (req, res) => {
+  const { position_name } = req.body;
+  if (!position_name?.trim()) return res.status(400).json({ error: 'שם תפקיד חובה' });
+  try {
+    db.prepare('INSERT INTO site_positions (site_id, position_name) VALUES (?, ?)')
+      .run(req.params.siteId, position_name.trim());
+    res.json(getConfig());
+  } catch { res.status(400).json({ error: 'תפקיד כפול באתר זה' }); }
+});
+
+app.delete('/api/config/sites/:siteId/positions/:positionId', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM site_positions WHERE id=?').run(req.params.positionId);
+  res.json(getConfig());
+});
+
+// Worker site assignments endpoints
+app.get('/api/staffing/month-view', requireAdmin, (req, res) => {
+  const { month, year, siteId } = req.query;
+  const datePrefix = month && year ? `${year}-${String(month).padStart(2, '0')}-` : null;
+
+  // Get all workers
+  const workers = db.prepare(WORKER_SELECT + ' ORDER BY w.first_name, w.family_name').all();
+
+  // Get assignments for month (optionally filtered by site)
+  let assignmentsQuery = `
+    SELECT wsa.id, wsa.worker_id, wsa.date, wsa.site_id, wsa.position_id, wsa.notes,
+           s.name AS site_name, sp.position_name
+    FROM worker_site_assignments wsa
+    JOIN sites s ON wsa.site_id = s.id
+    JOIN site_positions sp ON wsa.position_id = sp.id
+    ${datePrefix ? 'WHERE wsa.date LIKE ?' : ''}
+    ${siteId ? (datePrefix ? 'AND' : 'WHERE') + ' wsa.site_id = ?' : ''}
+    ORDER BY wsa.date, wsa.worker_id
+  `;
+
+  const params = [];
+  if (datePrefix) params.push(datePrefix + '%');
+  if (siteId) params.push(siteId);
+
+  const siteAssignments = db.prepare(assignmentsQuery).all(...params);
+
+  res.json({ workers, siteAssignments });
+});
+
+app.post('/api/worker-site-assignments', requireAdmin, (req, res) => {
+  const { worker_id, date, site_id, position_id, notes } = req.body;
+  if (!worker_id || !date || !site_id || !position_id) {
+    return res.status(400).json({ error: 'שדות חסרים' });
+  }
+
+  // Check if worker already assigned to different site on same date
+  const existing = db.prepare(`
+    SELECT COUNT(*) as c FROM worker_site_assignments
+    WHERE worker_id = ? AND date = ? AND site_id != ?
+  `).get(worker_id, date, site_id);
+
+  if (existing.c > 0) {
+    return res.status(400).json({ error: 'עובד כבר משוייך לאתר אחר ביום זה' });
+  }
+
+  try {
+    db.prepare(`
+      INSERT INTO worker_site_assignments (worker_id, date, site_id, position_id, notes)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(worker_id, date, site_id, position_id) DO UPDATE SET notes = excluded.notes
+    `).run(worker_id, date, site_id, position_id, notes || null);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: 'שגיאה בשמירת התמנייה' });
+  }
+});
+
+app.delete('/api/worker-site-assignments/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM worker_site_assignments WHERE id=?').run(req.params.id);
+  res.status(204).send();
+});
+
 const PORT = 5001;
-app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
+app.listen(PORT, '127.0.0.1', () => console.log(`Backend running on http://localhost:${PORT}`));

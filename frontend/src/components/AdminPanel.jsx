@@ -1,9 +1,12 @@
 import { useState } from 'react';
 
-export default function AdminPanel({ config, onConfigChange, onClose }) {
+export default function AdminPanel({ config, authToken, onConfigChange, onClose }) {
   const [newJob, setNewJob] = useState('');
   const [newEmpType, setNewEmpType] = useState('');
   const [newHonorific, setNewHonorific] = useState('');
+  const [newSite, setNewSite] = useState('');
+  const [newPosition, setNewPosition] = useState('');
+  const [selectedSiteId, setSelectedSiteId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editingValue, setEditingValue] = useState('');
 
@@ -11,32 +14,134 @@ export default function AdminPanel({ config, onConfigChange, onClose }) {
     if (!value.trim()) return;
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
       body: JSON.stringify({ value: value.trim() }),
     });
     if (res.ok) {
       onConfigChange(await res.json());
       setter('');
+    } else {
+      const error = await res.json();
+      alert('שגיאה: ' + (error.error || res.statusText));
     }
   }
 
   async function removeItem(endpoint, id) {
-    const res = await fetch(`${endpoint}/${id}`, { method: 'DELETE' });
-    if (res.ok) onConfigChange(await res.json());
+    const res = await fetch(`${endpoint}/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    });
+    if (res.ok) {
+      onConfigChange(await res.json());
+    } else {
+      alert('שגיאה במחיקה');
+    }
   }
 
   async function saveEdit(id) {
     if (!editingValue.trim()) return;
     const res = await fetch(`/api/config/honorifics/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
       body: JSON.stringify({ value: editingValue.trim() }),
     });
     if (res.ok) {
       onConfigChange(await res.json());
       setEditingId(null);
+    } else {
+      alert('שגיאה בשמירה');
     }
   }
+
+  async function addSite() {
+    console.log('addSite called, newSite:', newSite);
+    if (!newSite.trim()) {
+      alert('אנא הזן שם אתר');
+      return;
+    }
+    try {
+      const res = await fetch('/api/config/sites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ name: newSite.trim() }),
+      });
+      console.log('Add site response:', res.status, res.statusText);
+      if (res.ok) {
+        const data = await res.json();
+        console.log('New config:', data);
+        onConfigChange(data);
+        setNewSite('');
+        setSelectedSiteId(null);
+        alert('אתר נוסף בהצלחה');
+      } else {
+        const error = await res.json();
+        console.error('API error:', error);
+        alert('שגיאה: ' + (error.error || res.statusText));
+      }
+    } catch (err) {
+      console.error('Network error:', err);
+      alert('שגיאת רשת: ' + err.message);
+    }
+  }
+
+  async function removeSite(id) {
+    const res = await fetch(`/api/config/sites/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    });
+    if (res.ok) {
+      onConfigChange(await res.json());
+      if (selectedSiteId === id) setSelectedSiteId(null);
+    } else {
+      alert('שגיאה במחיקת אתר');
+    }
+  }
+
+  async function addPosition() {
+    if (!selectedSiteId || !newPosition.trim()) {
+      alert('בחר אתר והזן שם תפקיד');
+      return;
+    }
+    const res = await fetch(`/api/config/sites/${selectedSiteId}/positions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ position_name: newPosition.trim() }),
+    });
+    if (res.ok) {
+      onConfigChange(await res.json());
+      setNewPosition('');
+    } else {
+      const error = await res.json();
+      alert('שגיאה: ' + (error.error || res.statusText));
+    }
+  }
+
+  async function removePosition(siteId, positionId) {
+    const res = await fetch(`/api/config/sites/${siteId}/positions/${positionId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    });
+    if (res.ok) {
+      onConfigChange(await res.json());
+    } else {
+      alert('שגיאה במחיקת תפקיד');
+    }
+  }
+
+  const selectedSite = config.sites?.find(s => s.id === selectedSiteId);
+  const sitePositions = config.site_positions?.filter(p => p.site_id === selectedSiteId) || [];
 
   return (
     <div className="form-overlay" onClick={onClose}>
@@ -46,7 +151,7 @@ export default function AdminPanel({ config, onConfigChange, onClose }) {
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
-        <div className="settings-grid settings-grid-3">
+        <div className="settings-grid settings-grid-5">
 
           <div className="settings-card">
             <h3>תפקידים</h3>
@@ -134,6 +239,60 @@ export default function AdminPanel({ config, onConfigChange, onClose }) {
               />
               <button className="btn-primary" onClick={() => addItem('/api/config/honorifics', newHonorific, setNewHonorific)}>הוסף</button>
             </div>
+          </div>
+
+          <div className="settings-card">
+            <h3>אתרים</h3>
+            <ul className="config-list">
+              {(config.sites || []).map(site => (
+                <li key={site.id}>
+                  <span>{site.name}</span>
+                  <button className="btn-remove" onClick={() => removeSite(site.id)}>✕</button>
+                </li>
+              ))}
+            </ul>
+            <div className="config-add">
+              <input
+                value={newSite}
+                onChange={e => setNewSite(e.target.value)}
+                placeholder="אתר חדש..."
+                onKeyDown={e => e.key === 'Enter' && addSite()}
+              />
+              <button className="btn-primary" onClick={addSite}>הוסף</button>
+            </div>
+          </div>
+
+          <div className="settings-card">
+            <h3>תפקידים באתר</h3>
+            <div className="site-selector">
+              <select value={selectedSiteId || ''} onChange={e => setSelectedSiteId(e.target.value ? parseInt(e.target.value) : null)}>
+                <option value="">בחר אתר...</option>
+                {(config.sites || []).map(site => (
+                  <option key={site.id} value={site.id}>{site.name}</option>
+                ))}
+              </select>
+            </div>
+            {selectedSite && (
+              <>
+                <ul className="config-list">
+                  {sitePositions.map(pos => (
+                    <li key={pos.id}>
+                      <span>{pos.position_name}</span>
+                      <button className="btn-remove" onClick={() => removePosition(selectedSiteId, pos.id)}>✕</button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="config-add">
+                  <input
+                    value={newPosition}
+                    onChange={e => setNewPosition(e.target.value)}
+                    placeholder="תפקיד חדש..."
+                    onKeyDown={e => e.key === 'Enter' && addPosition()}
+                  />
+                  <button className="btn-primary" onClick={addPosition}>הוסף</button>
+                </div>
+              </>
+            )}
           </div>
 
         </div>
