@@ -1952,3 +1952,160 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
     padding: 0.2rem 0.3rem;
   }
 }
+
+/* Daily Room View */
+.room-view-container {
+  padding: 2rem;
+  direction: rtl;
+}
+
+.room-view-header {
+  margin-bottom: 2rem;
+}
+
+.room-view-header h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.75rem;
+  color: #333;
+}
+
+.room-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.room-nav button {
+  padding: 0.4rem 0.8rem;
+}
+
+.room-date-label {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #555;
+  min-width: 200px;
+  text-align: center;
+  padding: 0 1rem;
+}
+
+.room-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.room-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  overflow: hidden;
+}
+
+.room-card-title {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1rem;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.room-card-content {
+  flex: 1;
+  padding: 1rem;
+  min-height: 80px;
+}
+
+.room-empty {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.room-assignments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.room-assignment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: #f9f9f9;
+  border-radius: 4px;
+  border-right: 3px solid #667eea;
+}
+
+.room-assignment-text {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #333;
+  word-break: break-word;
+}
+
+.btn-delete-small {
+  background: none;
+  border: none;
+  color: #d9534f;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0 0.5rem;
+  margin-right: 0.5rem;
+  transition: color 0.2s;
+}
+
+.btn-delete-small:hover {
+  color: #c9302c;
+}
+
+.room-add-btn {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-top: 2px solid #e0e0e0;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #667eea;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.room-add-btn:hover {
+  background: #667eea;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .room-view-container {
+    padding: 1rem;
+  }
+
+  .room-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .room-nav {
+    gap: 0.25rem;
+  }
+
+  .room-nav button {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.85rem;
+  }
+
+  .room-date-label {
+    min-width: 150px;
+    font-size: 0.9rem;
+    padding: 0 0.5rem;
+  }
+}

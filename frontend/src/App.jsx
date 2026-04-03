@@ -5,6 +5,7 @@ import AdminPanel from './components/AdminPanel';
 import ShiftRequests from './components/ShiftRequests';
 import MonthlyReport from './components/MonthlyReport';
 import WorkplaceStaffing from './components/WorkplaceStaffing';
+import DailyRoomView from './components/DailyRoomView';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import './App.css';
@@ -214,6 +215,14 @@ export default function App() {
             ניהול התמנויות אתר
           </button>
         )}
+        {isAdmin && (
+          <button
+            className={`tab-btn${activeTab === 'rooms' ? ' active' : ''}`}
+            onClick={() => setActiveTab('rooms')}
+          >
+            שיבוצים לחדרים
+          </button>
+        )}
       </div>
 
       {showSettings && isAdmin && (
@@ -261,6 +270,10 @@ export default function App() {
 
       {activeTab === 'staffing' && isAdmin && (
         <WorkplaceStaffing config={config} authToken={authToken} />
+      )}
+
+      {activeTab === 'rooms' && isAdmin && (
+        <DailyRoomView config={config} authToken={authToken} />
       )}
     </div>
   );
