@@ -5,9 +5,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
   const [newEmpType, setNewEmpType] = useState('');
   const [newHonorific, setNewHonorific] = useState('');
   const [newSite, setNewSite] = useState('');
-  const [newPosition, setNewPosition] = useState('');
-  const [selectedSiteId, setSelectedSiteId] = useState(null);
-  const [editingId, setEditingId] = useState(null);
+  const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
 
   async function addItem(endpoint, value, setter) {
@@ -41,9 +39,9 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     }
   }
 
-  async function saveEdit(id) {
+  async function saveEdit(endpoint, id) {
     if (!editingValue.trim()) return;
-    const res = await fetch(`/api/config/honorifics/${id}`, {
+    const res = await fetch(`${endpoint}/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -53,7 +51,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     });
     if (res.ok) {
       onConfigChange(await res.json());
-      setEditingId(null);
+      setEditingKey(null);
     } else {
       alert('שגיאה בשמירה');
     }
@@ -100,48 +98,11 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     });
     if (res.ok) {
       onConfigChange(await res.json());
-      if (selectedSiteId === id) setSelectedSiteId(null);
     } else {
       alert('שגיאה במחיקת אתר');
     }
   }
 
-  async function addPosition() {
-    if (!selectedSiteId || !newPosition.trim()) {
-      alert('בחר אתר והזן שם תפקיד');
-      return;
-    }
-    const res = await fetch(`/api/config/sites/${selectedSiteId}/positions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({ position_name: newPosition.trim() }),
-    });
-    if (res.ok) {
-      onConfigChange(await res.json());
-      setNewPosition('');
-    } else {
-      const error = await res.json();
-      alert('שגיאה: ' + (error.error || res.statusText));
-    }
-  }
-
-  async function removePosition(siteId, positionId) {
-    const res = await fetch(`/api/config/sites/${siteId}/positions/${positionId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${authToken}` },
-    });
-    if (res.ok) {
-      onConfigChange(await res.json());
-    } else {
-      alert('שגיאה במחיקת תפקיד');
-    }
-  }
-
-  const selectedSite = config.sites?.find(s => s.id === selectedSiteId);
-  const sitePositions = config.site_positions?.filter(p => p.site_id === selectedSiteId) || [];
 
   return (
     <div className="form-overlay" onClick={onClose}>
@@ -158,8 +119,33 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
             <ul className="config-list">
               {config.jobs.map(job => (
                 <li key={job.id}>
-                  <span>{job.name}</span>
-                  <button className="btn-remove" onClick={() => removeItem('/api/config/jobs', job.id)}>✕</button>
+                  {editingKey === `job-${job.id}` ? (
+                    <input
+                      className="config-inline-edit"
+                      value={editingValue}
+                      onChange={e => setEditingValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveEdit('/api/config/jobs', job.id);
+                        if (e.key === 'Escape') setEditingKey(null);
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{job.name}</span>
+                  )}
+                  <div className="config-item-actions">
+                    {editingKey === `job-${job.id}` ? (
+                      <>
+                        <button className="btn-save-inline" onClick={() => saveEdit('/api/config/jobs', job.id)}>שמור</button>
+                        <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="btn-edit-inline" onClick={() => { setEditingKey(`job-${job.id}`); setEditingValue(job.name); }}>עריכה</button>
+                        <button className="btn-remove" onClick={() => removeItem('/api/config/jobs', job.id)}>✕</button>
+                      </>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -179,8 +165,33 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
             <ul className="config-list">
               {config.employment_types.map(type => (
                 <li key={type.id}>
-                  <span>{type.name}</span>
-                  <button className="btn-remove" onClick={() => removeItem('/api/config/employment-types', type.id)}>✕</button>
+                  {editingKey === `emptype-${type.id}` ? (
+                    <input
+                      className="config-inline-edit"
+                      value={editingValue}
+                      onChange={e => setEditingValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveEdit('/api/config/employment-types', type.id);
+                        if (e.key === 'Escape') setEditingKey(null);
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{type.name}</span>
+                  )}
+                  <div className="config-item-actions">
+                    {editingKey === `emptype-${type.id}` ? (
+                      <>
+                        <button className="btn-save-inline" onClick={() => saveEdit('/api/config/employment-types', type.id)}>שמור</button>
+                        <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="btn-edit-inline" onClick={() => { setEditingKey(`emptype-${type.id}`); setEditingValue(type.name); }}>עריכה</button>
+                        <button className="btn-remove" onClick={() => removeItem('/api/config/employment-types', type.id)}>✕</button>
+                      </>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -200,14 +211,14 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
             <ul className="config-list">
               {(config.honorifics || []).map(h => (
                 <li key={h.id}>
-                  {editingId === h.id ? (
+                  {editingKey === `honorific-${h.id}` ? (
                     <input
                       className="config-inline-edit"
                       value={editingValue}
                       onChange={e => setEditingValue(e.target.value)}
                       onKeyDown={e => {
-                        if (e.key === 'Enter') saveEdit(h.id);
-                        if (e.key === 'Escape') setEditingId(null);
+                        if (e.key === 'Enter') saveEdit('/api/config/honorifics', h.id);
+                        if (e.key === 'Escape') setEditingKey(null);
                       }}
                       autoFocus
                     />
@@ -215,14 +226,14 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                     <span>{h.name}</span>
                   )}
                   <div className="config-item-actions">
-                    {editingId === h.id ? (
+                    {editingKey === `honorific-${h.id}` ? (
                       <>
-                        <button className="btn-save-inline" onClick={() => saveEdit(h.id)}>שמור</button>
-                        <button className="btn-remove" onClick={() => setEditingId(null)}>✕</button>
+                        <button className="btn-save-inline" onClick={() => saveEdit('/api/config/honorifics', h.id)}>שמור</button>
+                        <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
                       </>
                     ) : (
                       <>
-                        <button className="btn-edit-inline" onClick={() => { setEditingId(h.id); setEditingValue(h.name); }}>עריכה</button>
+                        <button className="btn-edit-inline" onClick={() => { setEditingKey(`honorific-${h.id}`); setEditingValue(h.name); }}>עריכה</button>
                         <button className="btn-remove" onClick={() => removeItem('/api/config/honorifics', h.id)}>✕</button>
                       </>
                     )}
@@ -246,8 +257,33 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
             <ul className="config-list">
               {(config.sites || []).map(site => (
                 <li key={site.id}>
-                  <span>{site.name}</span>
-                  <button className="btn-remove" onClick={() => removeSite(site.id)}>✕</button>
+                  {editingKey === `site-${site.id}` ? (
+                    <input
+                      className="config-inline-edit"
+                      value={editingValue}
+                      onChange={e => setEditingValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveEdit('/api/config/sites', site.id);
+                        if (e.key === 'Escape') setEditingKey(null);
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{site.name}</span>
+                  )}
+                  <div className="config-item-actions">
+                    {editingKey === `site-${site.id}` ? (
+                      <>
+                        <button className="btn-save-inline" onClick={() => saveEdit('/api/config/sites', site.id)}>שמור</button>
+                        <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="btn-edit-inline" onClick={() => { setEditingKey(`site-${site.id}`); setEditingValue(site.name); }}>עריכה</button>
+                        <button className="btn-remove" onClick={() => removeSite(site.id)}>✕</button>
+                      </>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -262,38 +298,6 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
             </div>
           </div>
 
-          <div className="settings-card">
-            <h3>תפקידים באתר</h3>
-            <div className="site-selector">
-              <select value={selectedSiteId || ''} onChange={e => setSelectedSiteId(e.target.value ? parseInt(e.target.value) : null)}>
-                <option value="">בחר אתר...</option>
-                {(config.sites || []).map(site => (
-                  <option key={site.id} value={site.id}>{site.name}</option>
-                ))}
-              </select>
-            </div>
-            {selectedSite && (
-              <>
-                <ul className="config-list">
-                  {sitePositions.map(pos => (
-                    <li key={pos.id}>
-                      <span>{pos.position_name}</span>
-                      <button className="btn-remove" onClick={() => removePosition(selectedSiteId, pos.id)}>✕</button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="config-add">
-                  <input
-                    value={newPosition}
-                    onChange={e => setNewPosition(e.target.value)}
-                    placeholder="תפקיד חדש..."
-                    onKeyDown={e => e.key === 'Enter' && addPosition()}
-                  />
-                  <button className="btn-primary" onClick={addPosition}>הוסף</button>
-                </div>
-              </>
-            )}
-          </div>
 
         </div>
       </div>

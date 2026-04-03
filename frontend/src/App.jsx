@@ -24,7 +24,7 @@ export default function App() {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [], sites: [], site_positions: [] });
+  const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [], sites: [] });
   const [filterJobId, setFilterJobId] = useState('');
   const [filterEmpTypeId, setFilterEmpTypeId] = useState('');
 

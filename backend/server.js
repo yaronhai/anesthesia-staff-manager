@@ -83,23 +83,14 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
-  CREATE TABLE IF NOT EXISTS site_positions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-    position_name TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now')),
-    UNIQUE(site_id, position_name)
-  );
-
   CREATE TABLE IF NOT EXISTS worker_site_assignments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
     date TEXT NOT NULL,
     site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-    position_id INTEGER NOT NULL REFERENCES site_positions(id) ON DELETE CASCADE,
     notes TEXT,
     created_at TEXT DEFAULT (datetime('now')),
-    UNIQUE(worker_id, date, site_id, position_id)
+    UNIQUE(worker_id, date, site_id)
   );
 `);
 
@@ -262,12 +253,6 @@ function getConfig() {
     employment_types: db.prepare('SELECT id, name FROM employment_types ORDER BY id').all(),
     honorifics: db.prepare('SELECT id, name FROM honorifics ORDER BY id').all(),
     sites: db.prepare('SELECT id, name, description FROM sites ORDER BY name').all(),
-    site_positions: db.prepare(`
-      SELECT sp.id, sp.site_id, sp.position_name, s.name AS site_name
-      FROM site_positions sp
-      JOIN sites s ON sp.site_id = s.id
-      ORDER BY sp.site_id, sp.position_name
-    `).all(),
   };
 }
 
@@ -551,6 +536,13 @@ app.post('/api/config/jobs', requireAdmin, (req, res) => {
   catch { res.status(400).json({ error: 'ערך כפול' }); }
 });
 
+app.put('/api/config/jobs/:id', requireAdmin, (req, res) => {
+  const { value } = req.body;
+  if (!value?.trim()) return res.status(400).json({ error: 'ערך לא תקין' });
+  try { db.prepare('UPDATE job_titles SET name=? WHERE id=?').run(value.trim(), req.params.id); res.json(getConfig()); }
+  catch { res.status(400).json({ error: 'ערך כפול' }); }
+});
+
 app.delete('/api/config/jobs/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM job_titles WHERE id=?').run(req.params.id);
   res.json(getConfig());
@@ -560,6 +552,13 @@ app.post('/api/config/employment-types', requireAdmin, (req, res) => {
   const { value } = req.body;
   if (!value?.trim()) return res.status(400).json({ error: 'ערך לא תקין' });
   try { db.prepare('INSERT INTO employment_types (name) VALUES (?)').run(value.trim()); res.json(getConfig()); }
+  catch { res.status(400).json({ error: 'ערך כפול' }); }
+});
+
+app.put('/api/config/employment-types/:id', requireAdmin, (req, res) => {
+  const { value } = req.body;
+  if (!value?.trim()) return res.status(400).json({ error: 'ערך לא תקין' });
+  try { db.prepare('UPDATE employment_types SET name=? WHERE id=?').run(value.trim(), req.params.id); res.json(getConfig()); }
   catch { res.status(400).json({ error: 'ערך כפול' }); }
 });
 
@@ -604,26 +603,23 @@ app.post('/api/config/sites', requireAdmin, (req, res) => {
   }
 });
 
+app.put('/api/config/sites/:id', requireAdmin, (req, res) => {
+  const { value, name } = req.body;
+  const siteName = name || value;
+  if (!siteName?.trim()) return res.status(400).json({ error: 'שם אתר חובה' });
+  try {
+    db.prepare('UPDATE sites SET name=? WHERE id=?').run(siteName.trim(), req.params.id);
+    res.json(getConfig());
+  } catch (err) {
+    res.status(400).json({ error: 'שם אתר כפול' });
+  }
+});
+
 app.delete('/api/config/sites/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM sites WHERE id=?').run(req.params.id);
   res.json(getConfig());
 });
 
-// Site positions config endpoints
-app.post('/api/config/sites/:siteId/positions', requireAdmin, (req, res) => {
-  const { position_name } = req.body;
-  if (!position_name?.trim()) return res.status(400).json({ error: 'שם תפקיד חובה' });
-  try {
-    db.prepare('INSERT INTO site_positions (site_id, position_name) VALUES (?, ?)')
-      .run(req.params.siteId, position_name.trim());
-    res.json(getConfig());
-  } catch { res.status(400).json({ error: 'תפקיד כפול באתר זה' }); }
-});
-
-app.delete('/api/config/sites/:siteId/positions/:positionId', requireAdmin, (req, res) => {
-  db.prepare('DELETE FROM site_positions WHERE id=?').run(req.params.positionId);
-  res.json(getConfig());
-});
 
 // Worker site assignments endpoints
 app.get('/api/staffing/month-view', requireAdmin, (req, res) => {
