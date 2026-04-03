@@ -2255,7 +2255,8 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 
 .room-requests-worker.pref-prefer  { background: #dcfce7; color: #166534; }
 .room-requests-worker.pref-can     { background: #dbeafe; color: #1e40af; }
-.room-requests-worker.pref-cannot  { background: #fecaca; color: #7c2d12; }
+.room-requests-worker.pref-cannot  { background: #e5e7eb; color: #374151; }
+.room-requests-worker.pref-cannot.saturday { background: #fecaca; color: #7c2d12; }
 
 .room-requests-empty {
   color: #9ca3af;
