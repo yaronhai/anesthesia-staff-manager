@@ -79,6 +79,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS site_groups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
+    color TEXT DEFAULT '#667eea',
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -114,6 +115,7 @@ const migrations = [
   'ALTER TABLE users ADD COLUMN reset_token_expires TEXT',
   'CREATE TABLE IF NOT EXISTS site_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, created_at TEXT DEFAULT (datetime(\'now\')))',
   'ALTER TABLE sites ADD COLUMN group_id INTEGER REFERENCES site_groups(id) ON DELETE SET NULL',
+  'ALTER TABLE site_groups ADD COLUMN color TEXT DEFAULT \'#667eea\'',
 ];
 migrations.forEach(sql => { try { db.exec(sql); } catch {} });
 
@@ -180,9 +182,17 @@ migrations.forEach(sql => { try { db.exec(sql); } catch {} });
 ['ד"ר', "פרופ'", 'מר', 'גברת', "גב'"].forEach(n =>
   db.prepare('INSERT OR IGNORE INTO honorifics (name) VALUES (?)').run(n));
 
-// Seed site groups
-['מרדימים אחראיים', 'תורנים', 'כוננים', 'מרפאה טרום ניתוחית', 'חדרי ניתוח', 'אתרים אחרים'].forEach(n =>
-  db.prepare('INSERT OR IGNORE INTO site_groups (name) VALUES (?)').run(n));
+// Seed site groups with colors
+const groupColors = {
+  'מרדימים אחראיים': '#ef4444',
+  'תורנים': '#f59e0b',
+  'כוננים': '#8b5cf6',
+  'מרפאה טרום ניתוחית': '#ec4899',
+  'חדרי ניתוח': '#3b82f6',
+  'אתרים אחרים': '#10b981'
+};
+Object.entries(groupColors).forEach(([name, color]) =>
+  db.prepare('INSERT OR IGNORE INTO site_groups (name, color) VALUES (?, ?)').run(name, color));
 
 // Seed default sites (20 total) with group assignment
 const operatingRoomGroupId = db.prepare("SELECT id FROM site_groups WHERE name = 'חדרי ניתוח'").get()?.id;
@@ -283,7 +293,7 @@ function getConfig() {
     jobs: db.prepare('SELECT id, name FROM job_titles ORDER BY id').all(),
     employment_types: db.prepare('SELECT id, name FROM employment_types ORDER BY id').all(),
     honorifics: db.prepare('SELECT id, name FROM honorifics ORDER BY id').all(),
-    site_groups: db.prepare('SELECT id, name FROM site_groups ORDER BY id').all(),
+    site_groups: db.prepare('SELECT id, name, color FROM site_groups ORDER BY id').all(),
     sites: db.prepare('SELECT id, name, description, group_id FROM sites ORDER BY name').all(),
   };
 }
@@ -654,10 +664,10 @@ app.delete('/api/config/sites/:id', requireAdmin, (req, res) => {
 
 // Site groups endpoints
 app.post('/api/config/site-groups', requireAdmin, (req, res) => {
-  const { value } = req.body;
+  const { value, color } = req.body;
   if (!value?.trim()) return res.status(400).json({ error: 'שם קבוצה חובה' });
   try {
-    db.prepare('INSERT INTO site_groups (name) VALUES (?)').run(value.trim());
+    db.prepare('INSERT INTO site_groups (name, color) VALUES (?, ?)').run(value.trim(), color || '#667eea');
     res.json(getConfig());
   } catch {
     res.status(400).json({ error: 'קבוצה כפולה' });
@@ -665,10 +675,10 @@ app.post('/api/config/site-groups', requireAdmin, (req, res) => {
 });
 
 app.put('/api/config/site-groups/:id', requireAdmin, (req, res) => {
-  const { value } = req.body;
+  const { value, color } = req.body;
   if (!value?.trim()) return res.status(400).json({ error: 'שם קבוצה חובה' });
   try {
-    db.prepare('UPDATE site_groups SET name=? WHERE id=?').run(value.trim(), req.params.id);
+    db.prepare('UPDATE site_groups SET name=?, color=? WHERE id=?').run(value.trim(), color || '#667eea', req.params.id);
     res.json(getConfig());
   } catch {
     res.status(400).json({ error: 'קבוצה כפולה' });

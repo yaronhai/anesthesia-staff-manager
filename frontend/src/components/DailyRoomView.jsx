@@ -234,10 +234,14 @@ export default function DailyRoomView({ config, authToken }) {
     return groups;
   }
 
-  function getGroupName(groupId) {
-    if (groupId === 'ungrouped') return 'ללא קבוצה';
+  function getGroup(groupId) {
+    if (groupId === 'ungrouped') return { name: 'ללא קבוצה', color: '#e5e7eb' };
     const group = config.site_groups?.find(g => g.id === parseInt(groupId));
-    return group?.name || 'ללא קבוצה';
+    return group ? { name: group.name, color: group.color || '#667eea' } : { name: 'ללא קבוצה', color: '#e5e7eb' };
+  }
+
+  function getGroupName(groupId) {
+    return getGroup(groupId).name;
   }
 
 
@@ -448,9 +452,11 @@ export default function DailyRoomView({ config, authToken }) {
 
           <div className="room-view-body">
             <DragDropContext onDragEnd={onDragEnd}>
-              {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => (
+              {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => {
+                const group = getGroup(groupId);
+                return (
                 <div key={groupId} className="room-group-section">
-                  <h3 className="room-group-title">{getGroupName(groupId)}</h3>
+                  <h3 className="room-group-title" style={{color: group.color, borderLeft: `4px solid ${group.color}`}}>{group.name}</h3>
                   <Droppable droppableId={groupId} direction="horizontal" type="SITE">
                     {(provided, snapshot) => (
                       <div
@@ -499,7 +505,8 @@ export default function DailyRoomView({ config, authToken }) {
                     )}
                   </Droppable>
                 </div>
-              ))}
+              );
+              })}
             </DragDropContext>
           </div>
         </>

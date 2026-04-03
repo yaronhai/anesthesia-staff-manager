@@ -2216,67 +2216,68 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 
 /* Daily Room View */
 .room-view-container {
-  padding: 0.75rem 1.5rem;
+  padding: 0.4rem 0.75rem;
   direction: rtl;
 }
 
 .room-view-header {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.3rem;
 }
 
 .room-view-header h2 {
-  margin: 0 0 0.4rem 0;
-  font-size: 1.2rem;
+  margin: 0 0 0.2rem 0;
+  font-size: 1rem;
   color: #333;
 }
 
 .room-nav {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.3rem;
   flex-wrap: wrap;
 }
 
 .room-nav button {
-  padding: 0.4rem 0.8rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
 }
 
 .room-date-label {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 500;
   color: #555;
-  min-width: 200px;
+  min-width: 180px;
   text-align: center;
-  padding: 0 1rem;
+  padding: 0 0.75rem;
 }
 
 .room-view-body {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  margin-top: 1.5rem;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
 }
 
 .room-group-section {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.15rem;
 }
 
 .room-group-title {
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #1a2e4a;
-  margin-bottom: 0.25rem;
-  padding: 0 0.5rem;
+  margin-bottom: 0.1rem;
+  padding: 0 0.3rem;
 }
 
 .room-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border-radius: 6px;
   background: rgba(0,0,0,0.02);
   transition: background-color 0.15s;
 }
@@ -2288,8 +2289,8 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 
 .room-card {
   border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -2299,12 +2300,12 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 }
 
 .room-card:hover {
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .room-card.dragging {
   opacity: 0.5;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .room-card-expanded {
@@ -2315,40 +2316,40 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .room-card-title {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 0.5rem 0.75rem;
+  padding: 0.3rem 0.5rem;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .room-card-arrow {
-  font-size: 0.65rem;
+  font-size: 0.55rem;
   opacity: 0.8;
 }
 
 .room-card-content {
   flex: 1;
-  padding: 1rem;
-  min-height: 80px;
+  padding: 0.3rem;
+  min-height: 45px;
 }
 
 .room-card-summary {
-  padding: 0.3rem 0.6rem 0.4rem;
+  padding: 0.2rem 0.4rem 0.25rem;
 }
 
 .room-summary-row {
   display: flex;
   align-items: baseline;
-  gap: 0.3rem;
-  font-size: 0.78rem;
-  line-height: 1.4;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  line-height: 1.3;
   color: #444;
 }
 
 .room-summary-icon {
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   flex-shrink: 0;
 }
 
@@ -2364,28 +2365,29 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   color: #999;
   font-style: italic;
   text-align: center;
-  padding: 1rem 0;
+  padding: 0.5rem 0;
+  font-size: 0.75rem;
 }
 
 .room-assignments-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.3rem;
 }
 
 .room-assignment-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem;
+  padding: 0.3rem;
   background: #f9f9f9;
-  border-radius: 4px;
-  border-right: 3px solid #667eea;
+  border-radius: 3px;
+  border-right: 2px solid #667eea;
 }
 
 .room-assignment-text {
   flex: 1;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   color: #333;
   word-break: break-word;
 }
@@ -2395,9 +2397,9 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   border: none;
   color: #d9534f;
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 0 0.5rem;
-  margin-right: 0.5rem;
+  font-size: 1rem;
+  padding: 0 0.3rem;
+  margin-right: 0.3rem;
   transition: color 0.2s;
 }
 
@@ -2408,10 +2410,10 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .room-add-btn {
   background: #f0f0f0;
   border: 1px solid #ddd;
-  border-top: 2px solid #e0e0e0;
-  padding: 0.75rem 1rem;
+  border-top: 1px solid #e0e0e0;
+  padding: 0.4rem 0.6rem;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
   color: #667eea;
   font-weight: 500;
   transition: background 0.2s, color 0.2s;
@@ -2437,18 +2439,18 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.4rem 1rem 0.2rem;
+  padding: 0.25rem 0.6rem 0.15rem;
 }
 
 .room-shift-label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
 }
 
 .room-shift-time {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #6b7280;
 }
 
@@ -2458,8 +2460,8 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .room-shift-evening .room-shift-label  { color: #4f46e5; }
 
 .room-shift-section .room-add-btn {
-  font-size: 0.85rem;
-  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.5rem;
 }
 
 .room-assignment-row {
@@ -2477,72 +2479,73 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .room-shift-times-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.3rem;
   flex-wrap: wrap;
-  margin-top: 0.75rem;
+  margin-top: 0.3rem;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.88rem;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
   color: #374151;
 }
 
 .room-shift-times-bar input[type="time"] {
   border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 0.2rem 0.4rem;
-  font-size: 0.85rem;
+  border-radius: 3px;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.75rem;
   font-family: inherit;
   color: #1a2e4a;
 }
 
 .room-shift-times-sep {
   width: 1px;
-  height: 1.2rem;
+  height: 1rem;
   background: #cbd5e1;
-  margin: 0 0.25rem;
+  margin: 0 0.15rem;
 }
 
 /* Requests bar (compact list of available workers) */
 .room-requests-bar {
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
-  margin-bottom: 1rem;
-  font-size: 0.85rem;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
 }
 
 .room-requests-label {
   font-weight: 600;
   color: #374151;
-  margin-right: 0.75rem;
+  margin-right: 0.5rem;
 }
 
 .room-requests-content {
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   flex-wrap: wrap;
 }
 
 .room-requests-shift {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 
 .room-requests-icon {
   font-weight: 600;
   color: #6b7280;
+  font-size: 0.7rem;
 }
 
 .room-requests-worker {
   display: inline-block;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  margin: 0 0.25rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  margin: 0 0.15rem;
 }
 
 .room-requests-worker.pref-prefer  { background: #dcfce7; color: #166534; }
