@@ -33,7 +33,10 @@ function buildCalendarWeeks(year, month) {
 
 // ── Day cell in user calendar ────────────────────────────────────────────────
 function DayCell({ day, dateStr, dayRequests, isToday, onClick }) {
-  const isSaturday = new Date(dateStr).getDay() === 6;
+  const isSaturday = (() => {
+    const [year, month, dayNum] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, dayNum).getDay() === 6;
+  })();
   return (
     <div
       className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : ''}${dayRequests.length ? ' cal-has-data' : ''}`}
