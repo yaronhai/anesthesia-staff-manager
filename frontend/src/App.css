@@ -403,6 +403,14 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 0.6rem;
+  max-height: 120px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.settings-card.expanded {
+  max-height: 600px;
 }
 
 .settings-card h3 {
@@ -436,7 +444,6 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   flex-direction: column;
   gap: 0.05rem;
   margin-bottom: 0.3rem;
-  min-height: 2rem;
 }
 
 .config-list li {

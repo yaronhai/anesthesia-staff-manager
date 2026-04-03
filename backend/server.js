@@ -76,10 +76,17 @@ db.exec(`
     UNIQUE(user_id, date, shift_type)
   );
 
+  CREATE TABLE IF NOT EXISTS site_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS sites (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
+    group_id INTEGER REFERENCES site_groups(id) ON DELETE SET NULL,
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -171,15 +178,37 @@ migrations.forEach(sql => { try { db.exec(sql); } catch {} });
 ['ד"ר', "פרופ'", 'מר', 'גברת', "גב'"].forEach(n =>
   db.prepare('INSERT OR IGNORE INTO honorifics (name) VALUES (?)').run(n));
 
-// Seed default sites (20 total)
+// Seed site groups
+['מרדימים אחראיים', 'תורנים', 'כוננים', 'מרפאה טרום ניתוחית', 'חדרי ניתוח', 'אתרים אחרים'].forEach(n =>
+  db.prepare('INSERT OR IGNORE INTO site_groups (name) VALUES (?)').run(n));
+
+// Seed default sites (20 total) with group assignment
+const operatingRoomGroupId = db.prepare("SELECT id FROM site_groups WHERE name = 'חדרי ניתוח'").get()?.id;
+const otherGroupId = db.prepare("SELECT id FROM site_groups WHERE name = 'אתרים אחרים'").get()?.id;
+
 [
-  'חדר ניתוח 1', 'חדר ניתוח 2', 'חדר ניתוח 3', 'חדר ניתוח 4',
-  'חדר ניתוח 5', 'חדר ניתוח 6', 'חדר ניתוח 7', 'חדר ניתוח 8',
-  'חדר ניתוח 9', 'חדר ניתוח 10', 'חדר ניתוח 11', 'חדר ניתוח 12',
-  'חדר ניתוח 13', 'חדר ניתוח 14', 'חדר ניתוח 15', 'חדר ניתוח 16',
-  'חדר ניתוח 17', 'חדר ניתוח 18', 'IVF', 'גסטרו'
-].forEach(n =>
-  db.prepare('INSERT OR IGNORE INTO sites (name) VALUES (?)').run(n));
+  { name: 'חדר ניתוח 1', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 2', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 3', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 4', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 5', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 6', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 7', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 8', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 9', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 10', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 11', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 12', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 13', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 14', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 15', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 16', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 17', groupId: operatingRoomGroupId },
+  { name: 'חדר ניתוח 18', groupId: operatingRoomGroupId },
+  { name: 'IVF', groupId: otherGroupId },
+  { name: 'גסטרו', groupId: otherGroupId }
+].forEach(s =>
+  db.prepare('INSERT OR IGNORE INTO sites (name, group_id) VALUES (?, ?)').run(s.name, s.groupId));
 
 // Bootstrap admin (not tied to a worker — for initial system setup)
 if (db.prepare("SELECT COUNT(*) AS c FROM users WHERE username = 'admin'").get().c === 0) {
@@ -252,7 +281,8 @@ function getConfig() {
     jobs: db.prepare('SELECT id, name FROM job_titles ORDER BY id').all(),
     employment_types: db.prepare('SELECT id, name FROM employment_types ORDER BY id').all(),
     honorifics: db.prepare('SELECT id, name FROM honorifics ORDER BY id').all(),
-    sites: db.prepare('SELECT id, name, description FROM sites ORDER BY name').all(),
+    site_groups: db.prepare('SELECT id, name FROM site_groups ORDER BY id').all(),
+    sites: db.prepare('SELECT id, name, description, group_id FROM sites ORDER BY name').all(),
   };
 }
 
@@ -620,6 +650,40 @@ app.delete('/api/config/sites/:id', requireAdmin, (req, res) => {
   res.json(getConfig());
 });
 
+// Site groups endpoints
+app.post('/api/config/site-groups', requireAdmin, (req, res) => {
+  const { value } = req.body;
+  if (!value?.trim()) return res.status(400).json({ error: 'שם קבוצה חובה' });
+  try {
+    db.prepare('INSERT INTO site_groups (name) VALUES (?)').run(value.trim());
+    res.json(getConfig());
+  } catch {
+    res.status(400).json({ error: 'קבוצה כפולה' });
+  }
+});
+
+app.put('/api/config/site-groups/:id', requireAdmin, (req, res) => {
+  const { value } = req.body;
+  if (!value?.trim()) return res.status(400).json({ error: 'שם קבוצה חובה' });
+  try {
+    db.prepare('UPDATE site_groups SET name=? WHERE id=?').run(value.trim(), req.params.id);
+    res.json(getConfig());
+  } catch {
+    res.status(400).json({ error: 'קבוצה כפולה' });
+  }
+});
+
+app.delete('/api/config/site-groups/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM site_groups WHERE id=?').run(req.params.id);
+  res.json(getConfig());
+});
+
+// Assign site to group
+app.put('/api/config/sites/:id/group', requireAdmin, (req, res) => {
+  const { group_id } = req.body;
+  db.prepare('UPDATE sites SET group_id=? WHERE id=?').run(group_id || null, req.params.id);
+  res.json(getConfig());
+});
 
 // Worker site assignments endpoints
 app.get('/api/staffing/month-view', requireAdmin, (req, res) => {

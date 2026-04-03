@@ -5,9 +5,10 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
   const [newEmpType, setNewEmpType] = useState('');
   const [newHonorific, setNewHonorific] = useState('');
   const [newSite, setNewSite] = useState('');
+  const [newSiteGroup, setNewSiteGroup] = useState('');
   const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
-  const [expandedSections, setExpandedSections] = useState({ jobs: true, empTypes: true, honorifics: true, sites: true });
+  const [expandedSections, setExpandedSections] = useState({ groups: true, sites: true, jobs: false, empTypes: false, honorifics: false });
 
   async function addItem(endpoint, value, setter) {
     if (!value.trim()) return;
@@ -119,7 +120,116 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
 
         <div className="settings-grid settings-grid-5">
 
-          <div className="settings-card">
+          <div className={`settings-card${expandedSections.groups ? ' expanded' : ''}`}>
+            <h3 className="settings-card-header" onClick={() => toggleSection('groups')}>
+              קבוצות אתרים
+              <span className="settings-card-arrow">{expandedSections.groups ? '▲' : '▼'}</span>
+            </h3>
+            {expandedSections.groups && (
+              <>
+                <ul className="config-list">
+                  {(config.site_groups || []).map(group => (
+                    <li key={group.id}>
+                      {editingKey === `group-${group.id}` ? (
+                        <input
+                          className="config-inline-edit"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEdit('/api/config/site-groups', group.id);
+                            if (e.key === 'Escape') setEditingKey(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span>{group.name}</span>
+                      )}
+                      <div className="config-item-actions">
+                        {editingKey === `group-${group.id}` ? (
+                          <>
+                            <button className="btn-save-inline" onClick={() => saveEdit('/api/config/site-groups', group.id)}>שמור</button>
+                            <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn-edit-inline" onClick={() => { setEditingKey(`group-${group.id}`); setEditingValue(group.name); }}>עריכה</button>
+                            <button className="btn-remove" onClick={() => removeItem('/api/config/site-groups', group.id)}>✕</button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="config-add">
+                  <input
+                    value={newSiteGroup}
+                    onChange={e => setNewSiteGroup(e.target.value)}
+                    placeholder="קבוצה חדשה..."
+                    onKeyDown={e => e.key === 'Enter' && addItem('/api/config/site-groups', newSiteGroup, setNewSiteGroup)}
+                  />
+                  <button className="btn-primary" onClick={() => addItem('/api/config/site-groups', newSiteGroup, setNewSiteGroup)}>הוסף</button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className={`settings-card${expandedSections.sites ? ' expanded' : ''}`}>
+            <h3 className="settings-card-header" onClick={() => toggleSection('sites')}>
+              אתרים
+              <span className="settings-card-arrow">{expandedSections.sites ? '▲' : '▼'}</span>
+            </h3>
+            {expandedSections.sites && (
+              <>
+                <ul className="config-list">
+                  {(config.sites || []).map(site => (
+                    <li key={site.id}>
+                      {editingKey === `site-${site.id}` ? (
+                        <div style={{display: 'flex', flex: 1, gap: '0.3rem', alignItems: 'center'}}>
+                          <input
+                            className="config-inline-edit"
+                            value={editingValue}
+                            onChange={e => setEditingValue(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveEdit('/api/config/sites', site.id);
+                              if (e.key === 'Escape') setEditingKey(null);
+                            }}
+                            autoFocus
+                            style={{flex: 1}}
+                          />
+                        </div>
+                      ) : (
+                        <span>{site.name}</span>
+                      )}
+                      <div className="config-item-actions">
+                        {editingKey === `site-${site.id}` ? (
+                          <>
+                            <button className="btn-save-inline" onClick={() => saveEdit('/api/config/sites', site.id)}>שמור</button>
+                            <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn-edit-inline" onClick={() => { setEditingKey(`site-${site.id}`); setEditingValue(site.name); }}>עריכה</button>
+                            <button className="btn-remove" onClick={() => removeSite(site.id)}>✕</button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="config-add">
+                  <input
+                    value={newSite}
+                    onChange={e => setNewSite(e.target.value)}
+                    placeholder="אתר חדש..."
+                    onKeyDown={e => e.key === 'Enter' && addSite()}
+                  />
+                  <button className="btn-primary" onClick={addSite}>הוסף</button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className={`settings-card${expandedSections.jobs ? ' expanded' : ''}`}>
             <h3 className="settings-card-header" onClick={() => toggleSection('jobs')}>
               תפקידים
               <span className="settings-card-arrow">{expandedSections.jobs ? '▲' : '▼'}</span>
@@ -172,7 +282,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
             )}
           </div>
 
-          <div className="settings-card">
+          <div className={`settings-card${expandedSections.empTypes ? ' expanded' : ''}`}>
             <h3 className="settings-card-header" onClick={() => toggleSection('empTypes')}>
               סוגי העסקה
               <span className="settings-card-arrow">{expandedSections.empTypes ? '▲' : '▼'}</span>
@@ -225,7 +335,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
             )}
           </div>
 
-          <div className="settings-card">
+          <div className={`settings-card${expandedSections.honorifics ? ' expanded' : ''}`}>
             <h3 className="settings-card-header" onClick={() => toggleSection('honorifics')}>
               תארים
               <span className="settings-card-arrow">{expandedSections.honorifics ? '▲' : '▼'}</span>
@@ -273,59 +383,6 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                     onKeyDown={e => e.key === 'Enter' && addItem('/api/config/honorifics', newHonorific, setNewHonorific)}
                   />
                   <button className="btn-primary" onClick={() => addItem('/api/config/honorifics', newHonorific, setNewHonorific)}>הוסף</button>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="settings-card">
-            <h3 className="settings-card-header" onClick={() => toggleSection('sites')}>
-              אתרים
-              <span className="settings-card-arrow">{expandedSections.sites ? '▲' : '▼'}</span>
-            </h3>
-            {expandedSections.sites && (
-              <>
-                <ul className="config-list">
-              {(config.sites || []).map(site => (
-                <li key={site.id}>
-                  {editingKey === `site-${site.id}` ? (
-                    <input
-                      className="config-inline-edit"
-                      value={editingValue}
-                      onChange={e => setEditingValue(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') saveEdit('/api/config/sites', site.id);
-                        if (e.key === 'Escape') setEditingKey(null);
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <span>{site.name}</span>
-                  )}
-                  <div className="config-item-actions">
-                    {editingKey === `site-${site.id}` ? (
-                      <>
-                        <button className="btn-save-inline" onClick={() => saveEdit('/api/config/sites', site.id)}>שמור</button>
-                        <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="btn-edit-inline" onClick={() => { setEditingKey(`site-${site.id}`); setEditingValue(site.name); }}>עריכה</button>
-                        <button className="btn-remove" onClick={() => removeSite(site.id)}>✕</button>
-                      </>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-                <div className="config-add">
-                  <input
-                    value={newSite}
-                    onChange={e => setNewSite(e.target.value)}
-                    placeholder="אתר חדש..."
-                    onKeyDown={e => e.key === 'Enter' && addSite()}
-                  />
-                  <button className="btn-primary" onClick={addSite}>הוסף</button>
                 </div>
               </>
             )}
