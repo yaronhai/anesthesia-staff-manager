@@ -873,6 +873,8 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .cal-day:hover { background: #e2e8f0; }
 .cal-day.cal-today { background: #dbeafe; border-color: #2563eb; }
 .cal-day.cal-today .cal-day-num { color: #1d4ed8; font-weight: 800; }
+.cal-day.cal-saturday { background: #fecaca; }
+.cal-day.cal-today.cal-saturday { background: #fecaca; border-color: #dc2626; }
 .cal-day.cal-has-data { }
 
 .cal-day-num {
