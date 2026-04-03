@@ -152,7 +152,6 @@ migrations.forEach(sql => { try { db.exec(sql); } catch {} });
         worker_id   INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
         date        TEXT    NOT NULL,
         site_id     INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-        position_id INTEGER NOT NULL REFERENCES site_positions(id) ON DELETE CASCADE,
         shift_type  TEXT    NOT NULL DEFAULT 'morning'
                             CHECK(shift_type IN ('morning', 'evening')),
         start_time  TEXT,
@@ -163,8 +162,8 @@ migrations.forEach(sql => { try { db.exec(sql); } catch {} });
       );
 
       INSERT OR IGNORE INTO worker_site_assignments
-        (id, worker_id, date, site_id, position_id, shift_type, start_time, end_time, notes, created_at)
-      SELECT id, worker_id, date, site_id, position_id, 'morning', NULL, NULL, notes, created_at
+        (id, worker_id, date, site_id, shift_type, start_time, end_time, notes, created_at)
+      SELECT id, worker_id, date, site_id, 'morning', NULL, NULL, notes, created_at
       FROM _wsa_old;
 
       DROP TABLE _wsa_old;
@@ -630,14 +629,14 @@ app.get('/api/staffing/month-view', requireAdmin, (req, res) => {
 
   // Get assignments for month (optionally filtered by site)
   let assignmentsQuery = `
-    SELECT wsa.id, wsa.worker_id, wsa.date, wsa.site_id, wsa.position_id,
+    SELECT wsa.id, wsa.worker_id, wsa.date, wsa.site_id,
            wsa.shift_type, wsa.start_time, wsa.end_time, wsa.notes,
-           s.name AS site_name, sp.position_name,
-           w.first_name, w.family_name
+           s.name AS site_name,
+           w.first_name, w.family_name, jt.name AS job_name
     FROM worker_site_assignments wsa
     JOIN sites s ON wsa.site_id = s.id
-    JOIN site_positions sp ON wsa.position_id = sp.id
     JOIN workers w ON wsa.worker_id = w.id
+    LEFT JOIN job_titles jt ON w.job_id = jt.id
     ${datePrefix ? 'WHERE wsa.date LIKE ?' : ''}
     ${siteId ? (datePrefix ? 'AND' : 'WHERE') + ' wsa.site_id = ?' : ''}
     ORDER BY wsa.date, wsa.site_id, wsa.shift_type, wsa.worker_id
@@ -653,17 +652,13 @@ app.get('/api/staffing/month-view', requireAdmin, (req, res) => {
 });
 
 app.post('/api/worker-site-assignments', requireAdmin, (req, res) => {
-  const { worker_id, date, site_id, position_id, shift_type, start_time, end_time, notes } = req.body;
+  const { worker_id, date, site_id, shift_type, start_time, end_time, notes } = req.body;
   const shiftType = shift_type || 'morning';
 
-  console.log('POST /api/worker-site-assignments:', { worker_id, date, site_id, position_id, shift_type, start_time, end_time, notes });
-
-  if (!worker_id || !date || !site_id || !position_id) {
-    console.log('Missing fields');
+  if (!worker_id || !date || !site_id) {
     return res.status(400).json({ error: 'שדות חסרים' });
   }
   if (!['morning', 'evening'].includes(shiftType)) {
-    console.log('Invalid shift_type:', shiftType);
     return res.status(400).json({ error: 'סוג משמרת לא תקין' });
   }
 
@@ -679,16 +674,16 @@ app.post('/api/worker-site-assignments', requireAdmin, (req, res) => {
 
   try {
     db.prepare(`
-      INSERT INTO worker_site_assignments (worker_id, date, site_id, position_id, shift_type, start_time, end_time, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO worker_site_assignments (worker_id, date, site_id, shift_type, start_time, end_time, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(worker_id, date, site_id, shift_type) DO UPDATE SET
-        position_id = excluded.position_id,
-        start_time  = excluded.start_time,
-        end_time    = excluded.end_time,
-        notes       = excluded.notes
-    `).run(worker_id, date, site_id, position_id, shiftType, start_time || null, end_time || null, notes || null);
+        start_time = excluded.start_time,
+        end_time   = excluded.end_time,
+        notes      = excluded.notes
+    `).run(worker_id, date, site_id, shiftType, start_time || null, end_time || null, notes || null);
     res.json({ ok: true });
   } catch (err) {
+    console.error('Error saving assignment:', err);
     res.status(400).json({ error: 'שגיאה בשמירת השיבוץ' });
   }
 });

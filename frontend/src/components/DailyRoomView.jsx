@@ -20,7 +20,7 @@ export default function DailyRoomView({ config, authToken }) {
 
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
-  const [newAssignment, setNewAssignment] = useState({ worker_id: null, position_id: null, start_time: '', end_time: '', notes: '' });
+  const [newAssignment, setNewAssignment] = useState({ worker_id: null, start_time: '', end_time: '', notes: '' });
 
   // Edit times modal
   const [editingAssignment, setEditingAssignment] = useState(null);
@@ -90,7 +90,7 @@ export default function DailyRoomView({ config, authToken }) {
     const defaultStart = shiftType === 'morning' ? morningStart : eveningStart;
     const defaultEnd   = shiftType === 'morning' ? morningEnd   : eveningEnd;
     setAddingTo({ site_id: siteId, site_name: siteName, shift_type: shiftType });
-    setNewAssignment({ worker_id: null, position_id: null, start_time: defaultStart, end_time: defaultEnd, notes: '' });
+    setNewAssignment({ worker_id: null, start_time: defaultStart, end_time: defaultEnd, notes: '' });
   }
 
   function openEditModal(assignment) {
@@ -103,9 +103,7 @@ export default function DailyRoomView({ config, authToken }) {
   }
 
   async function saveNewAssignment() {
-    console.log('saveNewAssignment called', { addingTo, newAssignment });
-    if (!addingTo || !newAssignment.worker_id || !newAssignment.position_id) {
-      console.log('Missing required fields, returning early');
+    if (!addingTo || !newAssignment.worker_id) {
       return;
     }
     try {
@@ -116,7 +114,6 @@ export default function DailyRoomView({ config, authToken }) {
           worker_id:   newAssignment.worker_id,
           date:        dateStr,
           site_id:     addingTo.site_id,
-          position_id: newAssignment.position_id,
           shift_type:  addingTo.shift_type,
           start_time:  newAssignment.start_time || null,
           end_time:    newAssignment.end_time   || null,
@@ -163,9 +160,6 @@ export default function DailyRoomView({ config, authToken }) {
     }
   }
 
-  const positionsForAddSite = addingTo
-    ? config.site_positions.filter(p => p.site_id === addingTo.site_id)
-    : [];
 
   const dateLabel = viewDate.toLocaleDateString('he-IL', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -187,7 +181,7 @@ export default function DailyRoomView({ config, authToken }) {
               {siteAssignments.map(a => (
                 <div key={a.id} className="room-assignment-row" onClick={() => openEditModal(a)}>
                   <span className="room-assignment-text">
-                    {a.position_name} · {a.first_name} {a.family_name}
+                    {a.job_name} · {a.first_name} {a.family_name}
                     <span className="room-assignment-time">
                       {resolveTime(a, shiftType, 'start_time')}–{resolveTime(a, shiftType, 'end_time')}
                     </span>
@@ -317,7 +311,7 @@ export default function DailyRoomView({ config, authToken }) {
                 <label>עובד:</label>
                 <select
                   value={newAssignment.worker_id || ''}
-                  onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value), position_id: null })}
+                  onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
                 >
                   <option value="">בחר עובד...</option>
                   {workers.map(w => (
@@ -325,24 +319,6 @@ export default function DailyRoomView({ config, authToken }) {
                   ))}
                 </select>
               </div>
-              {newAssignment.worker_id && (
-                <div className="form-group">
-                  <label>תפקיד:</label>
-                  <select
-                    value={newAssignment.position_id || ''}
-                    onChange={e => {
-                      const val = parseInt(e.target.value);
-                      console.log('position_id changed to:', val);
-                      setNewAssignment({ ...newAssignment, position_id: val });
-                    }}
-                  >
-                    <option value="">בחר תפקיד...</option>
-                    {positionsForAddSite.map(pos => (
-                      <option key={pos.id} value={pos.id}>{pos.position_name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
               <div className="form-group form-group-inline">
                 <div>
                   <label>שעת התחלה:</label>
@@ -369,8 +345,7 @@ export default function DailyRoomView({ config, authToken }) {
                 <button
                   className="btn-primary"
                   onClick={saveNewAssignment}
-                  disabled={!newAssignment.worker_id || !newAssignment.position_id}
-                  title={`worker: ${newAssignment.worker_id}, position: ${newAssignment.position_id}`}
+                  disabled={!newAssignment.worker_id}
                 >שמור</button>
               </div>
             </div>
@@ -389,7 +364,7 @@ export default function DailyRoomView({ config, authToken }) {
             <div className="modal-body">
               <div className="modal-info">
                 <p><strong>עובד:</strong> {editingAssignment.first_name} {editingAssignment.family_name}</p>
-                <p><strong>תפקיד:</strong> {editingAssignment.position_name}</p>
+                <p><strong>תפקיד:</strong> {editingAssignment.job_name}</p>
                 <p><strong>אתר:</strong> {editingAssignment.site_name}</p>
               </div>
               <div className="form-group form-group-inline">
