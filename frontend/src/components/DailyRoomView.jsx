@@ -15,9 +15,8 @@ export default function DailyRoomView({ config, authToken }) {
   const [eveningStart, setEveningStart] = useState('15:00');
   const [eveningEnd, setEveningEnd] = useState('23:00');
 
-  // Expanded site card
+  // Expanded site modal
   const [expandedSiteId, setExpandedSiteId] = useState(null);
-  const [expandedAll, setExpandedAll] = useState(false);
 
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
@@ -234,16 +233,7 @@ export default function DailyRoomView({ config, authToken }) {
   return (
     <div className="room-view-container">
       <div className="room-view-header">
-        <div className="room-header-top">
-          <h2>שיבוצים לחדרים</h2>
-          <button
-            className="btn-expand-all"
-            onClick={() => setExpandedAll(!expandedAll)}
-            title={expandedAll ? 'צמצם הכל' : 'הרחב הכל'}
-          >
-            {expandedAll ? '⇧ צמצם הכל' : '⇩ הרחב הכל'}
-          </button>
-        </div>
+        <h2>שיבוצים לחדרים</h2>
         <div className="room-nav">
           <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
           <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
@@ -304,49 +294,52 @@ export default function DailyRoomView({ config, authToken }) {
 
           <div className="room-view-body">
             <div className="room-cards-grid">
-              {config.sites.map(site => {
-                const isSiteExpanded = !expandedAll && expandedSiteId === site.id;
-                return (
-                  <div
-                    key={site.id}
-                    className={`room-card${isSiteExpanded ? ' room-card-expanded' : ''}`}
-                    onClick={() => {
-                      if (expandedAll) {
-                        setExpandedAll(false);
-                        setExpandedSiteId(site.id);
-                      } else {
-                        setExpandedSiteId(expandedSiteId === site.id ? null : site.id);
-                      }
-                    }}
-                  >
-                    <div className="room-card-title">
-                      <span>{site.name}</span>
-                      <span className="room-card-arrow">{isSiteExpanded ? '▲' : '▼'}</span>
-                    </div>
-                    {!isSiteExpanded && (
-                      <div className="room-card-summary">
-                        <div className="room-summary-row room-summary-morning">
-                          <span className="room-summary-icon">☀</span>
-                          <span>{morningNames(site.id) || '—'}</span>
-                        </div>
-                        <div className="room-summary-row room-summary-evening">
-                          <span className="room-summary-icon">🌙</span>
-                          <span>{eveningNames(site.id) || '—'}</span>
-                        </div>
-                      </div>
-                    )}
-                    {isSiteExpanded && (
-                      <div onClick={e => e.stopPropagation()}>
-                        <ShiftSection site={site} shiftType="morning" label="בוקר"/>
-                        <ShiftSection site={site} shiftType="evening" label="ערב"/>
-                      </div>
-                    )}
+              {config.sites.map(site => (
+                <div
+                  key={site.id}
+                  className="room-card"
+                  onClick={() => {
+                    if (expandedAll) {
+                      setExpandedAll(false);
+                    }
+                    setExpandedSiteId(site.id);
+                  }}
+                >
+                  <div className="room-card-title">
+                    <span>{site.name}</span>
+                    <span className="room-card-arrow">▼</span>
                   </div>
-                );
-              })}
+                  <div className="room-card-summary">
+                    <div className="room-summary-row room-summary-morning">
+                      <span className="room-summary-icon">☀</span>
+                      <span>{morningNames(site.id) || '—'}</span>
+                    </div>
+                    <div className="room-summary-row room-summary-evening">
+                      <span className="room-summary-icon">🌙</span>
+                      <span>{eveningNames(site.id) || '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </>
+      )}
+
+      {/* Site details modal */}
+      {expandedSiteId && (
+        <div className="form-overlay" onClick={() => setExpandedSiteId(null)}>
+          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{config.sites.find(s => s.id === expandedSiteId)?.name}</h3>
+              <button className="btn-close" onClick={() => setExpandedSiteId(null)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              <ShiftSection site={config.sites.find(s => s.id === expandedSiteId)} shiftType="morning" label="בוקר"/>
+              <ShiftSection site={config.sites.find(s => s.id === expandedSiteId)} shiftType="evening" label="ערב"/>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Add assignment modal */}
