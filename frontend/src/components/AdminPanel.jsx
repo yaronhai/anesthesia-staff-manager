@@ -105,6 +105,22 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     }
   }
 
+  async function updateSiteGroup(siteId, groupId) {
+    const res = await fetch(`/api/config/sites/${siteId}/group`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ group_id: groupId || null }),
+    });
+    if (res.ok) {
+      onConfigChange(await res.json());
+    } else {
+      alert('שגיאה בעדכון קבוצה');
+    }
+  }
+
   function toggleSection(section) {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   }
@@ -182,25 +198,33 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
               <>
                 <ul className="config-list">
                   {(config.sites || []).map(site => (
-                    <li key={site.id}>
+                    <li key={site.id} style={{display: 'flex', gap: '0.2rem', alignItems: 'center', flexWrap: 'wrap'}}>
                       {editingKey === `site-${site.id}` ? (
-                        <div style={{display: 'flex', flex: 1, gap: '0.3rem', alignItems: 'center'}}>
-                          <input
-                            className="config-inline-edit"
-                            value={editingValue}
-                            onChange={e => setEditingValue(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') saveEdit('/api/config/sites', site.id);
-                              if (e.key === 'Escape') setEditingKey(null);
-                            }}
-                            autoFocus
-                            style={{flex: 1}}
-                          />
-                        </div>
+                        <input
+                          className="config-inline-edit"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEdit('/api/config/sites', site.id);
+                            if (e.key === 'Escape') setEditingKey(null);
+                          }}
+                          autoFocus
+                          style={{flex: 1, minWidth: '100px'}}
+                        />
                       ) : (
-                        <span>{site.name}</span>
+                        <span style={{flex: 1, minWidth: '100px'}}>{site.name}</span>
                       )}
-                      <div className="config-item-actions">
+                      <select
+                        value={site.group_id || ''}
+                        onChange={e => updateSiteGroup(site.id, e.target.value ? parseInt(e.target.value) : null)}
+                        style={{fontSize: '0.7rem', padding: '0.15rem 0.25rem', borderRadius: '3px', minWidth: '120px'}}
+                      >
+                        <option value="">ללא קבוצה</option>
+                        {(config.site_groups || []).map(g => (
+                          <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                      </select>
+                      <div className="config-item-actions" style={{display: 'flex', gap: '0.15rem', flexShrink: 0}}>
                         {editingKey === `site-${site.id}` ? (
                           <>
                             <button className="btn-save-inline" onClick={() => saveEdit('/api/config/sites', site.id)}>שמור</button>

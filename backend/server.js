@@ -191,8 +191,10 @@ const groupColors = {
   'חדרי ניתוח': '#3b82f6',
   'אתרים אחרים': '#10b981'
 };
-Object.entries(groupColors).forEach(([name, color]) =>
-  db.prepare('INSERT OR IGNORE INTO site_groups (name, color) VALUES (?, ?)').run(name, color));
+Object.entries(groupColors).forEach(([name, color]) => {
+  db.prepare('INSERT OR IGNORE INTO site_groups (name, color) VALUES (?, ?)').run(name, color);
+  db.prepare('UPDATE site_groups SET color = ? WHERE name = ?').run(color, name);
+});
 
 // Seed default sites (20 total) with group assignment
 const operatingRoomGroupId = db.prepare("SELECT id FROM site_groups WHERE name = 'חדרי ניתוח'").get()?.id;
