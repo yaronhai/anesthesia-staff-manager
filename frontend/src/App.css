@@ -234,7 +234,7 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1001;
+  z-index: 10000;
 }
 
 .worker-form {
@@ -1853,14 +1853,15 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   background: white;
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  max-width: 1200px;
-  width: 95vw;
-  max-height: 90vh;
-  overflow-y: hidden;
+  max-width: 500px;
+  width: 90vw;
+  max-height: 60vh;
+  overflow-y: auto;
   direction: rtl;
-  z-index: 1002;
+  z-index: 10001;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .report-modal {
@@ -2261,6 +2262,8 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 
 .room-view-body {
   margin-top: 0.5rem;
+  position: relative;
+  z-index: 1;
 }
 
 .room-groups-grid {

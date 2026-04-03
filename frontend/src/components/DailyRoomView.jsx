@@ -10,16 +10,16 @@ export default function DailyRoomView({ config, authToken }) {
   const [loading, setLoading] = useState(false);
 
   // Global shift time defaults (component state, not persisted)
-  const [morningStart, setMorningStart] = useState('07:00');
-  const [morningEnd, setMorningEnd] = useState('15:00');
-  const [eveningStart, setEveningStart] = useState('15:00');
-  const [eveningEnd, setEveningEnd] = useState('23:00');
+  const [morningStart] = useState('07:00');
+  const [morningEnd] = useState('15:00');
+  const [eveningStart] = useState('15:00');
+  const [eveningEnd] = useState('23:00');
 
   // Modal for group details
   const [selectedGroupId, setSelectedGroupId] = useState(null);
 
-  // Site edit modal
-  const [editingSiteId, setEditingSiteId] = useState(null);
+  // Expanded site (for inline expansion, not modal)
+  const [expandedSiteId, setExpandedSiteId] = useState(null);
 
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
@@ -72,14 +72,6 @@ export default function DailyRoomView({ config, authToken }) {
 
   function getSiteShiftAssignments(siteId, shiftType) {
     return assignments.filter(a => a.site_id === siteId && a.date === dateStr && a.shift_type === shiftType);
-  }
-
-  function morningNames(siteId) {
-    return getSiteShiftAssignments(siteId, 'morning').map(a => a.first_name).join(', ');
-  }
-
-  function eveningNames(siteId) {
-    return getSiteShiftAssignments(siteId, 'evening').map(a => a.first_name).join(', ');
   }
 
   const dayRequests = shiftRequests.filter(r => r.date === dateStr);
@@ -233,29 +225,11 @@ export default function DailyRoomView({ config, authToken }) {
     return group ? { name: group.name, color: group.color || '#667eea' } : { name: 'ללא קבוצה', color: '#e5e7eb' };
   }
 
-  function getGroupName(groupId) {
-    return getGroup(groupId).name;
-  }
-
   function getUnassignedWorkers() {
     const assignedWorkerIds = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
     return workers.filter(w => !assignedWorkerIds.has(w.id)).sort((a, b) => a.first_name.localeCompare(b.first_name, 'he'));
   }
 
-  function toggleGroupExpanded(groupId) {
-    setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
-  }
-
-  function expandAllGroups() {
-    const allGroupIds = Object.keys(groupSitesByGroup(config.sites));
-    const expanded = {};
-    allGroupIds.forEach(id => { expanded[id] = true; });
-    setExpandedGroups(expanded);
-  }
-
-  function collapseAllGroups() {
-    setExpandedGroups({});
-  }
 
   function formatTime24(timeStr) {
     if (!timeStr) return '';
@@ -430,13 +404,12 @@ export default function DailyRoomView({ config, authToken }) {
 
 
   return (
+    <>
     <div className="room-view-container">
       <div className="room-view-header">
         <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
           <h2>שיבוצים לחדרים</h2>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ הדפס</button>
-          <button onClick={expandAllGroups} className="btn-primary btn-sm" title="הרחב את כל הקבוצות">▼ הרחב הכל</button>
-          <button onClick={collapseAllGroups} className="btn-secondary btn-sm" title="סגור את כל הקבוצות">▲ סגור הכל</button>
         </div>
         <div className="room-nav">
           <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
@@ -516,205 +489,216 @@ export default function DailyRoomView({ config, authToken }) {
           </div>
 
           <div className="room-view-body">
-            <div className="room-groups-grid">
-              {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => {
-                const group = getGroup(groupId);
-                return (
-                  <button
-                    key={groupId}
-                    className="room-group-button"
-                    style={{backgroundColor: group.color, borderColor: group.color}}
-                    onClick={() => setSelectedGroupId(groupId)}
-                  >
-                    <div className="room-group-button-title">{group.name}</div>
-                    <div className="room-group-button-icons">
-                      {Array(Math.min(sites.length, 10)).fill(0).map((_, i) => (
-                        <span key={i} style={{fontSize: '1.2rem'}}>🏢</span>
-                      ))}
-                      {sites.length > 10 && <span style={{fontSize: '0.8rem', marginLeft: '0.25rem'}}>+{sites.length - 10}</span>}
-                    </div>
-                    <div className="room-group-button-count">{sites.length} אתרים</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      )}
-
-
-      {/* Add assignment modal */}
-      {addingTo && (
-        <div className="form-overlay" onClick={() => setAddingTo(null)}>
-          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>הוסף שיבוץ — {addingTo.shift_type === 'morning' ? 'בוקר' : 'ערב'}</h3>
-              <button className="btn-close" onClick={() => setAddingTo(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="modal-info">
-                <p><strong>אתר:</strong> {addingTo.site_name}</p>
-                <p><strong>תאריך:</strong> {dateStr}</p>
-              </div>
-              {getEligibleWorkers(addingTo.shift_type).length === 0 ? (
-                <div className="room-edit-hint">אין עובדים זמינים (שסומנו כיכולים או מעדיפים) במשמרת זו</div>
-              ) : (
-                <>
-                  <div className="form-group">
-                    <label>עובד:</label>
-                    <select
-                      value={newAssignment.worker_id || ''}
-                      onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
-                    >
-                      <option value="">בחר עובד...</option>
-                      {getEligibleWorkers(addingTo.shift_type).map(w => (
-                        <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group form-group-inline">
-                    <div>
-                      <label>שעת התחלה:</label>
-                      <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
-                    </div>
-                    <div>
-                      <label>שעת סיום:</label>
-                      <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>הערות:</label>
-                    <input
-                      type="text"
-                      value={newAssignment.notes}
-                      onChange={e => setNewAssignment({ ...newAssignment, notes: e.target.value })}
-                      placeholder="הערות אופציונליות..."
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="modal-footer">
-              <div>
-                <button className="btn-secondary" onClick={() => setAddingTo(null)}>ביטול</button>
-                <button
-                  className="btn-primary"
-                  onClick={saveNewAssignment}
-                  disabled={!newAssignment.worker_id}
-                >שמור</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit times modal */}
-      {editingAssignment && (
-        <div className="form-overlay" onClick={() => setEditingAssignment(null)}>
-          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>עריכת שעות שיבוץ</h3>
-              <button className="btn-close" onClick={() => setEditingAssignment(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="modal-info">
-                <p><strong>עובד:</strong> {editingAssignment.first_name} {editingAssignment.family_name}</p>
-                <p><strong>תפקיד:</strong> {editingAssignment.job_name}</p>
-                <p><strong>אתר:</strong> {editingAssignment.site_name}</p>
-              </div>
-              <div className="form-group form-group-inline">
-                <div>
-                  <label>שעת התחלה:</label>
-                  <input
-                    type="time"
-                    value={editTimes.start_time}
-                    onChange={e => setEditTimes({ ...editTimes, start_time: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label>שעת סיום:</label>
-                  <input
-                    type="time"
-                    value={editTimes.end_time}
-                    onChange={e => setEditTimes({ ...editTimes, end_time: e.target.value })}
-                  />
-                </div>
-              </div>
-              <p className="room-edit-hint">השאר ריק לשימוש בשעות ברירת מחדל של המשמרת</p>
-              <div className="form-group">
-                <label>הערות:</label>
-                <input
-                  type="text"
-                  value={editTimes.notes}
-                  onChange={e => setEditTimes({ ...editTimes, notes: e.target.value })}
-                  placeholder="הערות אופציונליות..."
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <div>
-                <button className="btn-secondary" onClick={() => setEditingAssignment(null)}>ביטול</button>
-                <button className="btn-primary" onClick={saveEditTimes}>שמור</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showReportPreview && <ReportPreview />}
-
-      {/* Site edit modal */}
-      {editingSiteId && selectedGroupId && (
-        <div className="form-overlay" onClick={() => setEditingSiteId(null)}>
-          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{config.sites.find(s => s.id === editingSiteId)?.name}</h3>
-              <button className="btn-close" onClick={() => setEditingSiteId(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <ShiftSection site={config.sites.find(s => s.id === editingSiteId)} shiftType="morning" label="בוקר"/>
-              <ShiftSection site={config.sites.find(s => s.id === editingSiteId)} shiftType="evening" label="ערב"/>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Group details modal */}
-      {selectedGroupId && (
-        <div className="form-overlay" onClick={() => setSelectedGroupId(null)}>
-          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{getGroup(selectedGroupId).name}</h3>
-              <button className="btn-close" onClick={() => setSelectedGroupId(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, 160px)', gap: '0.5rem', overflow: 'hidden'}}>
-                {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
-                  const morningAssignments = getSiteShiftAssignments(site.id, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
-                  const eveningAssignments = getSiteShiftAssignments(site.id, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
+            {!selectedGroupId ? (
+              // Group buttons view
+              <div className="room-groups-grid">
+                {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => {
+                  const group = getGroup(groupId);
                   return (
-                    <div
-                      key={site.id}
-                      className="site-square"
-                      onClick={() => setEditingSiteId(site.id)}
+                    <button
+                      key={groupId}
+                      className="room-group-button"
+                      style={{backgroundColor: group.color, borderColor: group.color}}
+                      onClick={() => setSelectedGroupId(groupId)}
                     >
-                      <div className="site-square-title">{site.name}</div>
-                      <div className="site-square-shift">
-                        <span className="site-square-icon">☀</span>
-                        <span className="site-square-names">{morningAssignments || '—'}</span>
+                      <div className="room-group-button-title">{group.name}</div>
+                      <div className="room-group-button-icons">
+                        {Array(Math.min(sites.length, 10)).fill(0).map((_, i) => (
+                          <span key={i} style={{fontSize: '1.2rem'}}>🏢</span>
+                        ))}
+                        {sites.length > 10 && <span style={{fontSize: '0.8rem', marginLeft: '0.25rem'}}>+{sites.length - 10}</span>}
                       </div>
-                      <div className="site-square-shift">
-                        <span className="site-square-icon">🌙</span>
-                        <span className="site-square-names">{eveningAssignments || '—'}</span>
-                      </div>
-                    </div>
+                      <div className="room-group-button-count">{sites.length} אתרים</div>
+                    </button>
                   );
                 })}
               </div>
+            ) : (
+              // Sites view for selected group (inline, not modal)
+              <div>
+                <div style={{marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                  <button className="btn-secondary btn-sm" onClick={() => { setSelectedGroupId(null); setExpandedSiteId(null); }}>
+                    ◀ חזור לקבוצות
+                  </button>
+                  <h3 style={{fontSize: '1rem', color: '#1a2e4a'}}>{getGroup(selectedGroupId).name}</h3>
+                </div>
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.5rem'}}>
+                  {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
+                    const isExpanded = expandedSiteId === site.id;
+                    const morningAssignments = getSiteShiftAssignments(site.id, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
+                    const eveningAssignments = getSiteShiftAssignments(site.id, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
+
+                    return (
+                      <div key={site.id} style={{display: 'flex', flexDirection: 'column'}}>
+                        {/* Collapsed view */}
+                        {!isExpanded && (
+                          <div
+                            className="site-square"
+                            onClick={() => setExpandedSiteId(site.id)}
+                          >
+                            <div className="site-square-title">{site.name}</div>
+                            <div className="site-square-shift">
+                              <span className="site-square-icon">☀</span>
+                              <span className="site-square-names">{morningAssignments || '—'}</span>
+                            </div>
+                            <div className="site-square-shift">
+                              <span className="site-square-icon">🌙</span>
+                              <span className="site-square-names">{eveningAssignments || '—'}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Expanded view */}
+                        {isExpanded && (
+                          <div
+                            style={{
+                              border: '2px solid #2563eb',
+                              borderRadius: '8px',
+                              padding: '0.8rem',
+                              background: '#f9fafb',
+                              cursor: 'pointer',
+                              gridColumn: 'span 2'
+                            }}
+                            onClick={() => setExpandedSiteId(null)}
+                          >
+                            <div style={{fontWeight: 700, fontSize: '0.9rem', color: '#1a2e4a', marginBottom: '0.5rem', textAlign: 'center'}}>
+                              {site.name} ▲
+                            </div>
+                            <div onClick={e => e.stopPropagation()}>
+                              <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+                              <ShiftSection site={site} shiftType="evening" label="ערב"/>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+
+    {/* Modals rendered OUTSIDE room-view-container to ensure they appear on top */}
+    {addingTo && (
+      <div className="form-overlay" onClick={() => setAddingTo(null)}>
+        <div className="assignment-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>הוסף שיבוץ — {addingTo.shift_type === 'morning' ? 'בוקר' : 'ערב'}</h3>
+            <button className="btn-close" onClick={() => setAddingTo(null)}>✕</button>
+          </div>
+          <div className="modal-body">
+            <div className="modal-info">
+              <p><strong>אתר:</strong> {addingTo.site_name}</p>
+              <p><strong>תאריך:</strong> {dateStr}</p>
+            </div>
+            {getEligibleWorkers(addingTo.shift_type).length === 0 ? (
+              <div className="room-edit-hint">אין עובדים זמינים (שסומנו כיכולים או מעדיפים) במשמרת זו</div>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label>עובד:</label>
+                  <select
+                    value={newAssignment.worker_id || ''}
+                    onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
+                  >
+                    <option value="">בחר עובד...</option>
+                    {getEligibleWorkers(addingTo.shift_type).map(w => (
+                      <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group form-group-inline">
+                  <div>
+                    <label>שעת התחלה:</label>
+                    <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
+                  </div>
+                  <div>
+                    <label>שעת סיום:</label>
+                    <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>הערות:</label>
+                  <input
+                    type="text"
+                    value={newAssignment.notes}
+                    onChange={e => setNewAssignment({ ...newAssignment, notes: e.target.value })}
+                    placeholder="הערות אופציונליות..."
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <div className="modal-footer">
+            <div>
+              <button className="btn-secondary" onClick={() => setAddingTo(null)}>ביטול</button>
+              <button
+                className="btn-primary"
+                onClick={saveNewAssignment}
+                disabled={!newAssignment.worker_id}
+              >שמור</button>
             </div>
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    )}
+
+    {editingAssignment && (
+      <div className="form-overlay" onClick={() => setEditingAssignment(null)}>
+        <div className="assignment-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>עריכת שעות שיבוץ</h3>
+            <button className="btn-close" onClick={() => setEditingAssignment(null)}>✕</button>
+          </div>
+          <div className="modal-body">
+            <div className="modal-info">
+              <p><strong>עובד:</strong> {editingAssignment.first_name} {editingAssignment.family_name}</p>
+              <p><strong>תפקיד:</strong> {editingAssignment.job_name}</p>
+              <p><strong>אתר:</strong> {editingAssignment.site_name}</p>
+            </div>
+            <div className="form-group form-group-inline">
+              <div>
+                <label>שעת התחלה:</label>
+                <input
+                  type="time"
+                  value={editTimes.start_time}
+                  onChange={e => setEditTimes({ ...editTimes, start_time: e.target.value })}
+                />
+              </div>
+              <div>
+                <label>שעת סיום:</label>
+                <input
+                  type="time"
+                  value={editTimes.end_time}
+                  onChange={e => setEditTimes({ ...editTimes, end_time: e.target.value })}
+                />
+              </div>
+            </div>
+            <p className="room-edit-hint">השאר ריק לשימוש בשעות ברירת מחדל של המשמרת</p>
+            <div className="form-group">
+              <label>הערות:</label>
+              <input
+                type="text"
+                value={editTimes.notes}
+                onChange={e => setEditTimes({ ...editTimes, notes: e.target.value })}
+                placeholder="הערות אופציונליות..."
+              />
+            </div>
+          </div>
+          <div className="modal-footer">
+            <div>
+              <button className="btn-secondary" onClick={() => setEditingAssignment(null)}>ביטול</button>
+              <button className="btn-primary" onClick={saveEditTimes}>שמור</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {showReportPreview && <ReportPreview />}
+    </>
   );
 }
