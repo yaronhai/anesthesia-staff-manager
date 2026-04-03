@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const PREF_LABEL = { prefer: 'מעדיף', can: 'יכול', cannot: 'לא יכול' };
 
@@ -16,11 +15,11 @@ export default function DailyRoomView({ config, authToken }) {
   const [eveningStart, setEveningStart] = useState('15:00');
   const [eveningEnd, setEveningEnd] = useState('23:00');
 
-  // Expanded site modal
-  const [expandedSiteId, setExpandedSiteId] = useState(null);
+  // Modal for group details
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
 
-  // Expanded groups
-  const [expandedGroups, setExpandedGroups] = useState({});
+  // Site edit modal
+  const [editingSiteId, setEditingSiteId] = useState(null);
 
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
@@ -193,39 +192,6 @@ export default function DailyRoomView({ config, authToken }) {
     }
   }
 
-  async function updateSiteGroup(siteId, groupId) {
-    try {
-      const res = await fetch(`/api/config/sites/${siteId}/group`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ group_id: groupId || null }),
-      });
-      if (res.ok) {
-        // Update config with new site groups/sites data
-        const newConfig = await res.json();
-        // Force refresh by fetching config
-        const configRes = await fetch('/api/config', {
-          headers: { Authorization: `Bearer ${authToken}` },
-        });
-        if (configRes.ok) {
-          // config is managed by parent, so this will update after parent refresh
-        }
-      }
-    } catch (err) {
-      console.error('Error updating site group:', err);
-    }
-  }
-
-  function onDragEnd(result) {
-    const { source, destination, draggableId } = result;
-    if (!destination) return;
-    if (source.droppableId === destination.droppableId) return;
-
-    const siteId = parseInt(draggableId);
-    const targetGroupId = destination.droppableId === 'ungrouped' ? null : parseInt(destination.droppableId);
-
-    updateSiteGroup(siteId, targetGroupId);
-  }
 
   function extractNumber(str) {
     const match = str.match(/(\d+)/);
@@ -550,69 +516,28 @@ export default function DailyRoomView({ config, authToken }) {
           </div>
 
           <div className="room-view-body">
-            <DragDropContext onDragEnd={onDragEnd}>
+            <div className="room-groups-grid">
               {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => {
                 const group = getGroup(groupId);
-                const isExpanded = expandedGroups[groupId];
                 return (
-                <div key={groupId} className="room-group-section" style={{backgroundColor: `${group.color}10`, borderColor: '#cbd5e1'}}>
-                  <h3 className="room-group-title" onClick={() => toggleGroupExpanded(groupId)} style={{color: group.color, borderLeft: `4px solid ${group.color}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <span>{group.name}</span>
-                    <span style={{fontSize: '0.7rem', marginLeft: '0.5rem'}}>{isExpanded ? '▲' : '▼'}</span>
-                  </h3>
-                  {isExpanded && (
-                  <Droppable droppableId={groupId} direction="horizontal" type="SITE">
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`room-cards-grid${snapshot.isDraggingOver ? ' drag-over' : ''}`}
-                      >
-                        {sites.map((site, index) => (
-                          <Draggable key={site.id} draggableId={String(site.id)} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`room-card${expandedSiteId === site.id ? ' room-card-expanded' : ''}${snapshot.isDragging ? ' dragging' : ''}`}
-                                onClick={() => setExpandedSiteId(expandedSiteId === site.id ? null : site.id)}
-                              >
-                                <div className="room-card-title">
-                                  <span>{site.name}</span>
-                                  <span className="room-card-arrow">{expandedSiteId === site.id ? '▲' : '▼'}</span>
-                                </div>
-                                {expandedSiteId !== site.id && (
-                                  <div className="room-card-summary">
-                                    <div className="room-summary-row room-summary-morning">
-                                      <span className="room-summary-icon">☀</span>
-                                      <span>{morningNames(site.id) || '—'}</span>
-                                    </div>
-                                    <div className="room-summary-row room-summary-evening">
-                                      <span className="room-summary-icon">🌙</span>
-                                      <span>{eveningNames(site.id) || '—'}</span>
-                                    </div>
-                                  </div>
-                                )}
-                                {expandedSiteId === site.id && (
-                                  <div onClick={e => e.stopPropagation()}>
-                                    <ShiftSection site={site} shiftType="morning" label="בוקר"/>
-                                    <ShiftSection site={site} shiftType="evening" label="ערב"/>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                  )}
-                </div>
-              );
+                  <button
+                    key={groupId}
+                    className="room-group-button"
+                    style={{backgroundColor: group.color, borderColor: group.color}}
+                    onClick={() => setSelectedGroupId(groupId)}
+                  >
+                    <div className="room-group-button-title">{group.name}</div>
+                    <div className="room-group-button-icons">
+                      {Array(Math.min(sites.length, 10)).fill(0).map((_, i) => (
+                        <span key={i} style={{fontSize: '1.2rem'}}>🏢</span>
+                      ))}
+                      {sites.length > 10 && <span style={{fontSize: '0.8rem', marginLeft: '0.25rem'}}>+{sites.length - 10}</span>}
+                    </div>
+                    <div className="room-group-button-count">{sites.length} אתרים</div>
+                  </button>
+                );
               })}
-            </DragDropContext>
+            </div>
           </div>
         </>
       )}
@@ -737,6 +662,59 @@ export default function DailyRoomView({ config, authToken }) {
       )}
 
       {showReportPreview && <ReportPreview />}
+
+      {/* Site edit modal */}
+      {editingSiteId && selectedGroupId && (
+        <div className="form-overlay" onClick={() => setEditingSiteId(null)}>
+          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{config.sites.find(s => s.id === editingSiteId)?.name}</h3>
+              <button className="btn-close" onClick={() => setEditingSiteId(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <ShiftSection site={config.sites.find(s => s.id === editingSiteId)} shiftType="morning" label="בוקר"/>
+              <ShiftSection site={config.sites.find(s => s.id === editingSiteId)} shiftType="evening" label="ערב"/>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group details modal */}
+      {selectedGroupId && (
+        <div className="form-overlay" onClick={() => setSelectedGroupId(null)}>
+          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{getGroup(selectedGroupId).name}</h3>
+              <button className="btn-close" onClick={() => setSelectedGroupId(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, 160px)', gap: '0.5rem', overflow: 'hidden'}}>
+                {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
+                  const morningAssignments = getSiteShiftAssignments(site.id, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
+                  const eveningAssignments = getSiteShiftAssignments(site.id, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
+                  return (
+                    <div
+                      key={site.id}
+                      className="site-square"
+                      onClick={() => setEditingSiteId(site.id)}
+                    >
+                      <div className="site-square-title">{site.name}</div>
+                      <div className="site-square-shift">
+                        <span className="site-square-icon">☀</span>
+                        <span className="site-square-names">{morningAssignments || '—'}</span>
+                      </div>
+                      <div className="site-square-shift">
+                        <span className="site-square-icon">🌙</span>
+                        <span className="site-square-names">{eveningAssignments || '—'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
