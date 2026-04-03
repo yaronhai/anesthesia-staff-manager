@@ -1955,17 +1955,17 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 
 /* Daily Room View */
 .room-view-container {
-  padding: 2rem;
+  padding: 0.75rem 1.5rem;
   direction: rtl;
 }
 
 .room-view-header {
-  margin-bottom: 2rem;
+  margin-bottom: 0.75rem;
 }
 
 .room-view-header h2 {
-  margin: 0 0 1rem 0;
-  font-size: 1.75rem;
+  margin: 0 0 0.4rem 0;
+  font-size: 1.2rem;
   color: #333;
 }
 
@@ -1998,8 +1998,8 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 
 .room-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.5rem;
   flex: 1;
   min-width: 0;
 }
@@ -2012,20 +2012,65 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   flex-direction: column;
   background: #fff;
   overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+
+.room-card:hover {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+.room-card-expanded {
+  grid-column: span 2;
+  cursor: default;
 }
 
 .room-card-title {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 1rem;
+  padding: 0.5rem 0.75rem;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.room-card-arrow {
+  font-size: 0.65rem;
+  opacity: 0.8;
 }
 
 .room-card-content {
   flex: 1;
   padding: 1rem;
   min-height: 80px;
+}
+
+.room-card-summary {
+  padding: 0.3rem 0.6rem 0.4rem;
+}
+
+.room-summary-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #444;
+}
+
+.room-summary-icon {
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.room-summary-morning {
+  color: #92400e;
+}
+
+.room-summary-evening {
+  color: #3730a3;
 }
 
 .room-empty {

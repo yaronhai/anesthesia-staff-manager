@@ -15,6 +15,9 @@ export default function DailyRoomView({ config, authToken }) {
   const [eveningStart, setEveningStart] = useState('15:00');
   const [eveningEnd, setEveningEnd] = useState('23:00');
 
+  // Expanded site card
+  const [expandedSiteId, setExpandedSiteId] = useState(null);
+
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
   const [newAssignment, setNewAssignment] = useState({ worker_id: null, position_id: null, start_time: '', end_time: '', notes: '' });
@@ -63,6 +66,14 @@ export default function DailyRoomView({ config, authToken }) {
 
   function getSiteShiftAssignments(siteId, shiftType) {
     return assignments.filter(a => a.site_id === siteId && a.date === dateStr && a.shift_type === shiftType);
+  }
+
+  function morningNames(siteId) {
+    return getSiteShiftAssignments(siteId, 'morning').map(a => a.first_name).join(', ');
+  }
+
+  function eveningNames(siteId) {
+    return getSiteShiftAssignments(siteId, 'evening').map(a => a.first_name).join(', ');
   }
 
   const dayRequests = shiftRequests.filter(r => r.date === dateStr);
@@ -245,10 +256,33 @@ export default function DailyRoomView({ config, authToken }) {
         <div className="room-view-body">
           <div className="room-cards-grid">
             {config.sites.map(site => (
-              <div key={site.id} className="room-card">
-                <div className="room-card-title">{site.name}</div>
-                <ShiftSection site={site} shiftType="morning" label="בוקר"/>
-                <ShiftSection site={site} shiftType="evening" label="ערב"/>
+              <div
+                key={site.id}
+                className={`room-card${expandedSiteId === site.id ? ' room-card-expanded' : ''}`}
+                onClick={() => setExpandedSiteId(expandedSiteId === site.id ? null : site.id)}
+              >
+                <div className="room-card-title">
+                  <span>{site.name}</span>
+                  <span className="room-card-arrow">{expandedSiteId === site.id ? '▲' : '▼'}</span>
+                </div>
+                {expandedSiteId !== site.id && (
+                  <div className="room-card-summary">
+                    <div className="room-summary-row room-summary-morning">
+                      <span className="room-summary-icon">☀</span>
+                      <span>{morningNames(site.id) || '—'}</span>
+                    </div>
+                    <div className="room-summary-row room-summary-evening">
+                      <span className="room-summary-icon">🌙</span>
+                      <span>{eveningNames(site.id) || '—'}</span>
+                    </div>
+                  </div>
+                )}
+                {expandedSiteId === site.id && (
+                  <div onClick={e => e.stopPropagation()}>
+                    <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+                    <ShiftSection site={site} shiftType="evening" label="ערב"/>
+                  </div>
+                )}
               </div>
             ))}
           </div>
