@@ -158,6 +158,18 @@ export default function DailyRoomView({ config, authToken }) {
     );
   }
 
+  function getWorkerOtherAssignments(workerId, shiftType) {
+    // Get all other site assignments for this worker on the same shift today
+    return assignments.filter(a =>
+      a.worker_id === workerId &&
+      a.date === dateStr &&
+      a.shift_type === shiftType
+    ).map(a => {
+      const site = config.sites.find(s => s.id === a.site_id);
+      return site ? site.name : `אתר לא ידוע (${a.site_id})`;
+    });
+  }
+
   async function saveEditTimes() {
     try {
       const res = await fetch(`/api/worker-site-assignments/${editingAssignment.id}`, {
@@ -610,6 +622,11 @@ export default function DailyRoomView({ config, authToken }) {
                     ))}
                   </select>
                 </div>
+                {newAssignment.worker_id && getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).length > 0 && (
+                  <div style={{padding: '0.75rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#92400e', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
+                    <strong>⚠️ התראה:</strong> העובד משובץ כבר ב{getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).join(', ')}
+                  </div>
+                )}
                 <div className="form-group form-group-inline">
                   <div>
                     <label>שעת התחלה:</label>

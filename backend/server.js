@@ -742,16 +742,6 @@ app.post('/api/worker-site-assignments', requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'סוג משמרת לא תקין' });
   }
 
-  // Check if worker already assigned to different site on same date+shift
-  const conflict = db.prepare(`
-    SELECT COUNT(*) as c FROM worker_site_assignments
-    WHERE worker_id = ? AND date = ? AND shift_type = ? AND site_id != ?
-  `).get(worker_id, date, shiftType, site_id);
-
-  if (conflict.c > 0) {
-    return res.status(400).json({ error: 'עובד כבר משוייך לאתר אחר במשמרת זו' });
-  }
-
   try {
     db.prepare(`
       INSERT INTO worker_site_assignments (worker_id, date, site_id, shift_type, start_time, end_time, notes)
