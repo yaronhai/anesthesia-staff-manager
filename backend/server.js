@@ -204,11 +204,13 @@ const WORKER_SELECT = `
          w.employment_type_id, e.name AS employment_type,
          w.phone, w.email, w.notes,
          w.id_number, w.classification,
-         w.created_at
+         w.created_at,
+         u.id AS user_id
   FROM workers w
   LEFT JOIN honorifics h ON w.honorific_id = h.id
   LEFT JOIN job_titles j ON w.job_id = j.id
   LEFT JOIN employment_types e ON w.employment_type_id = e.id
+  LEFT JOIN users u ON u.worker_id = w.id
 `;
 
 // ── Auth endpoints ──────────────────────────────────────────────────────────
@@ -385,6 +387,7 @@ app.get('/api/shift-requests', requireAuth, (req, res) => {
   const datePrefix = month && year ? `${year}-${String(month).padStart(2, '0')}-` : null;
 
   if (req.user.role === 'admin') {
+    // For admin: return all shift requests with worker info
     const sql = `
       SELECT sr.id, sr.user_id, sr.date, sr.shift_type, sr.preference_type,
              u.username, u.worker_id, w.first_name, w.family_name
@@ -403,18 +406,54 @@ app.get('/api/shift-requests', requireAuth, (req, res) => {
   }
 });
 
+app.get('/api/shift-requests/admin/all-with-workers', requireAdmin, (req, res) => {
+  // Returns all workers with their shift requests for the given month
+  const { month, year } = req.query;
+  const datePrefix = month && year ? `${year}-${String(month).padStart(2, '0')}-` : null;
+  
+  const workers = db.prepare('SELECT * FROM workers ORDER BY first_name, family_name').all();
+  const requests = [];
+  
+  if (datePrefix) {
+    const sql = `
+      SELECT sr.id, sr.user_id, sr.date, sr.shift_type, sr.preference_type,
+             u.username, u.worker_id, w.first_name, w.family_name
+      FROM shift_requests sr
+      JOIN users u ON sr.user_id = u.id
+      LEFT JOIN workers w ON u.worker_id = w.id
+      WHERE sr.date LIKE ?
+      ORDER BY sr.date, u.username
+    `;
+    requests.push(...db.prepare(sql).all(datePrefix + '%'));
+  } else {
+    const sql = `
+      SELECT sr.id, sr.user_id, sr.date, sr.shift_type, sr.preference_type,
+             u.username, u.worker_id, w.first_name, w.family_name
+      FROM shift_requests sr
+      JOIN users u ON sr.user_id = u.id
+      LEFT JOIN workers w ON u.worker_id = w.id
+      ORDER BY sr.date, u.username
+    `;
+    requests.push(...db.prepare(sql).all());
+  }
+  
+  res.json({ workers, requests });
+});
+
 app.post('/api/shift-requests', requireAuth, (req, res) => {
-  const { date, shift_type, preference_type } = req.body;
+  const { date, shift_type, preference_type, user_id } = req.body;
   if (!date || !['morning', 'evening', 'oncall'].includes(shift_type) ||
       !['can', 'prefer', 'cannot'].includes(preference_type)) {
     return res.status(400).json({ error: 'שדות לא תקינים' });
   }
+  // Admin can set for other users; regular users can only set for themselves
+  const targetUserId = req.user.role === 'admin' && user_id ? user_id : req.user.id;
   db.prepare(`
     INSERT INTO shift_requests (user_id, date, shift_type, preference_type) VALUES (?, ?, ?, ?)
     ON CONFLICT(user_id, date, shift_type) DO UPDATE SET preference_type = excluded.preference_type
-  `).run(req.user.id, date, shift_type, preference_type);
+  `).run(targetUserId, date, shift_type, preference_type);
   res.json(db.prepare('SELECT * FROM shift_requests WHERE user_id = ? AND date = ? AND shift_type = ?')
-    .get(req.user.id, date, shift_type));
+    .get(targetUserId, date, shift_type));
 });
 
 app.delete('/api/shift-requests/:id', requireAuth, (req, res) => {

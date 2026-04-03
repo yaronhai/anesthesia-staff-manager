@@ -196,70 +196,146 @@ function UserCalendar({ requests, viewDate, token, onRefresh }) {
 }
 
 // ── Admin grid view ──────────────────────────────────────────────────────────
-function AdminGrid({ requests, viewDate }) {
+function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
+  const [editingCell, setEditingCell] = useState(null); // { userId, day, shiftKey }
+  
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  // Group: userMap[userId] = { name, days: { dayNum: { morning, evening, oncall } } }
-  const userMap = {};
+  // Group requests by userId
+  const requestMap = {};
   requests.forEach(r => {
-    if (!userMap[r.user_id]) {
-      userMap[r.user_id] = {
-        name: r.first_name ? `${r.first_name} ${r.family_name}` : r.username,
-        days: {},
-      };
-    }
+    if (!requestMap[r.user_id]) requestMap[r.user_id] = {};
     const d = parseInt(r.date.split('-')[2]);
-    if (!userMap[r.user_id].days[d]) userMap[r.user_id].days[d] = {};
-    userMap[r.user_id].days[d][r.shift_type] = r.preference_type;
+    if (!requestMap[r.user_id][d]) requestMap[r.user_id][d] = {};
+    requestMap[r.user_id][d][r.shift_type] = { id: r.id, pref: r.preference_type };
   });
 
-  const rows = Object.entries(userMap);
-  if (rows.length === 0) return <p className="empty-msg">אין בקשות לחודש זה</p>;
+  async function setPref(userId, day, shiftKey, prefKey) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const existing = requestMap[userId]?.[day]?.[shiftKey];
+    
+    if (existing && existing.pref === prefKey) {
+      await fetch(`/api/shift-requests/${existing.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } else if (prefKey === '') {
+      if (existing) {
+        await fetch(`/api/shift-requests/${existing.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } else {
+      await fetch('/api/shift-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, user_id: userId }),
+      });
+    }
+    setEditingCell(null);
+    onRefresh();
+  }
+
+  const rows = workers.map(w => ({
+    id: w.id,
+    userId: w.user_id,
+    name: `${w.first_name} ${w.family_name}`,
+  }));
 
   return (
-    <div className="admin-grid-wrap">
-      <table className="admin-grid">
-        <thead>
-          <tr>
-            <th className="admin-grid-name-col">עובד</th>
-            {days.map(d => (
-              <th key={d} className="admin-grid-day-col">
-                <div>{d}</div>
-                <div className="admin-grid-day-letter">{DAYS_HE[new Date(year, month, d).getDay()][0]}</div>
-              </th>
+    <>
+      <div className="admin-grid-wrap">
+        <table className="admin-grid">
+          <thead>
+            <tr>
+              <th className="admin-grid-name-col">עובד</th>
+              {days.map(d => (
+                <th key={d} className="admin-grid-day-col">
+                  <div>{d}</div>
+                  <div className="admin-grid-day-letter">{DAYS_HE[new Date(year, month, d).getDay()][0]}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => (
+              <tr key={row.userId}>
+                <td className="admin-grid-name-col">{row.name}</td>
+                {days.map(d => {
+                  const dayData = requestMap[row.userId]?.[d] || {};
+                  return (
+                    <td key={d} className="admin-grid-cell" onClick={() => setEditingCell({ userId: row.userId, day: d })}>
+                      <div className="admin-cell-pills">
+                        {SHIFTS.map(s => {
+                          const req = dayData[s.key];
+                          return req
+                            ? <span key={s.key} className={`cell-pill pref-${req.pref}`}>{s.short}</span>
+                            : null;
+                        })}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
             ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(([userId, userData]) => (
-            <tr key={userId}>
-              <td className="admin-grid-name-col">{userData.name}</td>
-              {days.map(d => {
-                const cell = userData.days[d] || {};
+          </tbody>
+        </table>
+      </div>
+
+      {editingCell && (
+        <div className="admin-editor-overlay" onClick={() => setEditingCell(null)}>
+          <div className="admin-editor-modal" onClick={e => e.stopPropagation()}>
+            <div className="admin-editor-header">
+              <h3>עריכה: {rows.find(r => r.userId === editingCell.userId)?.name} - יום {editingCell.day}</h3>
+              <button className="btn-close" onClick={() => setEditingCell(null)}>✕</button>
+            </div>
+            <div className="admin-editor-content">
+              {SHIFTS.map(s => {
+                const dayData = requestMap[editingCell.userId]?.[editingCell.day] || {};
                 return (
-                  <td key={d} className="admin-grid-cell">
-                    <div className="admin-cell-pills">
-                      {SHIFTS.map(s => cell[s.key]
-                        ? <span key={s.key} className={`cell-pill pref-${cell[s.key]}`}>{s.short}</span>
-                        : null)}
+                  <div key={s.key} className="editor-shift-row-large">
+                    <span className="editor-shift-label-large">{s.label}</span>
+                    <div className="editor-pref-buttons">
+                      {PREFS.map(p => {
+                        const isActive = dayData[s.key]?.pref === p.key;
+                        return (
+                          <button
+                            key={p.key}
+                            className={`editor-pref-btn-large pref-${p.key}${isActive ? ' active' : ''}`}
+                            onClick={() => setPref(editingCell.userId, editingCell.day, s.key, p.key)}
+                          >
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                      {dayData[s.key] && (
+                        <button
+                          className="editor-pref-btn-large btn-clear-large"
+                          onClick={() => setPref(editingCell.userId, editingCell.day, s.key, '')}
+                        >
+                          מחק
+                        </button>
+                      )}
                     </div>
-                  </td>
+                  </div>
                 );
               })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function ShiftRequests({ currentUser, token }) {
   const [requests, setRequests] = useState([]);
+  const [workers, setWorkers] = useState([]);
   const [viewDate, setViewDate] = useState(new Date());
 
   const year = viewDate.getFullYear();
@@ -272,31 +348,64 @@ export default function ShiftRequests({ currentUser, token }) {
     if (res.ok) setRequests(await res.json());
   }, [month, year, token]);
 
-  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+  const fetchWorkers = useCallback(async () => {
+    const res = await fetch('/api/workers', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) setWorkers(await res.json());
+  }, [token]);
+
+  useEffect(() => { 
+    fetchRequests();
+    if (currentUser.role === 'admin') fetchWorkers();
+  }, [fetchRequests, fetchWorkers, currentUser]);
 
   function prevMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
   function nextMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); }
+  function prevYear() { setViewDate(d => new Date(d.getFullYear() - 1, d.getMonth(), 1)); }
+  function nextYear() { setViewDate(d => new Date(d.getFullYear() + 1, d.getMonth(), 1)); }
 
-  return (
-    <div className="shift-view">
-      <div className="shift-header">
-        <div className="shift-header-top">
-          <div className="month-nav">
-            <button className="btn-secondary btn-sm" onClick={prevMonth}>חודש קודם</button>
-            <span className="month-label">{MONTHS[month]} {year}</span>
-            <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש הבא</button>
+  if (currentUser.role === 'admin') {
+    return (
+      <div className="shift-view">
+        <div className="shift-admin-header">
+          <h2>ניהול בקשות משמרות</h2>
+          <div className="month-year-nav">
+            <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
+            <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
+            <span className="month-year-label">{MONTHS[month]} {year}</span>
+            <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
+            <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
+          </div>
+        </div>
+        <AdminGrid workers={workers} requests={requests} token={token} viewDate={viewDate} onRefresh={fetchRequests} />
+        <div className="admin-grid-legend">
+          <div className="legend-row">
+            <span className="legend-label">תרגום צבעים:</span>
+          </div>
+          <div className="legend-row">
+            <span className="legend-item">
+              <span className="legend-color" style={{ background: '#10b981' }}></span> יכול
+            </span>
+            <span className="legend-item">
+              <span className="legend-color" style={{ background: '#f59e0b' }}></span> מעדיף
+            </span>
+            <span className="legend-item">
+              <span className="legend-color" style={{ background: '#ef4444' }}></span> לא יכול
+            </span>
+            <span className="legend-item">
+              <span className="legend-color" style={{ background: '#fee2e2' }}></span> יום שבת
+            </span>
           </div>
         </div>
       </div>
+    );
+  }
 
-      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} />
-
-      {currentUser.role === 'admin' && (
-        <>
-          <h3 className="admin-grid-title">סקירת כל העובדים</h3>
-          <AdminGrid requests={requests} viewDate={viewDate} />
-        </>
-      )}
+  return (
+    <div className="shift-view">
+      <h2>בקשות משמרות</h2>
+      <UserCalendar requests={requests} viewDate={new Date()} token={token} onRefresh={fetchRequests} />
     </div>
   );
 }
