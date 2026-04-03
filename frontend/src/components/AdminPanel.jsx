@@ -7,6 +7,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
   const [newSite, setNewSite] = useState('');
   const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
+  const [expandedSections, setExpandedSections] = useState({ jobs: true, empTypes: true, honorifics: true, sites: true });
 
   async function addItem(endpoint, value, setter) {
     if (!value.trim()) return;
@@ -103,6 +104,10 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     }
   }
 
+  function toggleSection(section) {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  }
+
 
   return (
     <div className="form-overlay" onClick={onClose}>
@@ -115,8 +120,13 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
         <div className="settings-grid settings-grid-5">
 
           <div className="settings-card">
-            <h3>תפקידים</h3>
-            <ul className="config-list">
+            <h3 className="settings-card-header" onClick={() => toggleSection('jobs')}>
+              תפקידים
+              <span className="settings-card-arrow">{expandedSections.jobs ? '▲' : '▼'}</span>
+            </h3>
+            {expandedSections.jobs && (
+              <>
+                <ul className="config-list">
               {config.jobs.map(job => (
                 <li key={job.id}>
                   {editingKey === `job-${job.id}` ? (
@@ -149,20 +159,27 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </li>
               ))}
             </ul>
-            <div className="config-add">
-              <input
-                value={newJob}
-                onChange={e => setNewJob(e.target.value)}
-                placeholder="תפקיד חדש..."
-                onKeyDown={e => e.key === 'Enter' && addItem('/api/config/jobs', newJob, setNewJob)}
-              />
-              <button className="btn-primary" onClick={() => addItem('/api/config/jobs', newJob, setNewJob)}>הוסף</button>
-            </div>
+                <div className="config-add">
+                  <input
+                    value={newJob}
+                    onChange={e => setNewJob(e.target.value)}
+                    placeholder="תפקיד חדש..."
+                    onKeyDown={e => e.key === 'Enter' && addItem('/api/config/jobs', newJob, setNewJob)}
+                  />
+                  <button className="btn-primary" onClick={() => addItem('/api/config/jobs', newJob, setNewJob)}>הוסף</button>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="settings-card">
-            <h3>סוגי העסקה</h3>
-            <ul className="config-list">
+            <h3 className="settings-card-header" onClick={() => toggleSection('empTypes')}>
+              סוגי העסקה
+              <span className="settings-card-arrow">{expandedSections.empTypes ? '▲' : '▼'}</span>
+            </h3>
+            {expandedSections.empTypes && (
+              <>
+                <ul className="config-list">
               {config.employment_types.map(type => (
                 <li key={type.id}>
                   {editingKey === `emptype-${type.id}` ? (
@@ -195,20 +212,27 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </li>
               ))}
             </ul>
-            <div className="config-add">
-              <input
-                value={newEmpType}
-                onChange={e => setNewEmpType(e.target.value)}
-                placeholder="סוג העסקה חדש..."
-                onKeyDown={e => e.key === 'Enter' && addItem('/api/config/employment-types', newEmpType, setNewEmpType)}
-              />
-              <button className="btn-primary" onClick={() => addItem('/api/config/employment-types', newEmpType, setNewEmpType)}>הוסף</button>
-            </div>
+                <div className="config-add">
+                  <input
+                    value={newEmpType}
+                    onChange={e => setNewEmpType(e.target.value)}
+                    placeholder="סוג העסקה חדש..."
+                    onKeyDown={e => e.key === 'Enter' && addItem('/api/config/employment-types', newEmpType, setNewEmpType)}
+                  />
+                  <button className="btn-primary" onClick={() => addItem('/api/config/employment-types', newEmpType, setNewEmpType)}>הוסף</button>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="settings-card">
-            <h3>תארים</h3>
-            <ul className="config-list">
+            <h3 className="settings-card-header" onClick={() => toggleSection('honorifics')}>
+              תארים
+              <span className="settings-card-arrow">{expandedSections.honorifics ? '▲' : '▼'}</span>
+            </h3>
+            {expandedSections.honorifics && (
+              <>
+                <ul className="config-list">
               {(config.honorifics || []).map(h => (
                 <li key={h.id}>
                   {editingKey === `honorific-${h.id}` ? (
@@ -241,20 +265,27 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </li>
               ))}
             </ul>
-            <div className="config-add">
-              <input
-                value={newHonorific}
-                onChange={e => setNewHonorific(e.target.value)}
-                placeholder="תואר חדש..."
-                onKeyDown={e => e.key === 'Enter' && addItem('/api/config/honorifics', newHonorific, setNewHonorific)}
-              />
-              <button className="btn-primary" onClick={() => addItem('/api/config/honorifics', newHonorific, setNewHonorific)}>הוסף</button>
-            </div>
+                <div className="config-add">
+                  <input
+                    value={newHonorific}
+                    onChange={e => setNewHonorific(e.target.value)}
+                    placeholder="תואר חדש..."
+                    onKeyDown={e => e.key === 'Enter' && addItem('/api/config/honorifics', newHonorific, setNewHonorific)}
+                  />
+                  <button className="btn-primary" onClick={() => addItem('/api/config/honorifics', newHonorific, setNewHonorific)}>הוסף</button>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="settings-card">
-            <h3>אתרים</h3>
-            <ul className="config-list">
+            <h3 className="settings-card-header" onClick={() => toggleSection('sites')}>
+              אתרים
+              <span className="settings-card-arrow">{expandedSections.sites ? '▲' : '▼'}</span>
+            </h3>
+            {expandedSections.sites && (
+              <>
+                <ul className="config-list">
               {(config.sites || []).map(site => (
                 <li key={site.id}>
                   {editingKey === `site-${site.id}` ? (
@@ -287,15 +318,17 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </li>
               ))}
             </ul>
-            <div className="config-add">
-              <input
-                value={newSite}
-                onChange={e => setNewSite(e.target.value)}
-                placeholder="אתר חדש..."
-                onKeyDown={e => e.key === 'Enter' && addSite()}
-              />
-              <button className="btn-primary" onClick={addSite}>הוסף</button>
-            </div>
+                <div className="config-add">
+                  <input
+                    value={newSite}
+                    onChange={e => setNewSite(e.target.value)}
+                    placeholder="אתר חדש..."
+                    onKeyDown={e => e.key === 'Enter' && addSite()}
+                  />
+                  <button className="btn-primary" onClick={addSite}>הוסף</button>
+                </div>
+              </>
+            )}
           </div>
 
 
