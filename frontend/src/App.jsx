@@ -4,10 +4,10 @@ import WorkerForm from './components/WorkerForm';
 import AdminPanel from './components/AdminPanel';
 import ShiftRequests from './components/ShiftRequests';
 import MonthlyReport from './components/MonthlyReport';
-import WorkplaceStaffing from './components/WorkplaceStaffing';
 import DailyRoomView from './components/DailyRoomView';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
+import logoAssuta from './assets/logo-assuta.png';
 import './App.css';
 
 const API = '/api/workers';
@@ -137,9 +137,12 @@ export default function App() {
     return (
       <div className="app">
         <header>
-          <div>
-            <h1>מחלקת הרדמה</h1>
-            <p className="subtitle">ניהול צוות</p>
+          <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+            <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '120px', height: 'auto'}} />
+            <div>
+              <h1>מחלקת הרדמה</h1>
+              <p className="subtitle">ניהול צוות</p>
+            </div>
           </div>
         </header>
         <LoginModal onLogin={handleLogin} />
@@ -152,9 +155,12 @@ export default function App() {
     return (
       <div className="app">
         <header>
-          <div>
-            <h1>מחלקת הרדמה</h1>
-            <p className="subtitle">ניהול צוות</p>
+          <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+            <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '120px', height: 'auto'}} />
+            <div>
+              <h1>מחלקת הרדמה</h1>
+              <p className="subtitle">ניהול צוות</p>
+            </div>
           </div>
         </header>
         <ChangePasswordModal token={authToken} onSuccess={handlePasswordChanged} />
@@ -166,7 +172,8 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <div>
+        <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '200px', height: 'auto'}} />
+        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1}}>
           <h1>מחלקת הרדמה</h1>
           <p className="subtitle">ניהול צוות</p>
         </div>
@@ -205,14 +212,6 @@ export default function App() {
             onClick={() => setActiveTab('report')}
           >
             דו"ח חודשי
-          </button>
-        )}
-        {isAdmin && (
-          <button
-            className={`tab-btn${activeTab === 'staffing' ? ' active' : ''}`}
-            onClick={() => setActiveTab('staffing')}
-          >
-            ניהול התמנויות אתר
           </button>
         )}
         {isAdmin && (
@@ -266,10 +265,6 @@ export default function App() {
 
       {activeTab === 'report' && isAdmin && (
         <MonthlyReport token={authToken} />
-      )}
-
-      {activeTab === 'staffing' && isAdmin && (
-        <WorkplaceStaffing config={config} authToken={authToken} />
       )}
 
       {activeTab === 'rooms' && isAdmin && (

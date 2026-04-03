@@ -32,17 +32,15 @@ function buildCalendarWeeks(year, month) {
 }
 
 // ── Day cell in user calendar ────────────────────────────────────────────────
-function DayCell({ day, dateStr, dayRequests, isToday, onClick }) {
-  const isSaturday = (() => {
-    const [year, month, dayNum] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, dayNum).getDay() === 6;
-  })();
+function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek }) {
+  const isSaturday = dayOfWeek === 6;
   return (
     <div
       className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : ''}${dayRequests.length ? ' cal-has-data' : ''}`}
       onClick={() => onClick(day, dateStr)}
     >
       <span className="cal-day-num">{day}</span>
+      <div className="cal-day-name">{DAYS_HE[dayOfWeek]}</div>
       <div className="cal-indicators">
         {SHIFTS.map(s => {
           const r = dayRequests.find(r => r.shift_type === s.key);
@@ -155,19 +153,23 @@ function UserCalendar({ requests, viewDate, token, onRefresh }) {
         </div>
         {weeks.map((week, wi) => (
           <div key={wi} className="cal-week-row">
-            {week.map((day, di) => (
-              <div key={di} className="cal-cell">
-                {day && (
-                  <DayCell
-                    day={day}
-                    dateStr={toDateStr(year, month, day)}
-                    dayRequests={requests.filter(r => r.date === toDateStr(year, month, day))}
-                    isToday={toDateStr(year, month, day) === todayStr}
-                    onClick={openEditor}
-                  />
-                )}
-              </div>
-            ))}
+            {week.map((day, di) => {
+              const dow = day ? new Date(year, month, day).getDay() : null;
+              return (
+                <div key={di} className="cal-cell">
+                  {day && (
+                    <DayCell
+                      day={day}
+                      dateStr={toDateStr(year, month, day)}
+                      dayRequests={requests.filter(r => r.date === toDateStr(year, month, day))}
+                      isToday={toDateStr(year, month, day) === todayStr}
+                      onClick={openEditor}
+                      dayOfWeek={dow}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
@@ -257,12 +259,16 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
           <thead>
             <tr>
               <th className="admin-grid-name-col">עובד</th>
-              {days.map(d => (
-                <th key={d} className="admin-grid-day-col">
-                  <div>{d}</div>
-                  <div className="admin-grid-day-letter">{DAYS_HE[new Date(year, month, d).getDay()][0]}</div>
-                </th>
-              ))}
+              {days.map(d => {
+                const dow = new Date(year, month, d).getDay();
+                const isSaturday = dow === 6;
+                return (
+                  <th key={d} className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : ''}`}>
+                    <div>{d}</div>
+                    <div className="admin-grid-day-letter">{DAYS_HE[dow]}</div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -271,8 +277,10 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
                 <td className="admin-grid-name-col">{row.name}</td>
                 {days.map(d => {
                   const dayData = requestMap[row.userId]?.[d] || {};
+                  const dow = new Date(year, month, d).getDay();
+                  const isSaturday = dow === 6;
                   return (
-                    <td key={d} className="admin-grid-cell" onClick={() => setEditingCell({ userId: row.userId, day: d })}>
+                    <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}`} onClick={() => setEditingCell({ userId: row.userId, day: d })}>
                       <div className="admin-cell-pills">
                         {SHIFTS.map(s => {
                           const req = dayData[s.key];

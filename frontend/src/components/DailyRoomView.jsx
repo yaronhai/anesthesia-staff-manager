@@ -26,6 +26,9 @@ export default function DailyRoomView({ config, authToken }) {
   const [editingAssignment, setEditingAssignment] = useState(null);
   const [editTimes, setEditTimes] = useState({ start_time: '', end_time: '', notes: '' });
 
+  // Report preview modal
+  const [showReportPreview, setShowReportPreview] = useState(false);
+
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
   const day = viewDate.getDate();
@@ -69,11 +72,11 @@ export default function DailyRoomView({ config, authToken }) {
   }
 
   function morningNames(siteId) {
-    return getSiteShiftAssignments(siteId, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
+    return getSiteShiftAssignments(siteId, 'morning').map(a => a.first_name).join(', ');
   }
 
   function eveningNames(siteId) {
-    return getSiteShiftAssignments(siteId, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
+    return getSiteShiftAssignments(siteId, 'evening').map(a => a.first_name).join(', ');
   }
 
   const dayRequests = shiftRequests.filter(r => r.date === dateStr);
@@ -197,6 +200,89 @@ export default function DailyRoomView({ config, authToken }) {
     return date.getDay() === 6;
   }
 
+  function openReportPreview() {
+    setShowReportPreview(true);
+  }
+
+  function ReportPreview() {
+    const title = `דו"ח שיבוצים לחדרים - ${dateLabel}`;
+
+    // Group assignments by worker
+    const workerAssignments = {};
+    assignments.forEach(a => {
+      if (a.date === dateStr) {
+        if (!workerAssignments[a.worker_id]) {
+          workerAssignments[a.worker_id] = {
+            name: `${a.first_name} ${a.family_name}`,
+            first_name: a.first_name,
+            assignments: []
+          };
+        }
+        workerAssignments[a.worker_id].assignments.push(a);
+      }
+    });
+
+    // Get all workers with their assignments (including those with no assignments)
+    const allWorkerAssignments = workers.map(w => ({
+      id: w.id,
+      name: `${w.first_name} ${w.family_name}`,
+      first_name: w.first_name,
+      assignments: workerAssignments[w.id]?.assignments || []
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    return (
+      <div className="form-overlay" onClick={() => setShowReportPreview(false)}>
+        <div className="report-modal" onClick={e => e.stopPropagation()}>
+          <div className="report-header">
+            <h2>{title}</h2>
+            <div style={{display: 'flex', gap: '0.5rem'}}>
+              <button onClick={() => window.print()} className="btn-primary btn-sm">🖨️ הדפס</button>
+              <button onClick={() => setShowReportPreview(false)} className="btn-close">✕</button>
+            </div>
+          </div>
+          <div className="report-content">
+            <div className="report-wrapper">
+              <div className="report-title">
+                <h1>{title}</h1>
+                <p>דוח שיבוצים יומי לעובדים</p>
+              </div>
+              <div className="workers-list">
+                {allWorkerAssignments.map(worker => (
+                  <div key={worker.id} className="worker-report-section">
+                    <div className="worker-report-name">{worker.name}</div>
+                    <div className="worker-assignments">
+                      {worker.assignments.length === 0 ? (
+                        <div className="no-assignments">לא משובץ</div>
+                      ) : (
+                        <div style={{display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: '0.5rem', alignItems: 'center'}}>
+                          {worker.assignments.map((a) => {
+                            const site = config.sites.find(s => s.id === a.site_id);
+                            const shiftLabel = a.shift_type === 'morning' ? '☀ בוקר' : '🌙 ערב';
+                            const startTime = a.start_time || (a.shift_type === 'morning' ? morningStart : eveningStart);
+                            const endTime = a.end_time || (a.shift_type === 'morning' ? morningEnd : eveningEnd);
+
+                            return (
+                              <div key={a.id} style={{display: 'contents'}}>
+                                <div className="assignment-shift-badge">{shiftLabel}</div>
+                                <div className="assignment-site">{site?.name}</div>
+                                <div className="assignment-job">({a.job_name})</div>
+                                <div className="assignment-time">{startTime}–{endTime}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function ShiftSection({ site, shiftType, label }) {
     const siteAssignments = getSiteShiftAssignments(site.id, shiftType);
     return (
@@ -239,7 +325,10 @@ export default function DailyRoomView({ config, authToken }) {
   return (
     <div className="room-view-container">
       <div className="room-view-header">
-        <h2>שיבוצים לחדרים</h2>
+        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+          <h2>שיבוצים לחדרים</h2>
+          <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ הדפס</button>
+        </div>
         <div className="room-nav">
           <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
           <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
@@ -311,23 +400,31 @@ export default function DailyRoomView({ config, authToken }) {
               {config.sites.map(site => (
                 <div
                   key={site.id}
-                  className="room-card"
-                  onClick={() => setExpandedSiteId(site.id)}
+                  className={`room-card${expandedSiteId === site.id ? ' room-card-expanded' : ''}`}
+                  onClick={() => setExpandedSiteId(expandedSiteId === site.id ? null : site.id)}
                 >
                   <div className="room-card-title">
                     <span>{site.name}</span>
-                    <span className="room-card-arrow">▼</span>
+                    <span className="room-card-arrow">{expandedSiteId === site.id ? '▲' : '▼'}</span>
                   </div>
-                  <div className="room-card-summary">
-                    <div className="room-summary-row room-summary-morning">
-                      <span className="room-summary-icon">☀</span>
-                      <span>{morningNames(site.id) || '—'}</span>
+                  {expandedSiteId !== site.id && (
+                    <div className="room-card-summary">
+                      <div className="room-summary-row room-summary-morning">
+                        <span className="room-summary-icon">☀</span>
+                        <span>{morningNames(site.id) || '—'}</span>
+                      </div>
+                      <div className="room-summary-row room-summary-evening">
+                        <span className="room-summary-icon">🌙</span>
+                        <span>{eveningNames(site.id) || '—'}</span>
+                      </div>
                     </div>
-                    <div className="room-summary-row room-summary-evening">
-                      <span className="room-summary-icon">🌙</span>
-                      <span>{eveningNames(site.id) || '—'}</span>
+                  )}
+                  {expandedSiteId === site.id && (
+                    <div onClick={e => e.stopPropagation()}>
+                      <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+                      <ShiftSection site={site} shiftType="evening" label="ערב"/>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -335,21 +432,6 @@ export default function DailyRoomView({ config, authToken }) {
         </>
       )}
 
-      {/* Site details modal */}
-      {expandedSiteId && (
-        <div className="form-overlay" onClick={() => setExpandedSiteId(null)}>
-          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{config.sites.find(s => s.id === expandedSiteId)?.name}</h3>
-              <button className="btn-close" onClick={() => setExpandedSiteId(null)}>✕</button>
-            </div>
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-              <ShiftSection site={config.sites.find(s => s.id === expandedSiteId)} shiftType="morning" label="בוקר"/>
-              <ShiftSection site={config.sites.find(s => s.id === expandedSiteId)} shiftType="evening" label="ערב"/>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add assignment modal */}
       {addingTo && (
@@ -468,6 +550,8 @@ export default function DailyRoomView({ config, authToken }) {
           </div>
         </div>
       )}
+
+      {showReportPreview && <ReportPreview />}
     </div>
   );
 }
