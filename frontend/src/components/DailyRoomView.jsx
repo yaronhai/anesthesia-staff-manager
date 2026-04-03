@@ -224,12 +224,36 @@ export default function DailyRoomView({ config, authToken }) {
     updateSiteGroup(siteId, targetGroupId);
   }
 
+  function extractNumber(str) {
+    const match = str.match(/(\d+)/);
+    return match ? parseInt(match[1]) : null;
+  }
+
+  function sortSites(a, b) {
+    const numA = extractNumber(a.name);
+    const numB = extractNumber(b.name);
+
+    // If both have numbers, sort numerically
+    if (numA !== null && numB !== null) {
+      return numA - numB;
+    }
+    // If only one has a number, put the one without number first
+    if (numA === null && numB !== null) return -1;
+    if (numA !== null && numB === null) return 1;
+    // Otherwise sort alphabetically
+    return a.name.localeCompare(b.name, 'he');
+  }
+
   function groupSitesByGroup(sites) {
     const groups = {};
     sites.forEach(site => {
       const groupId = site.group_id ? String(site.group_id) : 'ungrouped';
       if (!groups[groupId]) groups[groupId] = [];
       groups[groupId].push(site);
+    });
+    // Sort sites within each group with number-aware sorting
+    Object.keys(groups).forEach(groupId => {
+      groups[groupId].sort(sortSites);
     });
     return groups;
   }
@@ -242,6 +266,11 @@ export default function DailyRoomView({ config, authToken }) {
 
   function getGroupName(groupId) {
     return getGroup(groupId).name;
+  }
+
+  function getUnassignedWorkers() {
+    const assignedWorkerIds = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
+    return workers.filter(w => !assignedWorkerIds.has(w.id)).sort((a, b) => a.first_name.localeCompare(b.first_name, 'he'));
   }
 
 
@@ -450,12 +479,27 @@ export default function DailyRoomView({ config, authToken }) {
             </div>
           </div>
 
+          <div className="room-unassigned-bar">
+            <span className="room-unassigned-label">עובדים שלא משובצים ({dateStr}):</span>
+            <div className="room-unassigned-content">
+              {getUnassignedWorkers().length === 0 ? (
+                <span className="room-unassigned-empty">כל העובדים משובצים ✓</span>
+              ) : (
+                getUnassignedWorkers().map(w => (
+                  <span key={w.id} className="room-unassigned-worker">
+                    {w.first_name} {w.family_name}
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+
           <div className="room-view-body">
             <DragDropContext onDragEnd={onDragEnd}>
               {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => {
                 const group = getGroup(groupId);
                 return (
-                <div key={groupId} className="room-group-section">
+                <div key={groupId} className="room-group-section" style={{backgroundColor: `${group.color}10`, borderColor: group.color}}>
                   <h3 className="room-group-title" style={{color: group.color, borderLeft: `4px solid ${group.color}`}}>{group.name}</h3>
                   <Droppable droppableId={groupId} direction="horizontal" type="SITE">
                     {(provided, snapshot) => (
