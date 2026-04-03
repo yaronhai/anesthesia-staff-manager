@@ -76,7 +76,7 @@ export default function DailyRoomView({ config, authToken }) {
     return getSiteShiftAssignments(siteId, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
   }
 
-  const dayRequests = shiftRequests.filter(r => r.date === dateStr);
+  const dayRequests = shiftRequests.filter(r => r.date === dateStr && (r.preference_type === 'can' || r.preference_type === 'prefer'));
   const morningRequests = dayRequests.filter(r => r.shift_type === 'morning');
   const eveningRequests = dayRequests.filter(r => r.shift_type === 'evening');
 
