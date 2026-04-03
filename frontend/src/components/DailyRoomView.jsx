@@ -69,11 +69,11 @@ export default function DailyRoomView({ config, authToken }) {
   }
 
   function morningNames(siteId) {
-    return getSiteShiftAssignments(siteId, 'morning').map(a => a.first_name).join(', ');
+    return getSiteShiftAssignments(siteId, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
   }
 
   function eveningNames(siteId) {
-    return getSiteShiftAssignments(siteId, 'evening').map(a => a.first_name).join(', ');
+    return getSiteShiftAssignments(siteId, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
   }
 
   const dayRequests = shiftRequests.filter(r => r.date === dateStr);
