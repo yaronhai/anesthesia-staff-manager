@@ -298,12 +298,7 @@ export default function DailyRoomView({ config, authToken }) {
                 <div
                   key={site.id}
                   className="room-card"
-                  onClick={() => {
-                    if (expandedAll) {
-                      setExpandedAll(false);
-                    }
-                    setExpandedSiteId(site.id);
-                  }}
+                  onClick={() => setExpandedSiteId(site.id)}
                 >
                   <div className="room-card-title">
                     <span>{site.name}</span>
