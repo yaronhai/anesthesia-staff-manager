@@ -291,6 +291,13 @@ export default function DailyRoomView({ config, authToken }) {
     setExpandedGroups({});
   }
 
+  function formatTime24(timeStr) {
+    if (!timeStr) return '';
+    // Ensure HH:MM format (24-hour)
+    const [hours, minutes] = timeStr.split(':');
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
 
   const dateLabel = viewDate.toLocaleDateString('he-IL', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -368,7 +375,7 @@ export default function DailyRoomView({ config, authToken }) {
                                 <div className="assignment-shift-badge">{shiftLabel}</div>
                                 <div className="assignment-site">{site?.name}</div>
                                 <div className="assignment-job">({a.job_name})</div>
-                                <div className="assignment-time">{startTime}–{endTime}</div>
+                                <div className="assignment-time">{formatTime24(startTime)}–{formatTime24(endTime)}</div>
                               </div>
                             );
                           })}
@@ -377,6 +384,20 @@ export default function DailyRoomView({ config, authToken }) {
                     </div>
                   </div>
                 ))}
+              </div>
+              <div style={{marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #ddd'}}>
+                <h3 style={{fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem'}}>עובדים שלא משובצים:</h3>
+                <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem'}}>
+                  {getUnassignedWorkers().length === 0 ? (
+                    <div style={{color: '#059669', fontWeight: 500}}>כל העובדים משובצים ✓</div>
+                  ) : (
+                    getUnassignedWorkers().map(w => (
+                      <div key={w.id} style={{padding: '0.25rem 0.5rem', background: '#fee2e2', color: '#991b1b', borderRadius: '3px', fontSize: '0.85rem'}}>
+                        {w.first_name} {w.family_name}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -391,7 +412,7 @@ export default function DailyRoomView({ config, authToken }) {
       <div className={`room-shift-section room-shift-${shiftType}`}>
         <div className="room-shift-header">
           <span className="room-shift-label">{label}</span>
-          <span className="room-shift-time">{shiftType === 'morning' ? morningStart : eveningStart}–{shiftType === 'morning' ? morningEnd : eveningEnd}</span>
+          <span className="room-shift-time">{formatTime24(shiftType === 'morning' ? morningStart : eveningStart)}–{formatTime24(shiftType === 'morning' ? morningEnd : eveningEnd)}</span>
         </div>
         <div className="room-card-content">
           {siteAssignments.length === 0 ? (
@@ -403,7 +424,7 @@ export default function DailyRoomView({ config, authToken }) {
                   <span className="room-assignment-text">
                     {a.job_name} · {a.first_name} {a.family_name}
                     <span className="room-assignment-time">
-                      {resolveTime(a, shiftType, 'start_time')}–{resolveTime(a, shiftType, 'end_time')}
+                      {formatTime24(resolveTime(a, shiftType, 'start_time'))}–{formatTime24(resolveTime(a, shiftType, 'end_time'))}
                     </span>
                   </span>
                   <button
