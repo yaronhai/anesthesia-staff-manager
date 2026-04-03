@@ -305,7 +305,7 @@ export default function DailyRoomView({ config, authToken }) {
           <div className="room-view-body">
             <div className="room-cards-grid">
               {config.sites.map(site => {
-                const isSiteExpanded = expandedAll || expandedSiteId === site.id;
+                const isSiteExpanded = !expandedAll && expandedSiteId === site.id;
                 return (
                   <div
                     key={site.id}
@@ -313,6 +313,7 @@ export default function DailyRoomView({ config, authToken }) {
                     onClick={() => {
                       if (expandedAll) {
                         setExpandedAll(false);
+                        setExpandedSiteId(site.id);
                       } else {
                         setExpandedSiteId(expandedSiteId === site.id ? null : site.id);
                       }
