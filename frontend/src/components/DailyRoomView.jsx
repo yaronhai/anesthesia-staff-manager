@@ -229,23 +229,6 @@ export default function DailyRoomView({ config, authToken }) {
     );
   }
 
-  function SidebarSection({ title, requests }) {
-    return (
-      <div className="room-sidebar-section">
-        <div className="room-sidebar-section-title">{title}</div>
-        {requests.length === 0 ? (
-          <div className="room-sidebar-empty">אין בקשות</div>
-        ) : (
-          requests.map(r => (
-            <div key={r.id} className={`room-sidebar-worker pref-${r.preference_type}`}>
-              <span>{r.first_name} {r.family_name}</span>
-              <span className="room-sidebar-pref">{PREF_LABEL[r.preference_type]}</span>
-            </div>
-          ))
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="room-view-container">
@@ -278,46 +261,72 @@ export default function DailyRoomView({ config, authToken }) {
       ) : loading ? (
         <div className="loading">טוען...</div>
       ) : (
-        <div className="room-view-body">
-          <div className="room-cards-grid">
-            {config.sites.map(site => (
-              <div
-                key={site.id}
-                className={`room-card${expandedSiteId === site.id ? ' room-card-expanded' : ''}`}
-                onClick={() => setExpandedSiteId(expandedSiteId === site.id ? null : site.id)}
-              >
-                <div className="room-card-title">
-                  <span>{site.name}</span>
-                  <span className="room-card-arrow">{expandedSiteId === site.id ? '▲' : '▼'}</span>
-                </div>
-                {expandedSiteId !== site.id && (
-                  <div className="room-card-summary">
-                    <div className="room-summary-row room-summary-morning">
-                      <span className="room-summary-icon">☀</span>
-                      <span>{morningNames(site.id) || '—'}</span>
-                    </div>
-                    <div className="room-summary-row room-summary-evening">
-                      <span className="room-summary-icon">🌙</span>
-                      <span>{eveningNames(site.id) || '—'}</span>
-                    </div>
-                  </div>
-                )}
-                {expandedSiteId === site.id && (
-                  <div onClick={e => e.stopPropagation()}>
-                    <ShiftSection site={site} shiftType="morning" label="בוקר"/>
-                    <ShiftSection site={site} shiftType="evening" label="ערב"/>
-                  </div>
+        <>
+          <div className="room-requests-bar">
+            <span className="room-requests-label">עובדים זמינים ({dateStr}):</span>
+            <div className="room-requests-content">
+              <div className="room-requests-shift">
+                <span className="room-requests-icon">☀ בוקר:</span>
+                {morningRequests.length === 0 ? (
+                  <span className="room-requests-empty">אין</span>
+                ) : (
+                  morningRequests.map(r => (
+                    <span key={r.id} className={`room-requests-worker pref-${r.preference_type}`} title={PREF_LABEL[r.preference_type]}>
+                      {r.first_name} {r.family_name}
+                    </span>
+                  ))
                 )}
               </div>
-            ))}
+              <div className="room-requests-shift">
+                <span className="room-requests-icon">🌙 ערב:</span>
+                {eveningRequests.length === 0 ? (
+                  <span className="room-requests-empty">אין</span>
+                ) : (
+                  eveningRequests.map(r => (
+                    <span key={r.id} className={`room-requests-worker pref-${r.preference_type}`} title={PREF_LABEL[r.preference_type]}>
+                      {r.first_name} {r.family_name}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="room-sidebar">
-            <div className="room-sidebar-title">בקשות משמרת — {dateStr}</div>
-            <SidebarSection title="בוקר" requests={morningRequests} />
-            <SidebarSection title="ערב" requests={eveningRequests} />
+          <div className="room-view-body">
+            <div className="room-cards-grid">
+              {config.sites.map(site => (
+                <div
+                  key={site.id}
+                  className={`room-card${expandedSiteId === site.id ? ' room-card-expanded' : ''}`}
+                  onClick={() => setExpandedSiteId(expandedSiteId === site.id ? null : site.id)}
+                >
+                  <div className="room-card-title">
+                    <span>{site.name}</span>
+                    <span className="room-card-arrow">{expandedSiteId === site.id ? '▲' : '▼'}</span>
+                  </div>
+                  {expandedSiteId !== site.id && (
+                    <div className="room-card-summary">
+                      <div className="room-summary-row room-summary-morning">
+                        <span className="room-summary-icon">☀</span>
+                        <span>{morningNames(site.id) || '—'}</span>
+                      </div>
+                      <div className="room-summary-row room-summary-evening">
+                        <span className="room-summary-icon">🌙</span>
+                        <span>{eveningNames(site.id) || '—'}</span>
+                      </div>
+                    </div>
+                  )}
+                  {expandedSiteId === site.id && (
+                    <div onClick={e => e.stopPropagation()}>
+                      <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+                      <ShiftSection site={site} shiftType="evening" label="ערב"/>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Add assignment modal */}

@@ -2217,6 +2217,56 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   margin: 0 0.25rem;
 }
 
+/* Requests bar (compact list of available workers) */
+.room-requests-bar {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.room-requests-label {
+  font-weight: 600;
+  color: #374151;
+  margin-right: 0.75rem;
+}
+
+.room-requests-content {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.room-requests-shift {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.room-requests-icon {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.room-requests-worker {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin: 0 0.25rem;
+}
+
+.room-requests-worker.pref-prefer  { background: #dcfce7; color: #166534; }
+.room-requests-worker.pref-can     { background: #dbeafe; color: #1e40af; }
+.room-requests-worker.pref-cannot  { background: #fee2e2; color: #991b1b; }
+
+.room-requests-empty {
+  color: #9ca3af;
+  font-style: italic;
+}
+
 /* Sidebar */
 .room-sidebar {
   width: 220px;
