@@ -112,6 +112,8 @@ const migrations = [
   'ALTER TABLE users ADD COLUMN email TEXT',
   'ALTER TABLE users ADD COLUMN reset_token TEXT',
   'ALTER TABLE users ADD COLUMN reset_token_expires TEXT',
+  'CREATE TABLE IF NOT EXISTS site_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, created_at TEXT DEFAULT (datetime(\'now\')))',
+  'ALTER TABLE sites ADD COLUMN group_id INTEGER REFERENCES site_groups(id) ON DELETE SET NULL',
 ];
 migrations.forEach(sql => { try { db.exec(sql); } catch {} });
 
