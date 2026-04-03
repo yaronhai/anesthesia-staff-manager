@@ -191,7 +191,11 @@ export default function DailyRoomView({ config, authToken }) {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  const isSaturday = viewDate.getDay() === 6;
+  function isSaturday(dateStr) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.getDay() === 6;
+  }
 
   function ShiftSection({ site, shiftType, label }) {
     const siteAssignments = getSiteShiftAssignments(site.id, shiftType);
@@ -275,7 +279,7 @@ export default function DailyRoomView({ config, authToken }) {
                   morningRequests.map(r => (
                     <span
                       key={r.id}
-                      className={`room-requests-worker pref-${r.preference_type}${isSaturday && r.preference_type === 'cannot' ? ' saturday' : ''}`}
+                      className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
                       title={PREF_LABEL[r.preference_type]}
                     >
                       {r.first_name} {r.family_name}
@@ -291,7 +295,7 @@ export default function DailyRoomView({ config, authToken }) {
                   eveningRequests.map(r => (
                     <span
                       key={r.id}
-                      className={`room-requests-worker pref-${r.preference_type}${isSaturday && r.preference_type === 'cannot' ? ' saturday' : ''}`}
+                      className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
                       title={PREF_LABEL[r.preference_type]}
                     >
                       {r.first_name} {r.family_name}
