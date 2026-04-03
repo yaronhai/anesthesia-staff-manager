@@ -180,8 +180,14 @@ migrations.forEach(sql => { try { db.exec(sql); } catch {} });
 ['ד"ר', "פרופ'", 'מר', 'גברת', "גב'"].forEach(n =>
   db.prepare('INSERT OR IGNORE INTO honorifics (name) VALUES (?)').run(n));
 
-// Seed default sites
-['חדר ניתוח 1', 'חדר ניתוח 2', 'IVF', 'גסטרו'].forEach(n =>
+// Seed default sites (20 total)
+[
+  'חדר ניתוח 1', 'חדר ניתוח 2', 'חדר ניתוח 3', 'חדר ניתוח 4',
+  'חדר ניתוח 5', 'חדר ניתוח 6', 'חדר ניתוח 7', 'חדר ניתוח 8',
+  'חדר ניתוח 9', 'חדר ניתוח 10', 'חדר ניתוח 11', 'חדר ניתוח 12',
+  'חדר ניתוח 13', 'חדר ניתוח 14', 'חדר ניתוח 15', 'חדר ניתוח 16',
+  'חדר ניתוח 17', 'חדר ניתוח 18', 'IVF', 'גסטרו'
+].forEach(n =>
   db.prepare('INSERT OR IGNORE INTO sites (name) VALUES (?)').run(n));
 
 // Bootstrap admin (not tied to a worker — for initial system setup)
