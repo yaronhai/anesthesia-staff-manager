@@ -293,8 +293,26 @@ export default function DailyRoomView({ config, authToken }) {
 
   function formatTime24(timeStr) {
     if (!timeStr) return '';
-    // Ensure HH:MM format (24-hour)
-    const [hours, minutes] = timeStr.split(':');
+    // Handle various time formats and ensure HH:MM format (24-hour)
+    let hours, minutes;
+
+    if (timeStr.includes(':')) {
+      [hours, minutes] = timeStr.split(':');
+    } else if (timeStr.length === 4 && !isNaN(timeStr)) {
+      // Format like "0700" or "1500"
+      hours = timeStr.substring(0, 2);
+      minutes = timeStr.substring(2, 4);
+    } else if (timeStr.length === 3 && !isNaN(timeStr)) {
+      // Format like "700" or "100"
+      hours = timeStr.substring(0, 1);
+      minutes = timeStr.substring(1, 3);
+    } else {
+      return timeStr;
+    }
+
+    hours = parseInt(hours) || 0;
+    minutes = parseInt(minutes) || 0;
+
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   }
 
@@ -465,14 +483,10 @@ export default function DailyRoomView({ config, authToken }) {
         </div>
         <div className="room-shift-times-bar">
           <span>בוקר:</span>
-          <input type="time" value={morningStart} onChange={e => setMorningStart(e.target.value)} />
-          <span>–</span>
-          <input type="time" value={morningEnd} onChange={e => setMorningEnd(e.target.value)} />
+          <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>{formatTime24(morningStart)}–{formatTime24(morningEnd)}</span>
           <span className="room-shift-times-sep" />
           <span>ערב:</span>
-          <input type="time" value={eveningStart} onChange={e => setEveningStart(e.target.value)} />
-          <span>–</span>
-          <input type="time" value={eveningEnd} onChange={e => setEveningEnd(e.target.value)} />
+          <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>{formatTime24(eveningStart)}–{formatTime24(eveningEnd)}</span>
         </div>
       </div>
 
