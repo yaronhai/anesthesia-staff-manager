@@ -106,6 +106,20 @@ export default function DailyRoomView({ config, authToken }) {
     if (!addingTo || !newAssignment.worker_id) {
       return;
     }
+
+    // Check if worker has a shift request for this date+shift with can/prefer
+    const hasRequest = shiftRequests.some(r =>
+      r.worker_id === newAssignment.worker_id &&
+      r.date === dateStr &&
+      r.shift_type === addingTo.shift_type &&
+      (r.preference_type === 'can' || r.preference_type === 'prefer')
+    );
+
+    if (!hasRequest) {
+      alert('העובד לא סימן את עצמו כיכול או מעדיף באותו יום במשמרת זו');
+      return;
+    }
+
     try {
       const res = await fetch('/api/worker-site-assignments', {
         method: 'POST',
@@ -132,6 +146,18 @@ export default function DailyRoomView({ config, authToken }) {
       console.error('Network error:', err);
       alert('שגיאת חיבור לשרת: ' + err.message);
     }
+  }
+
+  function getEligibleWorkers(shiftType) {
+    // Only show workers who have a shift request for today with can/prefer
+    return workers.filter(w =>
+      shiftRequests.some(r =>
+        r.worker_id === w.id &&
+        r.date === dateStr &&
+        r.shift_type === shiftType &&
+        (r.preference_type === 'can' || r.preference_type === 'prefer')
+      )
+    );
   }
 
   async function saveEditTimes() {
@@ -307,37 +333,43 @@ export default function DailyRoomView({ config, authToken }) {
                 <p><strong>אתר:</strong> {addingTo.site_name}</p>
                 <p><strong>תאריך:</strong> {dateStr}</p>
               </div>
-              <div className="form-group">
-                <label>עובד:</label>
-                <select
-                  value={newAssignment.worker_id || ''}
-                  onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
-                >
-                  <option value="">בחר עובד...</option>
-                  {workers.map(w => (
-                    <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group form-group-inline">
-                <div>
-                  <label>שעת התחלה:</label>
-                  <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
-                </div>
-                <div>
-                  <label>שעת סיום:</label>
-                  <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>הערות:</label>
-                <input
-                  type="text"
-                  value={newAssignment.notes}
-                  onChange={e => setNewAssignment({ ...newAssignment, notes: e.target.value })}
-                  placeholder="הערות אופציונליות..."
-                />
-              </div>
+              {getEligibleWorkers(addingTo.shift_type).length === 0 ? (
+                <div className="room-edit-hint">אין עובדים זמינים (שסומנו כיכולים או מעדיפים) במשמרת זו</div>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>עובד:</label>
+                    <select
+                      value={newAssignment.worker_id || ''}
+                      onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
+                    >
+                      <option value="">בחר עובד...</option>
+                      {getEligibleWorkers(addingTo.shift_type).map(w => (
+                        <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group form-group-inline">
+                    <div>
+                      <label>שעת התחלה:</label>
+                      <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
+                    </div>
+                    <div>
+                      <label>שעת סיום:</label>
+                      <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>הערות:</label>
+                    <input
+                      type="text"
+                      value={newAssignment.notes}
+                      onChange={e => setNewAssignment({ ...newAssignment, notes: e.target.value })}
+                      placeholder="הערות אופציונליות..."
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <div className="modal-footer">
               <div>
