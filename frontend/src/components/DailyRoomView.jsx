@@ -103,7 +103,11 @@ export default function DailyRoomView({ config, authToken }) {
   }
 
   async function saveNewAssignment() {
-    if (!addingTo || !newAssignment.worker_id || !newAssignment.position_id) return;
+    console.log('saveNewAssignment called', { addingTo, newAssignment });
+    if (!addingTo || !newAssignment.worker_id || !newAssignment.position_id) {
+      console.log('Missing required fields, returning early');
+      return;
+    }
     try {
       const res = await fetch('/api/worker-site-assignments', {
         method: 'POST',
@@ -326,7 +330,11 @@ export default function DailyRoomView({ config, authToken }) {
                   <label>תפקיד:</label>
                   <select
                     value={newAssignment.position_id || ''}
-                    onChange={e => setNewAssignment({ ...newAssignment, position_id: parseInt(e.target.value) })}
+                    onChange={e => {
+                      const val = parseInt(e.target.value);
+                      console.log('position_id changed to:', val);
+                      setNewAssignment({ ...newAssignment, position_id: val });
+                    }}
                   >
                     <option value="">בחר תפקיד...</option>
                     {positionsForAddSite.map(pos => (
@@ -362,6 +370,7 @@ export default function DailyRoomView({ config, authToken }) {
                   className="btn-primary"
                   onClick={saveNewAssignment}
                   disabled={!newAssignment.worker_id || !newAssignment.position_id}
+                  title={`worker: ${newAssignment.worker_id}, position: ${newAssignment.position_id}`}
                 >שמור</button>
               </div>
             </div>
