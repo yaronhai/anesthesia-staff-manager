@@ -25,7 +25,9 @@ export default function DailyRoomView({ config, authToken }) {
   const [selectedSiteId, setSelectedSiteId] = useState(null);
   const [siteActivityTypes, setSiteActivityTypes] = useState({}); // Map of site_id -> activity_type_id
   const [siteShiftTimes, setSiteShiftTimes] = useState({}); // Map of "site_id-shift_type" -> { start_time, end_time }
-  const [editingShiftTimes, setEditingShiftTimes] = useState(null); // { site_id, shift_type, start_time, end_time }
+  const [editingShiftTimes, setEditingShiftTimes] = useState(null); // { site_id, shift_type, start_time, end_time } - for modal editing
+  const [inlineEditingShift, setInlineEditingShift] = useState(null); // "site_id-shift_type" for inline editing
+  const [inlineEditTimes, setInlineEditTimes] = useState({ start_time: '', end_time: '' });
   const [addingToShiftInSite, setAddingToShiftInSite] = useState(null); // { site_id, shift_type } - for adding within site modal
 
   // Add assignment state
@@ -468,21 +470,63 @@ export default function DailyRoomView({ config, authToken }) {
     const siteAssignments = getSiteShiftAssignments(site.id, shiftType);
     const activity = getSiteShiftActivity(site.id, shiftType);
     const shiftTimes = getSiteShiftTimes(site.id, shiftType);
+    const editKey = `${site.id}-${shiftType}`;
+    const isEditing = inlineEditingShift === editKey;
+
+    const handleStartEdit = () => {
+      setInlineEditingShift(editKey);
+      setInlineEditTimes({ start_time: shiftTimes.start_time, end_time: shiftTimes.end_time });
+    };
+
+    const handleSaveEdit = () => {
+      saveSiteShiftTimes(site.id, shiftType, inlineEditTimes.start_time, inlineEditTimes.end_time);
+      setInlineEditingShift(null);
+    };
 
     return (
       <div className={`room-shift-section room-shift-${shiftType}`}>
         <div className="room-shift-header">
           <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1}}>
             <span className="room-shift-label">{label}</span>
-            <span className="room-shift-time">
-              {formatTime24(shiftTimes.start_time)}–{formatTime24(shiftTimes.end_time)}
-            </span>
-            <button
-              className="btn-edit-small"
-              onClick={() => setEditingShiftTimes({ site_id: site.id, site_name: site.name, shift_type: shiftType, ...shiftTimes })}
-              title="ערוך שעות"
-              style={{padding: '0.2rem 0.4rem', fontSize: '0.8rem', marginLeft: '0.5rem'}}
-            >✏️</button>
+            {isEditing ? (
+              <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
+                <input
+                  type="time"
+                  value={inlineEditTimes.start_time}
+                  onChange={e => setInlineEditTimes({...inlineEditTimes, start_time: e.target.value})}
+                  style={{width: '80px', fontSize: '0.85rem'}}
+                />
+                <span>–</span>
+                <input
+                  type="time"
+                  value={inlineEditTimes.end_time}
+                  onChange={e => setInlineEditTimes({...inlineEditTimes, end_time: e.target.value})}
+                  style={{width: '80px', fontSize: '0.85rem'}}
+                />
+                <button
+                  className="btn-primary"
+                  onClick={handleSaveEdit}
+                  style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
+                >✓</button>
+                <button
+                  className="btn-secondary"
+                  onClick={() => setInlineEditingShift(null)}
+                  style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
+                >✕</button>
+              </div>
+            ) : (
+              <>
+                <span className="room-shift-time">
+                  {formatTime24(shiftTimes.start_time)}–{formatTime24(shiftTimes.end_time)}
+                </span>
+                <button
+                  className="btn-edit-small"
+                  onClick={handleStartEdit}
+                  title="ערוך שעות"
+                  style={{padding: '0.2rem 0.4rem', fontSize: '0.8rem', marginLeft: '0.5rem'}}
+                >✏️</button>
+              </>
+            )}
           </div>
           {activity && activity.activity_name && (
             <span style={{
