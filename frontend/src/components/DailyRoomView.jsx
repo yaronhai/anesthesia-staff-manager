@@ -629,7 +629,13 @@ export default function DailyRoomView({ config, authToken }) {
                   </button>
                   <h3 style={{fontSize: '1rem', color: '#1a2e4a'}}>{getGroup(selectedGroupId).name}</h3>
                 </div>
-                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.5rem'}}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                  gap: '0.8rem',
+                  maxHeight: 'calc(100vh - 250px)',
+                  overflow: 'hidden'
+                }}>
                   {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
                     const morningAssignments = getSiteShiftAssignments(site.id, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
                     const eveningAssignments = getSiteShiftAssignments(site.id, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
