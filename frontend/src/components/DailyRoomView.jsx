@@ -689,9 +689,37 @@ export default function DailyRoomView({ config, authToken }) {
               flexDirection: 'column',
               gap: '1.5rem'
             }}>
+              <div style={{
+                background: '#f9fafb',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db'
+              }}>
+                <label style={{
+                  display: 'block',
+                  fontWeight: 600,
+                  color: '#1a2e4a',
+                  marginBottom: '0.5rem',
+                  fontSize: '0.95rem'
+                }}>סוג פעילות באתר זה:</label>
+                <select
+                  style={{
+                    width: '100%',
+                    padding: '0.8rem',
+                    fontSize: '0.95rem',
+                    borderRadius: '6px',
+                    border: '1px solid #d1d5db',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit'
+                  }}
+                  disabled
+                >
+                  <option>הגדרה כללית לאתר (ניתן להוסיף בעתיד)</option>
+                </select>
+              </div>
+
               <ShiftSection site={site} shiftType="morning" label="בוקר"/>
               <ShiftSection site={site} shiftType="evening" label="ערב"/>
-              <ShiftSection site={site} shiftType="night" label="תורנות"/>
             </div>
           </div>
         </div>
