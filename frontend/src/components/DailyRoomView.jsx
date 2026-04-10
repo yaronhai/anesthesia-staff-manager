@@ -36,7 +36,7 @@ export default function DailyRoomView({ config, authToken }) {
   const [addingToShiftInSite, setAddingToShiftInSite] = useState(null); // { site_id, shift_type } - for adding within site modal
 
   // Add assignment state
-  const [newAssignment, setNewAssignment] = useState({ worker_id: null, start_time: '', end_time: '', notes: '' });
+  const [newAssignment, setNewAssignment] = useState({ worker_id: null });
   const [showAllWorkers, setShowAllWorkers] = useState(false);
 
   // Edit times modal
@@ -146,15 +146,15 @@ export default function DailyRoomView({ config, authToken }) {
           date:        dateStr,
           site_id:     addingToShiftInSite.site_id,
           shift_type:  addingToShiftInSite.shift_type,
-          start_time:  newAssignment.start_time || null,
-          end_time:    newAssignment.end_time   || null,
-          notes:       newAssignment.notes      || null,
+          start_time:  null,
+          end_time:    null,
+          notes:       null,
         }),
       });
       if (res.ok) {
         fetchAll();
         setAddingToShiftInSite(null);
-        setNewAssignment({ worker_id: null, start_time: '', end_time: '', notes: '' });
+        setNewAssignment({ worker_id: null });
         setShowAllWorkers(false);
       } else {
         const err = await res.json();
@@ -951,42 +951,8 @@ export default function DailyRoomView({ config, authToken }) {
                     </div>
                   )}
 
-                  <div className="form-group form-group-inline">
-                    <div>
-                      <label>שעת התחלה:</label>
-                      <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
-                    </div>
-                    <div>
-                      <label>שעת סיום:</label>
-                      <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>סוג פעילות:</label>
-                    <select
-                      value={getSiteShiftActivity(site.id, addingToShiftInSite.shift_type)?.activity_type_id || ''}
-                      onChange={e => updateSiteShiftActivity(site.id, addingToShiftInSite.shift_type, e.target.value ? parseInt(e.target.value) : null)}
-                    >
-                      <option value="">— אין פעילות —</option>
-                      {(config.activity_types || []).map(at => (
-                        <option key={at.id} value={at.id}>{at.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>הערות:</label>
-                    <input
-                      type="text"
-                      value={newAssignment.notes}
-                      onChange={e => setNewAssignment({ ...newAssignment, notes: e.target.value })}
-                      placeholder="הערות אופציונליות..."
-                    />
-                  </div>
-
                   <div style={{display: 'flex', gap: '0.75rem', marginTop: '1.5rem'}}>
-                    <button className="btn-secondary" onClick={() => { setAddingToShiftInSite(null); setNewAssignment({ worker_id: null, start_time: '', end_time: '', notes: '' }); setShowAllWorkers(false); }}>ביטול</button>
+                    <button className="btn-secondary" onClick={() => { setAddingToShiftInSite(null); setNewAssignment({ worker_id: null }); setShowAllWorkers(false); }}>ביטול</button>
                     <button
                       className="btn-primary"
                       onClick={saveNewAssignment}
