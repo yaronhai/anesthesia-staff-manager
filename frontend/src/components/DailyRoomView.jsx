@@ -712,9 +712,11 @@ export default function DailyRoomView({ config, authToken }) {
                     cursor: 'pointer',
                     fontFamily: 'inherit'
                   }}
-                  disabled
                 >
-                  <option>הגדרה כללית לאתר (ניתן להוסיף בעתיד)</option>
+                  <option value="">— בחר סוג פעילות —</option>
+                  {(config.activity_types || []).map(at => (
+                    <option key={at.id} value={at.id}>{at.name}</option>
+                  ))}
                 </select>
               </div>
 
