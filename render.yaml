@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: anesthesia-workers
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: DATABASE_URL
+      - key: NODE_ENV
+      - key: SMTP_HOST
+      - key: SMTP_PORT
+      - key: SMTP_SECURE
+      - key: SMTP_USER
+      - key: SMTP_PASS
+      - key: SMTP_FROM
+      - key: APP_URL
