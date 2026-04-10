@@ -4,8 +4,8 @@ services:
     env: node
     region: oregon
     plan: starter
-    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install
-    startCommand: cd backend && npm start
+    buildCommand: cd backend && npm install && cd ../frontend && npm install && npm run build
+    startCommand: node backend/server.js
     envVars:
       - key: DATABASE_URL
       - key: NODE_ENV
