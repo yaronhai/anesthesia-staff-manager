@@ -826,8 +826,10 @@ export default function DailyRoomView({ config, authToken }) {
                   overflow: 'hidden'
                 }}>
                   {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
-                    const morningAssignments = getSiteShiftAssignments(site.id, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
-                    const eveningAssignments = getSiteShiftAssignments(site.id, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
+                    const morningAssignments = getSiteShiftAssignments(site.id, 'morning');
+                    const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
+                    const morningActivity = getSiteShiftActivity(site.id, 'morning');
+                    const eveningActivity = getSiteShiftActivity(site.id, 'evening');
 
                     return (
                       <div
@@ -836,36 +838,59 @@ export default function DailyRoomView({ config, authToken }) {
                         onClick={() => setSelectedSiteId(site.id)}
                       >
                         <div className="site-square-title">{site.name}</div>
-                        {siteActivityTypes[site.id] && (
-                          <div style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            fontSize: '0.7rem',
-                            color: '#0369a1',
-                            fontWeight: 600,
-                            padding: '0.35rem 0.5rem',
-                            background: '#dbeafe',
-                            borderRadius: '4px',
-                            marginBottom: '0.4rem',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            maxWidth: '100%'
-                          }}>
-                            <span>🎯</span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {(config.activity_types || []).find(at => at.id === parseInt(siteActivityTypes[site.id]))?.name}
-                            </span>
+                        <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem'}}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem', width: '100%'}}>
+                            <span className="site-square-icon">☀</span>
+                            {morningActivity?.activity_type_id && (
+                              <span style={{
+                                fontSize: '0.65rem',
+                                color: '#b45309',
+                                fontWeight: 600,
+                                padding: '0.2rem 0.35rem',
+                                background: '#fef9e7',
+                                borderRadius: '3px',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {(config.activity_types || []).find(at => at.id === morningActivity.activity_type_id)?.name}
+                              </span>
+                            )}
                           </div>
-                        )}
-                        <div className="site-square-shift">
-                          <span className="site-square-icon">☀</span>
-                          <span className="site-square-names">{morningAssignments || '—'}</span>
+                          <div className="site-square-names" style={{marginLeft: '1.2rem', fontSize: '0.75rem', lineHeight: '1.2'}}>
+                            {morningAssignments.length > 0 ? (
+                              morningAssignments.map((a, idx) => (
+                                <div key={idx}>{a.first_name} {a.family_name} ({a.job_name})</div>
+                              ))
+                            ) : (
+                              <div>—</div>
+                            )}
+                          </div>
                         </div>
-                        <div className="site-square-shift">
-                          <span className="site-square-icon">🌙</span>
-                          <span className="site-square-names">{eveningAssignments || '—'}</span>
+                        <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem'}}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem', width: '100%'}}>
+                            <span className="site-square-icon">🌙</span>
+                            {eveningActivity?.activity_type_id && (
+                              <span style={{
+                                fontSize: '0.65rem',
+                                color: '#0369a1',
+                                fontWeight: 600,
+                                padding: '0.2rem 0.35rem',
+                                background: '#f0f9ff',
+                                borderRadius: '3px',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {(config.activity_types || []).find(at => at.id === eveningActivity.activity_type_id)?.name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="site-square-names" style={{marginLeft: '1.2rem', fontSize: '0.75rem', lineHeight: '1.2'}}>
+                            {eveningAssignments.length > 0 ? (
+                              eveningAssignments.map((a, idx) => (
+                                <div key={idx}>{a.first_name} {a.family_name} ({a.job_name})</div>
+                              ))
+                            ) : (
+                              <div>—</div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
