@@ -1,5 +1,25 @@
 import { useState, useEffect } from 'react';
 
+function WorkerAuthButton({ worker, authToken, config }) {
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <>
+      <button onClick={() => setShowModal(true)} className="btn-secondary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
+        🔐
+      </button>
+      {showModal && (
+        <WorkerActivityAuthorizations
+          worker={worker}
+          authToken={authToken}
+          config={config}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
+  );
+}
+
 function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
   const [authorizations, setAuthorizations] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -142,7 +162,6 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
 }
 
 function WorkerDetail({ worker, onClose, onEdit, authToken, config }) {
-  const [showAuthorizations, setShowAuthorizations] = useState(false);
   return (
     <div className="form-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={e => e.stopPropagation()}>
@@ -202,18 +221,8 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config }) {
         </div>
         <div className="form-actions">
           <button className="btn-secondary" onClick={onClose}>סגור</button>
-          <button className="btn-secondary" onClick={() => setShowAuthorizations(true)}>🔐 הרשאות לפעילויות</button>
           <button className="btn-primary" onClick={() => { onClose(); onEdit(worker); }}>עריכה</button>
         </div>
-
-        {showAuthorizations && (
-          <WorkerActivityAuthorizations
-            worker={worker}
-            authToken={authToken}
-            config={config}
-            onClose={() => setShowAuthorizations(false)}
-          />
-        )}
       </div>
     </div>
   );
@@ -275,6 +284,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
               <td>
                 <button onClick={() => setViewing(w)} className="btn-view">צפייה</button>
                 <button onClick={() => onEdit(w)} className="btn-edit">עריכה</button>
+                <WorkerAuthButton worker={w} authToken={authToken} config={config} />
                 <button onClick={() => {
                   if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
                     onResetPassword(w.id);
