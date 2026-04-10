@@ -23,6 +23,7 @@ export default function DailyRoomView({ config, authToken }) {
 
   // Modal for site details
   const [selectedSiteId, setSelectedSiteId] = useState(null);
+  const [siteActivityType, setSiteActivityType] = useState(''); // Activity type for selected site
 
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
@@ -669,6 +670,11 @@ export default function DailyRoomView({ config, authToken }) {
       const site = config.sites.find(s => s.id === selectedSiteId);
       if (!site) return null;
 
+      async function saveSiteActivityType(activityTypeId) {
+        setSiteActivityType(activityTypeId);
+        // Can add backend persistence here if needed
+      }
+
       return (
         <div className="form-overlay" onClick={() => setSelectedSiteId(null)}>
           <div
@@ -678,7 +684,7 @@ export default function DailyRoomView({ config, authToken }) {
           >
             <div className="report-header">
               <h2>{site.name} — {dateLabel}</h2>
-              <button className="btn-close" onClick={() => setSelectedSiteId(null)}>✕</button>
+              <button className="btn-close" onClick={() => { setSelectedSiteId(null); setSiteActivityType(''); }}>✕</button>
             </div>
 
             <div style={{
@@ -703,6 +709,8 @@ export default function DailyRoomView({ config, authToken }) {
                   fontSize: '0.95rem'
                 }}>סוג פעילות באתר זה:</label>
                 <select
+                  value={siteActivityType}
+                  onChange={e => saveSiteActivityType(e.target.value)}
                   style={{
                     width: '100%',
                     padding: '0.8rem',
