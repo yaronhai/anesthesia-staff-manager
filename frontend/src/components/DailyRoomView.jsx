@@ -816,7 +816,7 @@ export default function DailyRoomView({ config, authToken }) {
                 </div>
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
                   gap: '0.8rem',
                   maxHeight: 'calc(100vh - 250px)',
                   overflow: 'hidden'
