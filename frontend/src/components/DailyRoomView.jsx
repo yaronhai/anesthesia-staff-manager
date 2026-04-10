@@ -124,16 +124,17 @@ export default function DailyRoomView({ config, authToken }) {
     }
 
     // Check if worker has a shift request for this date+shift with can/prefer
-    const hasRequest = shiftRequests.some(r =>
-      r.worker_id === newAssignment.worker_id &&
-      r.date === dateStr &&
-      r.shift_type === addingTo.shift_type &&
-      (r.preference_type === 'can' || r.preference_type === 'prefer')
-    );
+    const hasRequest = didWorkerRequestShift(newAssignment.worker_id, addingTo.shift_type);
 
     if (!hasRequest) {
-      alert('העובד לא סימן את עצמו כיכול או מעדיף באותו יום במשמרת זו');
-      return;
+      const worker = workers.find(w => w.id === newAssignment.worker_id);
+      const shiftLabel = addingTo.shift_type === 'morning' ? 'בוקר' : addingTo.shift_type === 'night' ? 'תורנות' : 'ערב';
+      const confirmed = window.confirm(
+        `⚠️ ${worker?.first_name} ${worker?.family_name} לא ביקש לעבוד ב${shiftLabel}.\n\nהאם אתה בטוח שברצונך לשבץ אותו?`
+      );
+      if (!confirmed) {
+        return;
+      }
     }
 
     try {
@@ -153,6 +154,7 @@ export default function DailyRoomView({ config, authToken }) {
       if (res.ok) {
         fetchAll();
         setAddingTo(null);
+        setShowAllWorkers(false);
       } else {
         const err = await res.json();
         console.error('POST error:', res.status, err);
