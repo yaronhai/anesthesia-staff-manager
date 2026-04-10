@@ -633,7 +633,6 @@ export default function DailyRoomView({ config, authToken }) {
                   {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
                     const morningAssignments = getSiteShiftAssignments(site.id, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
                     const eveningAssignments = getSiteShiftAssignments(site.id, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
-                    const nightAssignments = getSiteShiftAssignments(site.id, 'night').map(a => `${a.first_name} ${a.family_name}`).join(', ');
 
                     return (
                       <div
@@ -672,10 +671,6 @@ export default function DailyRoomView({ config, authToken }) {
                         <div className="site-square-shift">
                           <span className="site-square-icon">🌙</span>
                           <span className="site-square-names">{eveningAssignments || '—'}</span>
-                        </div>
-                        <div className="site-square-shift">
-                          <span className="site-square-icon">⭐</span>
-                          <span className="site-square-names">{nightAssignments || '—'}</span>
                         </div>
                       </div>
                     );
