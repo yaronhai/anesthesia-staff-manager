@@ -687,10 +687,6 @@ export default function DailyRoomView({ config, authToken }) {
             </div>
           )}
         </div>
-
-        <button className="room-add-btn" onClick={() => openAddModalInSite(site.id, shiftType)}>
-          + הוסף ({label})
-        </button>
       </div>
     );
   }
@@ -995,8 +991,9 @@ export default function DailyRoomView({ config, authToken }) {
                     border: '2px solid #fbbf24',
                     boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)'
                   }}>
-                    <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #fbbf24'}}>
+                    <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                       <h3 style={{margin: 0, color: '#b45309', fontSize: '1.1rem', fontWeight: 600}}>☀️ בוקר</h3>
+                      <button onClick={() => openAddModalInSite(site.id, 'morning')} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: '#fbbf24', color: '#92400e', border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
                     </div>
                     <ShiftSection site={site} shiftType="morning" label="בוקר"/>
                   </div>
@@ -1009,8 +1006,9 @@ export default function DailyRoomView({ config, authToken }) {
                     border: '2px solid #7dd3fc',
                     boxShadow: '0 4px 12px rgba(125, 211, 252, 0.1)'
                   }}>
-                    <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #7dd3fc'}}>
+                    <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #7dd3fc', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                       <h3 style={{margin: 0, color: '#0369a1', fontSize: '1.1rem', fontWeight: 600}}>🌙 ערב</h3>
+                      <button onClick={() => openAddModalInSite(site.id, 'evening')} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: '#7dd3fc', color: '#0369a1', border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
                     </div>
                     <ShiftSection site={site} shiftType="evening" label="ערב"/>
                   </div>
