@@ -8,6 +8,7 @@ const DAYS_HE = ['ראשון','שני','שלישי','רביעי','חמישי','�
 const SHIFTS = [
   { key: 'morning', label: 'בוקר',    short: 'ב' },
   { key: 'evening', label: 'ערב',     short: 'ע' },
+  { key: 'night',   label: 'תורנות',  short: 'ת' },
   { key: 'oncall',  label: 'כוננות',  short: 'כ' },
 ];
 const PREFS = [

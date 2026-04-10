@@ -14,6 +14,8 @@ export default function DailyRoomView({ config, authToken }) {
   const [morningEnd] = useState('15:00');
   const [eveningStart] = useState('15:00');
   const [eveningEnd] = useState('23:00');
+  const [nightStart] = useState('23:00');
+  const [nightEnd] = useState('07:00');
 
   // Modal for group details
   const [selectedGroupId, setSelectedGroupId] = useState(null);
@@ -81,12 +83,23 @@ export default function DailyRoomView({ config, authToken }) {
   function resolveTime(assignment, shiftType, field) {
     if (assignment[field]) return assignment[field];
     if (shiftType === 'morning') return field === 'start_time' ? morningStart : morningEnd;
-    return field === 'start_time' ? eveningStart : eveningEnd;
+    if (shiftType === 'evening') return field === 'start_time' ? eveningStart : eveningEnd;
+    if (shiftType === 'night') return field === 'start_time' ? nightStart : nightEnd;
+    return field === 'start_time' ? eveningStart : eveningEnd; // Default to evening
   }
 
   function openAddModal(siteId, siteName, shiftType) {
-    const defaultStart = shiftType === 'morning' ? morningStart : eveningStart;
-    const defaultEnd   = shiftType === 'morning' ? morningEnd   : eveningEnd;
+    let defaultStart, defaultEnd;
+    if (shiftType === 'morning') {
+      defaultStart = morningStart;
+      defaultEnd = morningEnd;
+    } else if (shiftType === 'night') {
+      defaultStart = nightStart;
+      defaultEnd = nightEnd;
+    } else {
+      defaultStart = eveningStart;
+      defaultEnd = eveningEnd;
+    }
     setAddingTo({ site_id: siteId, site_name: siteName, shift_type: shiftType });
     setNewAssignment({ worker_id: null, start_time: defaultStart, end_time: defaultEnd, notes: '' });
   }
@@ -336,9 +349,20 @@ export default function DailyRoomView({ config, authToken }) {
                         <div style={{display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: '0.5rem', alignItems: 'center'}}>
                           {worker.assignments.map((a) => {
                             const site = config.sites.find(s => s.id === a.site_id);
-                            const shiftLabel = a.shift_type === 'morning' ? '☀ בוקר' : '🌙 ערב';
-                            const startTime = a.start_time || (a.shift_type === 'morning' ? morningStart : eveningStart);
-                            const endTime = a.end_time || (a.shift_type === 'morning' ? morningEnd : eveningEnd);
+                            let shiftLabel = '🌙 ערב';
+                            let startTime, endTime;
+                            if (a.shift_type === 'morning') {
+                              shiftLabel = '☀ בוקר';
+                              startTime = a.start_time || morningStart;
+                              endTime = a.end_time || morningEnd;
+                            } else if (a.shift_type === 'night') {
+                              shiftLabel = '⭐ תורנות';
+                              startTime = a.start_time || nightStart;
+                              endTime = a.end_time || nightEnd;
+                            } else {
+                              startTime = a.start_time || eveningStart;
+                              endTime = a.end_time || eveningEnd;
+                            }
 
                             return (
                               <div key={a.id} style={{display: 'contents'}}>
@@ -382,7 +406,17 @@ export default function DailyRoomView({ config, authToken }) {
       <div className={`room-shift-section room-shift-${shiftType}`}>
         <div className="room-shift-header">
           <span className="room-shift-label">{label}</span>
-          <span className="room-shift-time">{formatTime24(shiftType === 'morning' ? morningStart : eveningStart)}–{formatTime24(shiftType === 'morning' ? morningEnd : eveningEnd)}</span>
+          <span className="room-shift-time">
+            {formatTime24(
+              shiftType === 'morning' ? morningStart :
+              shiftType === 'night' ? nightStart :
+              eveningStart
+            )}–{formatTime24(
+              shiftType === 'morning' ? morningEnd :
+              shiftType === 'night' ? nightEnd :
+              eveningEnd
+            )}
+          </span>
         </div>
         <div className="room-card-content">
           {siteAssignments.length === 0 ? (
@@ -438,6 +472,9 @@ export default function DailyRoomView({ config, authToken }) {
           <span className="room-shift-times-sep" />
           <span>ערב:</span>
           <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>{formatTime24(eveningStart)}–{formatTime24(eveningEnd)}</span>
+          <span className="room-shift-times-sep" />
+          <span>תורנות:</span>
+          <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>{formatTime24(nightStart)}–{formatTime24(nightEnd)}</span>
         </div>
       </div>
 
@@ -539,6 +576,7 @@ export default function DailyRoomView({ config, authToken }) {
                     const isExpanded = expandedSiteId === site.id;
                     const morningAssignments = getSiteShiftAssignments(site.id, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
                     const eveningAssignments = getSiteShiftAssignments(site.id, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
+                    const nightAssignments = getSiteShiftAssignments(site.id, 'night').map(a => `${a.first_name} ${a.family_name}`).join(', ');
 
                     return (
                       <div key={site.id} style={{display: 'flex', flexDirection: 'column'}}>
@@ -556,6 +594,10 @@ export default function DailyRoomView({ config, authToken }) {
                             <div className="site-square-shift">
                               <span className="site-square-icon">🌙</span>
                               <span className="site-square-names">{eveningAssignments || '—'}</span>
+                            </div>
+                            <div className="site-square-shift">
+                              <span className="site-square-icon">⭐</span>
+                              <span className="site-square-names">{nightAssignments || '—'}</span>
                             </div>
                           </div>
                         )}
@@ -579,6 +621,7 @@ export default function DailyRoomView({ config, authToken }) {
                             <div onClick={e => e.stopPropagation()}>
                               <ShiftSection site={site} shiftType="morning" label="בוקר"/>
                               <ShiftSection site={site} shiftType="evening" label="ערב"/>
+                              <ShiftSection site={site} shiftType="night" label="תורנות"/>
                             </div>
                           </div>
                         )}
@@ -598,7 +641,7 @@ export default function DailyRoomView({ config, authToken }) {
       <div className="form-overlay" onClick={() => setAddingTo(null)}>
         <div className="assignment-modal" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
-            <h3>הוסף שיבוץ — {addingTo.shift_type === 'morning' ? 'בוקר' : 'ערב'}</h3>
+            <h3>הוסף שיבוץ — {addingTo.shift_type === 'morning' ? 'בוקר' : addingTo.shift_type === 'night' ? 'תורנות' : 'ערב'}</h3>
             <button className="btn-close" onClick={() => setAddingTo(null)}>✕</button>
           </div>
           <div className="modal-body">

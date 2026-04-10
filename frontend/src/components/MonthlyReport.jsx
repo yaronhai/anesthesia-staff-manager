@@ -64,13 +64,14 @@ export default function MonthlyReport({ token }) {
     reportData[dateStr] = {
       morning: { prefer: [], can: [] },
       evening: { prefer: [], can: [] },
+      night: { prefer: [], can: [] },
     };
   }
 
-  // Populate with requests (exclude "cannot", only morning/evening)
+  // Populate with requests (exclude "cannot", only morning/evening/night)
   requests.forEach(req => {
     if (req.preference_type === 'cannot' || !reportData[req.date]) return;
-    if (req.shift_type !== 'morning' && req.shift_type !== 'evening') return;
+    if (req.shift_type !== 'morning' && req.shift_type !== 'evening' && req.shift_type !== 'night') return;
 
     const workerName = req.first_name && req.family_name
       ? `${req.first_name} ${req.family_name}`
@@ -82,7 +83,7 @@ export default function MonthlyReport({ token }) {
 
   // Sort names
   Object.values(reportData).forEach(dayShifts => {
-    ['morning', 'evening'].forEach(shift => {
+    ['morning', 'evening', 'night'].forEach(shift => {
       dayShifts[shift].can.sort();
       dayShifts[shift].prefer.sort();
     });
@@ -170,6 +171,17 @@ export default function MonthlyReport({ token }) {
                       <div key={`e-c-${i}`} style={{ color: '#0369a1', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
                     ))}
                   </div>
+
+                  {/* Night Section */}
+                  <div style={{ fontSize: '0.5rem' }}>
+                    <div style={{ fontWeight: '700', fontSize: '0.48rem', textTransform: 'uppercase', marginBottom: '0.04rem', color: '#4b5563' }}>תורנות</div>
+                    {dayData.night.prefer.map((name, i) => (
+                      <div key={`n-p-${i}`} style={{ color: '#16a34a', fontWeight: '600', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
+                    ))}
+                    {dayData.night.can.map((name, i) => (
+                      <div key={`n-c-${i}`} style={{ color: '#0369a1', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
+                    ))}
+                  </div>
                 </div>
               );
             })}
@@ -246,6 +258,37 @@ export default function MonthlyReport({ token }) {
                           <div className="names-list">
                             {dayData.evening.can.map((name, i) => (
                               <span key={`e-c-${i}`} className="name-badge" style={{ background: '#e0f2fe', color: '#0c4a6e', borderColor: '#0369a1' }}>{name}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Night */}
+                <div className="daily-shift-section">
+                  <h4>תורנות</h4>
+                  {dayData.night.prefer.length === 0 && dayData.night.can.length === 0 ? (
+                    <p className="empty-list">אין בקשות</p>
+                  ) : (
+                    <>
+                      {dayData.night.prefer.length > 0 && (
+                        <div className="daily-shift-group">
+                          <span className="group-label" style={{ color: '#16a34a', fontWeight: '700' }}>מעדיפים:</span>
+                          <div className="names-list">
+                            {dayData.night.prefer.map((name, i) => (
+                              <span key={`n-p-${i}`} className="name-badge" style={{ background: '#dcfce7', color: '#166534', borderColor: '#16a34a' }}>{name}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {dayData.night.can.length > 0 && (
+                        <div className="daily-shift-group">
+                          <span className="group-label" style={{ color: '#0369a1', fontWeight: '700' }}>יכולים:</span>
+                          <div className="names-list">
+                            {dayData.night.can.map((name, i) => (
+                              <span key={`n-c-${i}`} className="name-badge" style={{ background: '#e0f2fe', color: '#0c4a6e', borderColor: '#0369a1' }}>{name}</span>
                             ))}
                           </div>
                         </div>

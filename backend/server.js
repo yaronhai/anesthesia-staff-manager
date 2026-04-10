@@ -535,7 +535,7 @@ app.get('/api/shift-requests/admin/all-with-workers', requireAdmin, async (req, 
 app.post('/api/shift-requests', requireAuth, async (req, res) => {
   try {
     const { date, shift_type, preference_type, user_id } = req.body;
-    if (!date || !['morning', 'evening', 'oncall'].includes(shift_type) ||
+    if (!date || !['morning', 'evening', 'night', 'oncall'].includes(shift_type) ||
         !['can', 'prefer', 'cannot'].includes(preference_type)) {
       return res.status(400).json({ error: 'שדות לא תקינים' });
     }
@@ -878,7 +878,7 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
     if (!worker_id || !date || !site_id) {
       return res.status(400).json({ error: 'שדות חסרים' });
     }
-    if (!['morning', 'evening'].includes(shiftType)) {
+    if (!['morning', 'evening', 'night'].includes(shiftType)) {
       return res.status(400).json({ error: 'סוג משמרת לא תקין' });
     }
 

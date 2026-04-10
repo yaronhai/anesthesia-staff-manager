@@ -61,7 +61,7 @@ async function initializeSchema() {
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         date TEXT NOT NULL,
-        shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'oncall')),
+        shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night', 'oncall')),
         preference_type TEXT NOT NULL DEFAULT 'can' CHECK(preference_type IN ('can', 'prefer', 'cannot')),
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(user_id, date, shift_type)
@@ -87,7 +87,7 @@ async function initializeSchema() {
         worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
         date TEXT NOT NULL,
         site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-        shift_type TEXT NOT NULL DEFAULT 'morning' CHECK(shift_type IN ('morning', 'evening')),
+        shift_type TEXT NOT NULL DEFAULT 'morning' CHECK(shift_type IN ('morning', 'evening', 'night')),
         start_time TEXT,
         end_time TEXT,
         notes TEXT,
