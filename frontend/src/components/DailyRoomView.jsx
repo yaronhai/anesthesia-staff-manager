@@ -32,8 +32,6 @@ export default function DailyRoomView({ config, authToken }) {
   const [editingAssignment, setEditingAssignment] = useState(null);
   const [editTimes, setEditTimes] = useState({ start_time: '', end_time: '', notes: '' });
 
-  // Activity type selector modal
-  const [editingActivity, setEditingActivity] = useState(null); // { site_id, site_name, shift_type, shift_label }
 
   // Report preview modal
   const [showReportPreview, setShowReportPreview] = useState(false);
@@ -476,22 +474,6 @@ export default function DailyRoomView({ config, authToken }) {
               {activity.activity_name}
             </span>
           )}
-          <button
-            onClick={() => setEditingActivity({ site_id: site.id, site_name: site.name, shift_type: shiftType, shift_label: label })}
-            style={{
-              background: '#f3f4f6',
-              border: '1px solid #d1d5db',
-              padding: '0.3rem 0.6rem',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              color: '#374151'
-            }}
-            title="ערוך סוג פעילות"
-          >
-            ✎
-          </button>
         </div>
         <div className="room-card-content">
           {siteAssignments.length === 0 ? (
@@ -756,6 +738,19 @@ export default function DailyRoomView({ config, authToken }) {
                   </div>
                 </div>
                 <div className="form-group">
+                  <label>סוג פעילות:</label>
+                  <select
+                    value={getSiteShiftActivity(addingTo.site_id, addingTo.shift_type)?.activity_type_id || ''}
+                    onChange={e => updateSiteShiftActivity(addingTo.site_id, addingTo.shift_type, e.target.value ? parseInt(e.target.value) : null)}
+                  >
+                    <option value="">— אין פעילות —</option>
+                    {(config.activity_types || []).map(at => (
+                      <option key={at.id} value={at.id}>{at.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
                   <label>הערות:</label>
                   <input
                     type="text"
@@ -833,54 +828,6 @@ export default function DailyRoomView({ config, authToken }) {
       </div>
     )}
 
-    {editingActivity && (
-      <div className="form-overlay" onClick={() => setEditingActivity(null)}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <h3>סוג פעילות — {editingActivity.site_name} ({editingActivity.shift_label})</h3>
-            <button className="btn-close" onClick={() => setEditingActivity(null)}>✕</button>
-          </div>
-          <div className="modal-body">
-            <div className="modal-info">
-              <p><strong>אתר:</strong> {editingActivity.site_name}</p>
-              <p><strong>משמרת:</strong> {editingActivity.shift_label}</p>
-              <p><strong>תאריך:</strong> {dateStr}</p>
-            </div>
-
-            <div className="form-group">
-              <label>סוג פעילות:</label>
-              <select
-                value={getSiteShiftActivity(editingActivity.site_id, editingActivity.shift_type)?.activity_type_id || ''}
-                onChange={e => {
-                  updateSiteShiftActivity(editingActivity.site_id, editingActivity.shift_type, e.target.value ? parseInt(e.target.value) : null);
-                  setEditingActivity(null);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '0.8rem',
-                  fontSize: '0.95rem',
-                  borderRadius: '6px',
-                  border: '1px solid #d1d5db',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="">— אין פעילות —</option>
-                {(config.activity_types || []).map(at => (
-                  <option key={at.id} value={at.id}>{at.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.75rem', fontSize: '0.85rem', color: '#0369a1' }}>
-              <strong>הערה:</strong> בחירת סוג פעילות תגביל את השיבוץ לעובדים המורשים בלבד
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button className="btn-secondary" onClick={() => setEditingActivity(null)}>סגור</button>
-          </div>
-        </div>
-      </div>
-    )}
 
     {showReportPreview && <ReportPreview />}
     </>
