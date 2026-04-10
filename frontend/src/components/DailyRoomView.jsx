@@ -995,10 +995,35 @@ export default function DailyRoomView({ config, authToken }) {
                   </div>
                 </div>
               ) : (
-                <>
-                  <ShiftSection site={site} shiftType="morning" label="בוקר"/>
-                  <ShiftSection site={site} shiftType="evening" label="ערב"/>
-                </>
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem'}}>
+                  <div style={{
+                    order: 1,
+                    background: 'linear-gradient(135deg, #fef9e7 0%, #fef5d9 100%)',
+                    padding: '1.5rem',
+                    borderRadius: '12px',
+                    border: '2px solid #fbbf24',
+                    boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)'
+                  }}>
+                    <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #fbbf24'}}>
+                      <h3 style={{margin: 0, color: '#b45309', fontSize: '1.1rem', fontWeight: 600}}>☀️ בוקר</h3>
+                    </div>
+                    <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+                  </div>
+
+                  <div style={{
+                    order: 2,
+                    background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                    padding: '1.5rem',
+                    borderRadius: '12px',
+                    border: '2px solid #7dd3fc',
+                    boxShadow: '0 4px 12px rgba(125, 211, 252, 0.1)'
+                  }}>
+                    <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #7dd3fc'}}>
+                      <h3 style={{margin: 0, color: '#0369a1', fontSize: '1.1rem', fontWeight: 600}}>🌙 ערב</h3>
+                    </div>
+                    <ShiftSection site={site} shiftType="evening" label="ערב"/>
+                  </div>
+                </div>
               )}
             </div>
           </div>
