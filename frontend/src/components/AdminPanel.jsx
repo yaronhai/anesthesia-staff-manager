@@ -6,9 +6,11 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
   const [newHonorific, setNewHonorific] = useState('');
   const [newSite, setNewSite] = useState('');
   const [newSiteGroup, setNewSiteGroup] = useState('');
+  const [newActivityType, setNewActivityType] = useState('');
   const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
-  const [expandedSections, setExpandedSections] = useState({ groups: true, sites: true, jobs: false, empTypes: false, honorifics: false });
+  const [expandedActivityAuths, setExpandedActivityAuths] = useState({});
+  const [expandedSections, setExpandedSections] = useState({ groups: true, sites: true, jobs: false, empTypes: false, honorifics: false, activities: false, workerAuths: false });
 
   async function addItem(endpoint, value, setter) {
     if (!value.trim()) return;
@@ -412,6 +414,70 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
             )}
           </div>
 
+          <div className={`settings-card${expandedSections.activities ? ' expanded' : ''}`}>
+            <h3 className="settings-card-header" onClick={() => toggleSection('activities')}>
+              סוגי פעילות
+              <span className="settings-card-arrow">{expandedSections.activities ? '▲' : '▼'}</span>
+            </h3>
+            {expandedSections.activities && (
+              <>
+                <ul className="config-list">
+                  {(config.activity_types || []).map(actType => (
+                    <li key={actType.id}>
+                      {editingKey === `activity-${actType.id}` ? (
+                        <input
+                          className="config-inline-edit"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEdit('/api/config/activity-types', actType.id);
+                            if (e.key === 'Escape') setEditingKey(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span>{actType.name}</span>
+                      )}
+                      <div className="config-item-actions">
+                        {editingKey === `activity-${actType.id}` ? (
+                          <>
+                            <button className="btn-save-inline" onClick={() => saveEdit('/api/config/activity-types', actType.id)}>שמור</button>
+                            <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn-edit-inline" onClick={() => { setEditingKey(`activity-${actType.id}`); setEditingValue(actType.name); }}>עריכה</button>
+                            <button className="btn-remove" onClick={() => removeItem('/api/config/activity-types', actType.id)}>✕</button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="config-add">
+                  <input
+                    value={newActivityType}
+                    onChange={e => setNewActivityType(e.target.value)}
+                    placeholder="סוג פעילות חדש..."
+                    onKeyDown={e => e.key === 'Enter' && addItem('/api/config/activity-types', newActivityType, setNewActivityType)}
+                  />
+                  <button className="btn-primary" onClick={() => addItem('/api/config/activity-types', newActivityType, setNewActivityType)}>הוסף</button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className={`settings-card${expandedSections.workerAuths ? ' expanded' : ''}`}>
+            <h3 className="settings-card-header" onClick={() => toggleSection('workerAuths')}>
+              הרשאות עובדים לפעילויות
+              <span className="settings-card-arrow">{expandedSections.workerAuths ? '▲' : '▼'}</span>
+            </h3>
+            {expandedSections.workerAuths && (
+              <div style={{ fontSize: '0.85rem', padding: '0.5rem', lineHeight: '1.6' }}>
+                <p style={{ color: '#666', marginBottom: '0.5rem' }}>הרשאות ניהול בדף ניהול העובדים</p>
+              </div>
+            )}
+          </div>
 
         </div>
       </div>

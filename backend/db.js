@@ -95,11 +95,34 @@ async function initializeSchema() {
         UNIQUE(worker_id, date, site_id, shift_type)
       );
 
+      CREATE TABLE IF NOT EXISTS activity_types (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS site_shift_activities (
+        id SERIAL PRIMARY KEY,
+        site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        date TEXT NOT NULL,
+        shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night')),
+        activity_type_id INTEGER NOT NULL REFERENCES activity_types(id) ON DELETE SET NULL,
+        UNIQUE(site_id, date, shift_type)
+      );
+
+      CREATE TABLE IF NOT EXISTS worker_activity_authorizations (
+        id SERIAL PRIMARY KEY,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        activity_type_id INTEGER NOT NULL REFERENCES activity_types(id) ON DELETE CASCADE,
+        UNIQUE(worker_id, activity_type_id)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_workers_id_number ON workers(id_number);
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_user_id ON shift_requests(user_id);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_date ON shift_requests(date);
       CREATE INDEX IF NOT EXISTS idx_worker_site_assignments_date ON worker_site_assignments(date);
+      CREATE INDEX IF NOT EXISTS idx_site_shift_activities_date ON site_shift_activities(date);
     `);
     console.log('✓ Database schema initialized');
   } catch (error) {

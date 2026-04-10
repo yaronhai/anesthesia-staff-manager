@@ -7,6 +7,7 @@ export default function DailyRoomView({ config, authToken }) {
   const [workers, setWorkers] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [shiftRequests, setShiftRequests] = useState([]);
+  const [siteShiftActivities, setSiteShiftActivities] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Global shift time defaults (component state, not persisted)
@@ -53,6 +54,7 @@ export default function DailyRoomView({ config, authToken }) {
         const d = await staffRes.json();
         setWorkers(d.workers || []);
         setAssignments(d.siteAssignments || []);
+        setSiteShiftActivities(d.siteShiftActivities || []);
       }
       if (shiftRes.ok) {
         const d = await shiftRes.json();
@@ -159,9 +161,15 @@ export default function DailyRoomView({ config, authToken }) {
     }
   }
 
-  function getEligibleWorkers(shiftType) {
-    // Only show workers who have a shift request for today with can/prefer
-    return workers.filter(w =>
+  function getSiteShiftActivity(siteId, shiftType) {
+    return siteShiftActivities.find(ssa =>
+      ssa.site_id === siteId && ssa.date === dateStr && ssa.shift_type === shiftType
+    );
+  }
+
+  function getEligibleWorkers(siteId, shiftType) {
+    // Get workers with shift request for today with can/prefer
+    let eligible = workers.filter(w =>
       shiftRequests.some(r =>
         r.worker_id === w.id &&
         r.date === dateStr &&
@@ -169,6 +177,15 @@ export default function DailyRoomView({ config, authToken }) {
         (r.preference_type === 'can' || r.preference_type === 'prefer')
       )
     );
+
+    // If site has an activity type, filter by authorization
+    const activity = getSiteShiftActivity(siteId, shiftType);
+    if (activity && activity.activity_type_id) {
+      // For now, show all (authorization check happens on backend)
+      // TODO: Load worker authorizations and filter here for better UX
+    }
+
+    return eligible;
   }
 
   function getWorkerOtherAssignments(workerId, shiftType) {
@@ -206,6 +223,28 @@ export default function DailyRoomView({ config, authToken }) {
       if (res.ok) fetchAll();
     } catch (err) {
       console.error(err);
+    }
+  }
+
+  async function updateSiteShiftActivity(siteId, shiftType, activityTypeId) {
+    try {
+      const res = await fetch('/api/site-shift-activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({
+          site_id: siteId,
+          date: dateStr,
+          shift_type: shiftType,
+          activity_type_id: activityTypeId || null,
+        }),
+      });
+      if (res.ok) fetchAll();
+      else {
+        const err = await res.json();
+        console.error('Error updating activity:', err);
+      }
+    } catch (err) {
+      console.error('Network error:', err);
     }
   }
 
@@ -402,21 +441,56 @@ export default function DailyRoomView({ config, authToken }) {
 
   function ShiftSection({ site, shiftType, label }) {
     const siteAssignments = getSiteShiftAssignments(site.id, shiftType);
+    const activity = getSiteShiftActivity(site.id, shiftType);
+
     return (
       <div className={`room-shift-section room-shift-${shiftType}`}>
         <div className="room-shift-header">
-          <span className="room-shift-label">{label}</span>
-          <span className="room-shift-time">
-            {formatTime24(
-              shiftType === 'morning' ? morningStart :
-              shiftType === 'night' ? nightStart :
-              eveningStart
-            )}–{formatTime24(
-              shiftType === 'morning' ? morningEnd :
-              shiftType === 'night' ? nightEnd :
-              eveningEnd
-            )}
-          </span>
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1}}>
+            <span className="room-shift-label">{label}</span>
+            <span className="room-shift-time">
+              {formatTime24(
+                shiftType === 'morning' ? morningStart :
+                shiftType === 'night' ? nightStart :
+                eveningStart
+              )}–{formatTime24(
+                shiftType === 'morning' ? morningEnd :
+                shiftType === 'night' ? nightEnd :
+                eveningEnd
+              )}
+            </span>
+          </div>
+          {activity && activity.activity_name && (
+            <span style={{
+              padding: '0.2rem 0.6rem',
+              background: '#dbeafe',
+              color: '#0369a1',
+              borderRadius: '12px',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              whiteSpace: 'nowrap'
+            }}>
+              {activity.activity_name}
+            </span>
+          )}
+          <select
+            value={activity?.activity_type_id || ''}
+            onChange={e => updateSiteShiftActivity(site.id, shiftType, e.target.value ? parseInt(e.target.value) : null)}
+            style={{
+              fontSize: '0.75rem',
+              padding: '0.25rem 0.4rem',
+              borderRadius: '4px',
+              border: '1px solid #d1d5db',
+              cursor: 'pointer',
+              minWidth: '120px'
+            }}
+            title="בחר סוג פעילות"
+          >
+            <option value="">—</option>
+            {(config.activity_types || []).map(at => (
+              <option key={at.id} value={at.id}>{at.name}</option>
+            ))}
+          </select>
         </div>
         <div className="room-card-content">
           {siteAssignments.length === 0 ? (
@@ -649,7 +723,7 @@ export default function DailyRoomView({ config, authToken }) {
               <p><strong>אתר:</strong> {addingTo.site_name}</p>
               <p><strong>תאריך:</strong> {dateStr}</p>
             </div>
-            {getEligibleWorkers(addingTo.shift_type).length === 0 ? (
+            {getEligibleWorkers(addingTo.site_id, addingTo.shift_type).length === 0 ? (
               <div className="room-edit-hint">אין עובדים זמינים (שסומנו כיכולים או מעדיפים) במשמרת זו</div>
             ) : (
               <>
@@ -660,7 +734,7 @@ export default function DailyRoomView({ config, authToken }) {
                     onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
                   >
                     <option value="">בחר עובד...</option>
-                    {getEligibleWorkers(addingTo.shift_type).map(w => (
+                    {getEligibleWorkers(addingTo.site_id, addingTo.shift_type).map(w => (
                       <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
                     ))}
                   </select>

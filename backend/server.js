@@ -185,14 +185,16 @@ async function getConfig() {
     query('SELECT id, name FROM honorifics ORDER BY id'),
     query('SELECT id, name, color FROM site_groups ORDER BY id'),
     query('SELECT id, name, description, group_id FROM sites ORDER BY name'),
+    query('SELECT id, name FROM activity_types ORDER BY name'),
   ]);
-  
+
   return {
     jobs: res[0].rows,
     employment_types: res[1].rows,
     honorifics: res[2].rows,
     site_groups: res[3].rows,
     sites: res[4].rows,
+    activity_types: res[5].rows,
   };
 }
 
@@ -452,6 +454,76 @@ app.delete('/api/workers/:id', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Delete worker error:', error);
     res.status(500).json({ error: 'שגיאה במחיקת עובד' });
+  }
+});
+
+// ── Worker Activity Authorizations ──────────────────────────────────────────
+
+app.get('/api/workers/:id/activity-authorizations', requireAdmin, async (req, res) => {
+  try {
+    const res_query = await query(`
+      SELECT waa.id, waa.activity_type_id, at.name
+      FROM worker_activity_authorizations waa
+      JOIN activity_types at ON waa.activity_type_id = at.id
+      WHERE waa.worker_id = $1
+      ORDER BY at.name
+    `, [req.params.id]);
+    res.json(res_query.rows);
+  } catch (error) {
+    console.error('Get worker activity authorizations error:', error);
+    res.status(500).json({ error: 'שגיאה בטעינת הרשאות' });
+  }
+});
+
+app.post('/api/workers/:id/activity-authorizations', requireAdmin, async (req, res) => {
+  try {
+    const { activity_type_id } = req.body;
+    if (!activity_type_id) return res.status(400).json({ error: 'סוג פעילות חובה' });
+
+    try {
+      await query(`
+        INSERT INTO worker_activity_authorizations (worker_id, activity_type_id)
+        VALUES ($1, $2)
+      `, [req.params.id, activity_type_id]);
+
+      const res_query = await query(`
+        SELECT waa.id, waa.activity_type_id, at.name
+        FROM worker_activity_authorizations waa
+        JOIN activity_types at ON waa.activity_type_id = at.id
+        WHERE waa.worker_id = $1
+        ORDER BY at.name
+      `, [req.params.id]);
+      res.json(res_query.rows);
+    } catch (e) {
+      if (e.message?.includes('unique')) {
+        return res.status(400).json({ error: 'עובד כבר מורשה לסוג פעילות זה' });
+      }
+      throw e;
+    }
+  } catch (error) {
+    console.error('Add worker activity authorization error:', error);
+    res.status(500).json({ error: 'שגיאה בהוספת הרשאה' });
+  }
+});
+
+app.delete('/api/workers/:id/activity-authorizations/:activityTypeId', requireAdmin, async (req, res) => {
+  try {
+    await query(`
+      DELETE FROM worker_activity_authorizations
+      WHERE worker_id = $1 AND activity_type_id = $2
+    `, [req.params.id, req.params.activityTypeId]);
+
+    const res_query = await query(`
+      SELECT waa.id, waa.activity_type_id, at.name
+      FROM worker_activity_authorizations waa
+      JOIN activity_types at ON waa.activity_type_id = at.id
+      WHERE waa.worker_id = $1
+      ORDER BY at.name
+    `, [req.params.id]);
+    res.json(res_query.rows);
+  } catch (error) {
+    console.error('Delete worker activity authorization error:', error);
+    res.status(500).json({ error: 'שגיאה בהסרת הרשאה' });
   }
 });
 
@@ -822,6 +894,53 @@ app.put('/api/config/sites/:id/group', requireAdmin, async (req, res) => {
   }
 });
 
+// ── Activity Types Endpoints ────────────────────────────────────────────────
+
+app.post('/api/config/activity-types', requireAdmin, async (req, res) => {
+  try {
+    const { value } = req.body;
+    if (!value?.trim()) return res.status(400).json({ error: 'שם סוג פעילות חובה' });
+    try {
+      await query('INSERT INTO activity_types (name) VALUES ($1)', [value.trim()]);
+      const config = await getConfig();
+      res.json(config);
+    } catch {
+      res.status(400).json({ error: 'סוג פעילות כפול' });
+    }
+  } catch (error) {
+    console.error('Add activity type error:', error);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.put('/api/config/activity-types/:id', requireAdmin, async (req, res) => {
+  try {
+    const { value } = req.body;
+    if (!value?.trim()) return res.status(400).json({ error: 'שם סוג פעילות חובה' });
+    try {
+      await query('UPDATE activity_types SET name=$1 WHERE id=$2', [value.trim(), req.params.id]);
+      const config = await getConfig();
+      res.json(config);
+    } catch {
+      res.status(400).json({ error: 'סוג פעילות כפול' });
+    }
+  } catch (error) {
+    console.error('Update activity type error:', error);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.delete('/api/config/activity-types/:id', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM activity_types WHERE id=$1', [req.params.id]);
+    const config = await getConfig();
+    res.json(config);
+  } catch (error) {
+    console.error('Delete activity type error:', error);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
 // Worker site assignments endpoints
 app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
   try {
@@ -863,7 +982,34 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
     const assignmentsRes = await query(assignmentsQuery, params);
     const siteAssignments = assignmentsRes.rows;
 
-    res.json({ workers, siteAssignments });
+    // Get site shift activities for the month
+    let activitiesQuery = `
+      SELECT ssa.id, ssa.site_id, ssa.date, ssa.shift_type,
+             ssa.activity_type_id, at.name AS activity_name
+      FROM site_shift_activities ssa
+      LEFT JOIN activity_types at ON ssa.activity_type_id = at.id
+    `;
+
+    const actParams = [];
+    let actParamIndex = 1;
+
+    if (datePrefix) {
+      activitiesQuery += ` WHERE ssa.date LIKE $${actParamIndex}`;
+      actParams.push(datePrefix + '%');
+      actParamIndex++;
+    }
+
+    if (siteId) {
+      activitiesQuery += (datePrefix ? ' AND' : ' WHERE') + ` ssa.site_id = $${actParamIndex}`;
+      actParams.push(siteId);
+    }
+
+    activitiesQuery += ' ORDER BY ssa.date, ssa.site_id, ssa.shift_type';
+
+    const activitiesRes = await query(activitiesQuery, actParams);
+    const siteShiftActivities = activitiesRes.rows;
+
+    res.json({ workers, siteAssignments, siteShiftActivities });
   } catch (error) {
     console.error('Get month view error:', error);
     res.status(500).json({ error: 'שגיאה בטעינת תצוגת חודש' });
@@ -882,6 +1028,25 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'סוג משמרת לא תקין' });
     }
 
+    // Check if site has an activity type set for this shift/date
+    const activityRes = await query(`
+      SELECT activity_type_id FROM site_shift_activities
+      WHERE site_id = $1 AND date = $2 AND shift_type = $3
+    `, [site_id, date, shiftType]);
+
+    if (activityRes.rows.length > 0) {
+      const activityTypeId = activityRes.rows[0].activity_type_id;
+      // Check if worker is authorized for this activity type
+      const authRes = await query(`
+        SELECT COUNT(*) as count FROM worker_activity_authorizations
+        WHERE worker_id = $1 AND activity_type_id = $2
+      `, [worker_id, activityTypeId]);
+
+      if (authRes.rows[0].count === 0) {
+        return res.status(403).json({ error: 'עובד לא מורשה לסוג פעילות זה' });
+      }
+    }
+
     await query(`
       INSERT INTO worker_site_assignments (worker_id, date, site_id, shift_type, start_time, end_time, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -890,7 +1055,7 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
         end_time   = excluded.end_time,
         notes      = excluded.notes
     `, [worker_id, date, site_id, shiftType, start_time || null, end_time || null, notes || null]);
-    
+
     res.json({ ok: true });
   } catch (err) {
     console.error('Error saving assignment:', err);
@@ -920,6 +1085,52 @@ app.delete('/api/worker-site-assignments/:id', requireAdmin, async (req, res) =>
   } catch (error) {
     console.error('Delete assignment error:', error);
     res.status(500).json({ error: 'שגיאה במחיקת שיבוץ' });
+  }
+});
+
+// ── Site Shift Activities ──────────────────────────────────────────────────
+
+app.post('/api/site-shift-activities', requireAdmin, async (req, res) => {
+  try {
+    const { site_id, date, shift_type, activity_type_id } = req.body;
+
+    if (!site_id || !date || !shift_type) {
+      return res.status(400).json({ error: 'שדות חסרים' });
+    }
+    if (!['morning', 'evening', 'night'].includes(shift_type)) {
+      return res.status(400).json({ error: 'סוג משמרת לא תקין' });
+    }
+
+    // Upsert: insert or update
+    if (activity_type_id) {
+      await query(`
+        INSERT INTO site_shift_activities (site_id, date, shift_type, activity_type_id)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT(site_id, date, shift_type) DO UPDATE SET
+          activity_type_id = excluded.activity_type_id
+      `, [site_id, date, shift_type, activity_type_id]);
+    } else {
+      // If no activity_type_id, delete the entry
+      await query(`
+        DELETE FROM site_shift_activities
+        WHERE site_id = $1 AND date = $2 AND shift_type = $3
+      `, [site_id, date, shift_type]);
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error saving site shift activity:', error);
+    res.status(500).json({ error: 'שגיאה בשמירת פעילות' });
+  }
+});
+
+app.delete('/api/site-shift-activities/:id', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM site_shift_activities WHERE id = $1', [req.params.id]);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete site shift activity error:', error);
+    res.status(500).json({ error: 'שגיאה במחיקת פעילות' });
   }
 });
 
