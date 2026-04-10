@@ -1,6 +1,148 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-function WorkerDetail({ worker, onClose, onEdit }) {
+function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
+  const [authorizations, setAuthorizations] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchAuthorizations();
+  }, [worker.id]);
+
+  async function fetchAuthorizations() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/workers/${worker.id}/activity-authorizations`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        setAuthorizations(await res.json());
+      }
+    } catch (err) {
+      console.error('Error fetching authorizations:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function addAuthorization(activityTypeId) {
+    try {
+      const res = await fetch(`/api/workers/${worker.id}/activity-authorizations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ activity_type_id: activityTypeId }),
+      });
+      if (res.ok) {
+        setAuthorizations(await res.json());
+      } else {
+        const err = await res.json();
+        alert('שגיאה: ' + (err.error || 'לא ניתן להוסיף הרשאה'));
+      }
+    } catch (err) {
+      console.error('Error adding authorization:', err);
+    }
+  }
+
+  async function removeAuthorization(activityTypeId) {
+    try {
+      const res = await fetch(`/api/workers/${worker.id}/activity-authorizations/${activityTypeId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        setAuthorizations(await res.json());
+      }
+    } catch (err) {
+      console.error('Error removing authorization:', err);
+    }
+  }
+
+  const authorizedIds = new Set(authorizations.map(a => a.activity_type_id));
+  const unavailableActivities = (config.activity_types || []).filter(at => authorizedIds.has(at.id));
+  const availableActivities = (config.activity_types || []).filter(at => !authorizedIds.has(at.id));
+
+  return (
+    <div className="form-overlay" onClick={onClose}>
+      <div className="detail-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+        <div className="settings-header">
+          <h2>הרשאות לפעילויות — {worker.first_name} {worker.family_name}</h2>
+          <button className="btn-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{ padding: '1rem', fontSize: '0.9rem' }}>
+          {loading ? (
+            <p>טוען...</p>
+          ) : (
+            <>
+              <div style={{ marginBottom: '1rem' }}>
+                <h4 style={{ marginBottom: '0.5rem', color: '#1a2e4a' }}>מורשה עבור:</h4>
+                {authorizations.length === 0 ? (
+                  <p style={{ color: '#666' }}>—</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {authorizations.map(auth => (
+                      <div key={auth.activity_type_id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.5rem',
+                        background: '#dbeafe',
+                        borderRadius: '4px',
+                        border: '1px solid #0369a1'
+                      }}>
+                        <span>{auth.name}</span>
+                        <button
+                          className="btn-remove"
+                          onClick={() => removeAuthorization(auth.activity_type_id)}
+                          style={{ padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                        >✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h4 style={{ marginBottom: '0.5rem', color: '#1a2e4a' }}>הוסף הרשאה:</h4>
+                {availableActivities.length === 0 ? (
+                  <p style={{ color: '#666' }}>כל סוגי הפעילות מורשים כבר</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {availableActivities.map(at => (
+                      <button
+                        key={at.id}
+                        onClick={() => addAuthorization(at.id)}
+                        style={{
+                          padding: '0.5rem',
+                          background: '#f3f4f6',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          textAlign: 'right'
+                        }}
+                      >
+                        {at.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="form-actions">
+          <button className="btn-primary" onClick={onClose}>סגור</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkerDetail({ worker, onClose, onEdit, authToken, config }) {
+  const [showAuthorizations, setShowAuthorizations] = useState(false);
   return (
     <div className="form-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={e => e.stopPropagation()}>
@@ -60,14 +202,24 @@ function WorkerDetail({ worker, onClose, onEdit }) {
         </div>
         <div className="form-actions">
           <button className="btn-secondary" onClick={onClose}>סגור</button>
+          <button className="btn-secondary" onClick={() => setShowAuthorizations(true)}>🔐 הרשאות לפעילויות</button>
           <button className="btn-primary" onClick={() => { onClose(); onEdit(worker); }}>עריכה</button>
         </div>
+
+        {showAuthorizations && (
+          <WorkerActivityAuthorizations
+            worker={worker}
+            authToken={authToken}
+            config={config}
+            onClose={() => setShowAuthorizations(false)}
+          />
+        )}
       </div>
     </div>
   );
 }
 
-export default function WorkerList({ workers, onEdit, onDelete, onResetPassword }) {
+export default function WorkerList({ workers, onEdit, onDelete, onResetPassword, authToken, config }) {
   const [viewing, setViewing] = useState(null);
 
   if (workers.length === 0) {
@@ -77,7 +229,13 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword 
   return (
     <>
       {viewing && (
-        <WorkerDetail worker={viewing} onClose={() => setViewing(null)} onEdit={onEdit} />
+        <WorkerDetail
+          worker={viewing}
+          onClose={() => setViewing(null)}
+          onEdit={onEdit}
+          authToken={authToken}
+          config={config}
+        />
       )}
       <table className="worker-table">
         <thead>

@@ -255,7 +255,7 @@ export default function App() {
               onCancel={handleCancel}
             />
           )}
-          <WorkerList workers={filteredWorkers} onEdit={handleEdit} onDelete={handleDelete} onResetPassword={handleResetPassword} />
+          <WorkerList workers={filteredWorkers} onEdit={handleEdit} onDelete={handleDelete} onResetPassword={handleResetPassword} authToken={authToken} config={config} />
         </>
       )}
 
