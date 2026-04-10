@@ -26,8 +26,10 @@ export default function DailyRoomView({ config, authToken }) {
   const [siteActivityTypes, setSiteActivityTypes] = useState({}); // Map of site_id -> activity_type_id
   const [siteShiftTimes, setSiteShiftTimes] = useState({}); // Map of "site_id-shift_type" -> { start_time, end_time }
   const [editingShiftTimes, setEditingShiftTimes] = useState(null); // { site_id, shift_type, start_time, end_time } - for modal editing
-  const [inlineEditingShift, setInlineEditingShift] = useState(null); // "site_id-shift_type" for inline editing
+  const [inlineEditingShift, setInlineEditingShift] = useState(null); // "site_id-shift_type" for inline time editing
   const [inlineEditTimes, setInlineEditTimes] = useState({ start_time: '', end_time: '' });
+  const [inlineEditingActivity, setInlineEditingActivity] = useState(null); // "site_id-shift_type" for inline activity editing
+  const [inlineActivityTypeId, setInlineActivityTypeId] = useState(null);
   const [addingToShiftInSite, setAddingToShiftInSite] = useState(null); // { site_id, shift_type } - for adding within site modal
 
   // Add assignment state
@@ -528,18 +530,66 @@ export default function DailyRoomView({ config, authToken }) {
               </>
             )}
           </div>
-          {activity && activity.activity_name && (
-            <span style={{
-              padding: '0.2rem 0.6rem',
-              background: '#dbeafe',
-              color: '#0369a1',
-              borderRadius: '12px',
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              whiteSpace: 'nowrap'
-            }}>
-              {activity.activity_name}
-            </span>
+          {inlineEditingActivity === editKey ? (
+            <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
+              <select
+                value={inlineActivityTypeId || ''}
+                onChange={e => setInlineActivityTypeId(e.target.value ? parseInt(e.target.value) : null)}
+                style={{fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #d1d5db'}}
+              >
+                <option value="">— אין —</option>
+                {(config.activity_types || []).map(at => (
+                  <option key={at.id} value={at.id}>{at.name}</option>
+                ))}
+              </select>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  updateSiteShiftActivity(site.id, shiftType, inlineActivityTypeId);
+                  setInlineEditingActivity(null);
+                }}
+                style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
+              >✓</button>
+              <button
+                className="btn-secondary"
+                onClick={() => setInlineEditingActivity(null)}
+                style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
+              >✕</button>
+            </div>
+          ) : (
+            <>
+              {activity && activity.activity_name && (
+                <span style={{
+                  padding: '0.2rem 0.6rem',
+                  background: '#dbeafe',
+                  color: '#0369a1',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  setInlineEditingActivity(editKey);
+                  setInlineActivityTypeId(activity.activity_type_id);
+                }}
+                title="לחץ לעריכה"
+                >
+                  {activity.activity_name}
+                </span>
+              )}
+              {!activity && (
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    setInlineEditingActivity(editKey);
+                    setInlineActivityTypeId(null);
+                  }}
+                  style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
+                  title="הוסף סוג פעילות"
+                >+ סוג פעילות</button>
+              )}
+            </>
           )}
         </div>
         <div className="room-card-content">
