@@ -21,8 +21,8 @@ export default function DailyRoomView({ config, authToken }) {
   // Modal for group details
   const [selectedGroupId, setSelectedGroupId] = useState(null);
 
-  // Expanded site (for inline expansion, not modal)
-  const [expandedSiteId, setExpandedSiteId] = useState(null);
+  // Modal for site details
+  const [selectedSiteId, setSelectedSiteId] = useState(null);
 
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
@@ -623,65 +623,36 @@ export default function DailyRoomView({ config, authToken }) {
               // Sites view for selected group (inline, not modal)
               <div>
                 <div style={{marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-                  <button className="btn-secondary btn-sm" onClick={() => { setSelectedGroupId(null); setExpandedSiteId(null); }}>
+                  <button className="btn-secondary btn-sm" onClick={() => setSelectedGroupId(null)}>
                     ◀ חזור לקבוצות
                   </button>
                   <h3 style={{fontSize: '1rem', color: '#1a2e4a'}}>{getGroup(selectedGroupId).name}</h3>
                 </div>
                 <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.5rem'}}>
                   {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
-                    const isExpanded = expandedSiteId === site.id;
                     const morningAssignments = getSiteShiftAssignments(site.id, 'morning').map(a => `${a.first_name} ${a.family_name}`).join(', ');
                     const eveningAssignments = getSiteShiftAssignments(site.id, 'evening').map(a => `${a.first_name} ${a.family_name}`).join(', ');
                     const nightAssignments = getSiteShiftAssignments(site.id, 'night').map(a => `${a.first_name} ${a.family_name}`).join(', ');
 
                     return (
-                      <div key={site.id} style={{display: 'flex', flexDirection: 'column'}}>
-                        {/* Collapsed view */}
-                        {!isExpanded && (
-                          <div
-                            className="site-square"
-                            onClick={() => setExpandedSiteId(site.id)}
-                          >
-                            <div className="site-square-title">{site.name}</div>
-                            <div className="site-square-shift">
-                              <span className="site-square-icon">☀</span>
-                              <span className="site-square-names">{morningAssignments || '—'}</span>
-                            </div>
-                            <div className="site-square-shift">
-                              <span className="site-square-icon">🌙</span>
-                              <span className="site-square-names">{eveningAssignments || '—'}</span>
-                            </div>
-                            <div className="site-square-shift">
-                              <span className="site-square-icon">⭐</span>
-                              <span className="site-square-names">{nightAssignments || '—'}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Expanded view */}
-                        {isExpanded && (
-                          <div
-                            style={{
-                              border: '2px solid #2563eb',
-                              borderRadius: '8px',
-                              padding: '0.8rem',
-                              background: '#f9fafb',
-                              cursor: 'pointer',
-                              gridColumn: 'span 2'
-                            }}
-                            onClick={() => setExpandedSiteId(null)}
-                          >
-                            <div style={{fontWeight: 700, fontSize: '0.9rem', color: '#1a2e4a', marginBottom: '0.5rem', textAlign: 'center'}}>
-                              {site.name} ▲
-                            </div>
-                            <div onClick={e => e.stopPropagation()}>
-                              <ShiftSection site={site} shiftType="morning" label="בוקר"/>
-                              <ShiftSection site={site} shiftType="evening" label="ערב"/>
-                              <ShiftSection site={site} shiftType="night" label="תורנות"/>
-                            </div>
-                          </div>
-                        )}
+                      <div
+                        key={site.id}
+                        className="site-square"
+                        onClick={() => setSelectedSiteId(site.id)}
+                      >
+                        <div className="site-square-title">{site.name}</div>
+                        <div className="site-square-shift">
+                          <span className="site-square-icon">☀</span>
+                          <span className="site-square-names">{morningAssignments || '—'}</span>
+                        </div>
+                        <div className="site-square-shift">
+                          <span className="site-square-icon">🌙</span>
+                          <span className="site-square-names">{eveningAssignments || '—'}</span>
+                        </div>
+                        <div className="site-square-shift">
+                          <span className="site-square-icon">⭐</span>
+                          <span className="site-square-names">{nightAssignments || '—'}</span>
+                        </div>
                       </div>
                     );
                   })}
@@ -692,6 +663,40 @@ export default function DailyRoomView({ config, authToken }) {
         </>
       )}
     </div>
+
+    {/* Site details modal */}
+    {selectedSiteId && (() => {
+      const site = config.sites.find(s => s.id === selectedSiteId);
+      if (!site) return null;
+
+      return (
+        <div className="form-overlay" onClick={() => setSelectedSiteId(null)}>
+          <div
+            className="report-modal"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '900px', width: '95vw' }}
+          >
+            <div className="report-header">
+              <h2>{site.name} — {dateLabel}</h2>
+              <button className="btn-close" onClick={() => setSelectedSiteId(null)}>✕</button>
+            </div>
+
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem'
+            }}>
+              <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+              <ShiftSection site={site} shiftType="evening" label="ערב"/>
+              <ShiftSection site={site} shiftType="night" label="תורנות"/>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
 
     {/* Modals rendered OUTSIDE room-view-container to ensure they appear on top */}
     {addingTo && (
