@@ -28,6 +28,7 @@ export default function DailyRoomView({ config, authToken }) {
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
   const [newAssignment, setNewAssignment] = useState({ worker_id: null, start_time: '', end_time: '', notes: '' });
+  const [showAllWorkers, setShowAllWorkers] = useState(false);
 
   // Edit times modal
   const [editingAssignment, setEditingAssignment] = useState(null);
@@ -169,16 +170,22 @@ export default function DailyRoomView({ config, authToken }) {
     );
   }
 
-  function getEligibleWorkers(siteId, shiftType) {
-    // Get workers with shift request for today with can/prefer
-    let eligible = workers.filter(w =>
-      shiftRequests.some(r =>
-        r.worker_id === w.id &&
-        r.date === dateStr &&
-        r.shift_type === shiftType &&
-        (r.preference_type === 'can' || r.preference_type === 'prefer')
-      )
+  function didWorkerRequestShift(workerId, shiftType) {
+    return shiftRequests.some(r =>
+      r.worker_id === workerId &&
+      r.date === dateStr &&
+      r.shift_type === shiftType &&
+      (r.preference_type === 'can' || r.preference_type === 'prefer')
     );
+  }
+
+  function getEligibleWorkers(siteId, shiftType) {
+    if (showAllWorkers) {
+      return workers;
+    }
+
+    // Get workers with shift request for today with can/prefer
+    let eligible = workers.filter(w => didWorkerRequestShift(w.id, shiftType));
 
     // If site has an activity type, filter by authorization
     const activity = getSiteShiftActivity(siteId, shiftType);
@@ -764,19 +771,34 @@ export default function DailyRoomView({ config, authToken }) {
 
     {/* Modals rendered OUTSIDE room-view-container to ensure they appear on top */}
     {addingTo && (
-      <div className="form-overlay" onClick={() => setAddingTo(null)}>
+      <div className="form-overlay" onClick={() => { setAddingTo(null); setShowAllWorkers(false); }}>
         <div className="assignment-modal" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h3>הוסף שיבוץ — {addingTo.shift_type === 'morning' ? 'בוקר' : addingTo.shift_type === 'night' ? 'תורנות' : 'ערב'}</h3>
-            <button className="btn-close" onClick={() => setAddingTo(null)}>✕</button>
+            <button className="btn-close" onClick={() => { setAddingTo(null); setShowAllWorkers(false); }}>✕</button>
           </div>
           <div className="modal-body">
             <div className="modal-info">
               <p><strong>אתר:</strong> {addingTo.site_name}</p>
               <p><strong>תאריך:</strong> {dateStr}</p>
             </div>
+
+            <div style={{marginBottom: '1rem', padding: '0.75rem', background: '#f3f4f6', borderRadius: '6px'}}>
+              <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem'}}>
+                <input
+                  type="checkbox"
+                  checked={showAllWorkers}
+                  onChange={e => {
+                    setShowAllWorkers(e.target.checked);
+                    setNewAssignment({ ...newAssignment, worker_id: null });
+                  }}
+                />
+                צפה בכל העובדים
+              </label>
+            </div>
+
             {getEligibleWorkers(addingTo.site_id, addingTo.shift_type).length === 0 ? (
-              <div className="room-edit-hint">אין עובדים זמינים (שסומנו כיכולים או מעדיפים) במשמרת זו</div>
+              <div className="room-edit-hint">{showAllWorkers ? 'אין עובדים במערכת' : 'אין עובדים שביקשו משמרת זו. בדוק "צפה בכל העובדים" כדי לשבץ עובד אחר'}</div>
             ) : (
               <>
                 <div className="form-group">
@@ -791,6 +813,13 @@ export default function DailyRoomView({ config, authToken }) {
                     ))}
                   </select>
                 </div>
+
+                {newAssignment.worker_id && !didWorkerRequestShift(newAssignment.worker_id, addingTo.shift_type) && (
+                  <div style={{padding: '0.75rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
+                    <strong>⛔ אזהרה:</strong> העובד לא ביקש לעבוד במשמרת זו
+                  </div>
+                )}
+
                 {newAssignment.worker_id && getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).length > 0 && (
                   <div style={{padding: '0.75rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#92400e', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
                     <strong>⚠️ התראה:</strong> העובד משובץ כבר ב{getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).join(', ')}
@@ -833,7 +862,7 @@ export default function DailyRoomView({ config, authToken }) {
           </div>
           <div className="modal-footer">
             <div>
-              <button className="btn-secondary" onClick={() => setAddingTo(null)}>ביטול</button>
+              <button className="btn-secondary" onClick={() => { setAddingTo(null); setShowAllWorkers(false); }}>ביטול</button>
               <button
                 className="btn-primary"
                 onClick={saveNewAssignment}
