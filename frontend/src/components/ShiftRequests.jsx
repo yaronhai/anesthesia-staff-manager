@@ -418,7 +418,7 @@ export default function ShiftRequests({ currentUser, token }) {
   return (
     <div className="shift-view">
       <h2>בקשות משמרות</h2>
-      <UserCalendar requests={requests} viewDate={new Date()} token={token} onRefresh={fetchRequests} />
+      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} />
     </div>
   );
 }
