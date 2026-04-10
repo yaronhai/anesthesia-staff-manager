@@ -30,6 +30,9 @@ export default function DailyRoomView({ config, authToken }) {
   const [inlineEditTimes, setInlineEditTimes] = useState({ start_time: '', end_time: '' });
   const [inlineEditingActivity, setInlineEditingActivity] = useState(null); // "site_id-shift_type" for inline activity editing
   const [inlineActivityTypeId, setInlineActivityTypeId] = useState(null);
+  const [shiftNotes, setShiftNotes] = useState({}); // Map of "site_id-shift_type" -> notes
+  const [inlineEditingNotes, setInlineEditingNotes] = useState(null); // "site_id-shift_type" for inline notes editing
+  const [inlineNotes, setInlineNotes] = useState('');
   const [addingToShiftInSite, setAddingToShiftInSite] = useState(null); // { site_id, shift_type } - for adding within site modal
 
   // Add assignment state
@@ -187,6 +190,19 @@ export default function DailyRoomView({ config, authToken }) {
     setSiteShiftTimes(prev => ({
       ...prev,
       [key]: { start_time: startTime, end_time: endTime }
+    }));
+  }
+
+  function getShiftNotes(siteId, shiftType) {
+    const key = `${siteId}-${shiftType}`;
+    return shiftNotes[key] || '';
+  }
+
+  function saveShiftNotes(siteId, shiftType, notes) {
+    const key = `${siteId}-${shiftType}`;
+    setShiftNotes(prev => ({
+      ...prev,
+      [key]: notes
     }));
   }
 
@@ -615,6 +631,63 @@ export default function DailyRoomView({ config, authToken }) {
             </div>
           )}
         </div>
+
+        <div style={{borderTop: '1px solid #e5e7eb', paddingTop: '0.75rem', marginTop: '0.75rem'}}>
+          {inlineEditingNotes === editKey ? (
+            <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+              <label style={{fontSize: '0.85rem', fontWeight: 500, color: '#1a2e4a'}}>הערות:</label>
+              <textarea
+                value={inlineNotes}
+                onChange={e => setInlineNotes(e.target.value)}
+                placeholder="הוסף הערות למשמרת זו..."
+                style={{
+                  fontSize: '0.85rem',
+                  borderRadius: '4px',
+                  border: '1px solid #d1d5db',
+                  padding: '0.5rem',
+                  minHeight: '60px',
+                  fontFamily: 'inherit'
+                }}
+              />
+              <div style={{display: 'flex', gap: '0.5rem', justifyContent: 'flex-start'}}>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    saveShiftNotes(site.id, shiftType, inlineNotes);
+                    setInlineEditingNotes(null);
+                  }}
+                  style={{padding: '0.3rem 0.6rem', fontSize: '0.75rem'}}
+                >✓ שמור</button>
+                <button
+                  className="btn-secondary"
+                  onClick={() => setInlineEditingNotes(null)}
+                  style={{padding: '0.3rem 0.6rem', fontSize: '0.75rem'}}
+                >✕ ביטול</button>
+              </div>
+            </div>
+          ) : (
+            <div
+              onClick={() => {
+                setInlineEditingNotes(editKey);
+                setInlineNotes(getShiftNotes(site.id, shiftType));
+              }}
+              style={{cursor: 'pointer', padding: '0.5rem', borderRadius: '4px', backgroundColor: '#f9fafb', border: '1px dashed #d1d5db'}}
+              title="לחץ להוספת או עריכת הערות"
+            >
+              {getShiftNotes(site.id, shiftType) ? (
+                <div>
+                  <label style={{fontSize: '0.8rem', fontWeight: 500, color: '#666', display: 'block', marginBottom: '0.3rem'}}>הערות:</label>
+                  <p style={{fontSize: '0.85rem', color: '#333', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>
+                    {getShiftNotes(site.id, shiftType)}
+                  </p>
+                </div>
+              ) : (
+                <p style={{fontSize: '0.85rem', color: '#999', margin: 0}}>+ הוסף הערות</p>
+              )}
+            </div>
+          )}
+        </div>
+
         <button className="room-add-btn" onClick={() => openAddModalInSite(site.id, shiftType)}>
           + הוסף ({label})
         </button>
