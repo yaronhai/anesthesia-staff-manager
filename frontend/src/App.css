@@ -1882,9 +1882,9 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   background: white;
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  max-width: 500px;
+  max-width: 600px;
   width: 90vw;
-  max-height: 60vh;
+  max-height: 85vh;
   overflow-y: auto;
   direction: rtl;
   z-index: 10001;
@@ -2129,9 +2129,9 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 }
 
 .modal-body {
-  padding: 0.75rem;
+  padding: 1.25rem;
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
