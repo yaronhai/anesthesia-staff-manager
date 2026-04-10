@@ -82,8 +82,8 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh }) {
   }
 
   return (
-    <div className="day-editor-backdrop" onClick={onClose}>
-      <div className="day-editor" onClick={e => e.stopPropagation()}>
+    <div className="day-editor-backdrop">
+      <div className="day-editor">
         <div className="day-editor-header">
           <h3>יום {dow}, {d}.{String(m).padStart(2,'0')}.{y}</h3>
           <button className="btn-close" onClick={onClose}>✕</button>
