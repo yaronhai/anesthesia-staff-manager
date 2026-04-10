@@ -799,68 +799,69 @@ export default function DailyRoomView({ config, authToken }) {
               </label>
             </div>
 
-            {getEligibleWorkers(addingTo.site_id, addingTo.shift_type).length === 0 ? (
-              <div className="room-edit-hint">{showAllWorkers ? 'אין עובדים במערכת' : 'אין עובדים שביקשו משמרת זו. בדוק "צפה בכל העובדים" כדי לשבץ עובד אחר'}</div>
-            ) : (
-              <>
-                <div className="form-group">
-                  <label>עובד:</label>
-                  <select
-                    value={newAssignment.worker_id || ''}
-                    onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
-                  >
-                    <option value="">בחר עובד...</option>
-                    {getEligibleWorkers(addingTo.site_id, addingTo.shift_type).map(w => (
-                      <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
-                    ))}
-                  </select>
-                </div>
+            <div className="form-group">
+              <label>עובד:</label>
+              <select
+                value={newAssignment.worker_id || ''}
+                onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
+              >
+                <option value="">בחר עובד...</option>
+                {getEligibleWorkers(addingTo.site_id, addingTo.shift_type).map(w => (
+                  <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
+                ))}
+              </select>
+              {getEligibleWorkers(addingTo.site_id, addingTo.shift_type).length === 0 && (
+                <p style={{fontSize: '0.85rem', color: '#666', marginTop: '0.5rem'}}>
+                  {showAllWorkers ? 'אין עובדים במערכת' : 'אין עובדים שביקשו משמרת זו. בדוק "צפה בכל העובדים" כדי לשבץ עובד אחר'}
+                </p>
+              )}
+            </div>
 
-                {newAssignment.worker_id && !didWorkerRequestShift(newAssignment.worker_id, addingTo.shift_type) && (
-                  <div style={{padding: '0.75rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
-                    <strong>⛔ אזהרה:</strong> העובד לא ביקש לעבוד במשמרת זו
-                  </div>
-                )}
-
-                {newAssignment.worker_id && getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).length > 0 && (
-                  <div style={{padding: '0.75rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#92400e', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
-                    <strong>⚠️ התראה:</strong> העובד משובץ כבר ב{getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).join(', ')}
-                  </div>
-                )}
-                <div className="form-group form-group-inline">
-                  <div>
-                    <label>שעת התחלה:</label>
-                    <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
-                  </div>
-                  <div>
-                    <label>שעת סיום:</label>
-                    <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>סוג פעילות:</label>
-                  <select
-                    value={getSiteShiftActivity(addingTo.site_id, addingTo.shift_type)?.activity_type_id || ''}
-                    onChange={e => updateSiteShiftActivity(addingTo.site_id, addingTo.shift_type, e.target.value ? parseInt(e.target.value) : null)}
-                  >
-                    <option value="">— אין פעילות —</option>
-                    {(config.activity_types || []).map(at => (
-                      <option key={at.id} value={at.id}>{at.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>הערות:</label>
-                  <input
-                    type="text"
-                    value={newAssignment.notes}
-                    onChange={e => setNewAssignment({ ...newAssignment, notes: e.target.value })}
-                    placeholder="הערות אופציונליות..."
-                  />
-                </div>
-              </>
+            {newAssignment.worker_id && !didWorkerRequestShift(newAssignment.worker_id, addingTo.shift_type) && (
+              <div style={{padding: '0.75rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
+                <strong>⛔ אזהרה:</strong> העובד לא ביקש לעבוד במשמרת זו
+              </div>
             )}
+
+            {newAssignment.worker_id && getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).length > 0 && (
+              <div style={{padding: '0.75rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#92400e', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
+                <strong>⚠️ התראה:</strong> העובד משובץ כבר ב{getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).join(', ')}
+              </div>
+            )}
+
+            <div className="form-group form-group-inline">
+              <div>
+                <label>שעת התחלה:</label>
+                <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
+              </div>
+              <div>
+                <label>שעת סיום:</label>
+                <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>סוג פעילות:</label>
+              <select
+                value={getSiteShiftActivity(addingTo.site_id, addingTo.shift_type)?.activity_type_id || ''}
+                onChange={e => updateSiteShiftActivity(addingTo.site_id, addingTo.shift_type, e.target.value ? parseInt(e.target.value) : null)}
+              >
+                <option value="">— אין פעילות —</option>
+                {(config.activity_types || []).map(at => (
+                  <option key={at.id} value={at.id}>{at.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>הערות:</label>
+              <input
+                type="text"
+                value={newAssignment.notes}
+                onChange={e => setNewAssignment({ ...newAssignment, notes: e.target.value })}
+                placeholder="הערות אופציונליות..."
+              />
+            </div>
           </div>
           <div className="modal-footer">
             <div>
