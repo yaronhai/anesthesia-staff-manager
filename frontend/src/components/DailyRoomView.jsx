@@ -703,13 +703,6 @@ export default function DailyRoomView({ config, authToken }) {
       const site = config.sites.find(s => s.id === selectedSiteId);
       if (!site) return null;
 
-      async function saveSiteActivityType(activityTypeId) {
-        setSiteActivityTypes(prev => ({
-          ...prev,
-          [site.id]: activityTypeId
-        }));
-      }
-
       return (
         <div className="form-overlay" onClick={() => setSelectedSiteId(null)}>
           <div
@@ -730,39 +723,6 @@ export default function DailyRoomView({ config, authToken }) {
               flexDirection: 'column',
               gap: '1.5rem'
             }}>
-              <div style={{
-                background: '#f9fafb',
-                padding: '1rem',
-                borderRadius: '8px',
-                border: '1px solid #d1d5db'
-              }}>
-                <label style={{
-                  display: 'block',
-                  fontWeight: 600,
-                  color: '#1a2e4a',
-                  marginBottom: '0.5rem',
-                  fontSize: '0.95rem'
-                }}>סוג פעילות באתר זה:</label>
-                <select
-                  value={siteActivityTypes[site.id] || ''}
-                  onChange={e => saveSiteActivityType(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.8rem',
-                    fontSize: '0.95rem',
-                    borderRadius: '6px',
-                    border: '1px solid #d1d5db',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit'
-                  }}
-                >
-                  <option value="">— בחר סוג פעילות —</option>
-                  {(config.activity_types || []).map(at => (
-                    <option key={at.id} value={at.id}>{at.name}</option>
-                  ))}
-                </select>
-              </div>
-
               <ShiftSection site={site} shiftType="morning" label="בוקר"/>
               <ShiftSection site={site} shiftType="evening" label="ערב"/>
             </div>
