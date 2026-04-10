@@ -243,7 +243,6 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
         body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, user_id: userId }),
       });
     }
-    setEditingCell(null);
     onRefresh();
   }
 
