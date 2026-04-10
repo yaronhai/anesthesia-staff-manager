@@ -644,19 +644,25 @@ export default function DailyRoomView({ config, authToken }) {
                         <div className="site-square-title">{site.name}</div>
                         {siteActivityTypes[site.id] && (
                           <div style={{
-                            fontSize: '0.65rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            fontSize: '0.7rem',
                             color: '#0369a1',
                             fontWeight: 600,
-                            padding: '0.3rem',
+                            padding: '0.35rem 0.5rem',
                             background: '#dbeafe',
-                            borderRadius: '3px',
-                            marginBottom: '0.3rem',
-                            textAlign: 'center',
+                            borderRadius: '4px',
+                            marginBottom: '0.4rem',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            textOverflow: 'ellipsis',
+                            maxWidth: '100%'
                           }}>
-                            🎯 {(config.activity_types || []).find(at => at.id === parseInt(siteActivityTypes[site.id]))?.name}
+                            <span>🎯</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {(config.activity_types || []).find(at => at.id === parseInt(siteActivityTypes[site.id]))?.name}
+                            </span>
                           </div>
                         )}
                         <div className="site-square-shift">
