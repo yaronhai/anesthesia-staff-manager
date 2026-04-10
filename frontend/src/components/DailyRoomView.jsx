@@ -26,9 +26,9 @@ export default function DailyRoomView({ config, authToken }) {
   const [siteActivityTypes, setSiteActivityTypes] = useState({}); // Map of site_id -> activity_type_id
   const [siteShiftTimes, setSiteShiftTimes] = useState({}); // Map of "site_id-shift_type" -> { start_time, end_time }
   const [editingShiftTimes, setEditingShiftTimes] = useState(null); // { site_id, shift_type, start_time, end_time }
+  const [addingToShiftInSite, setAddingToShiftInSite] = useState(null); // { site_id, shift_type } - for adding within site modal
 
-  // Add assignment modal
-  const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
+  // Add assignment state
   const [newAssignment, setNewAssignment] = useState({ worker_id: null, start_time: '', end_time: '', notes: '' });
   const [showAllWorkers, setShowAllWorkers] = useState(false);
 
@@ -95,10 +95,11 @@ export default function DailyRoomView({ config, authToken }) {
     return field === 'start_time' ? eveningStart : eveningEnd; // Default to evening
   }
 
-  function openAddModal(siteId, siteName, shiftType) {
+  function openAddModalInSite(siteId, shiftType) {
     const shiftTimes = getSiteShiftTimes(siteId, shiftType);
-    setAddingTo({ site_id: siteId, site_name: siteName, shift_type: shiftType });
+    setAddingToShiftInSite({ site_id: siteId, shift_type: shiftType });
     setNewAssignment({ worker_id: null, start_time: shiftTimes.start_time, end_time: shiftTimes.end_time, notes: '' });
+    setShowAllWorkers(false);
   }
 
   function openEditModal(assignment) {
@@ -111,16 +112,16 @@ export default function DailyRoomView({ config, authToken }) {
   }
 
   async function saveNewAssignment() {
-    if (!addingTo || !newAssignment.worker_id) {
+    if (!addingToShiftInSite || !newAssignment.worker_id) {
       return;
     }
 
     // Check if worker has a shift request for this date+shift with can/prefer
-    const hasRequest = didWorkerRequestShift(newAssignment.worker_id, addingTo.shift_type);
+    const hasRequest = didWorkerRequestShift(newAssignment.worker_id, addingToShiftInSite.shift_type);
 
     if (!hasRequest) {
       const worker = workers.find(w => w.id === newAssignment.worker_id);
-      const shiftLabel = addingTo.shift_type === 'morning' ? 'בוקר' : addingTo.shift_type === 'night' ? 'תורנות' : 'ערב';
+      const shiftLabel = addingToShiftInSite.shift_type === 'morning' ? 'בוקר' : addingToShiftInSite.shift_type === 'night' ? 'תורנות' : 'ערב';
       const confirmed = window.confirm(
         `⚠️ ${worker?.first_name} ${worker?.family_name} לא ביקש לעבוד ב${shiftLabel}.\n\nהאם אתה בטוח שברצונך לשבץ אותו?`
       );
@@ -136,8 +137,8 @@ export default function DailyRoomView({ config, authToken }) {
         body: JSON.stringify({
           worker_id:   newAssignment.worker_id,
           date:        dateStr,
-          site_id:     addingTo.site_id,
-          shift_type:  addingTo.shift_type,
+          site_id:     addingToShiftInSite.site_id,
+          shift_type:  addingToShiftInSite.shift_type,
           start_time:  newAssignment.start_time || null,
           end_time:    newAssignment.end_time   || null,
           notes:       newAssignment.notes      || null,
@@ -145,7 +146,8 @@ export default function DailyRoomView({ config, authToken }) {
       });
       if (res.ok) {
         fetchAll();
-        setAddingTo(null);
+        setAddingToShiftInSite(null);
+        setNewAssignment({ worker_id: null, start_time: '', end_time: '', notes: '' });
         setShowAllWorkers(false);
       } else {
         const err = await res.json();
@@ -519,7 +521,7 @@ export default function DailyRoomView({ config, authToken }) {
             </div>
           )}
         </div>
-        <button className="room-add-btn" onClick={() => openAddModal(site.id, site.name, shiftType)}>
+        <button className="room-add-btn" onClick={() => openAddModalInSite(site.id, shiftType)}>
           + הוסף ({label})
         </button>
       </div>
@@ -734,8 +736,103 @@ export default function DailyRoomView({ config, authToken }) {
               flexDirection: 'column',
               gap: '1.5rem'
             }}>
-              <ShiftSection site={site} shiftType="morning" label="בוקר"/>
-              <ShiftSection site={site} shiftType="evening" label="ערב"/>
+              {addingToShiftInSite && addingToShiftInSite.site_id === site.id ? (
+                <div style={{background: '#f9fafb', padding: '1.5rem', borderRadius: '8px', border: '1px solid #d1d5db'}}>
+                  <h3 style={{marginBottom: '1rem', color: '#1a2e4a'}}>הוסף שיבוץ — {addingToShiftInSite.shift_type === 'morning' ? 'בוקר' : addingToShiftInSite.shift_type === 'night' ? 'תורנות' : 'ערב'}</h3>
+
+                  <div style={{marginBottom: '1rem', padding: '0.75rem', background: '#fff', borderRadius: '6px'}}>
+                    <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem'}}>
+                      <input
+                        type="checkbox"
+                        checked={showAllWorkers}
+                        onChange={e => {
+                          setShowAllWorkers(e.target.checked);
+                          setNewAssignment({ ...newAssignment, worker_id: null });
+                        }}
+                      />
+                      צפה בכל העובדים
+                    </label>
+                  </div>
+
+                  <div className="form-group">
+                    <label>עובד:</label>
+                    <select
+                      value={newAssignment.worker_id || ''}
+                      onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
+                    >
+                      <option value="">בחר עובד...</option>
+                      {getEligibleWorkers(site.id, addingToShiftInSite.shift_type).map(w => (
+                        <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
+                      ))}
+                    </select>
+                    {getEligibleWorkers(site.id, addingToShiftInSite.shift_type).length === 0 && (
+                      <p style={{fontSize: '0.85rem', color: '#666', marginTop: '0.5rem'}}>
+                        {showAllWorkers ? 'אין עובדים במערכת' : 'אין עובדים שביקשו משמרת זו. בדוק "צפה בכל העובדים" כדי לשבץ עובד אחר'}
+                      </p>
+                    )}
+                  </div>
+
+                  {newAssignment.worker_id && !didWorkerRequestShift(newAssignment.worker_id, addingToShiftInSite.shift_type) && (
+                    <div style={{padding: '0.75rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
+                      <strong>⛔ אזהרה:</strong> העובד לא ביקש לעבוד במשמרת זו
+                    </div>
+                  )}
+
+                  {newAssignment.worker_id && getWorkerOtherAssignments(newAssignment.worker_id, addingToShiftInSite.shift_type).length > 0 && (
+                    <div style={{padding: '0.75rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#92400e', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
+                      <strong>⚠️ התראה:</strong> העובד משובץ כבר ב{getWorkerOtherAssignments(newAssignment.worker_id, addingToShiftInSite.shift_type).join(', ')}
+                    </div>
+                  )}
+
+                  <div className="form-group form-group-inline">
+                    <div>
+                      <label>שעת התחלה:</label>
+                      <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
+                    </div>
+                    <div>
+                      <label>שעת סיום:</label>
+                      <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>סוג פעילות:</label>
+                    <select
+                      value={getSiteShiftActivity(site.id, addingToShiftInSite.shift_type)?.activity_type_id || ''}
+                      onChange={e => updateSiteShiftActivity(site.id, addingToShiftInSite.shift_type, e.target.value ? parseInt(e.target.value) : null)}
+                    >
+                      <option value="">— אין פעילות —</option>
+                      {(config.activity_types || []).map(at => (
+                        <option key={at.id} value={at.id}>{at.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>הערות:</label>
+                    <input
+                      type="text"
+                      value={newAssignment.notes}
+                      onChange={e => setNewAssignment({ ...newAssignment, notes: e.target.value })}
+                      placeholder="הערות אופציונליות..."
+                    />
+                  </div>
+
+                  <div style={{display: 'flex', gap: '0.75rem', marginTop: '1.5rem'}}>
+                    <button className="btn-secondary" onClick={() => { setAddingToShiftInSite(null); setNewAssignment({ worker_id: null, start_time: '', end_time: '', notes: '' }); setShowAllWorkers(false); }}>ביטול</button>
+                    <button
+                      className="btn-primary"
+                      onClick={saveNewAssignment}
+                      disabled={!newAssignment.worker_id}
+                    >שמור</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+                  <ShiftSection site={site} shiftType="evening" label="ערב"/>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -791,112 +888,7 @@ export default function DailyRoomView({ config, authToken }) {
       </div>
     )}
 
-    {/* Modals rendered OUTSIDE room-view-container to ensure they appear on top */}
-    {addingTo && (
-      <div className="form-overlay" onClick={() => { setAddingTo(null); setShowAllWorkers(false); }}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <h3>הוסף שיבוץ — {addingTo.shift_type === 'morning' ? 'בוקר' : addingTo.shift_type === 'night' ? 'תורנות' : 'ערב'}</h3>
-            <button className="btn-close" onClick={() => { setAddingTo(null); setShowAllWorkers(false); }}>✕</button>
-          </div>
-          <div className="modal-body">
-            <div className="modal-info">
-              <p><strong>אתר:</strong> {addingTo.site_name}</p>
-              <p><strong>תאריך:</strong> {dateStr}</p>
-            </div>
-
-            <div style={{marginBottom: '1rem', padding: '0.75rem', background: '#f3f4f6', borderRadius: '6px'}}>
-              <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem'}}>
-                <input
-                  type="checkbox"
-                  checked={showAllWorkers}
-                  onChange={e => {
-                    setShowAllWorkers(e.target.checked);
-                    setNewAssignment({ ...newAssignment, worker_id: null });
-                  }}
-                />
-                צפה בכל העובדים
-              </label>
-            </div>
-
-            <div className="form-group">
-              <label>עובד:</label>
-              <select
-                value={newAssignment.worker_id || ''}
-                onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
-              >
-                <option value="">בחר עובד...</option>
-                {getEligibleWorkers(addingTo.site_id, addingTo.shift_type).map(w => (
-                  <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
-                ))}
-              </select>
-              {getEligibleWorkers(addingTo.site_id, addingTo.shift_type).length === 0 && (
-                <p style={{fontSize: '0.85rem', color: '#666', marginTop: '0.5rem'}}>
-                  {showAllWorkers ? 'אין עובדים במערכת' : 'אין עובדים שביקשו משמרת זו. בדוק "צפה בכל העובדים" כדי לשבץ עובד אחר'}
-                </p>
-              )}
-            </div>
-
-            {newAssignment.worker_id && !didWorkerRequestShift(newAssignment.worker_id, addingTo.shift_type) && (
-              <div style={{padding: '0.75rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
-                <strong>⛔ אזהרה:</strong> העובד לא ביקש לעבוד במשמרת זו
-              </div>
-            )}
-
-            {newAssignment.worker_id && getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).length > 0 && (
-              <div style={{padding: '0.75rem', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#92400e', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
-                <strong>⚠️ התראה:</strong> העובד משובץ כבר ב{getWorkerOtherAssignments(newAssignment.worker_id, addingTo.shift_type).join(', ')}
-              </div>
-            )}
-
-            <div className="form-group form-group-inline">
-              <div>
-                <label>שעת התחלה:</label>
-                <input type="time" value={newAssignment.start_time} onChange={e => setNewAssignment({ ...newAssignment, start_time: e.target.value })} />
-              </div>
-              <div>
-                <label>שעת סיום:</label>
-                <input type="time" value={newAssignment.end_time} onChange={e => setNewAssignment({ ...newAssignment, end_time: e.target.value })} />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>סוג פעילות:</label>
-              <select
-                value={getSiteShiftActivity(addingTo.site_id, addingTo.shift_type)?.activity_type_id || ''}
-                onChange={e => updateSiteShiftActivity(addingTo.site_id, addingTo.shift_type, e.target.value ? parseInt(e.target.value) : null)}
-              >
-                <option value="">— אין פעילות —</option>
-                {(config.activity_types || []).map(at => (
-                  <option key={at.id} value={at.id}>{at.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>הערות:</label>
-              <input
-                type="text"
-                value={newAssignment.notes}
-                onChange={e => setNewAssignment({ ...newAssignment, notes: e.target.value })}
-                placeholder="הערות אופציונליות..."
-              />
-            </div>
-          </div>
-          <div className="modal-footer">
-            <div>
-              <button className="btn-secondary" onClick={() => { setAddingTo(null); setShowAllWorkers(false); }}>ביטול</button>
-              <button
-                className="btn-primary"
-                onClick={saveNewAssignment}
-                disabled={!newAssignment.worker_id}
-              >שמור</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-
+    {/* Edit assignment modal (for editing existing assignments) */}
     {editingAssignment && (
       <div className="form-overlay" onClick={() => setEditingAssignment(null)}>
         <div className="assignment-modal" onClick={e => e.stopPropagation()}>
