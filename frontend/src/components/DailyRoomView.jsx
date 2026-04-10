@@ -23,7 +23,7 @@ export default function DailyRoomView({ config, authToken }) {
 
   // Modal for site details
   const [selectedSiteId, setSelectedSiteId] = useState(null);
-  const [siteActivityType, setSiteActivityType] = useState(''); // Activity type for selected site
+  const [siteActivityTypes, setSiteActivityTypes] = useState({}); // Map of site_id -> activity_type_id
 
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
@@ -642,6 +642,23 @@ export default function DailyRoomView({ config, authToken }) {
                         onClick={() => setSelectedSiteId(site.id)}
                       >
                         <div className="site-square-title">{site.name}</div>
+                        {siteActivityTypes[site.id] && (
+                          <div style={{
+                            fontSize: '0.65rem',
+                            color: '#0369a1',
+                            fontWeight: 600,
+                            padding: '0.3rem',
+                            background: '#dbeafe',
+                            borderRadius: '3px',
+                            marginBottom: '0.3rem',
+                            textAlign: 'center',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            🎯 {(config.activity_types || []).find(at => at.id === parseInt(siteActivityTypes[site.id]))?.name}
+                          </div>
+                        )}
                         <div className="site-square-shift">
                           <span className="site-square-icon">☀</span>
                           <span className="site-square-names">{morningAssignments || '—'}</span>
@@ -671,8 +688,10 @@ export default function DailyRoomView({ config, authToken }) {
       if (!site) return null;
 
       async function saveSiteActivityType(activityTypeId) {
-        setSiteActivityType(activityTypeId);
-        // Can add backend persistence here if needed
+        setSiteActivityTypes(prev => ({
+          ...prev,
+          [site.id]: activityTypeId
+        }));
       }
 
       return (
@@ -684,7 +703,7 @@ export default function DailyRoomView({ config, authToken }) {
           >
             <div className="report-header">
               <h2>{site.name} — {dateLabel}</h2>
-              <button className="btn-close" onClick={() => { setSelectedSiteId(null); setSiteActivityType(''); }}>✕</button>
+              <button className="btn-close" onClick={() => setSelectedSiteId(null)}>✕</button>
             </div>
 
             <div style={{
@@ -709,7 +728,7 @@ export default function DailyRoomView({ config, authToken }) {
                   fontSize: '0.95rem'
                 }}>סוג פעילות באתר זה:</label>
                 <select
-                  value={siteActivityType}
+                  value={siteActivityTypes[site.id] || ''}
                   onChange={e => saveSiteActivityType(e.target.value)}
                   style={{
                     width: '100%',
