@@ -5,7 +5,7 @@ function WorkerAuthButton({ worker, authToken, config }) {
 
   return (
     <>
-      <button onClick={() => setShowModal(true)} className="btn-secondary">
+      <button onClick={() => setShowModal(true)} className="btn-auth">
         הרשאות
       </button>
       {showModal && (
