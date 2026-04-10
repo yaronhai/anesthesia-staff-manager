@@ -53,16 +53,14 @@ export default function ChangePasswordModal({ token, onSuccess, onSkip }) {
           />
         </div>
         {error && <p className="error-msg">{error}</p>}
-        <div className="button-group" style={{ display: 'flex', gap: '10px' }}>
-          <button type="submit" className="btn-primary" disabled={loading} style={{ flex: 1 }}>
-            {loading ? 'שומר...' : 'שמור סיסמא'}
+        <button type="submit" className="btn-primary" disabled={loading}>
+          {loading ? 'שומר...' : 'שמור סיסמא'}
+        </button>
+        {onSkip && (
+          <button type="button" className="btn-link" onClick={onSkip} disabled={loading}>
+            דלג
           </button>
-          {onSkip && (
-            <button type="button" className="btn-secondary" onClick={onSkip} disabled={loading} style={{ flex: 1 }}>
-              דלג
-            </button>
-          )}
-        </div>
+        )}
       </form>
     </div>
   );

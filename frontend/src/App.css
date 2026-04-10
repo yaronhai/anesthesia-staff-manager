@@ -122,6 +122,21 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 }
 .btn-secondary:hover { background: #d1d5db; }
 
+.btn-link {
+  background: none;
+  color: #2563eb;
+  border: none;
+  padding: 0.55rem 1.3rem;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background 0.15s;
+  text-decoration: none;
+}
+.btn-link:hover { background: rgba(37, 99, 235, 0.1); }
+.btn-link:disabled { color: #9ca3af; cursor: not-allowed; }
+
 .btn-view {
   background: #6366f1;
   color: white;
