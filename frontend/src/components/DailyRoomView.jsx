@@ -24,6 +24,8 @@ export default function DailyRoomView({ config, authToken }) {
   // Modal for site details
   const [selectedSiteId, setSelectedSiteId] = useState(null);
   const [siteActivityTypes, setSiteActivityTypes] = useState({}); // Map of site_id -> activity_type_id
+  const [siteShiftTimes, setSiteShiftTimes] = useState({}); // Map of "site_id-shift_type" -> { start_time, end_time }
+  const [editingShiftTimes, setEditingShiftTimes] = useState(null); // { site_id, shift_type, start_time, end_time }
 
   // Add assignment modal
   const [addingTo, setAddingTo] = useState(null); // { site_id, site_name, shift_type }
@@ -94,19 +96,9 @@ export default function DailyRoomView({ config, authToken }) {
   }
 
   function openAddModal(siteId, siteName, shiftType) {
-    let defaultStart, defaultEnd;
-    if (shiftType === 'morning') {
-      defaultStart = morningStart;
-      defaultEnd = morningEnd;
-    } else if (shiftType === 'night') {
-      defaultStart = nightStart;
-      defaultEnd = nightEnd;
-    } else {
-      defaultStart = eveningStart;
-      defaultEnd = eveningEnd;
-    }
+    const shiftTimes = getSiteShiftTimes(siteId, shiftType);
     setAddingTo({ site_id: siteId, site_name: siteName, shift_type: shiftType });
-    setNewAssignment({ worker_id: null, start_time: defaultStart, end_time: defaultEnd, notes: '' });
+    setNewAssignment({ worker_id: null, start_time: shiftTimes.start_time, end_time: shiftTimes.end_time, notes: '' });
   }
 
   function openEditModal(assignment) {
@@ -170,6 +162,26 @@ export default function DailyRoomView({ config, authToken }) {
     return siteShiftActivities.find(ssa =>
       ssa.site_id === siteId && ssa.date === dateStr && ssa.shift_type === shiftType
     );
+  }
+
+  function getSiteShiftTimes(siteId, shiftType) {
+    const key = `${siteId}-${shiftType}`;
+    const custom = siteShiftTimes[key];
+    if (custom) return custom;
+
+    // Return default times
+    if (shiftType === 'morning') return { start_time: morningStart, end_time: morningEnd };
+    if (shiftType === 'evening') return { start_time: eveningStart, end_time: eveningEnd };
+    if (shiftType === 'night') return { start_time: nightStart, end_time: nightEnd };
+    return { start_time: eveningStart, end_time: eveningEnd };
+  }
+
+  function saveSiteShiftTimes(siteId, shiftType, startTime, endTime) {
+    const key = `${siteId}-${shiftType}`;
+    setSiteShiftTimes(prev => ({
+      ...prev,
+      [key]: { start_time: startTime, end_time: endTime }
+    }));
   }
 
   function didWorkerRequestShift(workerId, shiftType) {
@@ -453,6 +465,7 @@ export default function DailyRoomView({ config, authToken }) {
   function ShiftSection({ site, shiftType, label }) {
     const siteAssignments = getSiteShiftAssignments(site.id, shiftType);
     const activity = getSiteShiftActivity(site.id, shiftType);
+    const shiftTimes = getSiteShiftTimes(site.id, shiftType);
 
     return (
       <div className={`room-shift-section room-shift-${shiftType}`}>
@@ -460,16 +473,14 @@ export default function DailyRoomView({ config, authToken }) {
           <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1}}>
             <span className="room-shift-label">{label}</span>
             <span className="room-shift-time">
-              {formatTime24(
-                shiftType === 'morning' ? morningStart :
-                shiftType === 'night' ? nightStart :
-                eveningStart
-              )}–{formatTime24(
-                shiftType === 'morning' ? morningEnd :
-                shiftType === 'night' ? nightEnd :
-                eveningEnd
-              )}
+              {formatTime24(shiftTimes.start_time)}–{formatTime24(shiftTimes.end_time)}
             </span>
+            <button
+              className="btn-edit-small"
+              onClick={() => setEditingShiftTimes({ site_id: site.id, site_name: site.name, shift_type: shiftType, ...shiftTimes })}
+              title="ערוך שעות"
+              style={{padding: '0.2rem 0.4rem', fontSize: '0.8rem', marginLeft: '0.5rem'}}
+            >✏️</button>
           </div>
           {activity && activity.activity_name && (
             <span style={{
@@ -730,6 +741,55 @@ export default function DailyRoomView({ config, authToken }) {
         </div>
       );
     })()}
+
+    {/* Edit shift times modal */}
+    {editingShiftTimes && (
+      <div className="form-overlay" onClick={() => setEditingShiftTimes(null)}>
+        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '400px'}}>
+          <div className="modal-header">
+            <h3>ערוך שעות משמרת</h3>
+            <button className="btn-close" onClick={() => setEditingShiftTimes(null)}>✕</button>
+          </div>
+          <div className="modal-body">
+            <div className="modal-info">
+              <p><strong>אתר:</strong> {editingShiftTimes.site_name}</p>
+              <p><strong>משמרת:</strong> {editingShiftTimes.shift_type === 'morning' ? 'בוקר' : editingShiftTimes.shift_type === 'night' ? 'תורנות' : 'ערב'}</p>
+            </div>
+
+            <div className="form-group form-group-inline">
+              <div>
+                <label>שעת התחלה:</label>
+                <input
+                  type="time"
+                  value={editingShiftTimes.start_time}
+                  onChange={e => setEditingShiftTimes({ ...editingShiftTimes, start_time: e.target.value })}
+                />
+              </div>
+              <div>
+                <label>שעת סיום:</label>
+                <input
+                  type="time"
+                  value={editingShiftTimes.end_time}
+                  onChange={e => setEditingShiftTimes({ ...editingShiftTimes, end_time: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <div>
+              <button className="btn-secondary" onClick={() => setEditingShiftTimes(null)}>ביטול</button>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  saveSiteShiftTimes(editingShiftTimes.site_id, editingShiftTimes.shift_type, editingShiftTimes.start_time, editingShiftTimes.end_time);
+                  setEditingShiftTimes(null);
+                }}
+              >שמור</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Modals rendered OUTSIDE room-view-container to ensure they appear on top */}
     {addingTo && (
