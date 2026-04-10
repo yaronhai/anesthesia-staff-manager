@@ -163,7 +163,7 @@ export default function App() {
             </div>
           </div>
         </header>
-        <ChangePasswordModal token={authToken} onSuccess={handlePasswordChanged} />
+        <ChangePasswordModal token={authToken} onSuccess={handlePasswordChanged} onSkip={handlePasswordChanged} />
       </div>
     );
   }

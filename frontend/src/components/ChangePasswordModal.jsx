@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function ChangePasswordModal({ token, onSuccess }) {
+export default function ChangePasswordModal({ token, onSuccess, onSkip }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -53,9 +53,16 @@ export default function ChangePasswordModal({ token, onSuccess }) {
           />
         </div>
         {error && <p className="error-msg">{error}</p>}
-        <button type="submit" className="btn-primary" disabled={loading}>
-          {loading ? 'שומר...' : 'שמור סיסמא'}
-        </button>
+        <div className="button-group" style={{ display: 'flex', gap: '10px' }}>
+          <button type="submit" className="btn-primary" disabled={loading} style={{ flex: 1 }}>
+            {loading ? 'שומר...' : 'שמור סיסמא'}
+          </button>
+          {onSkip && (
+            <button type="button" className="btn-secondary" onClick={onSkip} disabled={loading} style={{ flex: 1 }}>
+              דלג
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );
