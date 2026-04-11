@@ -10,7 +10,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
   const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
   const [expandedActivityAuths, setExpandedActivityAuths] = useState({});
-  const [expandedSections, setExpandedSections] = useState({ groups: true, sites: true, jobs: false, empTypes: false, honorifics: false, activities: false, workerAuths: false });
+  const [activeTab, setActiveTab] = useState('groups');
 
   async function addItem(endpoint, value, setter) {
     if (!value.trim()) return;
@@ -122,10 +122,15 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     }
   }
 
-  function toggleSection(section) {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  }
-
+  const tabs = [
+    { key: 'groups', label: 'קבוצות אתרים' },
+    { key: 'sites', label: 'אתרים' },
+    { key: 'jobs', label: 'תפקידים' },
+    { key: 'empTypes', label: 'סוגי העסקה' },
+    { key: 'honorifics', label: 'תארים' },
+    { key: 'activities', label: 'סוגי פעילות' },
+    { key: 'workerAuths', label: 'הרשאות עובדים' },
+  ];
 
   return (
     <div className="form-overlay" onClick={onClose}>
@@ -135,14 +140,32 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
-        <div className="settings-grid settings-grid-5">
+        <div style={{display: 'flex', flexDirection: 'column', flex: 1}}>
+          {/* Tabs */}
+          <div style={{display: 'flex', gap: '0.25rem', borderBottom: '2px solid #e5e7eb', flexWrap: 'wrap', padding: '0 0.5rem'}}>
+            {tabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  padding: '0.75rem 1rem',
+                  border: 'none',
+                  background: activeTab === tab.key ? '#1a2e4a' : '#f3f4f6',
+                  color: activeTab === tab.key ? 'white' : '#666',
+                  fontWeight: activeTab === tab.key ? 600 : 400,
+                  cursor: 'pointer',
+                  borderRadius: '6px 6px 0 0',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-          <div className={`settings-card${expandedSections.groups ? ' expanded' : ''}`}>
-            <h3 className="settings-card-header" onClick={() => toggleSection('groups')}>
-              קבוצות אתרים
-              <span className="settings-card-arrow">{expandedSections.groups ? '▲' : '▼'}</span>
-            </h3>
-            {expandedSections.groups && (
+          {/* Content */}
+          <div style={{flex: 1, overflow: 'auto', padding: '1.5rem'}}>
+            {activeTab === 'groups' && (
               <>
                 <ul className="config-list">
                   {(config.site_groups || []).map(group => (
@@ -188,14 +211,8 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </div>
               </>
             )}
-          </div>
 
-          <div className={`settings-card${expandedSections.sites ? ' expanded' : ''}`}>
-            <h3 className="settings-card-header" onClick={() => toggleSection('sites')}>
-              אתרים
-              <span className="settings-card-arrow">{expandedSections.sites ? '▲' : '▼'}</span>
-            </h3>
-            {expandedSections.sites && (
+            {activeTab === 'sites' && (
               <>
                 <ul className="config-list">
                   {(config.sites || []).map(site => (
@@ -252,48 +269,42 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </div>
               </>
             )}
-          </div>
 
-          <div className={`settings-card${expandedSections.jobs ? ' expanded' : ''}`}>
-            <h3 className="settings-card-header" onClick={() => toggleSection('jobs')}>
-              תפקידים
-              <span className="settings-card-arrow">{expandedSections.jobs ? '▲' : '▼'}</span>
-            </h3>
-            {expandedSections.jobs && (
+            {activeTab === 'jobs' && (
               <>
                 <ul className="config-list">
-              {config.jobs.map(job => (
-                <li key={job.id}>
-                  {editingKey === `job-${job.id}` ? (
-                    <input
-                      className="config-inline-edit"
-                      value={editingValue}
-                      onChange={e => setEditingValue(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') saveEdit('/api/config/jobs', job.id);
-                        if (e.key === 'Escape') setEditingKey(null);
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <span>{job.name}</span>
-                  )}
-                  <div className="config-item-actions">
-                    {editingKey === `job-${job.id}` ? (
-                      <>
-                        <button className="btn-save-inline" onClick={() => saveEdit('/api/config/jobs', job.id)}>שמור</button>
-                        <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="btn-edit-inline" onClick={() => { setEditingKey(`job-${job.id}`); setEditingValue(job.name); }}>עריכה</button>
-                        <button className="btn-remove" onClick={() => removeItem('/api/config/jobs', job.id)}>✕</button>
-                      </>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  {config.jobs.map(job => (
+                    <li key={job.id}>
+                      {editingKey === `job-${job.id}` ? (
+                        <input
+                          className="config-inline-edit"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEdit('/api/config/jobs', job.id);
+                            if (e.key === 'Escape') setEditingKey(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span>{job.name}</span>
+                      )}
+                      <div className="config-item-actions">
+                        {editingKey === `job-${job.id}` ? (
+                          <>
+                            <button className="btn-save-inline" onClick={() => saveEdit('/api/config/jobs', job.id)}>שמור</button>
+                            <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn-edit-inline" onClick={() => { setEditingKey(`job-${job.id}`); setEditingValue(job.name); }}>עריכה</button>
+                            <button className="btn-remove" onClick={() => removeItem('/api/config/jobs', job.id)}>✕</button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
                 <div className="config-add">
                   <input
                     value={newJob}
@@ -305,48 +316,42 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </div>
               </>
             )}
-          </div>
 
-          <div className={`settings-card${expandedSections.empTypes ? ' expanded' : ''}`}>
-            <h3 className="settings-card-header" onClick={() => toggleSection('empTypes')}>
-              סוגי העסקה
-              <span className="settings-card-arrow">{expandedSections.empTypes ? '▲' : '▼'}</span>
-            </h3>
-            {expandedSections.empTypes && (
+            {activeTab === 'empTypes' && (
               <>
                 <ul className="config-list">
-              {config.employment_types.map(type => (
-                <li key={type.id}>
-                  {editingKey === `emptype-${type.id}` ? (
-                    <input
-                      className="config-inline-edit"
-                      value={editingValue}
-                      onChange={e => setEditingValue(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') saveEdit('/api/config/employment-types', type.id);
-                        if (e.key === 'Escape') setEditingKey(null);
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <span>{type.name}</span>
-                  )}
-                  <div className="config-item-actions">
-                    {editingKey === `emptype-${type.id}` ? (
-                      <>
-                        <button className="btn-save-inline" onClick={() => saveEdit('/api/config/employment-types', type.id)}>שמור</button>
-                        <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="btn-edit-inline" onClick={() => { setEditingKey(`emptype-${type.id}`); setEditingValue(type.name); }}>עריכה</button>
-                        <button className="btn-remove" onClick={() => removeItem('/api/config/employment-types', type.id)}>✕</button>
-                      </>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  {config.employment_types.map(type => (
+                    <li key={type.id}>
+                      {editingKey === `emptype-${type.id}` ? (
+                        <input
+                          className="config-inline-edit"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEdit('/api/config/employment-types', type.id);
+                            if (e.key === 'Escape') setEditingKey(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span>{type.name}</span>
+                      )}
+                      <div className="config-item-actions">
+                        {editingKey === `emptype-${type.id}` ? (
+                          <>
+                            <button className="btn-save-inline" onClick={() => saveEdit('/api/config/employment-types', type.id)}>שמור</button>
+                            <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn-edit-inline" onClick={() => { setEditingKey(`emptype-${type.id}`); setEditingValue(type.name); }}>עריכה</button>
+                            <button className="btn-remove" onClick={() => removeItem('/api/config/employment-types', type.id)}>✕</button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
                 <div className="config-add">
                   <input
                     value={newEmpType}
@@ -358,48 +363,42 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </div>
               </>
             )}
-          </div>
 
-          <div className={`settings-card${expandedSections.honorifics ? ' expanded' : ''}`}>
-            <h3 className="settings-card-header" onClick={() => toggleSection('honorifics')}>
-              תארים
-              <span className="settings-card-arrow">{expandedSections.honorifics ? '▲' : '▼'}</span>
-            </h3>
-            {expandedSections.honorifics && (
+            {activeTab === 'honorifics' && (
               <>
                 <ul className="config-list">
-              {(config.honorifics || []).map(h => (
-                <li key={h.id}>
-                  {editingKey === `honorific-${h.id}` ? (
-                    <input
-                      className="config-inline-edit"
-                      value={editingValue}
-                      onChange={e => setEditingValue(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') saveEdit('/api/config/honorifics', h.id);
-                        if (e.key === 'Escape') setEditingKey(null);
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <span>{h.name}</span>
-                  )}
-                  <div className="config-item-actions">
-                    {editingKey === `honorific-${h.id}` ? (
-                      <>
-                        <button className="btn-save-inline" onClick={() => saveEdit('/api/config/honorifics', h.id)}>שמור</button>
-                        <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="btn-edit-inline" onClick={() => { setEditingKey(`honorific-${h.id}`); setEditingValue(h.name); }}>עריכה</button>
-                        <button className="btn-remove" onClick={() => removeItem('/api/config/honorifics', h.id)}>✕</button>
-                      </>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  {(config.honorifics || []).map(h => (
+                    <li key={h.id}>
+                      {editingKey === `honorific-${h.id}` ? (
+                        <input
+                          className="config-inline-edit"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEdit('/api/config/honorifics', h.id);
+                            if (e.key === 'Escape') setEditingKey(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span>{h.name}</span>
+                      )}
+                      <div className="config-item-actions">
+                        {editingKey === `honorific-${h.id}` ? (
+                          <>
+                            <button className="btn-save-inline" onClick={() => saveEdit('/api/config/honorifics', h.id)}>שמור</button>
+                            <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn-edit-inline" onClick={() => { setEditingKey(`honorific-${h.id}`); setEditingValue(h.name); }}>עריכה</button>
+                            <button className="btn-remove" onClick={() => removeItem('/api/config/honorifics', h.id)}>✕</button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
                 <div className="config-add">
                   <input
                     value={newHonorific}
@@ -411,14 +410,8 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </div>
               </>
             )}
-          </div>
 
-          <div className={`settings-card${expandedSections.activities ? ' expanded' : ''}`}>
-            <h3 className="settings-card-header" onClick={() => toggleSection('activities')}>
-              סוגי פעילות
-              <span className="settings-card-arrow">{expandedSections.activities ? '▲' : '▼'}</span>
-            </h3>
-            {expandedSections.activities && (
+            {activeTab === 'activities' && (
               <>
                 <ul className="config-list">
                   {(config.activity_types || []).map(actType => (
@@ -464,20 +457,13 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                 </div>
               </>
             )}
-          </div>
 
-          <div className={`settings-card${expandedSections.workerAuths ? ' expanded' : ''}`}>
-            <h3 className="settings-card-header" onClick={() => toggleSection('workerAuths')}>
-              הרשאות עובדים לפעילויות
-              <span className="settings-card-arrow">{expandedSections.workerAuths ? '▲' : '▼'}</span>
-            </h3>
-            {expandedSections.workerAuths && (
+            {activeTab === 'workerAuths' && (
               <div style={{ fontSize: '0.85rem', padding: '0.5rem', lineHeight: '1.6' }}>
                 <p style={{ color: '#666', marginBottom: '0.5rem' }}>הרשאות ניהול בדף ניהול העובדים</p>
               </div>
             )}
           </div>
-
         </div>
       </div>
     </div>
