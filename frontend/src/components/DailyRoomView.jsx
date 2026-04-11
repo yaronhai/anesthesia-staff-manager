@@ -38,6 +38,7 @@ export default function DailyRoomView({ config, authToken }) {
   // Add assignment state
   const [newAssignment, setNewAssignment] = useState({ worker_id: null });
   const [showAllWorkers, setShowAllWorkers] = useState(false);
+  const [jobFilter, setJobFilter] = useState(null); // Filter by job when showing all workers
 
   // Edit times modal
   const [editingAssignment, setEditingAssignment] = useState(null);
@@ -936,11 +937,27 @@ export default function DailyRoomView({ config, authToken }) {
                         onChange={e => {
                           setShowAllWorkers(e.target.checked);
                           setNewAssignment({ ...newAssignment, worker_id: null });
+                          setJobFilter(null);
                         }}
                       />
                       צפה בכל העובדים
                     </label>
                   </div>
+
+                  {showAllWorkers && (
+                    <div className="form-group">
+                      <label>סנן לפי תפקיד:</label>
+                      <select
+                        value={jobFilter || ''}
+                        onChange={e => setJobFilter(e.target.value || null)}
+                      >
+                        <option value="">כל התפקידים</option>
+                        {Array.from(new Set(workers.map(w => w.job))).filter(job => job).sort().map(job => (
+                          <option key={job} value={job}>{job}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="form-group">
                     <label>עובד:</label>
@@ -949,13 +966,13 @@ export default function DailyRoomView({ config, authToken }) {
                       onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
                     >
                       <option value="">בחר עובד...</option>
-                      {getEligibleWorkers(site.id, addingToShiftInSite.shift_type).map(w => (
+                      {getEligibleWorkers(site.id, addingToShiftInSite.shift_type).filter(w => !jobFilter || w.job === jobFilter).map(w => (
                         <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
                       ))}
                     </select>
-                    {getEligibleWorkers(site.id, addingToShiftInSite.shift_type).length === 0 && (
+                    {getEligibleWorkers(site.id, addingToShiftInSite.shift_type).filter(w => !jobFilter || w.job === jobFilter).length === 0 && (
                       <p style={{fontSize: '0.85rem', color: '#666', marginTop: '0.5rem'}}>
-                        {showAllWorkers ? 'אין עובדים במערכת' : 'אין עובדים שביקשו משמרת זו. בדוק "צפה בכל העובדים" כדי לשבץ עובד אחר'}
+                        {showAllWorkers ? (jobFilter ? `אין עובדים בתפקיד "${jobFilter}"` : 'אין עובדים במערכת') : 'אין עובדים שביקשו משמרת זו. בדוק "צפה בכל העובדים" כדי לשבץ עובד אחר'}
                       </p>
                     )}
                   </div>
@@ -973,7 +990,7 @@ export default function DailyRoomView({ config, authToken }) {
                   )}
 
                   <div style={{display: 'flex', gap: '0.75rem', marginTop: '1.5rem'}}>
-                    <button className="btn-secondary" onClick={() => { setAddingToShiftInSite(null); setNewAssignment({ worker_id: null }); setShowAllWorkers(false); }}>ביטול</button>
+                    <button className="btn-secondary" onClick={() => { setAddingToShiftInSite(null); setNewAssignment({ worker_id: null }); setShowAllWorkers(false); setJobFilter(null); }}>ביטול</button>
                     <button
                       className="btn-primary"
                       onClick={saveNewAssignment}
