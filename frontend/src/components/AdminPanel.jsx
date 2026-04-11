@@ -82,7 +82,6 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
         console.log('New config:', data);
         onConfigChange(data);
         setNewSite('');
-        setSelectedSiteId(null);
         alert('אתר נוסף בהצלחה');
       } else {
         const error = await res.json();
