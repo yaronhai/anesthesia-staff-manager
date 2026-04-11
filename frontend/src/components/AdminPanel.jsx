@@ -129,7 +129,6 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     { key: 'empTypes', label: 'סוגי העסקה' },
     { key: 'honorifics', label: 'תארים' },
     { key: 'activities', label: 'סוגי פעילות' },
-    { key: 'workerAuths', label: 'הרשאות עובדים' },
   ];
 
   return (
@@ -458,11 +457,6 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
               </>
             )}
 
-            {activeTab === 'workerAuths' && (
-              <div style={{ fontSize: '0.85rem', padding: '0.5rem', lineHeight: '1.6' }}>
-                <p style={{ color: '#666', marginBottom: '0.5rem' }}>הרשאות ניהול בדף ניהול העובדים</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
