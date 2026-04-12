@@ -91,7 +91,7 @@ async function seedDatabase() {
 
     // Bootstrap admin user
     const adminCheck = await query("SELECT COUNT(*) as c FROM users WHERE username = 'admin'");
-    if (adminCheck.rows[0].c === 0) {
+    if (parseInt(adminCheck.rows[0].c) === 0) {
       await query(
         'INSERT INTO users (username, password_hash, role, must_change_password) VALUES ($1, $2, $3, $4)',
         ['admin', bcrypt.hashSync('admin123', 8), 'admin', 0]
