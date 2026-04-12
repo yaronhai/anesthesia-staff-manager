@@ -9,6 +9,7 @@ const nodemailer = require('nodemailer');
 const { query, pool, initializeSchema } = require('./db');
 
 const app = express();
+app.disable('etag');
 app.use(cors());
 app.use(express.json());
 
