@@ -49,7 +49,14 @@ export default function App() {
     const res = await fetch(API, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
-    if (res.ok) setWorkers(await res.json());
+    if (res.ok) {
+      const data = await res.json();
+      console.log('workers fetched:', data.length, data);
+      setWorkers(data);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      console.error('fetchWorkers failed:', res.status, err);
+    }
   }
 
   async function handleSave(data) {
