@@ -131,7 +131,7 @@ const transporter = nodemailer.createTransport({
 
 // ── Auth helpers ────────────────────────────────────────────────────────────
 
-const JWT_SECRET = 'anesthesia-dept-2024-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'anesthesia-dept-2024-secret-key';
 
 function requireAuth(req, res, next) {
   const auth = req.headers.authorization;
@@ -1134,12 +1134,12 @@ app.delete('/api/site-shift-activities/:id', requireAdmin, async (req, res) => {
   }
 });
 
-const PORT = 5001;
+const PORT = process.env.PORT || 5001;
 
 async function start() {
   try {
     await initializeApp();
-    app.listen(PORT, '127.0.0.1', () => console.log(`Backend running on http://localhost:${PORT}`));
+    app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
