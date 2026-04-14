@@ -1445,12 +1445,28 @@ export default function DailyRoomView({ config, authToken }) {
                 {suggestionModal.unassignable.length > 0 && (
                   <div style={{padding: '1rem', backgroundColor: '#fef2f2', borderRadius: '6px', border: '1px solid #fee2e2'}}>
                     <h4 style={{fontSize: '1rem', fontWeight: 600, margin: '0 0 0.75rem 0', color: '#991b1b'}}>⚠️ לא ניתן לשבץ:</h4>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
                       {suggestionModal.unassignable.map((item, idx) => (
-                        <div key={idx} style={{fontSize: '0.9rem', color: '#7f1d1d'}}>
-                          <span style={{fontWeight: 600}}>{item.site_name}</span>
-                          <span style={{marginRight: '0.5rem'}}>({item.shift_type === 'morning' ? 'בוקר' : item.shift_type === 'evening' ? 'ערב' : 'תורנות'})</span>
-                          - {item.reason}
+                        <div key={idx} style={{fontSize: '0.9rem', color: '#7f1d1d', paddingBottom: '0.75rem', borderBottom: item !== suggestionModal.unassignable[suggestionModal.unassignable.length - 1] ? '1px solid #fecaca' : 'none'}}>
+                          <div style={{fontWeight: 600, marginBottom: '0.5rem'}}>
+                            <span>{item.site_name}</span>
+                            <span style={{marginRight: '0.5rem'}}>({item.shift_type === 'morning' ? 'בוקר' : item.shift_type === 'evening' ? 'ערב' : 'תורנות'})</span>
+                          </div>
+                          <div style={{fontSize: '0.85rem', color: '#991b1b', marginBottom: '0.5rem'}}>
+                            סוג פעילות: {item.activity_type_name}
+                          </div>
+                          {item.unavailable_workers && item.unavailable_workers.length > 0 ? (
+                            <div style={{fontSize: '0.85rem', color: '#7f1d1d', backgroundColor: '#fff7f7', padding: '0.5rem', borderRadius: '4px'}}>
+                              <div style={{fontWeight: 500, marginBottom: '0.3rem'}}>עובדים זמינים - אך לא יכולים להשתבץ:</div>
+                              {item.unavailable_workers.map((w, wIdx) => (
+                                <div key={wIdx} style={{marginLeft: '1rem', fontSize: '0.85rem'}}>
+                                  • {w.worker_name}: {w.reason}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{fontSize: '0.85rem', color: '#991b1b'}}>{item.reason}</div>
+                          )}
                         </div>
                       ))}
                     </div>

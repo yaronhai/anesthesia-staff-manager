@@ -1104,15 +1104,45 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       }
     });
 
-    // For each shift activity, find eligible workers
+    // For each shift activity, find eligible workers and track why others aren't eligible
     const eligibleMap = new Map();
     shiftActivities.forEach(activity => {
       const key = `${activity.site_id}-${activity.shift_type}`;
       const candidates = availableByShift[activity.shift_type] || [];
-      const eligible = candidates.filter(w => {
+
+      const eligible = [];
+      const unavailable = [];
+
+      candidates.forEach(w => {
         const workerAuths = authorizations.get(w.worker_id) || new Set();
-        return workerAuths.has(activity.activity_type_id);
+        if (workerAuths.has(activity.activity_type_id)) {
+          eligible.push(w);
+        } else {
+          unavailable.push({
+            worker_id: w.worker_id,
+            worker_name: `${w.first_name} ${w.family_name}`,
+            reason: `אין הרשאה לסוג פעילות "${activity.activity_name}"`,
+            preference_type: w.preference_type
+          });
+        }
       });
+
+      // Get workers who didn't request this shift
+      const allWorkers = [...workers];
+      allWorkers.forEach(w => {
+        const hasShiftRequest = candidates.some(c => c.worker_id === w.id);
+        const isAssignedAlready = assigned.has(`${w.id}-${activity.shift_type}`);
+
+        if (!hasShiftRequest && !isAssignedAlready && w.id !== eligible.map(e => e.worker_id).find(id => id === w.id)) {
+          unavailable.push({
+            worker_id: w.id,
+            worker_name: `${w.first_name} ${w.family_name}`,
+            reason: 'לא ביקש את המשמרת הזו',
+            preference_type: null
+          });
+        }
+      });
+
       eligibleMap.set(key, {
         activity,
         eligible: eligible.sort((a, b) => {
@@ -1121,7 +1151,8 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             return a.preference_type === 'prefer' ? -1 : 1;
           }
           return 0;
-        })
+        }),
+        unavailable: unavailable
       });
     });
 
@@ -1133,7 +1164,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     const suggestions = [];
     const unassignable = [];
 
-    sorted.forEach(([, { activity, eligible }]) => {
+    sorted.forEach(([, { activity, eligible, unavailable }]) => {
       // Find first available worker (not already used in this suggestion round)
       const chosen = eligible.find(w => !usedWorkers.has(`${w.worker_id}-${activity.shift_type}`));
 
@@ -1155,7 +1186,8 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
           site_name: activity.site_name,
           shift_type: activity.shift_type,
           activity_type_name: activity.activity_name,
-          reason: 'אין עובדים מתאימים'
+          reason: 'אין עובדים מתאימים',
+          unavailable_workers: unavailable.slice(0, 5) // Show top 5 reasons
         });
       }
     });
@@ -1434,7 +1466,7 @@ app.post('/api/config/activity-templates/:id/apply', requireAdmin, async (req, r
   }
 });
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5002;
 
 async function start() {
   try {
