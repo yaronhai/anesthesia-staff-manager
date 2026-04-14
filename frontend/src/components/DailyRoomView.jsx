@@ -1076,9 +1076,8 @@ export default function DailyRoomView({ config, authToken }) {
                       </div>
                     );
                   })}
-                </div>
               </div>
-            )}
+            ) : null}
           </div>
         </>
       )}
