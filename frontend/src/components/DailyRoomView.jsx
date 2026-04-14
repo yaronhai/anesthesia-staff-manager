@@ -102,10 +102,14 @@ export default function DailyRoomView({ config, authToken }) {
       });
       if (res.ok) {
         const data = await res.json();
+        const selected = {};
+        (data.suggestions || []).forEach((_, i) => {
+          selected[i] = true;
+        });
         setSuggestionModal({
           suggestions: data.suggestions || [],
           unassignable: data.unassignable || [],
-          selected: new Set(data.suggestions.map((_, i) => i))
+          selected
         });
       } else {
         alert('שגיאה בהצעת שיבוצים');
@@ -1407,13 +1411,13 @@ export default function DailyRoomView({ config, authToken }) {
                         <label key={idx} style={{display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb', cursor: 'pointer'}}>
                           <input
                             type="checkbox"
-                            checked={suggestionModal.selected.has(idx)}
+                            checked={!!suggestionModal.selected[idx]}
                             onChange={e => {
-                              const newSelected = new Set(suggestionModal.selected);
+                              const newSelected = {...suggestionModal.selected};
                               if (e.target.checked) {
-                                newSelected.add(idx);
+                                newSelected[idx] = true;
                               } else {
-                                newSelected.delete(idx);
+                                delete newSelected[idx];
                               }
                               setSuggestionModal({...suggestionModal, selected: newSelected});
                             }}
@@ -1458,10 +1462,10 @@ export default function DailyRoomView({ config, authToken }) {
               <button className="btn-secondary" onClick={() => setSuggestionModal(null)}>ביטול</button>
               <button
                 className="btn-primary"
-                disabled={suggestionModal.selected.size === 0}
+                disabled={Object.keys(suggestionModal.selected).length === 0}
                 onClick={async () => {
                   try {
-                    const toApply = suggestionModal.suggestions.filter((_, i) => suggestionModal.selected.has(i));
+                    const toApply = suggestionModal.suggestions.filter((_, i) => suggestionModal.selected[i]);
                     for (const suggestion of toApply) {
                       await fetch('/api/worker-site-assignments', {
                         method: 'POST',
@@ -1485,7 +1489,7 @@ export default function DailyRoomView({ config, authToken }) {
                   }
                 }}
               >
-                אשר נבחרים ({suggestionModal.selected.size})
+                אשר נבחרים ({Object.keys(suggestionModal.selected).length})
               </button>
             </div>
           </div>
