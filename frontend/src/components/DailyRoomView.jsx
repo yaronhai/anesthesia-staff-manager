@@ -69,6 +69,16 @@ export default function DailyRoomView({ config, authToken }) {
 
   useEffect(() => { fetchAll(); }, [month, year, authToken]);
 
+  // Auto-select first group on mount
+  useEffect(() => {
+    if (config.site_groups?.length && !selectedGroupId) {
+      const groups = Object.keys(groupSitesByGroup(config.sites));
+      if (groups.length > 0) {
+        setSelectedGroupId(groups[0]);
+      }
+    }
+  }, [config.site_groups, config.sites]);
+
   async function fetchAll() {
     setLoading(true);
     try {
@@ -957,47 +967,46 @@ export default function DailyRoomView({ config, authToken }) {
           </div>
 
           <div className="room-view-body">
-            {!selectedGroupId ? (
-              // Group buttons view
-              <div className="room-groups-grid">
-                {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => {
-                  const group = getGroup(groupId);
-                  return (
-                    <button
-                      key={groupId}
-                      className="room-group-button"
-                      style={{backgroundColor: group.color, borderColor: group.color}}
-                      onClick={() => setSelectedGroupId(groupId)}
-                    >
-                      <div className="room-group-button-title">{group.name}</div>
-                      <div className="room-group-button-icons">
-                        {Array(Math.min(sites.length, 10)).fill(0).map((_, i) => (
-                          <span key={i} style={{fontSize: '1.2rem'}}>🏢</span>
-                        ))}
-                        {sites.length > 10 && <span style={{fontSize: '0.8rem', marginLeft: '0.25rem'}}>+{sites.length - 10}</span>}
-                      </div>
-                      <div className="room-group-button-count">{sites.length} אתרים</div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              // Sites view for selected group (inline, not modal)
-              <div>
-                <div style={{marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-                  <button className="btn-secondary btn-sm" onClick={() => setSelectedGroupId(null)}>
-                    ◀ חזור לקבוצות
+            {/* Group tabs */}
+            <div style={{
+              display: 'flex', gap: '0.25rem',
+              borderBottom: '2px solid #e5e7eb',
+              flexWrap: 'wrap', padding: '0.5rem 0.5rem 0 0.5rem',
+              marginBottom: '1rem'
+            }}>
+              {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => {
+                const group = getGroup(groupId);
+                return (
+                  <button
+                    key={groupId}
+                    onClick={() => setSelectedGroupId(groupId)}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      border: 'none',
+                      background: selectedGroupId === groupId ? '#1a2e4a' : '#f3f4f6',
+                      color: selectedGroupId === groupId ? 'white' : '#666',
+                      fontWeight: selectedGroupId === groupId ? 600 : 400,
+                      cursor: 'pointer',
+                      borderRadius: '6px 6px 0 0',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {group.name}
                   </button>
-                  <h3 style={{fontSize: '1rem', color: '#1a2e4a'}}>{getGroup(selectedGroupId).name}</h3>
-                </div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                  gap: '0.8rem',
-                  maxHeight: 'calc(100vh - 250px)',
-                  overflow: 'hidden'
-                }}>
-                  {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
+                );
+              })}
+            </div>
+
+            {selectedGroupId ? (
+              // Sites grid for selected group
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                gap: '0.8rem',
+                maxHeight: 'calc(100vh - 250px)',
+                overflow: 'hidden'
+              }}>
+                {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
                     const morningAssignments = getSiteShiftAssignments(site.id, 'morning');
                     const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
                     const morningActivity = getSiteShiftActivity(site.id, 'morning');
@@ -1468,10 +1477,10 @@ export default function DailyRoomView({ config, authToken }) {
                           </div>
                           {item.unavailable_workers && item.unavailable_workers.length > 0 && (
                             <div style={{fontSize: '0.85rem', color: '#7f1d1d', backgroundColor: '#fff7f7', padding: '0.5rem', borderRadius: '4px'}}>
-                              <div style={{fontWeight: 500, marginBottom: '0.3rem'}}>פירוט עובדים:</div>
+                              <div style={{fontWeight: 500, marginBottom: '0.3rem'}}>עובדים שביקשו אך חסרה להם הרשאה:</div>
                               {item.unavailable_workers.map((w, wIdx) => (
                                 <div key={wIdx} style={{marginLeft: '1rem', fontSize: '0.85rem', padding: '0.2rem 0'}}>
-                                  • <span style={{fontWeight: 500}}>{w.worker_name}</span>: {w.reason}
+                                  • <span style={{fontWeight: 500}}>{w.name}</span>: {w.reason}
                                 </div>
                               ))}
                             </div>
