@@ -1017,6 +1017,152 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
   }
 });
 
+// Suggest assignments endpoint
+app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) {
+      return res.status(400).json({ error: 'תאריך חסר' });
+    }
+
+    // Get all shift activities for the date
+    const activitiesRes = await query(`
+      SELECT ssa.id, ssa.site_id, ssa.date, ssa.shift_type,
+             ssa.activity_type_id, at.name AS activity_name,
+             s.name AS site_name
+      FROM site_shift_activities ssa
+      LEFT JOIN activity_types at ON ssa.activity_type_id = at.id
+      JOIN sites s ON ssa.site_id = s.id
+      WHERE ssa.date = $1 AND ssa.activity_type_id IS NOT NULL
+      ORDER BY ssa.site_id, ssa.shift_type
+    `, [date]);
+
+    const shiftActivities = activitiesRes.rows;
+
+    // Get all shift requests for the date (can or prefer)
+    const shiftsRes = await query(`
+      SELECT sr.user_id, sr.shift_type, sr.preference_type,
+             w.id AS worker_id, w.first_name, w.family_name,
+             u.id AS user_id
+      FROM shift_requests sr
+      JOIN users u ON sr.user_id = u.id
+      JOIN workers w ON u.worker_id = w.id
+      WHERE sr.date = $1 AND sr.preference_type IN ('can', 'prefer')
+      ORDER BY sr.preference_type DESC, w.first_name, w.family_name
+    `, [date]);
+
+    const shiftRequests = shiftsRes.rows;
+
+    // Get all worker activity authorizations
+    const authRes = await query(`
+      SELECT worker_id, activity_type_id
+      FROM worker_activity_authorizations
+    `);
+
+    const authorizations = new Map();
+    authRes.rows.forEach(row => {
+      if (!authorizations.has(row.worker_id)) {
+        authorizations.set(row.worker_id, new Set());
+      }
+      authorizations.get(row.worker_id).add(row.activity_type_id);
+    });
+
+    // Get already assigned workers for the date
+    const assignedRes = await query(`
+      SELECT worker_id, shift_type
+      FROM worker_site_assignments
+      WHERE date = $1
+    `, [date]);
+
+    const assigned = new Set();
+    assignedRes.rows.forEach(row => {
+      assigned.add(`${row.worker_id}-${row.shift_type}`);
+    });
+
+    // Build available workers per shift
+    const availableByShift = {
+      morning: [],
+      evening: [],
+      night: []
+    };
+
+    shiftRequests.forEach(req => {
+      if (!assigned.has(`${req.worker_id}-${req.shift_type}`)) {
+        if (!availableByShift[req.shift_type]) {
+          availableByShift[req.shift_type] = [];
+        }
+        availableByShift[req.shift_type].push({
+          worker_id: req.worker_id,
+          first_name: req.first_name,
+          family_name: req.family_name,
+          preference_type: req.preference_type
+        });
+      }
+    });
+
+    // For each shift activity, find eligible workers
+    const eligibleMap = new Map();
+    shiftActivities.forEach(activity => {
+      const key = `${activity.site_id}-${activity.shift_type}`;
+      const candidates = availableByShift[activity.shift_type] || [];
+      const eligible = candidates.filter(w => {
+        const workerAuths = authorizations.get(w.worker_id) || new Set();
+        return workerAuths.has(activity.activity_type_id);
+      });
+      eligibleMap.set(key, {
+        activity,
+        eligible: eligible.sort((a, b) => {
+          // Prefer 'prefer' over 'can'
+          if (a.preference_type !== b.preference_type) {
+            return a.preference_type === 'prefer' ? -1 : 1;
+          }
+          return 0;
+        })
+      });
+    });
+
+    // Greedy matching: sort by fewest eligible workers, assign best available
+    const sorted = Array.from(eligibleMap.entries())
+      .sort((a, b) => a[1].eligible.length - b[1].eligible.length);
+
+    const usedWorkers = new Set();
+    const suggestions = [];
+    const unassignable = [];
+
+    sorted.forEach(([, { activity, eligible }]) => {
+      // Find first available worker (not already used in this suggestion round)
+      const chosen = eligible.find(w => !usedWorkers.has(`${w.worker_id}-${activity.shift_type}`));
+
+      if (chosen) {
+        suggestions.push({
+          site_id: activity.site_id,
+          site_name: activity.site_name,
+          shift_type: activity.shift_type,
+          activity_type_id: activity.activity_type_id,
+          activity_type_name: activity.activity_name,
+          worker_id: chosen.worker_id,
+          worker_name: `${chosen.first_name} ${chosen.family_name}`,
+          preference_type: chosen.preference_type
+        });
+        usedWorkers.add(`${chosen.worker_id}-${activity.shift_type}`);
+      } else {
+        unassignable.push({
+          site_id: activity.site_id,
+          site_name: activity.site_name,
+          shift_type: activity.shift_type,
+          activity_type_name: activity.activity_name,
+          reason: 'אין עובדים מתאימים'
+        });
+      }
+    });
+
+    res.json({ suggestions, unassignable });
+  } catch (error) {
+    console.error('Suggest assignments error:', error);
+    res.status(500).json({ error: 'שגיאה בהצעת שיבוצים' });
+  }
+});
+
 app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
   try {
     const { worker_id, date, site_id, shift_type, start_time, end_time, notes } = req.body;

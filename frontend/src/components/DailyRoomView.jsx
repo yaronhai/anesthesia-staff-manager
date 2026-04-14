@@ -58,6 +58,10 @@ export default function DailyRoomView({ config, authToken }) {
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [saveAsTemplateName, setSaveAsTemplateName] = useState('');
 
+  // Suggestions modal
+  const [suggestionModal, setSuggestionModal] = useState(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
   const day = viewDate.getDate();
@@ -87,6 +91,30 @@ export default function DailyRoomView({ config, authToken }) {
       console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchSuggestions() {
+    setSuggestLoading(true);
+    try {
+      const res = await fetch(`/api/staffing/suggest?date=${dateStr}`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSuggestionModal({
+          suggestions: data.suggestions || [],
+          unassignable: data.unassignable || [],
+          selected: new Set(data.suggestions.map((_, i) => i))
+        });
+      } else {
+        alert('שגיאה בהצעת שיבוצים');
+      }
+    } catch (err) {
+      console.error('Error fetching suggestions:', err);
+      alert('שגיאה בהצעת שיבוצים');
+    } finally {
+      setSuggestLoading(false);
     }
   }
 
@@ -831,6 +859,7 @@ export default function DailyRoomView({ config, authToken }) {
           <h2>שיבוצים לחדרים</h2>
           <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋 תבנית</button>
           <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
+          <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ הדפס</button>
         </div>
         <div className="room-nav">
@@ -1352,6 +1381,113 @@ export default function DailyRoomView({ config, authToken }) {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Suggestion modal */}
+    {suggestionModal && (
+      <div className="form-overlay" onClick={() => setSuggestionModal(null)}>
+        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto'}}>
+          <div className="modal-header">
+            <h3>הצעות שיבוץ אוטומטי ל-{dateLabel}</h3>
+            <button className="btn-close" onClick={() => setSuggestionModal(null)}>✕</button>
+          </div>
+          <div className="modal-body">
+            {suggestionModal.suggestions.length === 0 && suggestionModal.unassignable.length === 0 ? (
+              <p style={{textAlign: 'center', color: '#666'}}>אין הצעות שיבוץ זמינות. ודא שהוגדרו סוגי פעילות לחדרים ושעובדים ביקשו את המשמרות.</p>
+            ) : (
+              <>
+                {suggestionModal.suggestions.length > 0 && (
+                  <div style={{marginBottom: '1.5rem'}}>
+                    <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem', color: '#1a2e4a'}}>הצעות שיבוץ:</h4>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                      {suggestionModal.suggestions.map((suggestion, idx) => (
+                        <label key={idx} style={{display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb', cursor: 'pointer'}}>
+                          <input
+                            type="checkbox"
+                            checked={suggestionModal.selected.has(idx)}
+                            onChange={e => {
+                              const newSelected = new Set(suggestionModal.selected);
+                              if (e.target.checked) {
+                                newSelected.add(idx);
+                              } else {
+                                newSelected.delete(idx);
+                              }
+                              setSuggestionModal({...suggestionModal, selected: newSelected});
+                            }}
+                            style={{cursor: 'pointer'}}
+                          />
+                          <div style={{flex: 1}}>
+                            <span style={{fontWeight: 600, color: '#1a2e4a'}}>{suggestion.site_name}</span>
+                            <span style={{color: '#666', marginRight: '0.5rem'}}>({suggestion.shift_type === 'morning' ? 'בוקר' : suggestion.shift_type === 'evening' ? 'ערב' : 'תורנות'})</span>
+                            <br />
+                            <span style={{fontSize: '0.9rem', color: '#666'}}>
+                              {suggestion.activity_type_name} ← {suggestion.worker_name}
+                              <span style={{marginLeft: '0.5rem', padding: '0.1rem 0.4rem', backgroundColor: suggestion.preference_type === 'prefer' ? '#d1fae5' : '#dbeafe', borderRadius: '3px', fontSize: '0.8rem', fontWeight: 500, color: suggestion.preference_type === 'prefer' ? '#065f46' : '#0c4a6e'}}>
+                                {suggestion.preference_type === 'prefer' ? '✓ מעדיף' : '✓ יכול'}
+                              </span>
+                            </span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {suggestionModal.unassignable.length > 0 && (
+                  <div style={{padding: '1rem', backgroundColor: '#fef2f2', borderRadius: '6px', border: '1px solid #fee2e2'}}>
+                    <h4 style={{fontSize: '1rem', fontWeight: 600, margin: '0 0 0.75rem 0', color: '#991b1b'}}>⚠️ לא ניתן לשבץ:</h4>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                      {suggestionModal.unassignable.map((item, idx) => (
+                        <div key={idx} style={{fontSize: '0.9rem', color: '#7f1d1d'}}>
+                          <span style={{fontWeight: 600}}>{item.site_name}</span>
+                          <span style={{marginRight: '0.5rem'}}>({item.shift_type === 'morning' ? 'בוקר' : item.shift_type === 'evening' ? 'ערב' : 'תורנות'})</span>
+                          - {item.reason}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <div className="modal-footer">
+            <div>
+              <button className="btn-secondary" onClick={() => setSuggestionModal(null)}>ביטול</button>
+              <button
+                className="btn-primary"
+                disabled={suggestionModal.selected.size === 0}
+                onClick={async () => {
+                  try {
+                    const toApply = suggestionModal.suggestions.filter((_, i) => suggestionModal.selected.has(i));
+                    for (const suggestion of toApply) {
+                      await fetch('/api/worker-site-assignments', {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${authToken}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                          worker_id: suggestion.worker_id,
+                          date: dateStr,
+                          site_id: suggestion.site_id,
+                          shift_type: suggestion.shift_type
+                        })
+                      });
+                    }
+                    setSuggestionModal(null);
+                    fetchAll();
+                  } catch (err) {
+                    console.error('Error applying suggestions:', err);
+                    alert('שגיאה בשיבוץ ההצעות');
+                  }
+                }}
+              >
+                אשר נבחרים ({suggestionModal.selected.size})
+              </button>
+            </div>
           </div>
         </div>
       </div>
