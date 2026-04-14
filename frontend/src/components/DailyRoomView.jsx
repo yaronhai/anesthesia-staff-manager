@@ -48,6 +48,16 @@ export default function DailyRoomView({ config, authToken }) {
   // Report preview modal
   const [showReportPreview, setShowReportPreview] = useState(false);
 
+  // Template selector modal
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [editingTemplateId, setEditingTemplateId] = useState(null);
+  const [editingTemplateName, setEditingTemplateName] = useState('');
+
+  // Save as template modal
+  const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
+  const [saveAsTemplateName, setSaveAsTemplateName] = useState('');
+
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
   const day = viewDate.getDate();
@@ -381,6 +391,126 @@ export default function DailyRoomView({ config, authToken }) {
     setShowReportPreview(true);
   }
 
+  async function loadTemplates() {
+    try {
+      const res = await fetch('/api/config/activity-templates', {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        setTemplates(await res.json());
+        setShowTemplateSelector(true);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert('שגיאה בטעינת תבניות: ' + (err.error || res.status));
+      }
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      alert('שגיאה בטעינת תבניות');
+    }
+  }
+
+  async function renameTemplate(id, newName) {
+    if (!newName.trim()) return;
+    const res = await fetch(`/api/config/activity-templates/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    if (res.ok) {
+      setEditingTemplateId(null);
+      const updated = await fetch('/api/config/activity-templates', { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (updated.ok) setTemplates(await updated.json());
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert('שגיאה: ' + (err.error || res.status));
+    }
+  }
+
+  async function deleteTemplate(id) {
+    if (!confirm('למחוק תבנית זו?')) return;
+    const res = await fetch(`/api/config/activity-templates/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    });
+    if (res.ok) {
+      const updated = await fetch('/api/config/activity-templates', { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (updated.ok) setTemplates(await updated.json());
+    } else {
+      alert('שגיאה במחיקה');
+    }
+  }
+
+  async function saveCurrentAsTemplate() {
+    const name = saveAsTemplateName.trim();
+    if (!name) return;
+
+    const dayActivities = siteShiftActivities.filter(a => a.date === dateStr);
+    if (dayActivities.length === 0) {
+      alert('אין סוגי פעילות מוגדרים ליום זה');
+      return;
+    }
+
+    try {
+      // Create the template
+      const createRes = await fetch('/api/config/activity-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ name }),
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json();
+        alert('שגיאה: ' + (err.error || createRes.statusText));
+        return;
+      }
+      const newTemplate = await createRes.json();
+
+      // Save items
+      const items = dayActivities.map(a => ({
+        site_id: a.site_id,
+        shift_type: a.shift_type,
+        activity_type_id: a.activity_type_id,
+      }));
+      const itemsRes = await fetch(`/api/config/activity-templates/${newTemplate.id}/items`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ items }),
+      });
+      if (itemsRes.ok) {
+        setShowSaveAsTemplate(false);
+        setSaveAsTemplateName('');
+        alert(`תבנית "${name}" נשמרה בהצלחה`);
+      } else {
+        alert('שגיאה בשמירת פעולות התבנית');
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      alert('שגיאה בשמירת התבנית');
+    }
+  }
+
+  async function applyTemplate(templateId) {
+    try {
+      const res = await fetch(`/api/config/activity-templates/${templateId}/apply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ date: dateStr }),
+      });
+      if (res.ok) {
+        setShowTemplateSelector(false);
+        await fetchAll();
+        alert('תבנית הוחלה בהצלחה');
+      } else {
+        alert('שגיאה בהחלת התבנית');
+      }
+    } catch (error) {
+      console.error('Error applying template:', error);
+      alert('שגיאה בהחלת התבנית');
+    }
+  }
+
   function ReportPreview() {
     const title = `דו"ח שיבוצים לחדרים - ${dateLabel}`;
 
@@ -699,6 +829,8 @@ export default function DailyRoomView({ config, authToken }) {
       <div className="room-view-header">
         <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
           <h2>שיבוצים לחדרים</h2>
+          <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋 תבנית</button>
+          <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ הדפס</button>
         </div>
         <div className="room-nav">
@@ -1139,6 +1271,91 @@ export default function DailyRoomView({ config, authToken }) {
       </div>
     )}
 
+
+    {/* Save current as template modal */}
+    {showSaveAsTemplate && (
+      <div className="form-overlay" onClick={() => setShowSaveAsTemplate(false)}>
+        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '360px'}}>
+          <div className="modal-header">
+            <h3>שמור כתבנית</h3>
+            <button className="btn-close" onClick={() => setShowSaveAsTemplate(false)}>✕</button>
+          </div>
+          <div className="modal-body">
+            <p style={{color: '#666', fontSize: '0.9rem', marginBottom: '1rem'}}>
+              שמור את סוגי הפעילות של {dateLabel} כתבנית לשימוש חוזר
+            </p>
+            <div className="form-group">
+              <label>שם התבנית:</label>
+              <input
+                type="text"
+                value={saveAsTemplateName}
+                onChange={e => setSaveAsTemplateName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveCurrentAsTemplate()}
+                placeholder="לדוגמה: תבנית יום ראשון"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="modal-footer">
+            <div>
+              <button className="btn-secondary" onClick={() => setShowSaveAsTemplate(false)}>ביטול</button>
+              <button className="btn-primary" onClick={saveCurrentAsTemplate}>שמור</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Template selector modal */}
+    {showTemplateSelector && (
+      <div className="form-overlay" onClick={() => setShowTemplateSelector(false)}>
+        <div className="assignment-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>בחר תבנית</h3>
+            <button className="btn-close" onClick={() => setShowTemplateSelector(false)}>✕</button>
+          </div>
+          <div className="modal-body">
+            {templates.length === 0 ? (
+              <p style={{color: '#666', textAlign: 'center'}}>אין תבניות זמינות</p>
+            ) : (
+              <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                {templates.map(template => (
+                  <div key={template.id} style={{display: 'flex', gap: '0.25rem', alignItems: 'center'}}>
+                    {editingTemplateId === template.id ? (
+                      <>
+                        <input
+                          value={editingTemplateName}
+                          onChange={e => setEditingTemplateName(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') renameTemplate(template.id, editingTemplateName);
+                            if (e.key === 'Escape') setEditingTemplateId(null);
+                          }}
+                          autoFocus
+                          style={{flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '1rem', direction: 'rtl'}}
+                        />
+                        <button className="btn-save-inline" onClick={() => renameTemplate(template.id, editingTemplateName)}>שמור</button>
+                        <button className="btn-remove" onClick={() => setEditingTemplateId(null)}>✕</button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => applyTemplate(template.id)}
+                          style={{flex: 1, padding: '0.75rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', textAlign: 'right', fontSize: '1rem', fontWeight: 500}}
+                        >
+                          {template.name}
+                        </button>
+                        <button className="btn-edit-inline" onClick={() => { setEditingTemplateId(template.id); setEditingTemplateName(template.name); }}>עריכה</button>
+                        <button className="btn-remove" onClick={() => deleteTemplate(template.id)}>✕</button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
 
     {showReportPreview && <ReportPreview />}
     </>

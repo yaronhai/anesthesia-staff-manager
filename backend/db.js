@@ -117,6 +117,21 @@ async function initializeSchema() {
         UNIQUE(worker_id, activity_type_id)
       );
 
+      CREATE TABLE IF NOT EXISTS activity_templates (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS activity_template_items (
+        id SERIAL PRIMARY KEY,
+        template_id INTEGER NOT NULL REFERENCES activity_templates(id) ON DELETE CASCADE,
+        site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night')),
+        activity_type_id INTEGER NOT NULL REFERENCES activity_types(id) ON DELETE CASCADE,
+        UNIQUE(template_id, site_id, shift_type)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_workers_id_number ON workers(id_number);
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_user_id ON shift_requests(user_id);

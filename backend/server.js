@@ -1135,6 +1135,154 @@ app.delete('/api/site-shift-activities/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// ── Activity Templates Endpoints ─────────────────────────────────────────
+
+// Get all templates with their items
+app.get('/api/config/activity-templates', requireAdmin, async (req, res) => {
+  try {
+    const templatesRes = await query(`
+      SELECT id, name, created_at
+      FROM activity_templates
+      ORDER BY name
+    `);
+
+    const templates = [];
+    for (const template of templatesRes.rows) {
+      const itemsRes = await query(`
+        SELECT ati.id, ati.site_id, ati.shift_type, ati.activity_type_id,
+               s.name AS site_name, at.name AS activity_type_name
+        FROM activity_template_items ati
+        JOIN sites s ON ati.site_id = s.id
+        JOIN activity_types at ON ati.activity_type_id = at.id
+        WHERE ati.template_id = $1
+        ORDER BY s.name, ati.shift_type
+      `, [template.id]);
+
+      templates.push({
+        ...template,
+        items: itemsRes.rows
+      });
+    }
+
+    res.json(templates);
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    res.status(500).json({ error: 'שגיאה בטעינת תבניות' });
+  }
+});
+
+// Create template
+app.post('/api/config/activity-templates', requireAdmin, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'שם התבנית חובה' });
+    }
+
+    const result = await query(
+      'INSERT INTO activity_templates (name) VALUES ($1) RETURNING id, name, created_at',
+      [name.trim()]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating template:', error);
+    if (error.message.includes('unique')) {
+      res.status(409).json({ error: 'תבנית בשם זה כבר קיימת' });
+    } else {
+      res.status(500).json({ error: 'שגיאה בשמירת התבנית' });
+    }
+  }
+});
+
+// Rename template
+app.put('/api/config/activity-templates/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'שם התבנית חובה' });
+    }
+    await query('UPDATE activity_templates SET name = $1 WHERE id = $2', [name.trim(), req.params.id]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error renaming template:', error);
+    if (error.message.includes('unique')) {
+      res.status(409).json({ error: 'תבנית בשם זה כבר קיימת' });
+    } else {
+      res.status(500).json({ error: 'שגיאה בשינוי שם התבנית' });
+    }
+  }
+});
+
+// Delete template
+app.delete('/api/config/activity-templates/:id', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM activity_templates WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error deleting template:', error);
+    res.status(500).json({ error: 'שגיאה במחיקת התבנית' });
+  }
+});
+
+// Update template items
+app.put('/api/config/activity-templates/:id/items', requireAdmin, async (req, res) => {
+  try {
+    const { items } = req.body;
+    const templateId = req.params.id;
+
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: 'items must be an array' });
+    }
+
+    // Delete existing items
+    await query('DELETE FROM activity_template_items WHERE template_id = $1', [templateId]);
+
+    // Insert new items
+    for (const item of items) {
+      const { site_id, shift_type, activity_type_id } = item;
+      if (!site_id || !shift_type || !activity_type_id) {
+        return res.status(400).json({ error: 'Missing required fields in item' });
+      }
+      await query(`
+        INSERT INTO activity_template_items (template_id, site_id, shift_type, activity_type_id)
+        VALUES ($1, $2, $3, $4)
+      `, [templateId, site_id, shift_type, activity_type_id]);
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error updating template items:', error);
+    res.status(500).json({ error: 'שגיאה בעדכון פעולות התבנית' });
+  }
+});
+
+// Apply template to a date
+app.post('/api/config/activity-templates/:id/apply', requireAdmin, async (req, res) => {
+  try {
+    const { date } = req.body;
+    const templateId = req.params.id;
+
+    if (!date) {
+      return res.status(400).json({ error: 'תאריך חובה' });
+    }
+
+    // Insert template items into site_shift_activities, ignoring conflicts
+    await query(`
+      INSERT INTO site_shift_activities (site_id, date, shift_type, activity_type_id)
+      SELECT site_id, $1, shift_type, activity_type_id
+      FROM activity_template_items
+      WHERE template_id = $2
+      ON CONFLICT(site_id, date, shift_type) DO NOTHING
+    `, [date, templateId]);
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error applying template:', error);
+    res.status(500).json({ error: 'שגיאה בהחלת התבנית' });
+  }
+});
+
 const PORT = process.env.PORT || 5001;
 
 async function start() {

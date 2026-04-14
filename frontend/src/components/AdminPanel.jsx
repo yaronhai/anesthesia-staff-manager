@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function AdminPanel({ config, authToken, onConfigChange, onClose }) {
   const [newJob, setNewJob] = useState('');
@@ -7,10 +7,20 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
   const [newSite, setNewSite] = useState('');
   const [newSiteGroup, setNewSiteGroup] = useState('');
   const [newActivityType, setNewActivityType] = useState('');
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+  const [templateItems, setTemplateItems] = useState({});
   const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
   const [expandedActivityAuths, setExpandedActivityAuths] = useState({});
   const [activeTab, setActiveTab] = useState('groups');
+
+  useEffect(() => {
+    if (activeTab === 'templates') {
+      loadTemplates();
+    }
+  }, [activeTab, authToken]);
 
   async function addItem(endpoint, value, setter) {
     if (!value.trim()) return;
@@ -122,6 +132,127 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     }
   }
 
+  async function loadTemplates() {
+    try {
+      const res = await fetch('/api/config/activity-templates', {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        setTemplates(await res.json());
+      }
+    } catch (error) {
+      console.error('Error loading templates:', error);
+    }
+  }
+
+  async function createTemplate() {
+    if (!newTemplateName.trim()) return;
+    try {
+      const res = await fetch('/api/config/activity-templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ name: newTemplateName.trim() }),
+      });
+      if (res.ok) {
+        setNewTemplateName('');
+        await loadTemplates();
+      } else {
+        const error = await res.json();
+        alert('שגיאה: ' + (error.error || res.statusText));
+      }
+    } catch (error) {
+      console.error('Error creating template:', error);
+      alert('שגיאה בשמירת התבנית');
+    }
+  }
+
+  async function renameTemplate(id, newName) {
+    if (!newName.trim()) return;
+    try {
+      const res = await fetch(`/api/config/activity-templates/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ name: newName.trim() }),
+      });
+      if (res.ok) {
+        setEditingKey(null);
+        await loadTemplates();
+      } else {
+        const err = await res.json();
+        alert('שגיאה: ' + (err.error || res.statusText));
+      }
+    } catch (error) {
+      console.error('Error renaming template:', error);
+      alert('שגיאה בשינוי שם');
+    }
+  }
+
+  async function deleteTemplate(id) {
+    if (!confirm('האם אתה בטוח?')) return;
+    try {
+      const res = await fetch(`/api/config/activity-templates/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        setSelectedTemplateId(null);
+        await loadTemplates();
+      } else {
+        alert('שגיאה במחיקת התבנית');
+      }
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      alert('שגיאה במחיקת התבנית');
+    }
+  }
+
+  async function selectTemplate(id) {
+    setSelectedTemplateId(id);
+    const template = templates.find(t => t.id === id);
+    if (template) {
+      const items = {};
+      template.items.forEach(item => {
+        items[`${item.site_id}-${item.shift_type}`] = item.activity_type_id;
+      });
+      setTemplateItems(items);
+    }
+  }
+
+  async function saveTemplateItems() {
+    if (!selectedTemplateId) return;
+    const itemsArray = Object.entries(templateItems).map(([key, activityTypeId]) => {
+      const [siteId, shiftType] = key.split('-');
+      return {
+        site_id: parseInt(siteId),
+        shift_type: shiftType,
+        activity_type_id: activityTypeId,
+      };
+    });
+
+    try {
+      const res = await fetch(`/api/config/activity-templates/${selectedTemplateId}/items`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ items: itemsArray }),
+      });
+      if (res.ok) {
+        await loadTemplates();
+        alert('תבנית נשמרה בהצלחה');
+      } else {
+        alert('שגיאה בשמירת התבנית');
+      }
+    } catch (error) {
+      console.error('Error saving template items:', error);
+      alert('שגיאה בשמירת התבנית');
+    }
+  }
+
   const tabs = [
     { key: 'groups', label: 'קבוצות אתרים' },
     { key: 'sites', label: 'אתרים' },
@@ -129,6 +260,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     { key: 'empTypes', label: 'סוגי העסקה' },
     { key: 'honorifics', label: 'תארים' },
     { key: 'activities', label: 'סוגי פעילות' },
+    { key: 'templates', label: 'תבניות' },
   ];
 
   return (
@@ -453,6 +585,113 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                     onKeyDown={e => e.key === 'Enter' && addItem('/api/config/activity-types', newActivityType, setNewActivityType)}
                   />
                   <button className="btn-primary" onClick={() => addItem('/api/config/activity-types', newActivityType, setNewActivityType)}>הוסף</button>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'templates' && (
+              <>
+                <div style={{display: 'flex', gap: '1rem', height: '100%'}}>
+                  {/* Template list */}
+                  <div style={{flex: '0 0 250px', borderRight: '1px solid #e5e7eb', paddingRight: '1rem', overflow: 'auto'}}>
+                    <div className="config-add" style={{marginBottom: '1rem'}}>
+                      <input
+                        value={newTemplateName}
+                        onChange={e => setNewTemplateName(e.target.value)}
+                        placeholder="שם תבנית חדשה..."
+                        onKeyDown={e => e.key === 'Enter' && createTemplate()}
+                      />
+                      <button className="btn-primary" onClick={createTemplate} style={{width: '100%'}}>הוסף</button>
+                    </div>
+                    <ul className="config-list" style={{borderRight: 'none'}}>
+                      {templates.map(template => (
+                        <li key={template.id} style={{marginBottom: '0.5rem'}}>
+                          {editingKey === `template-${template.id}` ? (
+                            <div style={{display: 'flex', gap: '0.25rem', alignItems: 'center'}}>
+                              <input
+                                className="config-inline-edit"
+                                style={{flex: 1}}
+                                value={editingValue}
+                                onChange={e => setEditingValue(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') renameTemplate(template.id, editingValue);
+                                  if (e.key === 'Escape') setEditingKey(null);
+                                }}
+                                autoFocus
+                              />
+                              <button className="btn-save-inline" onClick={() => renameTemplate(template.id, editingValue)}>שמור</button>
+                              <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                            </div>
+                          ) : (
+                            <div style={{display: 'flex', gap: '0.25rem', alignItems: 'center'}}>
+                              <button
+                                onClick={() => selectTemplate(template.id)}
+                                style={{
+                                  flex: 1,
+                                  padding: '0.5rem',
+                                  background: selectedTemplateId === template.id ? '#1a2e4a' : '#f3f4f6',
+                                  color: selectedTemplateId === template.id ? 'white' : '#333',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  textAlign: 'right',
+                                }}
+                              >
+                                {template.name}
+                              </button>
+                              <button className="btn-edit-inline" onClick={() => { setEditingKey(`template-${template.id}`); setEditingValue(template.name); }}>עריכה</button>
+                              <button className="btn-remove" onClick={() => deleteTemplate(template.id)}>✕</button>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Template editor */}
+                  {selectedTemplateId && (
+                    <div style={{flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+                      <h3 style={{margin: 0}}>עריכת תבנית</h3>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        gap: '0.5rem',
+                        flex: 1,
+                        overflow: 'auto',
+                      }}>
+                        {(config.sites || []).map(site => (
+                          <div key={site.id} style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
+                            <div style={{fontSize: '0.8rem', fontWeight: 600}}>{site.name}</div>
+                            {['morning', 'evening'].map(shift => (
+                              <div key={shift} style={{display: 'flex', gap: '0.25rem', alignItems: 'center', fontSize: '0.75rem'}}>
+                                <label style={{flex: '0 0 40px'}}>{shift === 'morning' ? 'בוקר' : 'ערב'}</label>
+                                <select
+                                  value={templateItems[`${site.id}-${shift}`] || ''}
+                                  onChange={e => {
+                                    const key = `${site.id}-${shift}`;
+                                    if (e.target.value) {
+                                      setTemplateItems({...templateItems, [key]: parseInt(e.target.value)});
+                                    } else {
+                                      const newItems = {...templateItems};
+                                      delete newItems[key];
+                                      setTemplateItems(newItems);
+                                    }
+                                  }}
+                                  style={{flex: 1, fontSize: '0.75rem', padding: '0.25rem'}}
+                                >
+                                  <option value="">ללא</option>
+                                  {(config.activity_types || []).map(at => (
+                                    <option key={at.id} value={at.id}>{at.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                      <button className="btn-primary" onClick={saveTemplateItems} style={{alignSelf: 'flex-start'}}>שמור תבנית</button>
+                    </div>
+                  )}
                 </div>
               </>
             )}
