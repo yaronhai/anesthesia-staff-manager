@@ -1018,6 +1018,10 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
 });
 
 // Suggest assignments endpoint
+app.get('/api/staffing/suggest-debug', requireAdmin, (_, res) => {
+  res.json({ status: 'suggest endpoint is working', date: new Date().toISOString() });
+});
+
 app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
   try {
     const { date } = req.query;
