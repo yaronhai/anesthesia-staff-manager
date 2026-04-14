@@ -117,9 +117,13 @@ export default function DailyRoomView({ config, authToken }) {
           console.error('API Error:', errData);
           alert(`שגיאה בהצעת שיבוצים: ${errData.error || errData.details || 'Unknown error'}`);
         } catch (parseErr) {
-          // HTML error response
-          console.error('Server returned HTML instead of JSON');
-          alert('שגיאה בהצעת שיבוצים: בעיה בserver (אנא נסה שוב או רענן את הדף)');
+          // HTML error response - likely 404 or server error
+          console.error('Server returned HTML instead of JSON. Status:', res.status);
+          if (res.status === 404) {
+            alert('שגיאה: הendpoint לא נמצא בserver. אנא רענן את הדף.');
+          } else {
+            alert('שגיאה בserver. אנא רענן את הדף ונסה שוב.');
+          }
         }
       }
     } catch (err) {
