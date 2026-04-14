@@ -4,7 +4,7 @@ export default function WorkplaceStaffing({ config, authToken }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [workers, setWorkers] = useState([]);
   const [siteAssignments, setSiteAssignments] = useState([]);
-  const [selectedSiteId, setSelectedSiteId] = useState(null);
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [editingCell, setEditingCell] = useState(null);
   const [editingAssignment, setEditingAssignment] = useState({ site_id: null, position_id: null, notes: '' });
   const [loading, setLoading] = useState(false);
@@ -13,15 +13,21 @@ export default function WorkplaceStaffing({ config, authToken }) {
   const year = viewDate.getFullYear();
   const daysInMonth = new Date(year, month, 0).getDate();
 
+  // Auto-select first group on mount
+  useEffect(() => {
+    if (config.site_groups?.length && selectedGroupId === null) {
+      setSelectedGroupId(config.site_groups[0].id);
+    }
+  }, [config.site_groups]);
+
   useEffect(() => {
     fetchStaffingData();
-  }, [month, year, selectedSiteId, authToken]);
+  }, [month, year, authToken]);
 
   async function fetchStaffingData() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ month, year });
-      if (selectedSiteId) params.append('siteId', selectedSiteId);
       const res = await fetch(`/api/staffing/month-view?${params}`, {
         headers: { 'Authorization': `Bearer ${authToken}` },
       });
@@ -40,9 +46,18 @@ export default function WorkplaceStaffing({ config, authToken }) {
     }
   }
 
+  const sitesInGroup = selectedGroupId
+    ? (config.sites || []).filter(s => s.group_id === selectedGroupId)
+    : (config.sites || []);
+
   function getDayAssignments(workerId, dayOfMonth) {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
-    return siteAssignments.filter(a => a.worker_id === workerId && a.date === dateStr);
+    let assignments = siteAssignments.filter(a => a.worker_id === workerId && a.date === dateStr);
+    if (selectedGroupId) {
+      const groupSiteIds = sitesInGroup.map(s => s.id);
+      assignments = assignments.filter(a => groupSiteIds.includes(a.site_id));
+    }
+    return assignments;
   }
 
   async function saveAssignment() {
@@ -124,24 +139,35 @@ export default function WorkplaceStaffing({ config, authToken }) {
           <span className="current-month">{monthName}</span>
           <button onClick={() => setViewDate(new Date(year, month))}>חודש ▶</button>
           <button onClick={() => setViewDate(new Date(year + 1, month - 1))}>שנה ▶</button>
-
-          {(!config.sites || config.sites.length === 0) ? (
-            <div className="site-filter">
-              <select disabled>
-                <option>אנא הוסף אתרים בהגדרות</option>
-              </select>
-            </div>
-          ) : (
-            <div className="site-filter">
-              <select value={selectedSiteId || ''} onChange={e => setSelectedSiteId(e.target.value ? parseInt(e.target.value) : null)}>
-                <option value="">כל האתרים</option>
-                {(config.sites || []).map(site => (
-                  <option key={site.id} value={site.id}>{site.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
+
+        {(config.site_groups?.length > 0) && (
+          <div style={{
+            display: 'flex', gap: '0.25rem',
+            borderBottom: '2px solid #e5e7eb',
+            flexWrap: 'wrap', padding: '0 0.5rem',
+            marginTop: '0.5rem'
+          }}>
+            {config.site_groups.map(group => (
+              <button
+                key={group.id}
+                onClick={() => setSelectedGroupId(group.id)}
+                style={{
+                  padding: '0.75rem 1rem',
+                  border: 'none',
+                  background: selectedGroupId === group.id ? '#1a2e4a' : '#f3f4f6',
+                  color: selectedGroupId === group.id ? 'white' : '#666',
+                  fontWeight: selectedGroupId === group.id ? 600 : 400,
+                  cursor: 'pointer',
+                  borderRadius: '6px 6px 0 0',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {group.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {!config.sites || config.sites.length === 0 ? (
