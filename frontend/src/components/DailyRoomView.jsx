@@ -112,16 +112,14 @@ export default function DailyRoomView({ config, authToken }) {
           selected
         });
       } else {
-        try {
-          const errData = await res.json();
-          console.error('API Error:', errData);
-          alert(`שגיאה בהצעת שיבוצים: ${errData.error || errData.details || 'Unknown error'}`);
-        } catch (parseErr) {
-          // HTML error response - likely 404 or server error
-          console.error('Server returned HTML instead of JSON. Status:', res.status);
-          if (res.status === 404) {
-            alert('שגיאה: הendpoint לא נמצא בserver. אנא רענן את הדף.');
-          } else {
+        // If endpoint returns 404, show helpful message
+        if (res.status === 404) {
+          alert('⚠️ הfeature עדיין לא זמין.\n\nאנא וודא שה-backend server רץ עם הקוד העדכני.\n\nפתרון: סגור את VSCode והפעל:\ncd backend && npm start');
+        } else {
+          try {
+            const errData = await res.json();
+            alert(`שגיאה: ${errData.error || 'שגיאה בserver'}`);
+          } catch (parseErr) {
             alert('שגיאה בserver. אנא רענן את הדף ונסה שוב.');
           }
         }
