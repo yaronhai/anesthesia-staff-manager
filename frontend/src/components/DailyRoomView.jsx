@@ -112,9 +112,15 @@ export default function DailyRoomView({ config, authToken }) {
           selected
         });
       } else {
-        const errData = await res.json();
-        console.error('API Error:', errData);
-        alert(`שגיאה בהצעת שיבוצים: ${errData.error || errData.details || 'Unknown error'}`);
+        try {
+          const errData = await res.json();
+          console.error('API Error:', errData);
+          alert(`שגיאה בהצעת שיבוצים: ${errData.error || errData.details || 'Unknown error'}`);
+        } catch (parseErr) {
+          // HTML error response
+          console.error('Server returned HTML instead of JSON');
+          alert('שגיאה בהצעת שיבוצים: בעיה בserver (אנא נסה שוב או רענן את הדף)');
+        }
       }
     } catch (err) {
       console.error('Error fetching suggestions:', err);
