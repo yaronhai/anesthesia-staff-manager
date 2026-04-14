@@ -1146,12 +1146,40 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         });
         usedWorkers.add(`${chosen.worker_id}-${activity.shift_type}`);
       } else {
+        // Analyze why no one is eligible
+        const candidates = availableByShift[activity.shift_type] || [];
+        const withoutAuth = [];
+        const withAuth = [];
+
+        candidates.forEach(w => {
+          const workerAuths = authorizations.get(w.worker_id) || new Set();
+          if (workerAuths.has(activity.activity_type_id)) {
+            withAuth.push(w);
+          } else {
+            withoutAuth.push({
+              name: `${w.first_name} ${w.family_name}`,
+              reason: `אין הרשאה לסוג פעילות "${activity.activity_name}"`
+            });
+          }
+        });
+
+        let mainReason = 'אין עובדים מתאימים';
+        let detailedReasons = [];
+
+        if (withoutAuth.length > 0 && withAuth.length === 0) {
+          mainReason = `${withoutAuth.length} עובד/ים ביקשו את המשמרת אך חסרה להם הרשאה לסוג פעילות זה`;
+          detailedReasons = withoutAuth.slice(0, 5);
+        } else if (withAuth.length === 0 && withoutAuth.length === 0) {
+          mainReason = `אף עובד לא ביקש את המשמרת הזו`;
+        }
+
         unassignable.push({
           site_id: activity.site_id,
           site_name: activity.site_name,
           shift_type: activity.shift_type,
           activity_type_name: activity.activity_name,
-          reason: 'אין עובדים מתאימים'
+          reason: mainReason,
+          unavailable_workers: detailedReasons
         });
       }
     });
