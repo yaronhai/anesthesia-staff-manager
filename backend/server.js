@@ -1025,8 +1025,6 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'תאריך חסר' });
     }
 
-    console.log(`[suggest] Processing date: ${date}`);
-
     // Get all shift activities for the date
     const activitiesRes = await query(`
       SELECT ssa.id, ssa.site_id, ssa.date, ssa.shift_type,
@@ -1038,7 +1036,6 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       WHERE ssa.date = $1 AND ssa.activity_type_id IS NOT NULL
       ORDER BY ssa.site_id, ssa.shift_type
     `, [date]);
-    console.log(`[suggest] Found ${activitiesRes.rows.length} activities for date`);
 
     const shiftActivities = activitiesRes.rows;
 
@@ -1055,7 +1052,6 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     `, [date]);
 
     const shiftRequests = shiftsRes.rows;
-    console.log(`[suggest] Found ${shiftRequests.length} shift requests for date`);
 
     // Get all worker activity authorizations
     const authRes = await query(`
@@ -1104,45 +1100,15 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       }
     });
 
-    // For each shift activity, find eligible workers and track why others aren't eligible
+    // For each shift activity, find eligible workers
     const eligibleMap = new Map();
     shiftActivities.forEach(activity => {
       const key = `${activity.site_id}-${activity.shift_type}`;
       const candidates = availableByShift[activity.shift_type] || [];
-
-      const eligible = [];
-      const unavailable = [];
-
-      candidates.forEach(w => {
+      const eligible = candidates.filter(w => {
         const workerAuths = authorizations.get(w.worker_id) || new Set();
-        if (workerAuths.has(activity.activity_type_id)) {
-          eligible.push(w);
-        } else {
-          unavailable.push({
-            worker_id: w.worker_id,
-            worker_name: `${w.first_name} ${w.family_name}`,
-            reason: `אין הרשאה לסוג פעילות "${activity.activity_name}"`,
-            preference_type: w.preference_type
-          });
-        }
+        return workerAuths.has(activity.activity_type_id);
       });
-
-      // Get workers who didn't request this shift
-      const allWorkers = [...workers];
-      allWorkers.forEach(w => {
-        const hasShiftRequest = candidates.some(c => c.worker_id === w.id);
-        const isAssignedAlready = assigned.has(`${w.id}-${activity.shift_type}`);
-
-        if (!hasShiftRequest && !isAssignedAlready && w.id !== eligible.map(e => e.worker_id).find(id => id === w.id)) {
-          unavailable.push({
-            worker_id: w.id,
-            worker_name: `${w.first_name} ${w.family_name}`,
-            reason: 'לא ביקש את המשמרת הזו',
-            preference_type: null
-          });
-        }
-      });
-
       eligibleMap.set(key, {
         activity,
         eligible: eligible.sort((a, b) => {
@@ -1151,8 +1117,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             return a.preference_type === 'prefer' ? -1 : 1;
           }
           return 0;
-        }),
-        unavailable: unavailable
+        })
       });
     });
 
@@ -1164,7 +1129,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     const suggestions = [];
     const unassignable = [];
 
-    sorted.forEach(([, { activity, eligible, unavailable }]) => {
+    sorted.forEach(([, { activity, eligible }]) => {
       // Find first available worker (not already used in this suggestion round)
       const chosen = eligible.find(w => !usedWorkers.has(`${w.worker_id}-${activity.shift_type}`));
 
@@ -1181,41 +1146,20 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         });
         usedWorkers.add(`${chosen.worker_id}-${activity.shift_type}`);
       } else {
-        // Analyze why there are no eligible workers
-        const requestedShift = unavailable.filter(w => w.reason !== `אין הרשאה לסוג פעילות "${activity.activity_name}"`);
-        const missingAuth = unavailable.filter(w => w.reason === `אין הרשאה לסוג פעילות "${activity.activity_name}"`);
-        const noShiftRequest = unavailable.filter(w => w.reason === 'לא ביקש את המשמרת הזו');
-
-        let mainReason = 'אין עובדים מתאימים';
-        if (requestedShift.length === 0 && missingAuth.length > 0) {
-          mainReason = `כל העובדים שביקשו את המשמרת חסרים הרשאה לסוג פעילות זה`;
-        } else if (requestedShift.length === 0 && noShiftRequest.length > 0) {
-          mainReason = `אף עובד לא ביקש את המשמרת הזו`;
-        } else if (requestedShift.length > 0 && missingAuth.length > 0) {
-          mainReason = `${requestedShift.length} עובדים ביקשו את המשמרת אך חסרה להם הרשאה`;
-        }
-
         unassignable.push({
           site_id: activity.site_id,
           site_name: activity.site_name,
           shift_type: activity.shift_type,
           activity_type_name: activity.activity_name,
-          reason: mainReason,
-          unavailable_workers: unavailable.slice(0, 8), // Show up to 8 reasons
-          stats: {
-            no_shift_request: noShiftRequest.length,
-            missing_auth: missingAuth.length,
-            already_assigned: assigned.has(`*-${activity.shift_type}`) ? 1 : 0
-          }
+          reason: 'אין עובדים מתאימים'
         });
       }
     });
 
-    console.log(`[suggest] Returning ${suggestions.length} suggestions, ${unassignable.length} unassignable`);
     res.json({ suggestions, unassignable });
   } catch (error) {
-    console.error('[suggest] Error:', error.message, error.stack);
-    res.status(500).json({ error: 'שגיאה בהצעת שיבוצים', details: error.message });
+    console.error('Suggest assignments error:', error);
+    res.status(500).json({ error: 'שגיאה בהצעת שיבוצים' });
   }
 });
 
@@ -1485,7 +1429,7 @@ app.post('/api/config/activity-templates/:id/apply', requireAdmin, async (req, r
   }
 });
 
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 5001;
 
 async function start() {
   try {
