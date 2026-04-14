@@ -290,3 +290,9 @@ Node.js v25.9.0
 [31m[nodemon] app crashed - waiting for file changes before starting...[39m
 [32m[nodemon] restarting due to changes...[39m
 [32m[nodemon] starting `node server.js`[39m
+◇ injecting env (9) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+✓ Database schema initialized
+✓ Database seeded
+✓ App initialized
+Backend running on port 5002
+[32m[nodemon] restarting due to changes...[39m

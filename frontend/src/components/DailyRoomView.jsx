@@ -1455,17 +1455,18 @@ export default function DailyRoomView({ config, authToken }) {
                           <div style={{fontSize: '0.85rem', color: '#991b1b', marginBottom: '0.5rem'}}>
                             סוג פעילות: {item.activity_type_name}
                           </div>
-                          {item.unavailable_workers && item.unavailable_workers.length > 0 ? (
+                          <div style={{fontSize: '0.9rem', fontWeight: 500, color: '#991b1b', marginBottom: '0.5rem', padding: '0.5rem', backgroundColor: '#fff5f5', borderRadius: '4px'}}>
+                            {item.reason}
+                          </div>
+                          {item.unavailable_workers && item.unavailable_workers.length > 0 && (
                             <div style={{fontSize: '0.85rem', color: '#7f1d1d', backgroundColor: '#fff7f7', padding: '0.5rem', borderRadius: '4px'}}>
-                              <div style={{fontWeight: 500, marginBottom: '0.3rem'}}>עובדים זמינים - אך לא יכולים להשתבץ:</div>
+                              <div style={{fontWeight: 500, marginBottom: '0.3rem'}}>פירוט עובדים:</div>
                               {item.unavailable_workers.map((w, wIdx) => (
-                                <div key={wIdx} style={{marginLeft: '1rem', fontSize: '0.85rem'}}>
-                                  • {w.worker_name}: {w.reason}
+                                <div key={wIdx} style={{marginLeft: '1rem', fontSize: '0.85rem', padding: '0.2rem 0'}}>
+                                  • <span style={{fontWeight: 500}}>{w.worker_name}</span>: {w.reason}
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <div style={{fontSize: '0.85rem', color: '#991b1b'}}>{item.reason}</div>
                           )}
                         </div>
                       ))}

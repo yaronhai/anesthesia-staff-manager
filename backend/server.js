@@ -1181,13 +1181,32 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         });
         usedWorkers.add(`${chosen.worker_id}-${activity.shift_type}`);
       } else {
+        // Analyze why there are no eligible workers
+        const requestedShift = unavailable.filter(w => w.reason !== `אין הרשאה לסוג פעילות "${activity.activity_name}"`);
+        const missingAuth = unavailable.filter(w => w.reason === `אין הרשאה לסוג פעילות "${activity.activity_name}"`);
+        const noShiftRequest = unavailable.filter(w => w.reason === 'לא ביקש את המשמרת הזו');
+
+        let mainReason = 'אין עובדים מתאימים';
+        if (requestedShift.length === 0 && missingAuth.length > 0) {
+          mainReason = `כל העובדים שביקשו את המשמרת חסרים הרשאה לסוג פעילות זה`;
+        } else if (requestedShift.length === 0 && noShiftRequest.length > 0) {
+          mainReason = `אף עובד לא ביקש את המשמרת הזו`;
+        } else if (requestedShift.length > 0 && missingAuth.length > 0) {
+          mainReason = `${requestedShift.length} עובדים ביקשו את המשמרת אך חסרה להם הרשאה`;
+        }
+
         unassignable.push({
           site_id: activity.site_id,
           site_name: activity.site_name,
           shift_type: activity.shift_type,
           activity_type_name: activity.activity_name,
-          reason: 'אין עובדים מתאימים',
-          unavailable_workers: unavailable.slice(0, 5) // Show top 5 reasons
+          reason: mainReason,
+          unavailable_workers: unavailable.slice(0, 8), // Show up to 8 reasons
+          stats: {
+            no_shift_request: noShiftRequest.length,
+            missing_auth: missingAuth.length,
+            already_assigned: assigned.has(`*-${activity.shift_type}`) ? 1 : 0
+          }
         });
       }
     });
