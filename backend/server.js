@@ -1025,6 +1025,8 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'תאריך חסר' });
     }
 
+    console.log(`[suggest] Processing date: ${date}`);
+
     // Get all shift activities for the date
     const activitiesRes = await query(`
       SELECT ssa.id, ssa.site_id, ssa.date, ssa.shift_type,
@@ -1036,6 +1038,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       WHERE ssa.date = $1 AND ssa.activity_type_id IS NOT NULL
       ORDER BY ssa.site_id, ssa.shift_type
     `, [date]);
+    console.log(`[suggest] Found ${activitiesRes.rows.length} activities for date`);
 
     const shiftActivities = activitiesRes.rows;
 
@@ -1052,6 +1055,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     `, [date]);
 
     const shiftRequests = shiftsRes.rows;
+    console.log(`[suggest] Found ${shiftRequests.length} shift requests for date`);
 
     // Get all worker activity authorizations
     const authRes = await query(`
@@ -1156,10 +1160,11 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       }
     });
 
+    console.log(`[suggest] Returning ${suggestions.length} suggestions, ${unassignable.length} unassignable`);
     res.json({ suggestions, unassignable });
   } catch (error) {
-    console.error('Suggest assignments error:', error);
-    res.status(500).json({ error: 'שגיאה בהצעת שיבוצים' });
+    console.error('[suggest] Error:', error.message, error.stack);
+    res.status(500).json({ error: 'שגיאה בהצעת שיבוצים', details: error.message });
   }
 });
 
