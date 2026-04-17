@@ -1173,16 +1173,20 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     });
 
     // Get allowed jobs per site group
-    const allowedJobsRes = await query(`
-      SELECT group_id, job_id FROM site_group_allowed_jobs
-    `);
     const groupAllowedJobs = new Map();
-    allowedJobsRes.rows.forEach(row => {
-      if (!groupAllowedJobs.has(row.group_id)) {
-        groupAllowedJobs.set(row.group_id, new Set());
-      }
-      groupAllowedJobs.get(row.group_id).add(row.job_id);
-    });
+    try {
+      const allowedJobsRes = await query(`
+        SELECT group_id, job_id FROM site_group_allowed_jobs
+      `);
+      allowedJobsRes.rows.forEach(row => {
+        if (!groupAllowedJobs.has(row.group_id)) {
+          groupAllowedJobs.set(row.group_id, new Set());
+        }
+        groupAllowedJobs.get(row.group_id).add(row.job_id);
+      });
+    } catch (e) {
+      console.warn('site_group_allowed_jobs table not found, skipping job filter:', e.message);
+    }
 
     // Get already assigned workers for the date
     const assignedRes = await query(`
