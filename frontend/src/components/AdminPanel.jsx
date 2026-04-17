@@ -14,6 +14,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
   const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
   const [expandedActivityAuths, setExpandedActivityAuths] = useState({});
+  const [groupAllowedJobsModal, setGroupAllowedJobsModal] = useState(null);
   const [activeTab, setActiveTab] = useState('groups');
 
   useEffect(() => {
@@ -323,6 +324,13 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                           </>
                         ) : (
                           <>
+                            <button
+                              className="btn-edit-inline"
+                              onClick={() => setGroupAllowedJobsModal(group)}
+                              title="הגדר תפקידים מורשים"
+                            >
+                              תפקידים
+                            </button>
                             <button className="btn-edit-inline" onClick={() => { setEditingKey(`group-${group.id}`); setEditingValue(group.name); }}>עריכה</button>
                             <button className="btn-remove" onClick={() => removeItem('/api/config/site-groups', group.id)}>✕</button>
                           </>
@@ -340,6 +348,14 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                   />
                   <button className="btn-primary" onClick={() => addItem('/api/config/site-groups', newSiteGroup, setNewSiteGroup)}>הוסף</button>
                 </div>
+                {groupAllowedJobsModal && (
+                  <SiteGroupAllowedJobsModal
+                    group={groupAllowedJobsModal}
+                    authToken={authToken}
+                    config={config}
+                    onClose={() => setGroupAllowedJobsModal(null)}
+                  />
+                )}
               </>
             )}
 
@@ -697,6 +713,108 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
             )}
 
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SiteGroupAllowedJobsModal({ group, authToken, config, onClose }) {
+  const [allowedJobs, setAllowedJobs] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { fetchAllowedJobs(); }, [group.id]);
+
+  async function fetchAllowedJobs() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/config/site-groups/${group.id}/allowed-jobs`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) setAllowedJobs(await res.json());
+    } catch (err) {
+      console.error('Error fetching allowed jobs:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function addAllowedJob(jobId) {
+    const res = await fetch(`/api/config/site-groups/${group.id}/allowed-jobs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ job_id: jobId }),
+    });
+    if (res.ok) setAllowedJobs(await res.json());
+    else { const err = await res.json(); alert('שגיאה: ' + (err.error || 'לא ניתן להוסיף')); }
+  }
+
+  async function removeAllowedJob(jobId) {
+    const res = await fetch(`/api/config/site-groups/${group.id}/allowed-jobs/${jobId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (res.ok) setAllowedJobs(await res.json());
+  }
+
+  const allowedIds = new Set(allowedJobs.map(j => j.job_id));
+  const availableJobs = (config.jobs || []).filter(j => !allowedIds.has(j.id));
+
+  return (
+    <div className="form-overlay" onClick={onClose}>
+      <div className="detail-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+        <div className="settings-header">
+          <h2>תפקידים מורשים — {group.name}</h2>
+          <button className="btn-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: '1rem', fontSize: '0.9rem' }}>
+          {loading ? <p>טוען...</p> : (
+            <>
+              <div style={{ marginBottom: '1rem' }}>
+                <h4 style={{ marginBottom: '0.5rem', color: '#1a2e4a' }}>תפקידים מורשים:</h4>
+                {allowedJobs.length === 0 ? (
+                  <p style={{ color: '#666' }}>ללא הגבלה — כל התפקידים מורשים</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {allowedJobs.map(j => (
+                      <div key={j.job_id} style={{
+                        display: 'flex', alignItems: 'center',
+                        justifyContent: 'space-between', padding: '0.5rem',
+                        background: '#dbeafe', borderRadius: '4px', border: '1px solid #0369a1'
+                      }}>
+                        <span>{j.name}</span>
+                        <button className="btn-remove"
+                          onClick={() => removeAllowedJob(j.job_id)}
+                          style={{ padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <h4 style={{ marginBottom: '0.5rem', color: '#1a2e4a' }}>הוסף תפקיד:</h4>
+                {availableJobs.length === 0 ? (
+                  <p style={{ color: '#666' }}>כל התפקידים כבר מורשים</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {availableJobs.map(j => (
+                      <button key={j.id} onClick={() => addAllowedJob(j.id)}
+                        style={{
+                          padding: '0.5rem', background: '#f3f4f6',
+                          border: '1px solid #d1d5db', borderRadius: '4px',
+                          cursor: 'pointer', textAlign: 'right'
+                        }}>
+                        {j.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="form-actions">
+          <button className="btn-primary" onClick={onClose}>סגור</button>
         </div>
       </div>
     </div>

@@ -132,6 +132,13 @@ async function initializeSchema() {
         UNIQUE(template_id, site_id, shift_type)
       );
 
+      CREATE TABLE IF NOT EXISTS site_group_allowed_jobs (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER NOT NULL REFERENCES site_groups(id) ON DELETE CASCADE,
+        job_id INTEGER NOT NULL REFERENCES job_titles(id) ON DELETE CASCADE,
+        UNIQUE(group_id, job_id)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_workers_id_number ON workers(id_number);
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_user_id ON shift_requests(user_id);
