@@ -1621,6 +1621,24 @@ app.post('/api/config/activity-templates/:id/apply', requireAdmin, async (req, r
   }
 });
 
+// Temporary endpoint to ensure site_group_allowed_jobs table exists
+app.post('/api/admin/init-table', requireAdmin, async (req, res) => {
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS site_group_allowed_jobs (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER NOT NULL REFERENCES site_groups(id) ON DELETE CASCADE,
+        job_id INTEGER NOT NULL REFERENCES job_titles(id) ON DELETE CASCADE,
+        UNIQUE(group_id, job_id)
+      );
+    `);
+    res.json({ ok: true, message: 'Table created successfully' });
+  } catch (error) {
+    console.error('Error creating table:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 5001;
 
 async function start() {
