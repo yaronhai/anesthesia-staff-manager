@@ -1123,205 +1123,117 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'תאריך חסר' });
     }
 
-    // Get all shift activities for the date
-    const activitiesRes = await query(`
-      SELECT ssa.id, ssa.site_id, ssa.date, ssa.shift_type,
-             ssa.activity_type_id, at.name AS activity_name,
-             s.name AS site_name
-      FROM site_shift_activities ssa
-      LEFT JOIN activity_types at ON ssa.activity_type_id = at.id
-      JOIN sites s ON ssa.site_id = s.id
-      WHERE ssa.date = $1 AND ssa.activity_type_id IS NOT NULL
-      ORDER BY ssa.site_id, ssa.shift_type
-    `, [date]);
+    // Get all sites with their group and name
+    const sitesRes = await query(`
+      SELECT s.id, s.name, s.group_id, sg.name AS group_name
+      FROM sites s
+      LEFT JOIN site_groups sg ON s.group_id = sg.id
+      ORDER BY s.name
+    `);
+    const sites = sitesRes.rows;
 
-    const shiftActivities = activitiesRes.rows;
+    // Get allowed jobs per site group
+    const groupAllowedJobs = new Map(); // group_id -> Set<job_id>
+    try {
+      const allowedJobsRes = await query(`SELECT group_id, job_id FROM site_group_allowed_jobs`);
+      allowedJobsRes.rows.forEach(row => {
+        if (!groupAllowedJobs.has(row.group_id)) groupAllowedJobs.set(row.group_id, new Set());
+        groupAllowedJobs.get(row.group_id).add(row.job_id);
+      });
+    } catch (e) {
+      console.warn('site_group_allowed_jobs not available:', e.message);
+    }
 
-    // Get all shift requests for the date (can or prefer)
+    // Get workers who requested shifts for the date (can or prefer)
     const shiftsRes = await query(`
-      SELECT sr.user_id, sr.shift_type, sr.preference_type,
-             w.id AS worker_id, w.first_name, w.family_name, w.job_id,
-             u.id AS user_id
+      SELECT sr.shift_type, sr.preference_type,
+             w.id AS worker_id, w.first_name, w.family_name, w.job_id
       FROM shift_requests sr
       JOIN users u ON sr.user_id = u.id
       JOIN workers w ON u.worker_id = w.id
       WHERE sr.date = $1 AND sr.preference_type IN ('can', 'prefer')
-      ORDER BY sr.preference_type DESC, w.first_name, w.family_name
+      ORDER BY CASE sr.preference_type WHEN 'prefer' THEN 0 ELSE 1 END,
+               w.first_name, w.family_name
     `, [date]);
 
-    const shiftRequests = shiftsRes.rows;
-
-    // Get all worker activity authorizations
-    const authRes = await query(`
-      SELECT worker_id, activity_type_id
-      FROM worker_activity_authorizations
-    `);
-
-    const authorizations = new Map();
-    authRes.rows.forEach(row => {
-      if (!authorizations.has(row.worker_id)) {
-        authorizations.set(row.worker_id, new Set());
-      }
-      authorizations.get(row.worker_id).add(row.activity_type_id);
-    });
-
-    // Get site -> group mapping
-    const sitesRes = await query('SELECT id, group_id FROM sites');
-    const siteGroupMap = new Map();
-    sitesRes.rows.forEach(row => {
-      siteGroupMap.set(row.id, row.group_id);
-    });
-
-    // Get allowed jobs per site group
-    const groupAllowedJobs = new Map();
-    try {
-      const allowedJobsRes = await query(`
-        SELECT group_id, job_id FROM site_group_allowed_jobs
-      `);
-      allowedJobsRes.rows.forEach(row => {
-        if (!groupAllowedJobs.has(row.group_id)) {
-          groupAllowedJobs.set(row.group_id, new Set());
-        }
-        groupAllowedJobs.get(row.group_id).add(row.job_id);
-      });
-    } catch (e) {
-      console.warn('site_group_allowed_jobs table not found, skipping job filter:', e.message);
-    }
-
-    // Get already assigned workers for the date
-    const assignedRes = await query(`
-      SELECT worker_id, shift_type
-      FROM worker_site_assignments
-      WHERE date = $1
-    `, [date]);
-
-    const assigned = new Set();
-    assignedRes.rows.forEach(row => {
-      assigned.add(`${row.worker_id}-${row.shift_type}`);
-    });
-
-    // Build available workers per shift
-    const availableByShift = {
-      morning: [],
-      evening: [],
-      night: []
-    };
-
-    shiftRequests.forEach(req => {
-      if (!assigned.has(`${req.worker_id}-${req.shift_type}`)) {
-        if (!availableByShift[req.shift_type]) {
-          availableByShift[req.shift_type] = [];
-        }
-        availableByShift[req.shift_type].push({
-          worker_id: req.worker_id,
-          first_name: req.first_name,
-          family_name: req.family_name,
-          preference_type: req.preference_type,
-          job_id: req.job_id
+    // Build available workers per shift: shift_type -> [{worker_id, name, job_id, preference_type}]
+    const availableByShift = { morning: [], evening: [], night: [] };
+    shiftsRes.rows.forEach(r => {
+      if (availableByShift[r.shift_type]) {
+        availableByShift[r.shift_type].push({
+          worker_id: r.worker_id,
+          first_name: r.first_name,
+          family_name: r.family_name,
+          job_id: r.job_id,
+          preference_type: r.preference_type,
         });
       }
     });
 
-    // For each shift activity, find eligible workers
-    const eligibleMap = new Map();
-    shiftActivities.forEach(activity => {
-      const key = `${activity.site_id}-${activity.shift_type}`;
-      const candidates = availableByShift[activity.shift_type] || [];
-      const eligible = candidates.filter(w => {
-        // Check activity authorization (existing)
-        const workerAuths = authorizations.get(w.worker_id) || new Set();
-        if (!workerAuths.has(activity.activity_type_id)) return false;
+    // Get already assigned workers for the date
+    const assignedRes = await query(`
+      SELECT worker_id, shift_type FROM worker_site_assignments WHERE date = $1
+    `, [date]);
+    const assigned = new Set();
+    assignedRes.rows.forEach(r => assigned.add(`${r.worker_id}-${r.shift_type}`));
 
-        // Check job title restriction (new — only enforced if group has restrictions)
-        const groupId = siteGroupMap.get(activity.site_id);
-        if (groupId) {
-          const allowedJobs = groupAllowedJobs.get(groupId);
-          if (allowedJobs && allowedJobs.size > 0) {
-            if (!allowedJobs.has(w.job_id)) return false;
-          }
+    // For each site × shift, build eligible worker list
+    const slots = [];
+    const SHIFTS = ['morning', 'evening', 'night'];
+    sites.forEach(site => {
+      const allowedJobs = site.group_id ? groupAllowedJobs.get(site.group_id) : null;
+      const hasRestriction = allowedJobs && allowedJobs.size > 0;
+
+      SHIFTS.forEach(shift => {
+        const candidates = (availableByShift[shift] || []).filter(w =>
+          !assigned.has(`${w.worker_id}-${shift}`) &&
+          (!hasRestriction || allowedJobs.has(w.job_id))
+        );
+        if (candidates.length > 0 || hasRestriction) {
+          slots.push({ site, shift, candidates, hasRestriction });
         }
-
-        return true;
-      });
-      eligibleMap.set(key, {
-        activity,
-        eligible: eligible.sort((a, b) => {
-          // Prefer 'prefer' over 'can'
-          if (a.preference_type !== b.preference_type) {
-            return a.preference_type === 'prefer' ? -1 : 1;
-          }
-          return 0;
-        })
       });
     });
 
-    // Greedy matching: sort by fewest eligible workers, assign best available
-    const sorted = Array.from(eligibleMap.entries())
-      .sort((a, b) => a[1].eligible.length - b[1].eligible.length);
+    // Greedy: fill hardest slots first (fewest candidates)
+    slots.sort((a, b) => a.candidates.length - b.candidates.length);
 
     const usedWorkers = new Set();
     const suggestions = [];
     const unassignable = [];
 
-    sorted.forEach(([, { activity, eligible }]) => {
-      // Find first available worker (not already used in this suggestion round)
-      const chosen = eligible.find(w => !usedWorkers.has(`${w.worker_id}-${activity.shift_type}`));
+    slots.forEach(({ site, shift, candidates, hasRestriction }) => {
+      const chosen = candidates.find(w => !usedWorkers.has(`${w.worker_id}-${shift}`));
 
       if (chosen) {
         suggestions.push({
-          site_id: activity.site_id,
-          site_name: activity.site_name,
-          shift_type: activity.shift_type,
-          activity_type_id: activity.activity_type_id,
-          activity_type_name: activity.activity_name,
+          site_id: site.id,
+          site_name: site.name,
+          group_name: site.group_name,
+          shift_type: shift,
           worker_id: chosen.worker_id,
           worker_name: `${chosen.first_name} ${chosen.family_name}`,
-          preference_type: chosen.preference_type
+          preference_type: chosen.preference_type,
         });
-        usedWorkers.add(`${chosen.worker_id}-${activity.shift_type}`);
-      } else {
-        // Analyze why no one is eligible
-        const candidates = availableByShift[activity.shift_type] || [];
-        const withoutJobTitle = [];
-        const withoutAuth = [];
-        const withAuth = [];
-
-        const groupId = siteGroupMap.get(activity.site_id);
-        const allowedJobs = groupId ? groupAllowedJobs.get(groupId) : null;
-
-        candidates.forEach(w => {
-          const workerAuths = authorizations.get(w.worker_id) || new Set();
-          if (!workerAuths.has(activity.activity_type_id)) {
-            withoutAuth.push({ name: `${w.first_name} ${w.family_name}`, reason: `אין הרשאה לסוג פעילות "${activity.activity_name}"` });
-          } else if (allowedJobs && allowedJobs.size > 0 && !allowedJobs.has(w.job_id)) {
-            withoutJobTitle.push({ name: `${w.first_name} ${w.family_name}`, reason: `תפקיד לא מורשה לקבוצת אתרים זו` });
-          } else {
-            withAuth.push(w);
-          }
-        });
-
-        let mainReason = 'אין עובדים מתאימים';
-        let detailedReasons = [];
-
-        if (withAuth.length === 0) {
-          if (withoutJobTitle.length > 0) {
-            mainReason = `${withoutJobTitle.length} עובד/ים חסום/ים בגלל תפקיד לא מורשה לקבוצה זו`;
-            detailedReasons = withoutJobTitle.slice(0, 5);
-          } else if (withoutAuth.length > 0) {
-            mainReason = `${withoutAuth.length} עובד/ים ביקשו את המשמרת אך חסרה להם הרשאה לסוג פעילות זה`;
-            detailedReasons = withoutAuth.slice(0, 5);
-          } else {
-            mainReason = `אף עובד לא ביקש את המשמרת הזו`;
-          }
-        }
+        usedWorkers.add(`${chosen.worker_id}-${shift}`);
+      } else if (hasRestriction) {
+        // Only report unassignable if site has job restrictions (otherwise skip empty slots)
+        const allForShift = availableByShift[shift] || [];
+        const wrongJob = allForShift.filter(w => !allowedJobs.has(w.job_id));
+        const reason = wrongJob.length > 0
+          ? `${wrongJob.length} עובד/ים ביקשו את המשמרת אך תפקידם לא מורשה לקבוצה זו`
+          : 'אף עובד עם תפקיד מתאים לא ביקש משמרת זו';
 
         unassignable.push({
-          site_id: activity.site_id,
-          site_name: activity.site_name,
-          shift_type: activity.shift_type,
-          activity_type_name: activity.activity_name,
-          reason: mainReason,
-          unavailable_workers: detailedReasons
+          site_id: site.id,
+          site_name: site.name,
+          group_name: site.group_name,
+          shift_type: shift,
+          reason,
+          unavailable_workers: wrongJob.slice(0, 5).map(w => ({
+            name: `${w.first_name} ${w.family_name}`,
+            reason: 'תפקיד לא מורשה לקבוצה זו',
+          })),
         });
       }
     });

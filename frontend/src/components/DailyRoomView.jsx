@@ -1449,7 +1449,7 @@ export default function DailyRoomView({ config, authToken }) {
                             <span style={{color: '#666', marginRight: '0.5rem'}}>({suggestion.shift_type === 'morning' ? 'בוקר' : suggestion.shift_type === 'evening' ? 'ערב' : 'תורנות'})</span>
                             <br />
                             <span style={{fontSize: '0.9rem', color: '#666'}}>
-                              {suggestion.activity_type_name} ← {suggestion.worker_name}
+                              {suggestion.worker_name}
                               <span style={{marginLeft: '0.5rem', padding: '0.1rem 0.4rem', backgroundColor: suggestion.preference_type === 'prefer' ? '#d1fae5' : '#dbeafe', borderRadius: '3px', fontSize: '0.8rem', fontWeight: 500, color: suggestion.preference_type === 'prefer' ? '#065f46' : '#0c4a6e'}}>
                                 {suggestion.preference_type === 'prefer' ? '✓ מעדיף' : '✓ יכול'}
                               </span>
@@ -1471,9 +1471,11 @@ export default function DailyRoomView({ config, authToken }) {
                             <span>{item.site_name}</span>
                             <span style={{marginRight: '0.5rem'}}>({item.shift_type === 'morning' ? 'בוקר' : item.shift_type === 'evening' ? 'ערב' : 'תורנות'})</span>
                           </div>
-                          <div style={{fontSize: '0.85rem', color: '#991b1b', marginBottom: '0.5rem'}}>
-                            סוג פעילות: {item.activity_type_name}
-                          </div>
+                          {item.group_name && (
+                            <div style={{fontSize: '0.85rem', color: '#991b1b', marginBottom: '0.5rem'}}>
+                              קבוצה: {item.group_name}
+                            </div>
+                          )}
                           <div style={{fontSize: '0.9rem', fontWeight: 500, color: '#991b1b', marginBottom: '0.5rem', padding: '0.5rem', backgroundColor: '#fff5f5', borderRadius: '4px'}}>
                             {item.reason}
                           </div>
