@@ -1177,21 +1177,29 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     const assigned = new Set();
     assignedRes.rows.forEach(r => assigned.add(`${r.worker_id}-${r.shift_type}`));
 
-    // For each site × shift, build eligible worker list
+    // Get sites that have an activity type configured for this date (only these get suggestions)
+    const activitiesRes = await query(`
+      SELECT site_id, shift_type FROM site_shift_activities
+      WHERE date = $1 AND activity_type_id IS NOT NULL
+    `, [date]);
+    const configuredSlots = new Set();
+    activitiesRes.rows.forEach(r => configuredSlots.add(`${r.site_id}-${r.shift_type}`));
+
+    // For each site × shift that has an activity configured, build eligible worker list
     const slots = [];
-    const SHIFTS = ['morning', 'evening', 'night'];
     sites.forEach(site => {
       const allowedJobs = site.group_id ? groupAllowedJobs.get(site.group_id) : null;
       const hasRestriction = allowedJobs && allowedJobs.size > 0;
 
-      SHIFTS.forEach(shift => {
+      ['morning', 'evening', 'night'].forEach(shift => {
+        // Only suggest for site+shift combos with a configured activity type
+        if (!configuredSlots.has(`${site.id}-${shift}`)) return;
+
         const candidates = (availableByShift[shift] || []).filter(w =>
           !assigned.has(`${w.worker_id}-${shift}`) &&
           (!hasRestriction || allowedJobs.has(w.job_id))
         );
-        if (candidates.length > 0 || hasRestriction) {
-          slots.push({ site, shift, candidates, hasRestriction, allowedJobs });
-        }
+        slots.push({ site, shift, candidates, hasRestriction, allowedJobs });
       });
     });
 
