@@ -279,21 +279,24 @@ export default function DailyRoomView({ config, authToken }) {
   }
 
   function getEligibleWorkers(siteId, shiftType) {
+    // Find site's group
+    const site = config.sites?.find(s => s.id === siteId);
+    const groupId = site?.group_id;
+
+    // Get allowed jobs for this group (if restrictions exist)
+    const allowedJobs = groupId ? config.site_group_allowed_jobs?.[groupId] : null;
+    const hasJobRestrictions = allowedJobs && allowedJobs.length > 0;
+
+    const allWorkers = hasJobRestrictions
+      ? workers.filter(w => allowedJobs.some(j => j.job_id === w.job_id))
+      : workers;
+
     if (showAllWorkers) {
-      return workers;
+      return allWorkers;
     }
 
     // Get workers with shift request for today with can/prefer
-    let eligible = workers.filter(w => didWorkerRequestShift(w.id, shiftType));
-
-    // If site has an activity type, filter by authorization
-    const activity = getSiteShiftActivity(siteId, shiftType);
-    if (activity && activity.activity_type_id) {
-      // For now, show all (authorization check happens on backend)
-      // TODO: Load worker authorizations and filter here for better UX
-    }
-
-    return eligible;
+    return allWorkers.filter(w => didWorkerRequestShift(w.id, shiftType));
   }
 
   function getWorkerOtherAssignments(workerId, shiftType) {
