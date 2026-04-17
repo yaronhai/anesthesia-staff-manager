@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 
-const { query, pool, initializeSchema } = require('./db');
+const { query, pool, initializeSchema, ensureSiteGroupAllowedJobsTable } = require('./db');
 
 const app = express();
 app.disable('etag');
@@ -110,6 +110,7 @@ async function seedDatabase() {
 async function initializeApp() {
   try {
     await initializeSchema();
+    await ensureSiteGroupAllowedJobsTable();
     await seedDatabase();
     console.log('✓ App initialized');
   } catch (error) {
