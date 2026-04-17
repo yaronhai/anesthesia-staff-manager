@@ -50,6 +50,14 @@ export default function WorkplaceStaffing({ config, authToken }) {
     ? (config.sites || []).filter(s => s.group_id === selectedGroupId)
     : (config.sites || []);
 
+  const allowedJobsForGroup = selectedGroupId
+    ? (config.site_group_allowed_jobs?.[selectedGroupId] || null)
+    : null;
+
+  const filteredWorkers = allowedJobsForGroup && allowedJobsForGroup.length > 0
+    ? workers.filter(w => allowedJobsForGroup.some(j => j.job_id === w.job_id))
+    : workers;
+
   function getDayAssignments(workerId, dayOfMonth) {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
     let assignments = siteAssignments.filter(a => a.worker_id === workerId && a.date === dateStr);
@@ -120,7 +128,7 @@ export default function WorkplaceStaffing({ config, authToken }) {
   }
 
   const positionsForSelectedSite = editingAssignment.site_id
-    ? config.site_positions.filter(p => p.site_id === editingAssignment.site_id)
+    ? (config.site_positions || []).filter(p => p.site_id === editingAssignment.site_id)
     : [];
 
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -190,7 +198,7 @@ export default function WorkplaceStaffing({ config, authToken }) {
               </tr>
             </thead>
             <tbody>
-              {workers.map(worker => (
+              {filteredWorkers.map(worker => (
                 <tr key={worker.id} className="worker-row">
                   <td className="worker-name-col">
                     <div className="worker-name">{worker.first_name} {worker.family_name}</div>
