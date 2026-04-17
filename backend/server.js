@@ -1190,7 +1190,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
           (!hasRestriction || allowedJobs.has(w.job_id))
         );
         if (candidates.length > 0 || hasRestriction) {
-          slots.push({ site, shift, candidates, hasRestriction });
+          slots.push({ site, shift, candidates, hasRestriction, allowedJobs });
         }
       });
     });
@@ -1202,7 +1202,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     const suggestions = [];
     const unassignable = [];
 
-    slots.forEach(({ site, shift, candidates, hasRestriction }) => {
+    slots.forEach(({ site, shift, candidates, hasRestriction, allowedJobs }) => {
       const chosen = candidates.find(w => !usedWorkers.has(`${w.worker_id}-${shift}`));
 
       if (chosen) {
