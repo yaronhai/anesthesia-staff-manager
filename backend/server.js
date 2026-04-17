@@ -1622,6 +1622,28 @@ app.post('/api/config/activity-templates/:id/apply', requireAdmin, async (req, r
   }
 });
 
+// Debug endpoint to check site_group_allowed_jobs table
+app.get('/api/admin/debug/table-contents', requireAdmin, async (req, res) => {
+  try {
+    const tableExists = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = 'site_group_allowed_jobs'
+      );
+    `);
+
+    const contents = await query('SELECT * FROM site_group_allowed_jobs').catch(() => null);
+
+    res.json({
+      tableExists: tableExists.rows[0],
+      contents: contents?.rows || 'Query failed - table may not exist',
+      debug: 'Check browser console for actual data'
+    });
+  } catch (error) {
+    res.json({ error: error.message, table_exists: false });
+  }
+});
+
 // Temporary endpoint to ensure site_group_allowed_jobs table exists
 app.post('/api/admin/init-table', requireAdmin, async (req, res) => {
   try {
