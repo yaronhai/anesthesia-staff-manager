@@ -90,9 +90,13 @@ export default function WorkplaceStaffing({ config, authToken }) {
       if (res.ok) {
         fetchStaffingData();
         setEditingCell(null);
+      } else {
+        const error = await res.json();
+        alert('שגיאה: ' + (error.error || 'לא ניתן לשמור את השיבוץ'));
       }
     } catch (err) {
       console.error('Error saving assignment:', err);
+      alert('שגיאה בשמירת השיבוץ');
     }
   }
 

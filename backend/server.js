@@ -1349,6 +1349,33 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
       }
     }
 
+    // Check if worker's job matches site group restrictions
+    const siteGroupRes = await query(`
+      SELECT s.group_id FROM sites s WHERE s.id = $1
+    `, [site_id]);
+
+    if (siteGroupRes.rows.length > 0 && siteGroupRes.rows[0].group_id) {
+      const groupId = siteGroupRes.rows[0].group_id;
+      const allowedJobsRes = await query(`
+        SELECT job_id FROM site_group_allowed_jobs WHERE group_id = $1
+      `, [groupId]);
+
+      if (allowedJobsRes.rows.length > 0) {
+        // Group has restrictions, check if worker's job is allowed
+        const workerRes = await query(`
+          SELECT job_id FROM workers WHERE id = $1
+        `, [worker_id]);
+
+        if (workerRes.rows.length > 0) {
+          const workerJobId = workerRes.rows[0].job_id;
+          const isJobAllowed = allowedJobsRes.rows.some(row => row.job_id === workerJobId);
+          if (!isJobAllowed) {
+            return res.status(403).json({ error: 'תפקיד העובד לא מורשה לקבוצת אתרים זו' });
+          }
+        }
+      }
+    }
+
     await query(`
       INSERT INTO worker_site_assignments (worker_id, date, site_id, shift_type, start_time, end_time, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
