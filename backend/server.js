@@ -180,39 +180,49 @@ async function syncUserForWorker(worker_id, id_number, classification, email) {
 // ── Config helpers ───────────────────────────────────────────────────────────
 
 async function getConfig() {
-  const res = await Promise.all([
-    query('SELECT id, name FROM job_titles ORDER BY id'),
-    query('SELECT id, name FROM employment_types ORDER BY id'),
-    query('SELECT id, name FROM honorifics ORDER BY id'),
-    query('SELECT id, name, color FROM site_groups ORDER BY id'),
-    query('SELECT id, name, description, group_id FROM sites ORDER BY name'),
-    query('SELECT id, name FROM activity_types ORDER BY name'),
-    query(`
-      SELECT sgaj.group_id, sgaj.job_id, j.name
-      FROM site_group_allowed_jobs sgaj
-      JOIN job_titles j ON sgaj.job_id = j.id
-      ORDER BY sgaj.group_id, j.name
-    `),
-  ]);
+  try {
+    const res = await Promise.all([
+      query('SELECT id, name FROM job_titles ORDER BY id'),
+      query('SELECT id, name FROM employment_types ORDER BY id'),
+      query('SELECT id, name FROM honorifics ORDER BY id'),
+      query('SELECT id, name, color FROM site_groups ORDER BY id'),
+      query('SELECT id, name, description, group_id FROM sites ORDER BY name'),
+      query('SELECT id, name FROM activity_types ORDER BY name'),
+    ]);
 
-  // Group allowed jobs by group_id: { [group_id]: [{job_id, name}, ...] }
-  const allowedJobsByGroup = {};
-  res[6].rows.forEach(row => {
-    if (!allowedJobsByGroup[row.group_id]) {
-      allowedJobsByGroup[row.group_id] = [];
+    // Try to get allowed jobs, but don't fail if table doesn't exist
+    let allowedJobsByGroup = {};
+    try {
+      const allowedJobsRes = await query(`
+        SELECT sgaj.group_id, sgaj.job_id, j.name
+        FROM site_group_allowed_jobs sgaj
+        JOIN job_titles j ON sgaj.job_id = j.id
+        ORDER BY sgaj.group_id, j.name
+      `);
+
+      allowedJobsRes.rows.forEach(row => {
+        if (!allowedJobsByGroup[row.group_id]) {
+          allowedJobsByGroup[row.group_id] = [];
+        }
+        allowedJobsByGroup[row.group_id].push({ job_id: row.job_id, name: row.name });
+      });
+    } catch (err) {
+      console.warn('Warning: Could not fetch site_group_allowed_jobs:', err.message);
     }
-    allowedJobsByGroup[row.group_id].push({ job_id: row.job_id, name: row.name });
-  });
 
-  return {
-    jobs: res[0].rows,
-    employment_types: res[1].rows,
-    honorifics: res[2].rows,
-    site_groups: res[3].rows,
-    sites: res[4].rows,
-    activity_types: res[5].rows,
-    site_group_allowed_jobs: allowedJobsByGroup,
-  };
+    return {
+      jobs: res[0].rows,
+      employment_types: res[1].rows,
+      honorifics: res[2].rows,
+      site_groups: res[3].rows,
+      sites: res[4].rows,
+      activity_types: res[5].rows,
+      site_group_allowed_jobs: allowedJobsByGroup,
+    };
+  } catch (error) {
+    console.error('Error in getConfig:', error);
+    throw error;
+  }
 }
 
 const WORKER_SELECT = `
