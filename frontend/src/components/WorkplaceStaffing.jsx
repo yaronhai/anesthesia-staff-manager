@@ -58,6 +58,15 @@ export default function WorkplaceStaffing({ config, authToken }) {
     ? workers.filter(w => allowedJobsForGroup.some(j => j.job_id === w.job_id))
     : workers;
 
+  // Debug logging
+  if (selectedGroupId && config.site_group_allowed_jobs) {
+    console.log('Selected Group ID:', selectedGroupId);
+    console.log('All allowed jobs config:', config.site_group_allowed_jobs);
+    console.log('Allowed for this group:', allowedJobsForGroup);
+    console.log('All workers:', workers.map(w => ({ id: w.id, name: w.first_name + ' ' + w.family_name, job_id: w.job_id })));
+    console.log('Filtered workers:', filteredWorkers.map(w => ({ id: w.id, name: w.first_name + ' ' + w.family_name, job_id: w.job_id })));
+  }
+
   function getDayAssignments(workerId, dayOfMonth) {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
     let assignments = siteAssignments.filter(a => a.worker_id === workerId && a.date === dateStr);
