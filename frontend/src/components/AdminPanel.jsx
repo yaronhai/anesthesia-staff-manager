@@ -678,13 +678,13 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                         {(config.sites || []).map(site => (
                           <div key={site.id} style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
                             <div style={{fontSize: '0.8rem', fontWeight: 600}}>{site.name}</div>
-                            {['morning', 'evening'].map(shift => (
-                              <div key={shift} style={{display: 'flex', gap: '0.25rem', alignItems: 'center', fontSize: '0.75rem'}}>
-                                <label style={{flex: '0 0 40px'}}>{shift === 'morning' ? 'בוקר' : 'ערב'}</label>
+                            {(config.shift_types || []).filter(st => ['morning', 'evening'].includes(st.key)).map(st => (
+                              <div key={st.key} style={{display: 'flex', gap: '0.25rem', alignItems: 'center', fontSize: '0.75rem'}}>
+                                <label style={{flex: '0 0 40px'}}>{st.label_he}</label>
                                 <select
-                                  value={templateItems[`${site.id}-${shift}`] || ''}
+                                  value={templateItems[`${site.id}-${st.key}`] || ''}
                                   onChange={e => {
-                                    const key = `${site.id}-${shift}`;
+                                    const key = `${site.id}-${st.key}`;
                                     if (e.target.value) {
                                       setTemplateItems({...templateItems, [key]: parseInt(e.target.value)});
                                     } else {

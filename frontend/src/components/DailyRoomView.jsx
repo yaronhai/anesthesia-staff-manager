@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 
-const PREF_LABEL = { prefer: 'מעדיף', can: 'יכול', cannot: 'לא יכול' };
-
 export default function DailyRoomView({ config, authToken }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [workers, setWorkers] = useState([]);
@@ -10,13 +8,21 @@ export default function DailyRoomView({ config, authToken }) {
   const [siteShiftActivities, setSiteShiftActivities] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Global shift time defaults (component state, not persisted)
-  const [morningStart] = useState('07:00');
-  const [morningEnd] = useState('15:00');
-  const [eveningStart] = useState('15:00');
-  const [eveningEnd] = useState('23:00');
-  const [nightStart] = useState('23:00');
-  const [nightEnd] = useState('07:00');
+  // Derive shift time defaults from config
+  const shiftDefaults = Object.fromEntries(
+    (config.shift_types || []).map(st => [st.key, st])
+  );
+  const morningStart = shiftDefaults.morning?.default_start || '07:00';
+  const morningEnd   = shiftDefaults.morning?.default_end   || '15:00';
+  const eveningStart = shiftDefaults.evening?.default_start || '15:00';
+  const eveningEnd   = shiftDefaults.evening?.default_end   || '23:00';
+  const nightStart   = shiftDefaults.night?.default_start   || '23:00';
+  const nightEnd     = shiftDefaults.night?.default_end     || '07:00';
+
+  // Derive preference labels from config
+  const prefLabel = Object.fromEntries(
+    (config.preference_types || []).map(p => [p.key, p.label_he])
+  );
 
   // Modal for group details
   const [selectedGroupId, setSelectedGroupId] = useState(null);
@@ -191,7 +197,7 @@ export default function DailyRoomView({ config, authToken }) {
 
     if (!hasRequest) {
       const worker = workers.find(w => w.id === newAssignment.worker_id);
-      const shiftLabel = addingToShiftInSite.shift_type === 'morning' ? 'בוקר' : addingToShiftInSite.shift_type === 'night' ? 'תורנות' : 'ערב';
+      const shiftLabel = shiftDefaults[addingToShiftInSite.shift_type]?.label_he || addingToShiftInSite.shift_type;
       const confirmed = window.confirm(
         `⚠️ ${worker?.first_name} ${worker?.family_name} לא ביקש לעבוד ב${shiftLabel}.\n\nהאם אתה בטוח שברצונך לשבץ אותו?`
       );
@@ -882,12 +888,92 @@ export default function DailyRoomView({ config, authToken }) {
     <>
     <div className="room-view-container">
       <div className="room-view-header">
-        <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+        <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%'}}>
           <h2>שיבוצים לחדרים</h2>
           <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋 תבנית</button>
           <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
           <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ הדפס</button>
+          {/* ── Daily staffing summary (inline) ───────────────────────── */}
+          {(() => {
+            const configuredSlots = siteShiftActivities.filter(
+              a => a.date === dateStr && a.activity_type_id
+            );
+            if (configuredSlots.length === 0) return null;
+
+            const dayAssignments = assignments.filter(a => a.date === dateStr);
+            const shiftStats = (config.shift_types || [])
+              .filter(st => st.key !== 'oncall')
+              .map(st => {
+                const slotsForShift = configuredSlots.filter(a => a.shift_type === st.key);
+                const assignedSiteIds = new Set(
+                  dayAssignments.filter(a => a.shift_type === st.key).map(a => a.site_id)
+                );
+                const filled = slotsForShift.filter(a => assignedSiteIds.has(a.site_id)).length;
+                return { key: st.key, label: st.label_he, total: slotsForShift.length, filled, missing: slotsForShift.length - filled };
+              })
+              .filter(s => s.total > 0);
+
+            const totalSlots   = shiftStats.reduce((s, x) => s + x.total,  0);
+            const totalFilled  = shiftStats.reduce((s, x) => s + x.filled, 0);
+            const totalMissing = totalSlots - totalFilled;
+            const pct = totalSlots > 0 ? Math.round((totalFilled / totalSlots) * 100) : 0;
+            const barColor = totalMissing === 0 ? '#16a34a' : totalFilled === 0 ? '#ef4444' : '#f59e0b';
+
+            return (
+              <div style={{
+                marginLeft: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem',
+                background: 'white',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '0.35rem 0.75rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+              }}>
+                {/* Row 1: overall progress */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '100px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                    {totalFilled}/{totalSlots}
+                  </span>
+                  <span style={{
+                    padding: '0.1rem 0.45rem',
+                    borderRadius: '10px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
+                    color:      totalMissing === 0 ? '#166534' : '#991b1b',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
+                  </span>
+                </div>
+                {/* Row 2: per-shift chips */}
+                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  {shiftStats.map(s => {
+                    const chipBg     = s.missing === 0 ? '#dcfce7' : s.filled === 0 ? '#fef2f2' : '#fef9e7';
+                    const chipColor  = s.missing === 0 ? '#166534' : s.filled === 0 ? '#991b1b' : '#92400e';
+                    const chipBorder = s.missing === 0 ? '#86efac' : s.filled === 0 ? '#fca5a5' : '#fde68a';
+                    return (
+                      <div key={s.key} style={{
+                        display: 'flex', alignItems: 'center', gap: '0.25rem',
+                        background: chipBg, border: `1px solid ${chipBorder}`,
+                        borderRadius: '6px', padding: '0.15rem 0.45rem',
+                        fontSize: '0.78rem', fontWeight: 600, color: chipColor,
+                      }}>
+                        <span>{s.label}</span>
+                        <span>{s.filled}/{s.total}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
         <div className="room-nav">
           <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
@@ -899,14 +985,15 @@ export default function DailyRoomView({ config, authToken }) {
           <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
         </div>
         <div className="room-shift-times-bar">
-          <span>בוקר:</span>
-          <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>{formatTime24(morningStart)}–{formatTime24(morningEnd)}</span>
-          <span className="room-shift-times-sep" />
-          <span>ערב:</span>
-          <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>{formatTime24(eveningStart)}–{formatTime24(eveningEnd)}</span>
-          <span className="room-shift-times-sep" />
-          <span>תורנות:</span>
-          <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>{formatTime24(nightStart)}–{formatTime24(nightEnd)}</span>
+          {(config.shift_types || []).filter(st => st.default_start).map(st => (
+            <span key={st.key} style={{display: 'contents'}}>
+              <span>{st.label_he}:</span>
+              <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>
+                {formatTime24(shiftDefaults[st.key]?.default_start)}–{formatTime24(shiftDefaults[st.key]?.default_end)}
+              </span>
+              <span className="room-shift-times-sep" />
+            </span>
+          ))}
         </div>
       </div>
 
@@ -928,7 +1015,7 @@ export default function DailyRoomView({ config, authToken }) {
                     <span
                       key={r.id}
                       className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
-                      title={PREF_LABEL[r.preference_type]}
+                      title={prefLabel[r.preference_type]}
                     >
                       {r.first_name} {r.family_name}
                     </span>
@@ -944,7 +1031,7 @@ export default function DailyRoomView({ config, authToken }) {
                     <span
                       key={r.id}
                       className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
-                      title={PREF_LABEL[r.preference_type]}
+                      title={prefLabel[r.preference_type]}
                     >
                       {r.first_name} {r.family_name}
                     </span>
@@ -1113,7 +1200,7 @@ export default function DailyRoomView({ config, authToken }) {
             }}>
               {addingToShiftInSite && addingToShiftInSite.site_id === site.id ? (
                 <div style={{background: '#f9fafb', padding: '1.5rem', borderRadius: '8px', border: '1px solid #d1d5db'}}>
-                  <h3 style={{marginBottom: '1rem', color: '#1a2e4a'}}>הוסף שיבוץ — {addingToShiftInSite.shift_type === 'morning' ? 'בוקר' : addingToShiftInSite.shift_type === 'night' ? 'תורנות' : 'ערב'}</h3>
+                  <h3 style={{marginBottom: '1rem', color: '#1a2e4a'}}>הוסף שיבוץ — {shiftDefaults[addingToShiftInSite.shift_type]?.label_he || addingToShiftInSite.shift_type}</h3>
 
                   <div style={{marginBottom: '1rem', padding: '0.75rem', background: '#fff', borderRadius: '6px'}}>
                     <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem'}}>
@@ -1195,10 +1282,10 @@ export default function DailyRoomView({ config, authToken }) {
                     boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)'
                   }}>
                     <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-                      <h3 style={{margin: 0, color: '#b45309', fontSize: '1.1rem', fontWeight: 600}}>☀️ בוקר</h3>
+                      <h3 style={{margin: 0, color: '#b45309', fontSize: '1.1rem', fontWeight: 600}}>☀️ {shiftDefaults.morning?.label_he}</h3>
                       <button onClick={() => openAddModalInSite(site.id, 'morning')} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: '#fbbf24', color: '#92400e', border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
                     </div>
-                    <ShiftSection site={site} shiftType="morning" label="בוקר"/>
+                    <ShiftSection site={site} shiftType="morning" label={shiftDefaults.morning?.label_he}/>
                   </div>
 
                   <div style={{
@@ -1210,10 +1297,10 @@ export default function DailyRoomView({ config, authToken }) {
                     boxShadow: '0 4px 12px rgba(125, 211, 252, 0.1)'
                   }}>
                     <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #7dd3fc', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-                      <h3 style={{margin: 0, color: '#0369a1', fontSize: '1.1rem', fontWeight: 600}}>🌙 ערב</h3>
+                      <h3 style={{margin: 0, color: '#0369a1', fontSize: '1.1rem', fontWeight: 600}}>🌙 {shiftDefaults.evening?.label_he}</h3>
                       <button onClick={() => openAddModalInSite(site.id, 'evening')} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: '#7dd3fc', color: '#0369a1', border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
                     </div>
-                    <ShiftSection site={site} shiftType="evening" label="ערב"/>
+                    <ShiftSection site={site} shiftType="evening" label={shiftDefaults.evening?.label_he}/>
                   </div>
                 </div>
               )}
@@ -1234,7 +1321,7 @@ export default function DailyRoomView({ config, authToken }) {
           <div className="modal-body">
             <div className="modal-info">
               <p><strong>אתר:</strong> {editingShiftTimes.site_name}</p>
-              <p><strong>משמרת:</strong> {editingShiftTimes.shift_type === 'morning' ? 'בוקר' : editingShiftTimes.shift_type === 'night' ? 'תורנות' : 'ערב'}</p>
+              <p><strong>משמרת:</strong> {shiftDefaults[editingShiftTimes.shift_type]?.label_he || editingShiftTimes.shift_type}</p>
             </div>
 
             <div className="form-group form-group-inline">
@@ -1446,12 +1533,12 @@ export default function DailyRoomView({ config, authToken }) {
                           />
                           <div style={{flex: 1}}>
                             <span style={{fontWeight: 600, color: '#1a2e4a'}}>{suggestion.site_name}</span>
-                            <span style={{color: '#666', marginRight: '0.5rem'}}>({suggestion.shift_type === 'morning' ? 'בוקר' : suggestion.shift_type === 'evening' ? 'ערב' : 'תורנות'})</span>
+                            <span style={{color: '#666', marginRight: '0.5rem'}}>({shiftDefaults[suggestion.shift_type]?.label_he || suggestion.shift_type})</span>
                             <br />
                             <span style={{fontSize: '0.9rem', color: '#666'}}>
                               {suggestion.worker_name}
                               <span style={{marginLeft: '0.5rem', padding: '0.1rem 0.4rem', backgroundColor: suggestion.preference_type === 'prefer' ? '#d1fae5' : '#dbeafe', borderRadius: '3px', fontSize: '0.8rem', fontWeight: 500, color: suggestion.preference_type === 'prefer' ? '#065f46' : '#0c4a6e'}}>
-                                {suggestion.preference_type === 'prefer' ? '✓ מעדיף' : '✓ יכול'}
+                                ✓ {prefLabel[suggestion.preference_type] || suggestion.preference_type}
                               </span>
                             </span>
                           </div>
@@ -1469,7 +1556,7 @@ export default function DailyRoomView({ config, authToken }) {
                         <div key={idx} style={{fontSize: '0.9rem', color: '#7f1d1d', paddingBottom: '0.75rem', borderBottom: item !== suggestionModal.unassignable[suggestionModal.unassignable.length - 1] ? '1px solid #fecaca' : 'none'}}>
                           <div style={{fontWeight: 600, marginBottom: '0.5rem'}}>
                             <span>{item.site_name}</span>
-                            <span style={{marginRight: '0.5rem'}}>({item.shift_type === 'morning' ? 'בוקר' : item.shift_type === 'evening' ? 'ערב' : 'תורנות'})</span>
+                            <span style={{marginRight: '0.5rem'}}>({shiftDefaults[item.shift_type]?.label_he || item.shift_type})</span>
                           </div>
                           {item.group_name && (
                             <div style={{fontSize: '0.85rem', color: '#991b1b', marginBottom: '0.5rem'}}>

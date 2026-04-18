@@ -5,18 +5,6 @@ const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יו
 const WEEK_HEADERS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const DAYS_HE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 
-const SHIFTS = [
-  { key: 'morning', label: 'בוקר',    short: 'ב' },
-  { key: 'evening', label: 'ערב',     short: 'ע' },
-  { key: 'night',   label: 'תורנות',  short: 'ת' },
-  { key: 'oncall',  label: 'כוננות',  short: 'כ' },
-];
-const PREFS = [
-  { key: 'can',     label: 'יכול' },
-  { key: 'prefer',  label: 'מעדיף' },
-  { key: 'cannot',  label: 'לא יכול' },
-];
-
 function toDateStr(year, month, day) {
   return `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 }
@@ -33,7 +21,7 @@ function buildCalendarWeeks(year, month) {
 }
 
 // ── Day cell in user calendar ────────────────────────────────────────────────
-function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek }) {
+function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts }) {
   const isSaturday = dayOfWeek === 6;
   return (
     <div
@@ -43,10 +31,10 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek }) {
       <span className="cal-day-num">{day}</span>
       <div className="cal-day-name">{DAYS_HE[dayOfWeek]}</div>
       <div className="cal-indicators">
-        {SHIFTS.map(s => {
+        {shifts.map(s => {
           const r = dayRequests.find(r => r.shift_type === s.key);
           return r
-            ? <span key={s.key} className={`cal-dot pref-${r.preference_type}`}>{s.short}</span>
+            ? <span key={s.key} className={`cal-dot pref-${r.preference_type}`}>{s.label_short}</span>
             : null;
         })}
       </div>
@@ -55,7 +43,7 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek }) {
 }
 
 // ── Day editor modal ─────────────────────────────────────────────────────────
-function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh }) {
+function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs }) {
   const dow = DAYS_HE[new Date(dateStr).getDay()];
   const [d, m, y] = [
     parseInt(dateStr.split('-')[2]),
@@ -93,25 +81,25 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh }) {
           <thead>
             <tr>
               <th></th>
-              {PREFS.map(p => (
+              {prefs.map(p => (
                 <th key={p.key}>
-                  <span className={`pref-label pref-${p.key}`}>{p.label}</span>
+                  <span className={`pref-label pref-${p.key}`}>{p.label_he}</span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {SHIFTS.map(s => {
+            {shifts.map(s => {
               const req = dayRequests.find(r => r.shift_type === s.key);
               return (
                 <tr key={s.key}>
-                  <td className="pref-shift-label">{s.label}</td>
-                  {PREFS.map(p => (
+                  <td className="pref-shift-label">{s.label_he}</td>
+                  {prefs.map(p => (
                     <td key={p.key} className="pref-btn-cell">
                       <button
                         className={`pref-toggle pref-${p.key}${req?.preference_type === p.key ? ' active' : ''}`}
                         onClick={() => setPref(s.key, p.key)}
-                        title={`${s.label} — ${p.label}`}
+                        title={`${s.label_he} — ${p.label_he}`}
                       />
                     </td>
                   ))}
@@ -122,10 +110,10 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh }) {
         </table>
 
         <div className="day-editor-legend">
-          {PREFS.map(p => (
+          {prefs.map(p => (
             <span key={p.key} className="legend-item">
               <span className={`pref-toggle pref-${p.key} active small`} />
-              {p.label}
+              {p.label_he}
             </span>
           ))}
         </div>
@@ -135,7 +123,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh }) {
 }
 
 // ── User calendar view ───────────────────────────────────────────────────────
-function UserCalendar({ requests, viewDate, token, onRefresh }) {
+function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs }) {
   const [editingDay, setEditingDay] = useState(null); // { day, dateStr }
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -166,6 +154,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh }) {
                       isToday={toDateStr(year, month, day) === todayStr}
                       onClick={openEditor}
                       dayOfWeek={dow}
+                      shifts={shifts}
                     />
                   )}
                 </div>
@@ -176,15 +165,15 @@ function UserCalendar({ requests, viewDate, token, onRefresh }) {
       </div>
 
       <div className="cal-legend">
-        {SHIFTS.map(s => (
+        {shifts.map(s => (
           <span key={s.key} className="cal-legend-shift">
-            <span className="cal-dot pref-can">{s.short}</span> = {s.label}
+            <span className="cal-dot pref-can">{s.label_short}</span> = {s.label_he}
           </span>
         ))}
         <span className="cal-legend-sep" />
-        {PREFS.map(p => (
+        {prefs.map(p => (
           <span key={p.key} className="cal-legend-pref">
-            <span className={`pref-toggle pref-${p.key} active small`} /> = {p.label}
+            <span className={`pref-toggle pref-${p.key} active small`} /> = {p.label_he}
           </span>
         ))}
       </div>
@@ -196,6 +185,8 @@ function UserCalendar({ requests, viewDate, token, onRefresh }) {
           token={token}
           onClose={() => setEditingDay(null)}
           onRefresh={() => { onRefresh(); }}
+          shifts={shifts}
+          prefs={prefs}
         />
       )}
     </>
@@ -203,9 +194,9 @@ function UserCalendar({ requests, viewDate, token, onRefresh }) {
 }
 
 // ── Admin grid view ──────────────────────────────────────────────────────────
-function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
+function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, prefs }) {
   const [editingCell, setEditingCell] = useState(null); // { userId, day, shiftKey }
-  
+
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -223,7 +214,7 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
   async function setPref(userId, day, shiftKey, prefKey) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const existing = requestMap[userId]?.[day]?.[shiftKey];
-    
+
     if (existing && existing.pref === prefKey) {
       await fetch(`/api/shift-requests/${existing.id}`, {
         method: 'DELETE',
@@ -282,10 +273,10 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
                   return (
                     <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}`} onClick={() => setEditingCell({ userId: row.userId, day: d })}>
                       <div className="admin-cell-pills">
-                        {SHIFTS.map(s => {
+                        {shifts.map(s => {
                           const req = dayData[s.key];
                           return req
-                            ? <span key={s.key} className={`cell-pill pref-${req.pref}`}>{s.short}</span>
+                            ? <span key={s.key} className={`cell-pill pref-${req.pref}`}>{s.label_short}</span>
                             : null;
                         })}
                       </div>
@@ -306,13 +297,13 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
               <button className="btn-close" onClick={() => setEditingCell(null)}>✕</button>
             </div>
             <div className="admin-editor-content">
-              {SHIFTS.map(s => {
+              {shifts.map(s => {
                 const dayData = requestMap[editingCell.userId]?.[editingCell.day] || {};
                 return (
                   <div key={s.key} className="editor-shift-row-large">
-                    <span className="editor-shift-label-large">{s.label}</span>
+                    <span className="editor-shift-label-large">{s.label_he}</span>
                     <div className="editor-pref-buttons">
-                      {PREFS.map(p => {
+                      {prefs.map(p => {
                         const isActive = dayData[s.key]?.pref === p.key;
                         return (
                           <button
@@ -320,7 +311,7 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
                             className={`editor-pref-btn-large pref-${p.key}${isActive ? ' active' : ''}`}
                             onClick={() => setPref(editingCell.userId, editingCell.day, s.key, p.key)}
                           >
-                            {p.label}
+                            {p.label_he}
                           </button>
                         );
                       })}
@@ -345,10 +336,13 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh }) {
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-export default function ShiftRequests({ currentUser, token }) {
+export default function ShiftRequests({ currentUser, token, config }) {
   const [requests, setRequests] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [viewDate, setViewDate] = useState(new Date());
+
+  const shifts = config.shift_types || [];
+  const prefs = config.preference_types || [];
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -367,7 +361,7 @@ export default function ShiftRequests({ currentUser, token }) {
     if (res.ok) setWorkers(await res.json());
   }, [token]);
 
-  useEffect(() => { 
+  useEffect(() => {
     fetchRequests();
     if (currentUser.role === 'admin') fetchWorkers();
   }, [fetchRequests, fetchWorkers, currentUser]);
@@ -376,6 +370,8 @@ export default function ShiftRequests({ currentUser, token }) {
   function nextMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); }
   function prevYear() { setViewDate(d => new Date(d.getFullYear() - 1, d.getMonth(), 1)); }
   function nextYear() { setViewDate(d => new Date(d.getFullYear() + 1, d.getMonth(), 1)); }
+
+  if (!shifts.length || !prefs.length) return null;
 
   if (currentUser.role === 'admin') {
     return (
@@ -390,7 +386,7 @@ export default function ShiftRequests({ currentUser, token }) {
             <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
           </div>
         </div>
-        <AdminGrid workers={workers} requests={requests} token={token} viewDate={viewDate} onRefresh={fetchRequests} />
+        <AdminGrid workers={workers} requests={requests} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} />
         <div className="admin-grid-legend">
           <div className="legend-row">
             <span className="legend-label">תרגום צבעים:</span>
@@ -417,7 +413,7 @@ export default function ShiftRequests({ currentUser, token }) {
   return (
     <div className="shift-view">
       <h2>בקשות משמרות</h2>
-      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} />
+      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} />
     </div>
   );
 }

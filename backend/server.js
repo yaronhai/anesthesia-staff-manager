@@ -21,81 +21,73 @@ if (require('fs').existsSync(FRONTEND_DIST)) {
   });
 }
 
+const { jobTitles, empTypes, honorifics, groupColors, sites, shiftTypes, preferenceTypes } = require('./seed-data');
+
 // ── Database Initialization ─────────────────────────────────────────────────
 
 async function seedDatabase() {
   try {
     // Seed job titles
-    const jobTitles = ['רופא', 'עוזר רופא', 'טכנאי הרדמה', 'אחות', 'אחר'];
     for (const name of jobTitles) {
       await query('INSERT INTO job_titles (name) VALUES ($1) ON CONFLICT DO NOTHING', [name]);
     }
 
     // Seed employment types
-    const empTypes = ['שכיר', 'שכיר-שעתי', 'עצמאי'];
-    for (const name of empTypes) {
-      await query('INSERT INTO employment_types (name) VALUES ($1) ON CONFLICT DO NOTHING', [name]);
+    for (const et of empTypes) {
+      await query(
+        `INSERT INTO employment_types (name, is_independent) VALUES ($1, $2)
+         ON CONFLICT (name) DO UPDATE SET is_independent = EXCLUDED.is_independent`,
+        [et.name, et.is_independent]
+      );
     }
 
     // Seed honorifics
-    const honorifics = ['ד"ר', "פרופ'", 'מר', 'גברת', "גב'"];
     for (const name of honorifics) {
       await query('INSERT INTO honorifics (name) VALUES ($1) ON CONFLICT DO NOTHING', [name]);
     }
 
     // Seed site groups with colors
-    const groupColors = {
-      'מרדימים אחראיים': '#ef4444',
-      'תורנים': '#f59e0b',
-      'כוננים': '#8b5cf6',
-      'מרפאה טרום ניתוחית': '#ec4899',
-      'חדרי ניתוח': '#3b82f6',
-      'אתרים אחרים': '#10b981'
-    };
     for (const [name, color] of Object.entries(groupColors)) {
       await query('INSERT INTO site_groups (name, color) VALUES ($1, $2) ON CONFLICT DO NOTHING', [name, color]);
     }
 
-    // Get group IDs for seeding sites
-    const roomGroupRes = await query("SELECT id FROM site_groups WHERE name = 'חדרי ניתוח'");
-    const otherGroupRes = await query("SELECT id FROM site_groups WHERE name = 'אתרים אחרים'");
-    
-    const operatingRoomGroupId = roomGroupRes.rows[0]?.id;
-    const otherGroupId = otherGroupRes.rows[0]?.id;
-
-    // Seed default sites
-    const sites = [
-      { name: 'חדר ניתוח 1', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 2', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 3', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 4', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 5', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 6', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 7', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 8', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 9', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 10', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 11', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 12', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 13', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 14', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 15', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 16', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 17', groupId: operatingRoomGroupId },
-      { name: 'חדר ניתוח 18', groupId: operatingRoomGroupId },
-      { name: 'IVF', groupId: otherGroupId },
-      { name: 'גסטרו', groupId: otherGroupId }
-    ];
+    // Seed sites (resolve group name → id at runtime)
+    const groupIdCache = {};
     for (const site of sites) {
-      await query('INSERT INTO sites (name, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [site.name, site.groupId]);
+      if (!groupIdCache[site.groupName]) {
+        const res = await query('SELECT id FROM site_groups WHERE name = $1', [site.groupName]);
+        groupIdCache[site.groupName] = res.rows[0]?.id;
+      }
+      await query('INSERT INTO sites (name, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [site.name, groupIdCache[site.groupName]]);
+    }
+
+    // Seed shift types
+    for (const st of shiftTypes) {
+      await query(
+        `INSERT INTO shift_types (key, label_he, label_short, default_start, default_end, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (key) DO NOTHING`,
+        [st.key, st.label_he, st.label_short, st.default_start, st.default_end, st.sort_order]
+      );
+    }
+
+    // Seed preference types
+    for (const pt of preferenceTypes) {
+      await query(
+        `INSERT INTO preference_types (key, label_he, sort_order)
+         VALUES ($1, $2, $3) ON CONFLICT (key) DO NOTHING`,
+        [pt.key, pt.label_he, pt.sort_order]
+      );
     }
 
     // Bootstrap admin user
-    const adminCheck = await query("SELECT COUNT(*) as c FROM users WHERE username = 'admin'");
+    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const adminCheck = await query('SELECT COUNT(*) as c FROM users WHERE username = $1', [adminUsername]);
     if (parseInt(adminCheck.rows[0].c) === 0) {
       await query(
         'INSERT INTO users (username, password_hash, role, must_change_password) VALUES ($1, $2, $3, $4)',
-        ['admin', bcrypt.hashSync('admin123', 8), 'admin', 0]
+        [adminUsername, bcrypt.hashSync(adminPassword, 8), 'admin', 0]
       );
     }
 
@@ -184,11 +176,13 @@ async function getConfig() {
   try {
     const res = await Promise.all([
       query('SELECT id, name FROM job_titles ORDER BY id'),
-      query('SELECT id, name FROM employment_types ORDER BY id'),
+      query('SELECT id, name, is_independent FROM employment_types ORDER BY id'),
       query('SELECT id, name FROM honorifics ORDER BY id'),
       query('SELECT id, name, color FROM site_groups ORDER BY id'),
       query('SELECT id, name, description, group_id FROM sites ORDER BY name'),
       query('SELECT id, name FROM activity_types ORDER BY name'),
+      query('SELECT key, label_he, label_short, default_start, default_end, sort_order FROM shift_types ORDER BY sort_order'),
+      query('SELECT key, label_he, sort_order FROM preference_types ORDER BY sort_order'),
     ]);
 
     // Try to get allowed jobs, but don't fail if table doesn't exist
@@ -219,6 +213,8 @@ async function getConfig() {
       sites: res[4].rows,
       activity_types: res[5].rows,
       site_group_allowed_jobs: allowedJobsByGroup,
+      shift_types: res[6].rows,
+      preference_types: res[7].rows,
     };
   } catch (error) {
     console.error('Error in getConfig:', error);
@@ -1185,66 +1181,102 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     const configuredSlots = new Set();
     activitiesRes.rows.forEach(r => configuredSlots.add(`${r.site_id}-${r.shift_type}`));
 
-    // For each site × shift that has an activity configured, build eligible worker list
-    const slots = [];
+    // Build slots per shift type (only for site+shift combos with a configured activity)
+    const slotsByShift = {};
     sites.forEach(site => {
       const allowedJobs = site.group_id ? groupAllowedJobs.get(site.group_id) : null;
       const hasRestriction = allowedJobs && allowedJobs.size > 0;
 
       ['morning', 'evening', 'night'].forEach(shift => {
-        // Only suggest for site+shift combos with a configured activity type
         if (!configuredSlots.has(`${site.id}-${shift}`)) return;
-
-        const candidates = (availableByShift[shift] || []).filter(w =>
-          !assigned.has(`${w.worker_id}-${shift}`) &&
-          (!hasRestriction || allowedJobs.has(w.job_id))
-        );
-        slots.push({ site, shift, candidates, hasRestriction, allowedJobs });
+        if (!slotsByShift[shift]) slotsByShift[shift] = [];
+        slotsByShift[shift].push({ site, shift, hasRestriction, allowedJobs });
       });
     });
 
-    // Greedy: fill hardest slots first (fewest candidates)
-    slots.sort((a, b) => a.candidates.length - b.candidates.length);
-
-    const usedWorkers = new Set();
     const suggestions = [];
     const unassignable = [];
 
-    slots.forEach(({ site, shift, candidates, hasRestriction, allowedJobs }) => {
-      const chosen = candidates.find(w => !usedWorkers.has(`${w.worker_id}-${shift}`));
+    // Maximum bipartite matching per shift type.
+    // Each shift is solved independently: workers ↔ slots.
+    // Augmenting paths allow previously-assigned workers to be re-routed,
+    // guaranteeing the maximum number of slots filled.
+    // Within each adjacency list, "prefer" workers are tried before "can" workers.
+    for (const [shift, shiftSlots] of Object.entries(slotsByShift)) {
+      // Workers available for this shift (not already assigned on this date+shift)
+      const shiftWorkers = (availableByShift[shift] || [])
+        .filter(w => !assigned.has(`${w.worker_id}-${shift}`));
 
-      if (chosen) {
-        suggestions.push({
-          site_id: site.id,
-          site_name: site.name,
-          group_name: site.group_name,
-          shift_type: shift,
-          worker_id: chosen.worker_id,
-          worker_name: `${chosen.first_name} ${chosen.family_name}`,
-          preference_type: chosen.preference_type,
-        });
-        usedWorkers.add(`${chosen.worker_id}-${shift}`);
-      } else if (hasRestriction) {
-        // Only report unassignable if site has job restrictions (otherwise skip empty slots)
-        const allForShift = availableByShift[shift] || [];
-        const wrongJob = allForShift.filter(w => !allowedJobs.has(w.job_id));
-        const reason = wrongJob.length > 0
-          ? `${wrongJob.length} עובד/ים ביקשו את המשמרת אך תפקידם לא מורשה לקבוצה זו`
-          : 'אף עובד עם תפקיד מתאים לא ביקש משמרת זו';
+      // adjacency[slotIdx] = sorted array of eligible workerIdx (prefer first)
+      const adjacency = shiftSlots.map(slot => {
+        return shiftWorkers
+          .map((w, idx) => ({
+            idx,
+            preferFirst: w.preference_type === 'prefer' ? 0 : 1,
+            eligible: !slot.hasRestriction || slot.allowedJobs.has(w.job_id),
+          }))
+          .filter(e => e.eligible)
+          .sort((a, b) => a.preferFirst - b.preferFirst)
+          .map(e => e.idx);
+      });
 
-        unassignable.push({
-          site_id: site.id,
-          site_name: site.name,
-          group_name: site.group_name,
-          shift_type: shift,
-          reason,
-          unavailable_workers: wrongJob.slice(0, 5).map(w => ({
-            name: `${w.first_name} ${w.family_name}`,
-            reason: 'תפקיד לא מורשה לקבוצה זו',
-          })),
-        });
+      // Hopcroft-Karp style augmenting path (simple DFS variant)
+      const matchSlot   = new Array(shiftSlots.length).fill(-1);  // slotIdx  → workerIdx
+      const matchWorker = new Array(shiftWorkers.length).fill(-1); // workerIdx → slotIdx
+
+      const augment = (sIdx, visited) => {
+        for (const wIdx of adjacency[sIdx]) {
+          if (visited.has(wIdx)) continue;
+          visited.add(wIdx);
+          // Worker is free, or we can find an alternative slot for their current assignment
+          if (matchWorker[wIdx] === -1 || augment(matchWorker[wIdx], visited)) {
+            matchSlot[sIdx]   = wIdx;
+            matchWorker[wIdx] = sIdx;
+            return true;
+          }
+        }
+        return false;
+      };
+
+      for (let sIdx = 0; sIdx < shiftSlots.length; sIdx++) {
+        augment(sIdx, new Set());
       }
-    });
+
+      // Build suggestions and unassignable from matching result
+      shiftSlots.forEach((slot, sIdx) => {
+        const wIdx = matchSlot[sIdx];
+        if (wIdx !== -1) {
+          const worker = shiftWorkers[wIdx];
+          suggestions.push({
+            site_id: slot.site.id,
+            site_name: slot.site.name,
+            group_name: slot.site.group_name,
+            shift_type: shift,
+            worker_id: worker.worker_id,
+            worker_name: `${worker.first_name} ${worker.family_name}`,
+            preference_type: worker.preference_type,
+          });
+        } else if (slot.hasRestriction) {
+          // Only report unassignable when there are job restrictions (otherwise it's just "no one requested")
+          const allForShift = availableByShift[shift] || [];
+          const wrongJob = allForShift.filter(w => !slot.allowedJobs.has(w.job_id));
+          const reason = wrongJob.length > 0
+            ? `${wrongJob.length} עובד/ים ביקשו את המשמרת אך תפקידם לא מורשה לקבוצה זו`
+            : 'אף עובד עם תפקיד מתאים לא ביקש משמרת זו';
+          unassignable.push({
+            site_id: slot.site.id,
+            site_name: slot.site.name,
+            group_name: slot.site.group_name,
+            shift_type: shift,
+            reason,
+            unavailable_workers: wrongJob.slice(0, 5).map(w => ({
+              name: `${w.first_name} ${w.family_name}`,
+              reason: 'תפקיד לא מורשה לקבוצה זו',
+            })),
+          });
+        }
+      });
+    }
 
     res.json({ suggestions, unassignable });
   } catch (error) {

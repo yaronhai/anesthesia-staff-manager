@@ -201,7 +201,7 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config }) {
           <div className="detail-row">
             <span className="detail-label">סוג העסקה</span>
             <span className="detail-value">
-              <span className={`badge ${worker.employment_type === 'עצמאי' ? 'badge-self' : 'badge-normal'}`}>
+              <span className={`badge ${independentTypeIds.has(worker.employment_type_id) ? 'badge-self' : 'badge-normal'}`}>
                 {worker.employment_type}
               </span>
             </span>
@@ -230,6 +230,10 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config }) {
 
 export default function WorkerList({ workers, onEdit, onDelete, onResetPassword, authToken, config }) {
   const [viewing, setViewing] = useState(null);
+
+  const independentTypeIds = new Set(
+    (config.employment_types || []).filter(t => t.is_independent).map(t => t.id)
+  );
 
   if (workers.length === 0) {
     return <p className="empty">אין עובדים עדיין. לחץ על "+ הוסף עובד" כדי להתחיל.</p>;
@@ -275,7 +279,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
               </td>
               <td>{w.job}</td>
               <td>
-                <span className={`badge ${w.employment_type === 'עצמאי' ? 'badge-self' : 'badge-normal'}`}>
+                <span className={`badge ${independentTypeIds.has(w.employment_type_id) ? 'badge-self' : 'badge-normal'}`}>
                   {w.employment_type}
                 </span>
               </td>

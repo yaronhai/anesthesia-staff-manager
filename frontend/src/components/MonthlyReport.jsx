@@ -23,7 +23,7 @@ function buildCalendarWeeks(year, month) {
   return weeks;
 }
 
-export default function MonthlyReport({ token }) {
+export default function MonthlyReport({ token, config }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [requests, setRequests] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
@@ -31,6 +31,9 @@ export default function MonthlyReport({ token }) {
   const month = viewDate.getMonth();
   const year = viewDate.getFullYear();
 
+  // Shifts to include in the report (all except oncall)
+  const reportShifts = (config.shift_types || []).filter(st => st.key !== 'oncall');
+  const reportShiftKeys = new Set(reportShifts.map(st => st.key));
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -56,22 +59,21 @@ export default function MonthlyReport({ token }) {
     setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
   }
 
-  // Build data structure: date -> shift -> { prefer: [], can: [] }
+  // Build data structure: date -> shiftKey -> { prefer: [], can: [] }
   const reportData = {};
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    reportData[dateStr] = {
-      morning: { prefer: [], can: [] },
-      evening: { prefer: [], can: [] },
-      night: { prefer: [], can: [] },
-    };
+    reportData[dateStr] = {};
+    reportShifts.forEach(st => {
+      reportData[dateStr][st.key] = { prefer: [], can: [] };
+    });
   }
 
-  // Populate with requests (exclude "cannot", only morning/evening/night)
+  // Populate with requests (exclude "cannot" and shifts not in reportShiftKeys)
   requests.forEach(req => {
     if (req.preference_type === 'cannot' || !reportData[req.date]) return;
-    if (req.shift_type !== 'morning' && req.shift_type !== 'evening' && req.shift_type !== 'night') return;
+    if (!reportShiftKeys.has(req.shift_type)) return;
 
     const workerName = req.first_name && req.family_name
       ? `${req.first_name} ${req.family_name}`
@@ -83,9 +85,9 @@ export default function MonthlyReport({ token }) {
 
   // Sort names
   Object.values(reportData).forEach(dayShifts => {
-    ['morning', 'evening', 'night'].forEach(shift => {
-      dayShifts[shift].can.sort();
-      dayShifts[shift].prefer.sort();
+    reportShifts.forEach(st => {
+      dayShifts[st.key].can.sort();
+      dayShifts[st.key].prefer.sort();
     });
   });
 
@@ -99,7 +101,7 @@ export default function MonthlyReport({ token }) {
           <h2 style={{ margin: 0, color: '#1a2e4a', fontSize: '1.25rem', minWidth: '150px', textAlign: 'center' }}>{MONTHS[month]} {year}</h2>
           <button onClick={nextMonth} className="btn-secondary btn-sm">הבא →</button>
         </div>
-        
+
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <button onClick={() => window.print()} className="btn-primary btn-sm">🖨️ הדפסה</button>
           <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', alignItems: 'center' }}>
@@ -136,10 +138,10 @@ export default function MonthlyReport({ token }) {
               const dayData = reportData[dateStr];
 
               return (
-                <div 
-                  key={uniqueKey} 
-                  className="calendar-cell" 
-                  style={{ 
+                <div
+                  key={uniqueKey}
+                  className="calendar-cell"
+                  style={{
                     padding: '0.15rem',
                     minHeight: '50px',
                     cursor: 'pointer',
@@ -150,38 +152,17 @@ export default function MonthlyReport({ token }) {
                 >
                   <div className="day-header" style={{ fontSize: '0.7rem', fontWeight: '700', marginBottom: '0.08rem', paddingBottom: '0.05rem', borderBottom: '1px solid #e2e8f0' }}>{day}</div>
 
-                  {/* Morning Section */}
-                  <div style={{ fontSize: '0.5rem', marginBottom: '0.1rem' }}>
-                    <div style={{ fontWeight: '700', fontSize: '0.48rem', textTransform: 'uppercase', marginBottom: '0.04rem', color: '#4b5563' }}>בוקר</div>
-                    {dayData.morning.prefer.map((name, i) => (
-                      <div key={`m-p-${i}`} style={{ color: '#16a34a', fontWeight: '600', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
-                    ))}
-                    {dayData.morning.can.map((name, i) => (
-                      <div key={`m-c-${i}`} style={{ color: '#0369a1', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
-                    ))}
-                  </div>
-
-                  {/* Evening Section */}
-                  <div style={{ fontSize: '0.5rem' }}>
-                    <div style={{ fontWeight: '700', fontSize: '0.48rem', textTransform: 'uppercase', marginBottom: '0.04rem', color: '#4b5563' }}>ערב</div>
-                    {dayData.evening.prefer.map((name, i) => (
-                      <div key={`e-p-${i}`} style={{ color: '#16a34a', fontWeight: '600', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
-                    ))}
-                    {dayData.evening.can.map((name, i) => (
-                      <div key={`e-c-${i}`} style={{ color: '#0369a1', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
-                    ))}
-                  </div>
-
-                  {/* Night Section */}
-                  <div style={{ fontSize: '0.5rem' }}>
-                    <div style={{ fontWeight: '700', fontSize: '0.48rem', textTransform: 'uppercase', marginBottom: '0.04rem', color: '#4b5563' }}>תורנות</div>
-                    {dayData.night.prefer.map((name, i) => (
-                      <div key={`n-p-${i}`} style={{ color: '#16a34a', fontWeight: '600', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
-                    ))}
-                    {dayData.night.can.map((name, i) => (
-                      <div key={`n-c-${i}`} style={{ color: '#0369a1', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
-                    ))}
-                  </div>
+                  {reportShifts.map(st => (
+                    <div key={st.key} style={{ fontSize: '0.5rem', marginBottom: '0.1rem' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.48rem', textTransform: 'uppercase', marginBottom: '0.04rem', color: '#4b5563' }}>{st.label_he}</div>
+                      {dayData[st.key].prefer.map((name, i) => (
+                        <div key={`${st.key}-p-${i}`} style={{ color: '#16a34a', fontWeight: '600', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
+                      ))}
+                      {dayData[st.key].can.map((name, i) => (
+                        <div key={`${st.key}-c-${i}`} style={{ color: '#0369a1', lineHeight: '1', marginBottom: '0.01rem' }}>{name}</div>
+                      ))}
+                    </div>
+                  ))}
                 </div>
               );
             })}
@@ -194,7 +175,7 @@ export default function MonthlyReport({ token }) {
         const dayData = reportData[selectedDay];
         const [y, m, d] = selectedDay.split('-').map(Number);
         const dayName = WEEK_HEADERS[new Date(y, m - 1, d).getDay()];
-        
+
         return (
           <div className="daily-report-overlay" onClick={() => setSelectedDay(null)}>
             <div className="daily-report-modal" onClick={e => e.stopPropagation()}>
@@ -204,98 +185,37 @@ export default function MonthlyReport({ token }) {
               </div>
 
               <div className="daily-report-content">
-                {/* Morning */}
-                <div className="daily-shift-section">
-                  <h4>בוקר</h4>
-                  {dayData.morning.prefer.length === 0 && dayData.morning.can.length === 0 ? (
-                    <p className="empty-list">אין בקשות</p>
-                  ) : (
-                    <>
-                      {dayData.morning.prefer.length > 0 && (
-                        <div className="daily-shift-group">
-                          <span className="group-label" style={{ color: '#16a34a', fontWeight: '700' }}>מעדיפים:</span>
-                          <div className="names-list">
-                            {dayData.morning.prefer.map((name, i) => (
-                              <span key={`m-p-${i}`} className="name-badge" style={{ background: '#dcfce7', color: '#166534', borderColor: '#16a34a' }}>{name}</span>
-                            ))}
+                {reportShifts.map(st => (
+                  <div key={st.key} className="daily-shift-section">
+                    <h4>{st.label_he}</h4>
+                    {dayData[st.key].prefer.length === 0 && dayData[st.key].can.length === 0 ? (
+                      <p className="empty-list">אין בקשות</p>
+                    ) : (
+                      <>
+                        {dayData[st.key].prefer.length > 0 && (
+                          <div className="daily-shift-group">
+                            <span className="group-label" style={{ color: '#16a34a', fontWeight: '700' }}>מעדיפים:</span>
+                            <div className="names-list">
+                              {dayData[st.key].prefer.map((name, i) => (
+                                <span key={`${st.key}-p-${i}`} className="name-badge" style={{ background: '#dcfce7', color: '#166534', borderColor: '#16a34a' }}>{name}</span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {dayData.morning.can.length > 0 && (
-                        <div className="daily-shift-group">
-                          <span className="group-label" style={{ color: '#0369a1', fontWeight: '700' }}>יכולים:</span>
-                          <div className="names-list">
-                            {dayData.morning.can.map((name, i) => (
-                              <span key={`m-c-${i}`} className="name-badge" style={{ background: '#e0f2fe', color: '#0c4a6e', borderColor: '#0369a1' }}>{name}</span>
-                            ))}
+                        )}
+                        {dayData[st.key].can.length > 0 && (
+                          <div className="daily-shift-group">
+                            <span className="group-label" style={{ color: '#0369a1', fontWeight: '700' }}>יכולים:</span>
+                            <div className="names-list">
+                              {dayData[st.key].can.map((name, i) => (
+                                <span key={`${st.key}-c-${i}`} className="name-badge" style={{ background: '#e0f2fe', color: '#0c4a6e', borderColor: '#0369a1' }}>{name}</span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Evening */}
-                <div className="daily-shift-section">
-                  <h4>ערב</h4>
-                  {dayData.evening.prefer.length === 0 && dayData.evening.can.length === 0 ? (
-                    <p className="empty-list">אין בקשות</p>
-                  ) : (
-                    <>
-                      {dayData.evening.prefer.length > 0 && (
-                        <div className="daily-shift-group">
-                          <span className="group-label" style={{ color: '#16a34a', fontWeight: '700' }}>מעדיפים:</span>
-                          <div className="names-list">
-                            {dayData.evening.prefer.map((name, i) => (
-                              <span key={`e-p-${i}`} className="name-badge" style={{ background: '#dcfce7', color: '#166534', borderColor: '#16a34a' }}>{name}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {dayData.evening.can.length > 0 && (
-                        <div className="daily-shift-group">
-                          <span className="group-label" style={{ color: '#0369a1', fontWeight: '700' }}>יכולים:</span>
-                          <div className="names-list">
-                            {dayData.evening.can.map((name, i) => (
-                              <span key={`e-c-${i}`} className="name-badge" style={{ background: '#e0f2fe', color: '#0c4a6e', borderColor: '#0369a1' }}>{name}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Night */}
-                <div className="daily-shift-section">
-                  <h4>תורנות</h4>
-                  {dayData.night.prefer.length === 0 && dayData.night.can.length === 0 ? (
-                    <p className="empty-list">אין בקשות</p>
-                  ) : (
-                    <>
-                      {dayData.night.prefer.length > 0 && (
-                        <div className="daily-shift-group">
-                          <span className="group-label" style={{ color: '#16a34a', fontWeight: '700' }}>מעדיפים:</span>
-                          <div className="names-list">
-                            {dayData.night.prefer.map((name, i) => (
-                              <span key={`n-p-${i}`} className="name-badge" style={{ background: '#dcfce7', color: '#166534', borderColor: '#16a34a' }}>{name}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {dayData.night.can.length > 0 && (
-                        <div className="daily-shift-group">
-                          <span className="group-label" style={{ color: '#0369a1', fontWeight: '700' }}>יכולים:</span>
-                          <div className="names-list">
-                            {dayData.night.can.map((name, i) => (
-                              <span key={`n-c-${i}`} className="name-badge" style={{ background: '#e0f2fe', color: '#0c4a6e', borderColor: '#0369a1' }}>{name}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

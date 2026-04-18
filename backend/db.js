@@ -21,7 +21,8 @@ async function initializeSchema() {
 
       CREATE TABLE IF NOT EXISTS employment_types (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL UNIQUE
+        name TEXT NOT NULL UNIQUE,
+        is_independent BOOLEAN DEFAULT FALSE NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS honorifics (
@@ -132,12 +133,31 @@ async function initializeSchema() {
         UNIQUE(template_id, site_id, shift_type)
       );
 
+      CREATE TABLE IF NOT EXISTS shift_types (
+        key TEXT PRIMARY KEY,
+        label_he TEXT NOT NULL,
+        label_short TEXT NOT NULL DEFAULT '',
+        default_start TEXT,
+        default_end TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS preference_types (
+        key TEXT PRIMARY KEY,
+        label_he TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      );
+
       CREATE INDEX IF NOT EXISTS idx_workers_id_number ON workers(id_number);
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_user_id ON shift_requests(user_id);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_date ON shift_requests(date);
       CREATE INDEX IF NOT EXISTS idx_worker_site_assignments_date ON worker_site_assignments(date);
       CREATE INDEX IF NOT EXISTS idx_site_shift_activities_date ON site_shift_activities(date);
+    `);
+    // Migrate existing employment_types table if column missing
+    await query(`
+      ALTER TABLE employment_types ADD COLUMN IF NOT EXISTS is_independent BOOLEAN DEFAULT FALSE NOT NULL;
     `);
     console.log('✓ Database schema initialized');
   } catch (error) {

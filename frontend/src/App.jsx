@@ -24,7 +24,7 @@ export default function App() {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [], site_groups: [], sites: [] });
+  const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [], site_groups: [], sites: [], activity_types: [], shift_types: [], preference_types: [] });
   const [filterJobId, setFilterJobId] = useState('');
   const [filterEmpTypeId, setFilterEmpTypeId] = useState('');
 
@@ -267,11 +267,11 @@ export default function App() {
       )}
 
       {activeTab === 'shifts' && (
-        <ShiftRequests currentUser={currentUser} token={authToken} />
+        <ShiftRequests currentUser={currentUser} token={authToken} config={config} />
       )}
 
       {activeTab === 'report' && isAdmin && (
-        <MonthlyReport token={authToken} />
+        <MonthlyReport token={authToken} config={config} />
       )}
 
       {activeTab === 'rooms' && isAdmin && (
