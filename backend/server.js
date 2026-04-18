@@ -1200,20 +1200,30 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       }
     });
 
-    // Get already assigned workers for the date
+    // Workers already assigned somewhere on this date (per shift type)
     const assignedRes = await query(`
       SELECT worker_id, shift_type FROM worker_site_assignments WHERE date = $1
     `, [date]);
-    const assigned = new Set();
-    assignedRes.rows.forEach(r => assigned.add(`${r.worker_id}-${r.shift_type}`));
+    const workerAssigned = new Set();
+    assignedRes.rows.forEach(r => workerAssigned.add(`${r.worker_id}-${r.shift_type}`));
+    console.log('=== SUGGEST DEBUG ===');
+    console.log('date param:', JSON.stringify(date));
+    console.log('existing assignments:', JSON.stringify(assignedRes.rows));
 
-    // Get sites that have an activity type configured for this date (only these get suggestions)
-    const activitiesRes = await query(`
-      SELECT site_id, shift_type FROM site_shift_activities
-      WHERE date = $1 AND activity_type_id IS NOT NULL
+    // Open slots: configured activity AND no worker assigned yet — built entirely in SQL
+    const openSlotsRes = await query(`
+      SELECT ssa.site_id, ssa.shift_type
+      FROM site_shift_activities ssa
+      WHERE ssa.date = $1
+        AND ssa.activity_type_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM worker_site_assignments wsa
+          WHERE wsa.site_id    = ssa.site_id
+            AND wsa.date       = $1
+            AND wsa.shift_type = ssa.shift_type
+        )
     `, [date]);
-    const configuredSlots = new Set();
-    activitiesRes.rows.forEach(r => configuredSlots.add(`${r.site_id}-${r.shift_type}`));
+    console.log('open slots from SQL:', JSON.stringify(openSlotsRes.rows));
 
     // Fetch fairness scores: count assignments per worker to fairness-designated sites
     const fairnessCountByWorker = new Map();
@@ -1234,17 +1244,16 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       console.warn('Fairness fetch failed, skipping:', e.message);
     }
 
-    // Build slots per shift type (only for site+shift combos with a configured activity)
+    // Build slotsByShift directly from SQL results — no JS type-comparison needed
+    const siteMap = new Map(sites.map(s => [s.id, s]));
     const slotsByShift = {};
-    sites.forEach(site => {
+    openSlotsRes.rows.forEach(r => {
+      const site = siteMap.get(r.site_id);
+      if (!site) return;
       const allowedJobs = site.group_id ? groupAllowedJobs.get(site.group_id) : null;
       const hasRestriction = allowedJobs && allowedJobs.size > 0;
-
-      ['morning', 'evening', 'night'].forEach(shift => {
-        if (!configuredSlots.has(`${site.id}-${shift}`)) return;
-        if (!slotsByShift[shift]) slotsByShift[shift] = [];
-        slotsByShift[shift].push({ site, shift, hasRestriction, allowedJobs });
-      });
+      if (!slotsByShift[r.shift_type]) slotsByShift[r.shift_type] = [];
+      slotsByShift[r.shift_type].push({ site, shift: r.shift_type, hasRestriction, allowedJobs });
     });
 
     const suggestions = [];
@@ -1258,7 +1267,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     for (const [shift, shiftSlots] of Object.entries(slotsByShift)) {
       // Workers available for this shift (not already assigned on this date+shift)
       const shiftWorkers = (availableByShift[shift] || [])
-        .filter(w => !assigned.has(`${w.worker_id}-${shift}`));
+        .filter(w => !workerAssigned.has(`${w.worker_id}-${shift}`));
 
       // adjacency[slotIdx] = sorted array of eligible workerIdx (prefer first)
       const adjacency = shiftSlots.map(slot => {
@@ -1337,7 +1346,20 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       });
     }
 
-    res.json({ suggestions, unassignable });
+    // Safety filter: re-query assignments and strip any suggestion that slipped through
+    const finalCheckRes = await query(`
+      SELECT worker_id, site_id, shift_type FROM worker_site_assignments WHERE date = $1
+    `, [date]);
+    const staffedSlotsFinal  = new Set(finalCheckRes.rows.map(r => `${r.site_id}-${r.shift_type}`));
+    const workerBusyFinal    = new Set(finalCheckRes.rows.map(r => `${r.worker_id}-${r.shift_type}`));
+    const safeSuggestions = suggestions.filter(s =>
+      !staffedSlotsFinal.has(`${s.site_id}-${s.shift_type}`) &&
+      !workerBusyFinal.has(`${s.worker_id}-${s.shift_type}`)
+    );
+    console.log('raw suggestions:', JSON.stringify(suggestions.map(s => ({ site: s.site_name, shift: s.shift_type, worker: s.worker_name }))));
+    console.log('after safety filter:', JSON.stringify(safeSuggestions.map(s => ({ site: s.site_name, shift: s.shift_type, worker: s.worker_name }))));
+
+    res.json({ suggestions: safeSuggestions, unassignable });
   } catch (error) {
     console.error('Suggest assignments error:', error);
     res.status(500).json({ error: 'שגיאה בהצעת שיבוצים' });
