@@ -205,6 +205,14 @@ async function getConfig() {
       console.warn('Warning: Could not fetch site_group_allowed_jobs:', err.message);
     }
 
+    let fairnessSiteIds = [];
+    try {
+      const fRes = await query('SELECT site_id FROM fairness_sites ORDER BY site_id');
+      fairnessSiteIds = fRes.rows.map(r => r.site_id);
+    } catch (e) {
+      console.warn('fairness_sites not available:', e.message);
+    }
+
     return {
       jobs: res[0].rows,
       employment_types: res[1].rows,
@@ -215,6 +223,7 @@ async function getConfig() {
       site_group_allowed_jobs: allowedJobsByGroup,
       shift_types: res[6].rows,
       preference_types: res[7].rows,
+      fairness_sites: fairnessSiteIds,
     };
   } catch (error) {
     console.error('Error in getConfig:', error);
@@ -985,6 +994,31 @@ app.put('/api/config/sites/:id/group', requireAdmin, async (req, res) => {
   }
 });
 
+// ── Fairness Sites Endpoints ────────────────────────────────────────────────
+
+app.post('/api/config/fairness-sites/:siteId', requireAdmin, async (req, res) => {
+  try {
+    const siteId = parseInt(req.params.siteId);
+    if (!siteId) return res.status(400).json({ error: 'מזהה אתר לא תקין' });
+    await query('INSERT INTO fairness_sites (site_id) VALUES ($1) ON CONFLICT DO NOTHING', [siteId]);
+    res.json(await getConfig());
+  } catch (e) {
+    console.error('Add fairness site error:', e);
+    res.status(500).json({ error: 'שגיאה בהוספת אתר לצדק' });
+  }
+});
+
+app.delete('/api/config/fairness-sites/:siteId', requireAdmin, async (req, res) => {
+  try {
+    const siteId = parseInt(req.params.siteId);
+    await query('DELETE FROM fairness_sites WHERE site_id = $1', [siteId]);
+    res.json(await getConfig());
+  } catch (e) {
+    console.error('Remove fairness site error:', e);
+    res.status(500).json({ error: 'שגיאה בהסרת אתר מהצדק' });
+  }
+});
+
 // ── Activity Types Endpoints ────────────────────────────────────────────────
 
 app.post('/api/config/activity-types', requireAdmin, async (req, res) => {
@@ -1181,6 +1215,25 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     const configuredSlots = new Set();
     activitiesRes.rows.forEach(r => configuredSlots.add(`${r.site_id}-${r.shift_type}`));
 
+    // Fetch fairness scores: count assignments per worker to fairness-designated sites
+    const fairnessCountByWorker = new Map();
+    let fairnessSiteSet = new Set();
+    try {
+      const fRes = await query('SELECT site_id FROM fairness_sites');
+      const fIds = fRes.rows.map(r => r.site_id);
+      fairnessSiteSet = new Set(fIds);
+      if (fIds.length > 0) {
+        const placeholders = fIds.map((_, i) => `$${i + 1}`).join(', ');
+        const cRes = await query(
+          `SELECT worker_id, COUNT(*) AS cnt FROM worker_site_assignments WHERE site_id IN (${placeholders}) GROUP BY worker_id`,
+          fIds
+        );
+        cRes.rows.forEach(r => fairnessCountByWorker.set(r.worker_id, parseInt(r.cnt)));
+      }
+    } catch (e) {
+      console.warn('Fairness fetch failed, skipping:', e.message);
+    }
+
     // Build slots per shift type (only for site+shift combos with a configured activity)
     const slotsByShift = {};
     sites.forEach(site => {
@@ -1216,7 +1269,11 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             eligible: !slot.hasRestriction || slot.allowedJobs.has(w.job_id),
           }))
           .filter(e => e.eligible)
-          .sort((a, b) => a.preferFirst - b.preferFirst)
+          .sort((a, b) => {
+            if (a.preferFirst !== b.preferFirst) return a.preferFirst - b.preferFirst;
+            return (fairnessCountByWorker.get(shiftWorkers[a.idx].worker_id) ?? 0)
+                 - (fairnessCountByWorker.get(shiftWorkers[b.idx].worker_id) ?? 0);
+          })
           .map(e => e.idx);
       });
 
@@ -1255,6 +1312,8 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             worker_id: worker.worker_id,
             worker_name: `${worker.first_name} ${worker.family_name}`,
             preference_type: worker.preference_type,
+            fairness_count: fairnessCountByWorker.get(worker.worker_id) ?? 0,
+            is_fairness_site: fairnessSiteSet.has(slot.site.id),
           });
         } else if (slot.hasRestriction) {
           // Only report unassignable when there are job restrictions (otherwise it's just "no one requested")

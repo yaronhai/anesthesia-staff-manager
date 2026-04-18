@@ -888,12 +888,14 @@ export default function DailyRoomView({ config, authToken }) {
     <>
     <div className="room-view-container">
       <div className="room-view-header">
-        <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%'}}>
-          <h2>שיבוצים לחדרים</h2>
-          <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋 תבנית</button>
-          <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
-          <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
-          <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ הדפס</button>
+        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+            <h2>שיבוצים לחדרים</h2>
+            <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋 תבנית</button>
+            <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
+            <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
+            <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ הדפס</button>
+          </div>
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
           {(() => {
             const configuredSlots = siteShiftActivities.filter(
@@ -922,39 +924,33 @@ export default function DailyRoomView({ config, authToken }) {
 
             return (
               <div style={{
-                marginLeft: 'auto',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '0.35rem',
+                alignItems: 'center',
+                gap: '0.5rem',
                 background: 'white',
                 border: '1.5px solid #e2e8f0',
                 borderRadius: '8px',
-                padding: '0.35rem 0.75rem',
+                padding: '0.3rem 0.75rem',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
               }}>
-                {/* Row 1: overall progress */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div style={{ width: '100px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width 0.3s' }} />
-                  </div>
-                  <span style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                    {totalFilled}/{totalSlots}
-                  </span>
-                  <span style={{
-                    padding: '0.1rem 0.45rem',
-                    borderRadius: '10px',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
-                    color:      totalMissing === 0 ? '#166534' : '#991b1b',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
-                  </span>
+                <div style={{ width: '80px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width 0.3s' }} />
                 </div>
-                {/* Row 2: per-shift chips */}
-                <div style={{ display: 'flex', gap: '0.35rem' }}>
-                  {shiftStats.map(s => {
+                <span style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                  {totalFilled}/{totalSlots}
+                </span>
+                <span style={{
+                  padding: '0.1rem 0.45rem',
+                  borderRadius: '10px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
+                  color:      totalMissing === 0 ? '#166534' : '#991b1b',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
+                </span>
+                {shiftStats.map(s => {
                     const chipBg     = s.missing === 0 ? '#dcfce7' : s.filled === 0 ? '#fef2f2' : '#fef9e7';
                     const chipColor  = s.missing === 0 ? '#166534' : s.filled === 0 ? '#991b1b' : '#92400e';
                     const chipBorder = s.missing === 0 ? '#86efac' : s.filled === 0 ? '#fca5a5' : '#fde68a';
@@ -970,12 +966,12 @@ export default function DailyRoomView({ config, authToken }) {
                       </div>
                     );
                   })}
-                </div>
               </div>
             );
           })()}
         </div>
         <div className="room-nav">
+
           <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
           <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
           <button className="btn-secondary btn-sm" onClick={prevDay}>◀ יום</button>
@@ -1540,6 +1536,11 @@ export default function DailyRoomView({ config, authToken }) {
                               <span style={{marginLeft: '0.5rem', padding: '0.1rem 0.4rem', backgroundColor: suggestion.preference_type === 'prefer' ? '#d1fae5' : '#dbeafe', borderRadius: '3px', fontSize: '0.8rem', fontWeight: 500, color: suggestion.preference_type === 'prefer' ? '#065f46' : '#0c4a6e'}}>
                                 ✓ {prefLabel[suggestion.preference_type] || suggestion.preference_type}
                               </span>
+                              {suggestion.is_fairness_site && (
+                                <span title={`שיבוצי עובד לאתרי צדק: ${suggestion.fairness_count}`} style={{marginRight: '0.35rem', padding: '0.1rem 0.4rem', background: '#fef3c7', border: '1px solid #d97706', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 500, color: '#92400e'}}>
+                                  ⚖️ {suggestion.fairness_count}
+                                </span>
+                              )}
                             </span>
                           </div>
                         </label>

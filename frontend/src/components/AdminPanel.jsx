@@ -117,6 +117,15 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
     }
   }
 
+  async function toggleFairnessSite(siteId, enable) {
+    const res = await fetch(`/api/config/fairness-sites/${siteId}`, {
+      method: enable ? 'POST' : 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    });
+    if (res.ok) onConfigChange(await res.json());
+    else alert('שגיאה בעדכון הגדרות צדק');
+  }
+
   async function updateSiteGroup(siteId, groupId) {
     const res = await fetch(`/api/config/sites/${siteId}/group`, {
       method: 'PUT',
@@ -361,8 +370,13 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
 
             {activeTab === 'sites' && (
               <>
+                <p style={{fontSize: '0.8rem', color: '#666', marginBottom: '0.75rem'}}>
+                  סמן אתרים לאיזון עומס (⚖️ צדק) — עובדים עם פחות שיבוצים לאתרים אלו יקבלו עדיפות בהצעות אוטומטיות.
+                </p>
                 <ul className="config-list">
-                  {(config.sites || []).map(site => (
+                  {(config.sites || []).map(site => {
+                    const isFairness = (config.fairness_sites || []).includes(site.id);
+                    return (
                     <li key={site.id} style={{display: 'flex', gap: '0.2rem', alignItems: 'center', flexWrap: 'wrap'}}>
                       {editingKey === `site-${site.id}` ? (
                         <input
@@ -389,6 +403,10 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                           <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                       </select>
+                      <label title="כלול באיזון עומס (צדק)" style={{display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem', cursor: 'pointer', flexShrink: 0}}>
+                        <input type="checkbox" checked={isFairness} onChange={e => toggleFairnessSite(site.id, e.target.checked)} />
+                        ⚖️ צדק
+                      </label>
                       <div className="config-item-actions" style={{display: 'flex', gap: '0.15rem', flexShrink: 0}}>
                         {editingKey === `site-${site.id}` ? (
                           <>
@@ -403,7 +421,8 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
                         )}
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
                 <div className="config-add">
                   <input

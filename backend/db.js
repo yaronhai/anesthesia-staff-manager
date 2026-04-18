@@ -148,6 +148,10 @@ async function initializeSchema() {
         sort_order INTEGER NOT NULL DEFAULT 0
       );
 
+      CREATE TABLE IF NOT EXISTS fairness_sites (
+        site_id INTEGER PRIMARY KEY REFERENCES sites(id) ON DELETE CASCADE
+      );
+
       CREATE INDEX IF NOT EXISTS idx_workers_id_number ON workers(id_number);
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_user_id ON shift_requests(user_id);
