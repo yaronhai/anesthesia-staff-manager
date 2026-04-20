@@ -486,9 +486,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     setShowReportPreview(true);
   }
 
+  const branchQS = branchId ? `?branch_id=${branchId}` : '';
+
   async function loadTemplates() {
     try {
-      const res = await fetch('/api/config/activity-templates', {
+      const res = await fetch(`/api/config/activity-templates${branchQS}`, {
         headers: { 'Authorization': `Bearer ${authToken}` },
       });
       if (res.ok) {
@@ -506,14 +508,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
   async function renameTemplate(id, newName) {
     if (!newName.trim()) return;
-    const res = await fetch(`/api/config/activity-templates/${id}`, {
+    const res = await fetch(`/api/config/activity-templates/${id}${branchQS}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
       body: JSON.stringify({ name: newName.trim() }),
     });
     if (res.ok) {
       setEditingTemplateId(null);
-      const updated = await fetch('/api/config/activity-templates', { headers: { 'Authorization': `Bearer ${authToken}` } });
+      const updated = await fetch(`/api/config/activity-templates${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
       if (updated.ok) setTemplates(await updated.json());
     } else {
       const err = await res.json().catch(() => ({}));
@@ -523,12 +525,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
   async function deleteTemplate(id) {
     if (!confirm('למחוק תבנית זו?')) return;
-    const res = await fetch(`/api/config/activity-templates/${id}`, {
+    const res = await fetch(`/api/config/activity-templates/${id}${branchQS}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${authToken}` },
     });
     if (res.ok) {
-      const updated = await fetch('/api/config/activity-templates', { headers: { 'Authorization': `Bearer ${authToken}` } });
+      const updated = await fetch(`/api/config/activity-templates${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
       if (updated.ok) setTemplates(await updated.json());
     } else {
       alert('שגיאה במחיקה');
@@ -539,15 +541,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     const name = saveAsTemplateName.trim();
     if (!name) return;
 
-    const dayActivities = siteShiftActivities.filter(a => a.date === dateStr);
+    const dayActivities = siteShiftActivities.filter(a => a.date === dateStr && a.activity_type_id);
     if (dayActivities.length === 0) {
       alert('אין סוגי פעילות מוגדרים ליום זה');
       return;
     }
 
     try {
-      // Create the template
-      const createRes = await fetch('/api/config/activity-templates', {
+      const createRes = await fetch(`/api/config/activity-templates${branchQS}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
         body: JSON.stringify({ name }),
@@ -559,13 +560,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       }
       const newTemplate = await createRes.json();
 
-      // Save items
       const items = dayActivities.map(a => ({
         site_id: a.site_id,
         shift_type: a.shift_type,
         activity_type_id: a.activity_type_id,
       }));
-      const itemsRes = await fetch(`/api/config/activity-templates/${newTemplate.id}/items`, {
+      const itemsRes = await fetch(`/api/config/activity-templates/${newTemplate.id}/items${branchQS}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
         body: JSON.stringify({ items }),
@@ -575,7 +575,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         setSaveAsTemplateName('');
         alert(`תבנית "${name}" נשמרה בהצלחה`);
       } else {
-        alert('שגיאה בשמירת פעולות התבנית');
+        const err = await itemsRes.json().catch(() => ({}));
+        alert('שגיאה בשמירת פעולות התבנית: ' + (err.error || itemsRes.status));
       }
     } catch (error) {
       console.error('Error saving template:', error);
@@ -585,7 +586,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
   async function applyTemplate(templateId) {
     try {
-      const res = await fetch(`/api/config/activity-templates/${templateId}/apply`, {
+      const res = await fetch(`/api/config/activity-templates/${templateId}/apply${branchQS}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -952,8 +953,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           </div>
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
           {(() => {
+            const sitesInSelectedGroup = (selectedGroupId === '__all__' || !selectedGroupId)
+              ? config.sites
+              : selectedGroupId === 'ungrouped'
+              ? config.sites.filter(s => !s.group_id || s.group_id === null)
+              : config.sites.filter(s => s.group_id === parseInt(selectedGroupId));
+
             const configuredSlots = siteShiftActivities.filter(
-              a => a.date === dateStr && a.activity_type_id
+              a => a.date === dateStr && a.activity_type_id && sitesInSelectedGroup.some(s => s.id === a.site_id)
             );
             if (configuredSlots.length === 0) return null;
 

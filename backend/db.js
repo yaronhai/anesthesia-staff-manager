@@ -184,12 +184,32 @@ async function initializeSchema() {
         site_id INTEGER PRIMARY KEY REFERENCES sites(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS vacation_requests (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        worker_id INTEGER REFERENCES workers(id) ON DELETE CASCADE,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        approved_start TEXT,
+        approved_end TEXT,
+        reason TEXT,
+        admin_notes TEXT,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','partial','rejected','cancelled')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        decided_at TIMESTAMP
+      );
+
       CREATE INDEX IF NOT EXISTS idx_workers_id_number ON workers(id_number);
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_user_id ON shift_requests(user_id);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_date ON shift_requests(date);
       CREATE INDEX IF NOT EXISTS idx_worker_site_assignments_date ON worker_site_assignments(date);
       CREATE INDEX IF NOT EXISTS idx_site_shift_activities_date ON site_shift_activities(date);
+      CREATE INDEX IF NOT EXISTS idx_vacation_requests_user_id ON vacation_requests(user_id);
+      CREATE INDEX IF NOT EXISTS idx_vacation_requests_branch_id ON vacation_requests(branch_id);
+      CREATE INDEX IF NOT EXISTS idx_vacation_requests_status ON vacation_requests(status);
     `);
     await query(`
       ALTER TABLE employment_types ADD COLUMN IF NOT EXISTS is_independent BOOLEAN DEFAULT FALSE NOT NULL;

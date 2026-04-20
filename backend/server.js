@@ -144,6 +144,38 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ── Vacation Request Email Helper ───────────────────────────────────────────
+
+function formatDateHe(d) {
+  if (!d) return '';
+  const [y, m, dd] = d.split('-');
+  return `${dd}.${m}.${y}`;
+}
+
+function buildVacationDecisionEmail(decision, workerName, vr, approvedStart, approvedEnd, adminNotes) {
+  const origRange = `${formatDateHe(vr.start_date)} – ${formatDateHe(vr.end_date)}`;
+  const apprRange = `${formatDateHe(approvedStart)} – ${formatDateHe(approvedEnd)}`;
+  const color = decision === 'approved' ? '#16a34a' : decision === 'rejected' ? '#dc2626' : '#d97706';
+  const title = decision === 'approved' ? 'בקשת החופשה שלך אושרה'
+              : decision === 'rejected' ? 'בקשת החופשה שלך נדחתה'
+              : 'בקשת החופשה שלך אושרה חלקית';
+  const body = decision === 'approved'
+    ? `<p>בקשתך לתאריכים <strong>${origRange}</strong> אושרה במלואה.</p>`
+    : decision === 'rejected'
+    ? `<p>בקשתך לתאריכים <strong>${origRange}</strong> נדחתה.</p>`
+    : `<p>בקשתך לתאריכים <strong>${origRange}</strong> אושרה חלקית.</p>
+       <p>התאריכים המאושרים: <strong>${apprRange}</strong></p>`;
+  const notes = adminNotes
+    ? `<p style="padding:10px;background:#f1f5f9;border-radius:6px;font-size:13px"><strong>הערות מנהל:</strong> ${adminNotes}</p>`
+    : '';
+  return `<div dir="rtl" style="font-family:Arial,sans-serif;max-width:500px">
+    <h2 style="color:${color}">${title}</h2>
+    <p>שלום ${workerName},</p>${body}${notes}
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0"/>
+    <p style="color:#6b7280;font-size:12px">מחלקת הרדמה — מערכת ניהול צוות</p>
+  </div>`;
+}
+
 // ── Auth helpers ────────────────────────────────────────────────────────────
 
 const JWT_SECRET = process.env.JWT_SECRET || 'anesthesia-dept-2024-secret-key';
@@ -271,7 +303,7 @@ async function getConfig(branchId = null) {
     let fairnessSiteIds = [];
     try {
       const fRes = branchId
-        ? await query('SELECT fs.site_id FROM fairness_sites fs JOIN sites s ON fs.site_id = s.id JOIN site_groups sg ON s.group_id = sg.id WHERE sg.branch_id = $1 ORDER BY fs.site_id', [branchId])
+        ? await query('SELECT fs.site_id FROM fairness_sites fs JOIN sites s ON fs.site_id = s.id WHERE s.branch_id = $1 ORDER BY fs.site_id', [branchId])
         : await query('SELECT site_id FROM fairness_sites ORDER BY site_id');
       fairnessSiteIds = fRes.rows.map(r => r.site_id);
     } catch (e) {
@@ -482,9 +514,29 @@ app.post('/api/auth/reset-worker-password/:workerId', requireAdmin, async (req, 
 
 app.get('/api/workers', requireAuth, async (req, res) => {
   try {
-    const branchId = getEffectiveBranchId(req);
+    const allBranches = req.query.all_branches === 'true' && (req.user.role === 'admin' || req.user.role === 'superadmin');
+    const branchId = allBranches ? null : getEffectiveBranchId(req);
     let sql, params;
-    if (branchId && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
+    if (allBranches) {
+      sql = `SELECT w.id, w.honorific_id, h.name AS title,
+                    w.first_name, w.family_name,
+                    w.job_id, j.name AS job,
+                    w.employment_type_id, e.name AS employment_type,
+                    w.phone, w.email, w.notes,
+                    w.id_number, w.classification,
+                    COALESCE((SELECT BOOL_OR(wb2.is_active) FROM worker_branches wb2 WHERE wb2.worker_id = w.id), TRUE) AS is_active,
+                    w.primary_branch_id, pb.name AS primary_branch_name,
+                    w.created_at, u.id AS user_id,
+                    TRUE AS is_primary_branch
+             FROM workers w
+             LEFT JOIN honorifics h ON w.honorific_id = h.id
+             LEFT JOIN job_titles j ON w.job_id = j.id
+             LEFT JOIN employment_types e ON w.employment_type_id = e.id
+             LEFT JOIN users u ON u.worker_id = w.id
+             LEFT JOIN branches pb ON pb.id = w.primary_branch_id
+             ORDER BY w.family_name`;
+      params = [];
+    } else if (branchId && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
       sql = `
         SELECT w.id,
                w.honorific_id, h.name AS title,
@@ -831,6 +883,231 @@ app.delete('/api/shift-requests/:id', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Delete shift request error:', error);
     res.status(500).json({ error: 'שגיאה במחיקת בקשת משמרת' });
+  }
+});
+
+// ── Vacation Requests ───────────────────────────────────────────────────────
+
+app.get('/api/vacation-requests', requireAuth, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const branchId = getEffectiveBranchId(req);
+
+    if (req.user.role === 'admin' || req.user.role === 'superadmin') {
+      const params = [];
+      const conditions = [];
+      let p = 1;
+
+      if (branchId) {
+        conditions.push(`vr.branch_id = $${p++}`);
+        params.push(branchId);
+      }
+      if (status) {
+        conditions.push(`vr.status = $${p++}`);
+        params.push(status);
+      }
+      const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+      const sql = `
+        SELECT vr.*,
+               w.first_name, w.family_name,
+               u.username
+        FROM vacation_requests vr
+        JOIN users u ON vr.user_id = u.id
+        LEFT JOIN workers w ON vr.worker_id = w.id
+        ${where}
+        ORDER BY
+          CASE vr.status WHEN 'pending' THEN 0 ELSE 1 END,
+          vr.created_at DESC
+      `;
+      const result = await query(sql, params);
+      res.json(result.rows);
+    } else {
+      const result = await query(
+        'SELECT * FROM vacation_requests WHERE user_id = $1 ORDER BY created_at DESC',
+        [req.user.id]
+      );
+      res.json(result.rows);
+    }
+  } catch (err) {
+    console.error('Get vacation requests error:', err);
+    res.status(500).json({ error: 'שגיאה בטעינת בקשות חופשה' });
+  }
+});
+
+app.post('/api/vacation-requests', requireAuth, async (req, res) => {
+  try {
+    const { start_date, end_date, reason, on_behalf_of_worker_id } = req.body;
+    if (!start_date || !end_date) {
+      return res.status(400).json({ error: 'תאריך התחלה וסיום הם שדות חובה' });
+    }
+    if (start_date > end_date) {
+      return res.status(400).json({ error: 'תאריך ההתחלה חייב להיות לפני תאריך הסיום' });
+    }
+
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
+    let targetUserId = req.user.id;
+    let targetWorkerId = req.user.worker_id ?? null;
+    let branchId = getEffectiveBranchId(req);
+
+    if (on_behalf_of_worker_id && isAdmin) {
+      const workerRes = await query(
+        `SELECT w.id, w.primary_branch_id, u.id AS user_id
+         FROM workers w
+         LEFT JOIN users u ON u.worker_id = w.id
+         WHERE w.id = $1`,
+        [on_behalf_of_worker_id]
+      );
+      if (!workerRes.rows.length) {
+        return res.status(404).json({ error: 'עובד לא נמצא' });
+      }
+      const w = workerRes.rows[0];
+      if (!w.user_id) {
+        return res.status(400).json({ error: 'לעובד אין חשבון משתמש מקושר' });
+      }
+      targetUserId = w.user_id;
+      targetWorkerId = w.id;
+      branchId = w.primary_branch_id ?? branchId;
+    }
+
+    const overlap = await query(`
+      SELECT id FROM vacation_requests
+      WHERE user_id = $1
+        AND status = 'pending'
+        AND NOT (end_date < $2 OR start_date > $3)
+    `, [targetUserId, start_date, end_date]);
+
+    if (overlap.rows.length > 0) {
+      return res.status(409).json({ error: 'קיימת כבר בקשת חופשה ממתינה לתקופה חופפת' });
+    }
+
+    const result = await query(
+      `INSERT INTO vacation_requests
+         (user_id, worker_id, branch_id, start_date, end_date, reason, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+       RETURNING *`,
+      [targetUserId, targetWorkerId, branchId, start_date, end_date, reason || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Create vacation request error:', err);
+    res.status(500).json({ error: 'שגיאה ביצירת בקשת חופשה' });
+  }
+});
+
+app.delete('/api/vacation-requests/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await query(
+      'SELECT * FROM vacation_requests WHERE id = $1', [id]
+    );
+    if (!existing.rows.length) {
+      return res.status(404).json({ error: 'בקשה לא נמצאה' });
+    }
+    const vr = existing.rows[0];
+
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      if (vr.user_id !== req.user.id) {
+        return res.status(403).json({ error: 'אין הרשאה' });
+      }
+      if (vr.status !== 'pending') {
+        return res.status(400).json({ error: 'ניתן לבטל רק בקשות ממתינות' });
+      }
+    }
+
+    await query(
+      `UPDATE vacation_requests SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+    res.status(204).send();
+  } catch (err) {
+    console.error('Cancel vacation request error:', err);
+    res.status(500).json({ error: 'שגיאה בביטול בקשה' });
+  }
+});
+
+app.put('/api/vacation-requests/:id/decision', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { decision, approved_start, approved_end, admin_notes } = req.body;
+
+    if (!['approved', 'rejected', 'partial'].includes(decision)) {
+      return res.status(400).json({ error: 'החלטה לא תקינה' });
+    }
+    if (decision === 'partial' && (!approved_start || !approved_end)) {
+      return res.status(400).json({ error: 'אישור חלקי דורש תאריכי אישור' });
+    }
+
+    const existing = await query(
+      `SELECT vr.*, u.email AS worker_email, u.username,
+              w.first_name, w.family_name
+       FROM vacation_requests vr
+       JOIN users u ON vr.user_id = u.id
+       LEFT JOIN workers w ON vr.worker_id = w.id
+       WHERE vr.id = $1`,
+      [id]
+    );
+    if (!existing.rows.length) return res.status(404).json({ error: 'בקשה לא נמצאה' });
+    const vr = existing.rows[0];
+
+    const finalStart = decision === 'approved' ? vr.start_date  : (approved_start || null);
+    const finalEnd   = decision === 'approved' ? vr.end_date    : (approved_end   || null);
+
+    const updated = await query(
+      `UPDATE vacation_requests
+       SET status         = $1,
+           approved_start = $2,
+           approved_end   = $3,
+           admin_notes    = $4,
+           decided_at     = NOW(),
+           updated_at     = NOW()
+       WHERE id = $5
+       RETURNING *`,
+      [decision, finalStart, finalEnd, admin_notes || null, id]
+    );
+
+    const workerEmail = vr.worker_email;
+    const workerName  = vr.first_name
+      ? `${vr.first_name} ${vr.family_name}`
+      : vr.username;
+
+    if (workerEmail) {
+      const emailHtml = buildVacationDecisionEmail(decision, workerName, vr, finalStart, finalEnd, admin_notes);
+      const subjectMap = {
+        approved: 'בקשת חופשה אושרה — מחלקת הרדמה',
+        rejected: 'בקשת חופשה נדחתה — מחלקת הרדמה',
+        partial:  'בקשת חופשה אושרה חלקית — מחלקת הרדמה',
+      };
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: workerEmail,
+          subject: subjectMap[decision],
+          html: emailHtml,
+        });
+      } catch (emailErr) {
+        console.error('Vacation decision email error:', emailErr.message);
+      }
+    }
+
+    res.json(updated.rows[0]);
+  } catch (err) {
+    console.error('Vacation decision error:', err);
+    res.status(500).json({ error: 'שגיאה בעיבוד ההחלטה' });
+  }
+});
+
+app.delete('/api/vacation-requests/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await query('SELECT id FROM vacation_requests WHERE id = $1', [id]);
+    if (!existing.rows.length) return res.status(404).json({ error: 'בקשה לא נמצאה' });
+    await query('DELETE FROM vacation_requests WHERE id = $1', [id]);
+    res.status(204).send();
+  } catch (err) {
+    console.error('Delete vacation request error:', err);
+    res.status(500).json({ error: 'שגיאה במחיקת בקשה' });
   }
 });
 
@@ -1190,6 +1467,66 @@ app.delete('/api/config/fairness-sites/:siteId', requireAdmin, async (req, res) 
   } catch (e) {
     console.error('Remove fairness site error:', e);
     res.status(500).json({ error: 'שגיאה בהסרת אתר מהצדק' });
+  }
+});
+
+// ── Fairness Report ─────────────────────────────────────────────────────────
+
+app.get('/api/fairness-report', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+
+    // Get fairness site ids for this branch
+    const fsRes = branchId
+      ? await query('SELECT fs.site_id, s.name AS site_name FROM fairness_sites fs JOIN sites s ON fs.site_id = s.id WHERE s.branch_id = $1 ORDER BY s.name', [branchId])
+      : await query('SELECT fs.site_id, s.name AS site_name FROM fairness_sites fs JOIN sites s ON fs.site_id = s.id ORDER BY s.name');
+
+    const fairnessSites = fsRes.rows;
+
+    if (fairnessSites.length === 0) {
+      return res.json({ sites: [], workers: [] });
+    }
+
+    const siteIds = fairnessSites.map(s => s.site_id);
+    const placeholders = siteIds.map((_, i) => `$${i + 1}`).join(', ');
+
+    // Get workers for this branch
+    const workersRes = branchId
+      ? await query('SELECT w.id, w.first_name, w.family_name FROM workers w JOIN worker_branches wb ON wb.worker_id = w.id AND wb.branch_id = $1 AND wb.is_active = TRUE WHERE w.is_active = TRUE ORDER BY w.family_name, w.first_name', [branchId])
+      : await query('SELECT id, first_name, family_name FROM workers WHERE is_active = TRUE ORDER BY family_name, first_name');
+
+    // Count assignments per worker per fairness site
+    const assignmentsRes = await query(
+      `SELECT wsa.worker_id, wsa.site_id, COUNT(*) AS cnt
+       FROM worker_site_assignments wsa
+       WHERE wsa.site_id IN (${placeholders})
+       GROUP BY wsa.worker_id, wsa.site_id`,
+      siteIds
+    );
+
+    const countMap = {};
+    assignmentsRes.rows.forEach(r => {
+      if (!countMap[r.worker_id]) countMap[r.worker_id] = {};
+      countMap[r.worker_id][r.site_id] = parseInt(r.cnt);
+    });
+
+    const workers = workersRes.rows.map(w => {
+      const counts = countMap[w.id] || {};
+      const total = siteIds.reduce((sum, sid) => sum + (counts[sid] || 0), 0);
+      return {
+        worker_id: w.id,
+        name: `${w.first_name} ${w.family_name}`,
+        counts,
+        total,
+      };
+    });
+
+    workers.sort((a, b) => a.total - b.total);
+
+    res.json({ sites: fairnessSites, workers });
+  } catch (e) {
+    console.error('Fairness report error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת דוח צדק' });
   }
 });
 
@@ -1826,7 +2163,7 @@ app.put('/api/config/activity-templates/:id', requireAdmin, async (req, res) => 
       return res.status(400).json({ error: 'שם התבנית חובה' });
     }
     const branchId = getEffectiveBranchId(req);
-    const r = await query('UPDATE activity_templates SET name = $1 WHERE id = $2 AND branch_id = $3',
+    const r = await query('UPDATE activity_templates SET name = $1 WHERE id = $2 AND branch_id IS NOT DISTINCT FROM $3',
       [name.trim(), req.params.id, branchId]);
     if (r.rowCount === 0) return res.status(403).json({ error: 'תבנית לא נמצאת בסניף זה' });
     res.json({ ok: true });
@@ -1844,7 +2181,7 @@ app.put('/api/config/activity-templates/:id', requireAdmin, async (req, res) => 
 app.delete('/api/config/activity-templates/:id', requireAdmin, async (req, res) => {
   try {
     const branchId = getEffectiveBranchId(req);
-    const r = await query('DELETE FROM activity_templates WHERE id = $1 AND branch_id = $2',
+    const r = await query('DELETE FROM activity_templates WHERE id = $1 AND branch_id IS NOT DISTINCT FROM $2',
       [req.params.id, branchId]);
     if (r.rowCount === 0) return res.status(403).json({ error: 'תבנית לא נמצאת בסניף זה' });
     res.json({ ok: true });
@@ -1865,7 +2202,7 @@ app.put('/api/config/activity-templates/:id/items', requireAdmin, async (req, re
     }
 
     const branchId = getEffectiveBranchId(req);
-    const tmpl = await query('SELECT id FROM activity_templates WHERE id = $1 AND branch_id = $2',
+    const tmpl = await query('SELECT id FROM activity_templates WHERE id = $1 AND branch_id IS NOT DISTINCT FROM $2',
       [templateId, branchId]);
     if (tmpl.rowCount === 0) return res.status(403).json({ error: 'תבנית לא נמצאת בסניף זה' });
 
@@ -1902,7 +2239,7 @@ app.post('/api/config/activity-templates/:id/apply', requireAdmin, async (req, r
     }
 
     const branchId = getEffectiveBranchId(req);
-    const tmpl = await query('SELECT id FROM activity_templates WHERE id = $1 AND branch_id = $2',
+    const tmpl = await query('SELECT id FROM activity_templates WHERE id = $1 AND branch_id IS NOT DISTINCT FROM $2',
       [templateId, branchId]);
     if (tmpl.rowCount === 0) return res.status(403).json({ error: 'תבנית לא נמצאת בסניף זה' });
 
@@ -1986,16 +2323,33 @@ app.get('/api/branches/overview', requireSuperAdmin, async (req, res) => {
   try {
     const result = await query(`
       SELECT b.id, b.name, b.description,
-             COUNT(DISTINCT wb.worker_id) AS worker_count,
-             COUNT(DISTINCT CASE WHEN wb.is_active THEN wb.worker_id END) AS active_worker_count
+             COUNT(DISTINCT w.id) AS worker_count,
+             COUNT(DISTINCT CASE WHEN w.is_active = true THEN w.id END) AS active_worker_count
       FROM branches b
       LEFT JOIN worker_branches wb ON wb.branch_id = b.id
+      LEFT JOIN workers w ON w.id = wb.worker_id AND w.primary_branch_id = b.id
       GROUP BY b.id, b.name, b.description
       ORDER BY b.id
     `);
     res.json(result.rows);
   } catch (error) {
     console.error('Get branches overview error:', error);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.get('/api/dashboard-stats', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COUNT(*) AS total_workers,
+        COUNT(CASE WHEN is_active = true THEN 1 END) AS active_workers,
+        COUNT(CASE WHEN is_active = false THEN 1 END) AS inactive_workers
+      FROM workers
+    `);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Dashboard stats error:', error);
     res.status(500).json({ error: 'שגיאה' });
   }
 });

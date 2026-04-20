@@ -7,7 +7,7 @@ module.exports = {
     { name: 'עצמאי',     is_independent: true  },
   ],
 
-  honorifics: ['ד"ר', "פרופ'", 'מר', 'גברת', "גב'"],
+  honorifics: ['ד"ר', "פרופ'", 'מר', "גב'"],
 
   groupColors: {
     'מרדימים אחראיים': '#ef4444',

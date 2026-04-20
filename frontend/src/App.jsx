@@ -5,8 +5,10 @@ import AdminPanel from './components/AdminPanel';
 import ShiftRequests from './components/ShiftRequests';
 import DailyRoomView from './components/DailyRoomView';
 import BranchOverview from './components/BranchOverview';
+import Dashboard from './components/Dashboard';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
+import VacationRequests from './components/VacationRequests';
 import logoAssuta from './assets/logo-assuta.png';
 import './App.css';
 
@@ -57,6 +59,7 @@ export default function App() {
       fetchConfig();
     } else {
       setActiveTab('shifts');
+      fetchConfig();
     }
   }, [currentUser]);
 
@@ -192,7 +195,7 @@ export default function App() {
       <div className="app">
         <header>
           <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
-            <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '120px', height: 'auto'}} />
+            <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '60px', height: 'auto'}} />
             <div>
               <h1>מחלקת הרדמה</h1>
               <p className="subtitle">ניהול צוות</p>
@@ -210,7 +213,7 @@ export default function App() {
       <div className="app">
         <header>
           <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
-            <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '120px', height: 'auto'}} />
+            <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '60px', height: 'auto'}} />
             <div>
               <h1>מחלקת הרדמה</h1>
               <p className="subtitle">ניהול צוות</p>
@@ -226,22 +229,24 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '200px', height: 'auto'}} />
+        <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '100px', height: 'auto'}} />
         <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1}}>
           <h1>מחלקת הרדמה</h1>
           <p className="subtitle">ניהול צוות</p>
           {isAdmin && !isSuperAdmin && currentUserBranchName && (
-            <span style={{fontSize: '1rem', fontWeight: 600, opacity: 0.92, marginTop: '0.15rem', letterSpacing: '0.01em'}}>
+            <span style={{fontSize: '0.78rem', fontWeight: 600, opacity: 0.85, marginTop: '2px'}}>
               {currentUserBranchName}
             </span>
           )}
+        </div>
+        <div className="header-right">
           {isSuperAdmin && (
-            <div style={{marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-              <span style={{fontSize: '0.85rem', opacity: 0.8}}>סניף:</span>
+            <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+              <span style={{fontSize: '0.78rem', opacity: 0.7}}>סניף:</span>
               <select
                 value={selectedBranchId ?? ''}
                 onChange={e => handleBranchSelect(e.target.value || null)}
-                style={{fontSize: '0.85rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', color: '#1a2e4a', cursor: 'pointer'}}
+                style={{fontSize: '0.82rem', padding: '4px 10px', borderRadius: '6px', border: 'none', background: '#fff', color: '#1a2e4a', cursor: 'pointer', fontWeight: 500}}
               >
                 <option value="">— כל הסניפים —</option>
                 {branches.map(b => (
@@ -250,8 +255,6 @@ export default function App() {
               </select>
             </div>
           )}
-        </div>
-        <div className="header-right">
           {isAdmin && activeTab === 'workers' && selectedBranchId && (
             <button onClick={handleAdd} className="btn-primary">+ הוסף עובד</button>
           )}
@@ -259,9 +262,9 @@ export default function App() {
             <button onClick={() => setShowSettings(true)} className="btn-settings">⚙️</button>
           )}
           <div className="header-user">
-            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',lineHeight:1.2}}>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
               <span className="header-username">{currentUser.displayName || currentUser.username}</span>
-              <span style={{fontSize:'0.72rem',opacity:0.75,marginTop:'0.1rem'}}>
+              <span className="header-role">
                 {isSuperAdmin ? 'מנהל ראשי' : isAdmin ? 'מנהל סניף' : 'משתמש'}
               </span>
             </div>
@@ -276,7 +279,7 @@ export default function App() {
             className={`tab-btn${activeTab === 'overview' ? ' active' : ''}`}
             onClick={() => { setActiveTab('overview'); handleBranchSelect(null); }}
           >
-            תמונה כללית
+            Dashboard
           </button>
         )}
         {isAdmin && selectedBranchId && (
@@ -293,6 +296,14 @@ export default function App() {
             onClick={() => setActiveTab('shifts')}
           >
             בקשות משמרות
+          </button>
+        )}
+        {(!isSuperAdmin || selectedBranchId) && (
+          <button
+            className={`tab-btn${activeTab === 'vacations' ? ' active' : ''}`}
+            onClick={() => setActiveTab('vacations')}
+          >
+            בקשות חופשה
           </button>
         )}
         {isAdmin && selectedBranchId && (
@@ -319,7 +330,7 @@ export default function App() {
       )}
 
       {activeTab === 'overview' && isSuperAdmin && (
-        <BranchOverview
+        <Dashboard
           authToken={authToken}
           onSelectBranch={id => handleBranchSelect(id)}
         />
@@ -379,6 +390,10 @@ export default function App() {
 
       {activeTab === 'shifts' && (
         <ShiftRequests currentUser={currentUser} token={authToken} config={config} selectedBranchId={selectedBranchId} />
+      )}
+
+      {activeTab === 'vacations' && (
+        <VacationRequests currentUser={currentUser} token={authToken} selectedBranchId={selectedBranchId} workers={workers} />
       )}
 
       {activeTab === 'rooms' && isAdmin && selectedBranchId && (

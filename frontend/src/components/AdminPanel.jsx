@@ -18,11 +18,21 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'branches' : 'groups');
   const [newBranchName, setNewBranchName] = useState('');
   const [newBranchDesc, setNewBranchDesc] = useState('');
+  const [localBranchId, setLocalBranchId] = useState(branchId);
 
-  function branchParam() {
-    if (isSuperAdmin && branchId) return `?branch_id=${branchId}`;
+  function branchParam(bid) {
+    const id = bid !== undefined ? bid : localBranchId;
+    if (isSuperAdmin && id) return `?branch_id=${id}`;
     return '';
   }
+
+  useEffect(() => {
+    if (!isSuperAdmin || !localBranchId) return;
+    fetch(`/api/config?branch_id=${localBranchId}`, { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) onConfigChange(data); })
+      .catch(() => {});
+  }, [localBranchId]);
 
   async function createBranch() {
     if (!newBranchName.trim()) return;
@@ -165,6 +175,22 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     else alert('שגיאה בעדכון הגדרות צדק');
   }
 
+  const [fairnessReport, setFairnessReport] = useState(null);
+  const [fairnessReportLoading, setFairnessReportLoading] = useState(false);
+
+  async function fetchFairnessReport() {
+    setFairnessReportLoading(true);
+    try {
+      const res = await fetch(`/api/fairness-report${branchParam()}`, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (res.ok) setFairnessReport(await res.json());
+      else alert('שגיאה בטעינת דוח צדק');
+    } finally {
+      setFairnessReportLoading(false);
+    }
+  }
+
   async function updateSiteGroup(siteId, groupId) {
     const res = await fetch(`/api/config/sites/${siteId}/group${branchParam()}`, {
       method: 'PUT',
@@ -302,6 +328,9 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     }
   }
 
+  const thStyle = { padding: '0.3rem 0.5rem', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' };
+  const tdStyle = { padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' };
+
   const tabs = [
     ...(isSuperAdmin ? [{ key: 'branches', label: 'סניפים' }] : []),
     { key: 'groups', label: 'קבוצות אתרים' },
@@ -318,6 +347,18 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
       <div className="settings-modal" onClick={e => e.stopPropagation()}>
         <div className="settings-header">
           <h2>הגדרות רשימות</h2>
+          {isSuperAdmin && branches.length > 0 && (
+            <select
+              value={localBranchId || ''}
+              onChange={(e) => setLocalBranchId(e.target.value ? Number(e.target.value) : null)}
+              style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', marginRight: 'auto', marginLeft: '12px' }}
+            >
+              <option value="">— בחר אתר —</option>
+              {branches.map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          )}
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
@@ -447,9 +488,19 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
             {activeTab === 'sites' && (
               <>
-                <p style={{fontSize: '0.8rem', color: '#666', marginBottom: '0.75rem'}}>
-                  סמן אתרים לאיזון עומס (⚖️ צדק) — עובדים עם פחות שיבוצים לאתרים אלו יקבלו עדיפות בהצעות אוטומטיות.
-                </p>
+                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem'}}>
+                  <p style={{fontSize: '0.8rem', color: '#666', margin: 0}}>
+                    סמן אתרים לאיזון עומס (⚖️ צדק) — עובדים עם פחות שיבוצים לאתרים אלו יקבלו עדיפות בהצעות אוטומטיות.
+                  </p>
+                  <button
+                    className="btn-primary"
+                    onClick={fetchFairnessReport}
+                    disabled={fairnessReportLoading}
+                    style={{fontSize: '0.8rem', whiteSpace: 'nowrap', marginRight: '0.75rem', flexShrink: 0}}
+                  >
+                    {fairnessReportLoading ? 'טוען...' : '⚖️ טבלת צדק'}
+                  </button>
+                </div>
                 <ul className="config-list">
                   {(config.sites || []).map(site => {
                     const isFairness = (config.fairness_sites || []).includes(site.id);
@@ -511,6 +562,49 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   <button className="btn-primary" onClick={addSite}>הוסף</button>
                 </div>
               </>
+            )}
+
+            {fairnessReport && (
+              <div className="form-overlay" onClick={() => setFairnessReport(null)}>
+                <div className="settings-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '700px', direction: 'rtl'}}>
+                  <div className="settings-header">
+                    <h2>⚖️ טבלת צדק</h2>
+                    <button className="btn-close" onClick={() => setFairnessReport(null)}>✕</button>
+                  </div>
+                  <div style={{padding: '1rem 1.25rem', overflow: 'auto'}}>
+                    {fairnessReport.sites.length === 0 ? (
+                      <p style={{fontSize: '0.85rem', color: '#666'}}>לא הוגדרו אתרי צדק.</p>
+                    ) : (
+                      <div style={{overflowX: 'auto'}}>
+                        <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', direction: 'rtl'}}>
+                          <thead>
+                            <tr style={{background: '#f8fafc'}}>
+                              <th style={thStyle}>עובד</th>
+                              {fairnessReport.sites.map(s => (
+                                <th key={s.site_id} style={thStyle}>{s.site_name}</th>
+                              ))}
+                              <th style={{...thStyle, fontWeight: 700}}>סה"כ</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {fairnessReport.workers.map(w => (
+                              <tr key={w.worker_id} style={{borderBottom: '1px solid #f1f5f9'}}>
+                                <td style={tdStyle}>{w.name}</td>
+                                {fairnessReport.sites.map(s => (
+                                  <td key={s.site_id} style={{...tdStyle, textAlign: 'center'}}>
+                                    {w.counts[s.site_id] || 0}
+                                  </td>
+                                ))}
+                                <td style={{...tdStyle, textAlign: 'center', fontWeight: 700}}>{w.total}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
 
             {activeTab === 'jobs' && (

@@ -278,12 +278,12 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
               <td>{w.title}</td>
               <td>
                 <strong>{w.first_name}</strong>
-                {w.is_active === false && <span className="badge badge-inactive" style={{ marginRight: '0.4rem' }}>לא פעיל</span>}
+                {w.is_active === false && <span className="badge badge-inactive" style={{ marginRight: '0.3rem' }}>לא פעיל</span>}
                 {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
                   <span
                     className="badge badge-normal"
                     title={`סניף ראשי: ${w.primary_branch_name}`}
-                    style={{ marginRight: '0.4rem', background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', fontSize: '0.72rem' }}
+                    style={{ marginRight: '0.3rem', background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}
                   >
                     מושאל
                   </span>

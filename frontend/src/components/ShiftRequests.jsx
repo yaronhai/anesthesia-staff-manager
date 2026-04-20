@@ -453,7 +453,13 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   return (
     <div className="shift-view">
       <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap'}}>
-        <h2 style={{margin: 0}}>בקשות משמרות</h2>
+        <div className="month-year-nav">
+          <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
+          <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
+          <span className="month-year-label">{MONTHS[month]} {year}</span>
+          <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
+          <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
+        </div>
         {workerBranches.length > 1 && (
           <select
             value={activeBranchId ?? ''}
