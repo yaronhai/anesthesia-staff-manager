@@ -161,7 +161,7 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
   );
 }
 
-function WorkerDetail({ worker, onClose, onEdit, authToken, config }) {
+function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin }) {
   const independentTypeIds = new Set(
     (config.employment_types || []).filter(t => t.is_independent).map(t => t.id)
   );
@@ -224,14 +224,16 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config }) {
         </div>
         <div className="form-actions">
           <button className="btn-secondary" onClick={onClose}>סגור</button>
-          <button className="btn-primary" onClick={() => { onClose(); onEdit(worker); }}>עריכה</button>
+          {(isSuperAdmin || worker.is_primary_branch !== false) && (
+            <button className="btn-primary" onClick={() => { onClose(); onEdit(worker); }}>עריכה</button>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-export default function WorkerList({ workers, onEdit, onDelete, onResetPassword, authToken, config }) {
+export default function WorkerList({ workers, onEdit, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin }) {
   const [viewing, setViewing] = useState(null);
 
   const independentTypeIds = new Set(
@@ -251,6 +253,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
           onEdit={onEdit}
           authToken={authToken}
           config={config}
+          isSuperAdmin={isSuperAdmin}
         />
       )}
       <div className="worker-table-wrap">
@@ -276,12 +279,21 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
               <td>
                 <strong>{w.first_name}</strong>
                 {w.is_active === false && <span className="badge badge-inactive" style={{ marginRight: '0.4rem' }}>לא פעיל</span>}
+                {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
+                  <span
+                    className="badge badge-normal"
+                    title={`סניף ראשי: ${w.primary_branch_name}`}
+                    style={{ marginRight: '0.4rem', background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', fontSize: '0.72rem' }}
+                  >
+                    מושאל
+                  </span>
+                )}
               </td>
               <td><strong>{w.family_name}</strong></td>
               <td>{w.id_number || '—'}</td>
               <td>
-                <span className={`badge ${w.classification === 'admin' ? 'badge-admin' : 'badge-normal'}`}>
-                  {w.classification === 'admin' ? 'מנהל' : 'משתמש'}
+                <span className={`badge ${w.classification === 'superadmin' ? 'badge-admin' : w.classification === 'admin' ? 'badge-admin' : 'badge-normal'}`}>
+                  {w.classification === 'superadmin' ? 'מנהל כללי' : w.classification === 'admin' ? 'מנהל סניף' : 'משתמש'}
                 </span>
               </td>
               <td>{w.job}</td>
@@ -294,14 +306,18 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
               <td>{w.email || '—'}</td>
               <td>
                 <button onClick={() => setViewing(w)} className="btn-view">צפייה</button>
-                <WorkerAuthButton worker={w} authToken={authToken} config={config} />
-                <button onClick={() => onEdit(w)} className="btn-edit">עריכה</button>
-                <button onClick={() => {
-                  if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
-                    onResetPassword(w.id);
-                  }
-                }} className="btn-reset">איפוס</button>
-                <button onClick={() => onDelete(w.id)} className="btn-delete">מחיקה</button>
+                {(isSuperAdmin || w.is_primary_branch !== false) && (
+                  <>
+                    <WorkerAuthButton worker={w} authToken={authToken} config={config} />
+                    <button onClick={() => onEdit(w)} className="btn-edit">עריכה</button>
+                    <button onClick={() => {
+                      if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
+                        onResetPassword(w.id);
+                      }
+                    }} className="btn-reset">איפוס</button>
+                    <button onClick={() => onDelete(w.id)} className="btn-delete">מחיקה</button>
+                  </>
+                )}
               </td>
             </tr>
           ))}

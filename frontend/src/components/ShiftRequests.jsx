@@ -43,7 +43,7 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
 }
 
 // ── Day editor modal ─────────────────────────────────────────────────────────
-function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs }) {
+function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs, branchId }) {
   const dow = DAYS_HE[new Date(dateStr).getDay()];
   const [d, m, y] = [
     parseInt(dateStr.split('-')[2]),
@@ -54,7 +54,6 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
   async function setPref(shiftKey, prefKey) {
     const existing = dayRequests.find(r => r.shift_type === shiftKey);
     if (existing && existing.preference_type === prefKey) {
-      // toggle off — delete
       await fetch(`/api/shift-requests/${existing.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -63,7 +62,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
       await fetch('/api/shift-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey }),
+        body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, branch_id: branchId }),
       });
     }
     onRefresh();
@@ -123,7 +122,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
 }
 
 // ── User calendar view ───────────────────────────────────────────────────────
-function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs }) {
+function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId }) {
   const [editingDay, setEditingDay] = useState(null); // { day, dateStr }
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -187,6 +186,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs }) {
           onRefresh={() => { onRefresh(); }}
           shifts={shifts}
           prefs={prefs}
+          branchId={branchId}
         />
       )}
     </>
@@ -359,35 +359,56 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-export default function ShiftRequests({ currentUser, token, config }) {
+export default function ShiftRequests({ currentUser, token, config, selectedBranchId }) {
   const [requests, setRequests] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [viewDate, setViewDate] = useState(new Date());
+  const [workerBranches, setWorkerBranches] = useState([]);
+  const [activeBranchId, setActiveBranchId] = useState(null);
 
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const shifts = config.shift_types || [];
   const prefs = config.preference_types || [];
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
 
+  // For regular workers: fetch their branches
+  useEffect(() => {
+    if (!isAdmin && currentUser?.worker_id) {
+      fetch(`/api/workers/${currentUser.worker_id}/branches`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => {
+          setWorkerBranches(data);
+          if (data.length > 0) setActiveBranchId(data[0].branch_id);
+        });
+    }
+  }, [currentUser?.worker_id, isAdmin, token]);
+
+  const effectiveBranchId = isAdmin ? selectedBranchId : activeBranchId;
+
   const fetchRequests = useCallback(async () => {
-    const res = await fetch(`/api/shift-requests?month=${month + 1}&year=${year}`, {
+    const branchQ = effectiveBranchId ? `&branch_id=${effectiveBranchId}` : '';
+    const res = await fetch(`/api/shift-requests?month=${month + 1}&year=${year}${branchQ}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) setRequests(await res.json());
-  }, [month, year, token]);
+  }, [month, year, token, effectiveBranchId]);
 
   const fetchWorkers = useCallback(async () => {
-    const res = await fetch('/api/workers', {
+    const branchQ = selectedBranchId ? `?branch_id=${selectedBranchId}` : '';
+    const res = await fetch(`/api/workers${branchQ}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) setWorkers(await res.json());
-  }, [token]);
+  }, [token, selectedBranchId]);
 
   useEffect(() => {
     fetchRequests();
-    if (currentUser.role === 'admin') fetchWorkers();
-  }, [fetchRequests, fetchWorkers, currentUser]);
+    if (isAdmin) fetchWorkers();
+  }, [fetchRequests, fetchWorkers, isAdmin]);
 
   function prevMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
   function nextMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); }
@@ -396,7 +417,7 @@ export default function ShiftRequests({ currentUser, token, config }) {
 
   if (!shifts.length || !prefs.length) return null;
 
-  if (currentUser.role === 'admin') {
+  if (isAdmin) {
     return (
       <div className="shift-view">
         <div className="shift-admin-header">
@@ -435,8 +456,24 @@ export default function ShiftRequests({ currentUser, token, config }) {
 
   return (
     <div className="shift-view">
-      <h2>בקשות משמרות</h2>
-      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} />
+      <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap'}}>
+        <h2 style={{margin: 0}}>בקשות משמרות</h2>
+        {workerBranches.length > 1 && (
+          <select
+            value={activeBranchId ?? ''}
+            onChange={e => setActiveBranchId(parseInt(e.target.value))}
+            style={{fontSize: '0.9rem', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db'}}
+          >
+            {workerBranches.map(wb => (
+              <option key={wb.branch_id} value={wb.branch_id}>{wb.branch_name}</option>
+            ))}
+          </select>
+        )}
+        {workerBranches.length === 1 && (
+          <span style={{fontSize: '0.85rem', color: '#6b7280'}}>{workerBranches[0]?.branch_name}</span>
+        )}
+      </div>
+      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import WorkerForm from './components/WorkerForm';
 import AdminPanel from './components/AdminPanel';
 import ShiftRequests from './components/ShiftRequests';
 import DailyRoomView from './components/DailyRoomView';
+import BranchOverview from './components/BranchOverview';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import logoAssuta from './assets/logo-assuta.png';
@@ -27,35 +28,67 @@ export default function App() {
   const [filterJobId, setFilterJobId] = useState('');
   const [filterEmpTypeId, setFilterEmpTypeId] = useState('');
   const [filterActive, setFilterActive] = useState('active');
+  const [filterBranchType, setFilterBranchType] = useState('primary');
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState(null);
 
-  const isAdmin = currentUser?.role === 'admin';
+  const isSuperAdmin = currentUser?.role === 'superadmin';
+  const isAdmin = currentUser?.role === 'admin' || isSuperAdmin;
+
+  // Build query string for branch-scoped API calls
+  function branchParam() {
+    if (isSuperAdmin && selectedBranchId) return `?branch_id=${selectedBranchId}`;
+    return '';
+  }
+
+  function authHeaders() {
+    return { Authorization: `Bearer ${authToken}` };
+  }
 
   useEffect(() => {
     if (!currentUser) return;
-    fetchWorkers();
-    fetchConfig();
-    // Non-admins always land on the shifts tab
-    if (!isAdmin) setActiveTab('shifts');
+    if (isSuperAdmin) {
+      fetchBranches();
+      setActiveTab('overview');
+    } else if (isAdmin) {
+      setSelectedBranchId(currentUser.branch_id ?? null);
+      fetchBranches();
+      fetchWorkers();
+      fetchConfig();
+    } else {
+      setActiveTab('shifts');
+    }
   }, [currentUser]);
 
+  useEffect(() => {
+    if (!currentUser || !isSuperAdmin) return;
+    if (selectedBranchId) {
+      fetchWorkers();
+      fetchConfig();
+      setActiveTab('workers');
+    } else {
+      setActiveTab('overview');
+      setWorkers([]);
+    }
+  }, [selectedBranchId]);
+
+  async function fetchBranches() {
+    const res = await fetch('/api/branches', { headers: authHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      setBranches(data);
+    }
+  }
+
   async function fetchConfig() {
-    const res = await fetch('/api/config', {
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
+    const res = await fetch(`/api/config${branchParam()}`, { headers: authHeaders() });
     if (res.ok) setConfig(await res.json());
   }
 
   async function fetchWorkers() {
-    const res = await fetch(API, {
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
+    const res = await fetch(`${API}${branchParam()}`, { headers: authHeaders() });
     if (res.ok) {
-      const data = await res.json();
-      console.log('workers fetched:', data.length, data);
-      setWorkers(data);
-    } else {
-      const err = await res.json().catch(() => ({}));
-      console.error('fetchWorkers failed:', res.status, err);
+      setWorkers(await res.json());
     }
   }
 
@@ -64,19 +97,19 @@ export default function App() {
     if (editing) {
       res = await fetch(`${API}/${editing.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(data),
       });
     } else {
       res = await fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(data),
       });
     }
     if (!res.ok) {
       const d = await res.json();
-      return d.error; // return error string to form
+      return d.error;
     }
     setEditing(null);
     setShowForm(false);
@@ -85,10 +118,7 @@ export default function App() {
 
   async function handleDelete(id) {
     if (!window.confirm('למחוק עובד זה?')) return;
-    await fetch(`${API}/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
+    await fetch(`${API}/${id}`, { method: 'DELETE', headers: authHeaders() });
     fetchWorkers();
   }
 
@@ -96,7 +126,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/auth/reset-worker-password/${id}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${authToken}` },
+        headers: authHeaders(),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -126,6 +156,8 @@ export default function App() {
     setAuthToken(null);
     setCurrentUser(null);
     setActiveTab('workers');
+    setBranches([]);
+    setSelectedBranchId(null);
   }
 
   function handlePasswordChanged() {
@@ -134,11 +166,25 @@ export default function App() {
     setCurrentUser(updated);
   }
 
+  function handleBranchSelect(id) {
+    setSelectedBranchId(id ? parseInt(id) : null);
+    setWorkers([]);
+    setConfig({ jobs: [], employment_types: [], honorifics: [], site_groups: [], sites: [], activity_types: [], shift_types: [], preference_types: [] });
+  }
+
+  function handleBranchesChange(newBranches) {
+    setBranches(newBranches);
+  }
+
   const filteredWorkers = workers.filter(w =>
     (!filterJobId     || w.job_id             === Number(filterJobId)) &&
     (!filterEmpTypeId || w.employment_type_id === Number(filterEmpTypeId)) &&
-    (filterActive === 'all' || (filterActive === 'active' ? w.is_active !== false : w.is_active === false))
+    (filterActive === 'all' || (filterActive === 'active' ? w.is_active !== false : w.is_active === false)) &&
+    (filterBranchType === 'all' || (filterBranchType === 'primary' ? w.is_primary_branch !== false : w.is_primary_branch === false))
   );
+
+  const selectedBranchName = branches.find(b => b.id === selectedBranchId)?.name;
+  const currentUserBranchName = branches.find(b => b.id === currentUser?.branch_id)?.name;
 
   // ── Not logged in ──────────────────────────────────────────────────────────
   if (!currentUser) {
@@ -184,9 +230,29 @@ export default function App() {
         <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1}}>
           <h1>מחלקת הרדמה</h1>
           <p className="subtitle">ניהול צוות</p>
+          {isAdmin && !isSuperAdmin && currentUserBranchName && (
+            <span style={{fontSize: '1rem', fontWeight: 600, opacity: 0.92, marginTop: '0.15rem', letterSpacing: '0.01em'}}>
+              {currentUserBranchName}
+            </span>
+          )}
+          {isSuperAdmin && (
+            <div style={{marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+              <span style={{fontSize: '0.85rem', opacity: 0.8}}>סניף:</span>
+              <select
+                value={selectedBranchId ?? ''}
+                onChange={e => handleBranchSelect(e.target.value || null)}
+                style={{fontSize: '0.85rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.15)', color: 'inherit', cursor: 'pointer'}}
+              >
+                <option value="">— כל הסניפים —</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="header-right">
-          {isAdmin && activeTab === 'workers' && (
+          {isAdmin && activeTab === 'workers' && selectedBranchId && (
             <button onClick={handleAdd} className="btn-primary">+ הוסף עובד</button>
           )}
           {isAdmin && (
@@ -200,7 +266,15 @@ export default function App() {
       </header>
 
       <div className="tabs">
-        {isAdmin && (
+        {isSuperAdmin && (
+          <button
+            className={`tab-btn${activeTab === 'overview' ? ' active' : ''}`}
+            onClick={() => { setActiveTab('overview'); handleBranchSelect(null); }}
+          >
+            תמונה כללית
+          </button>
+        )}
+        {isAdmin && selectedBranchId && (
           <button
             className={`tab-btn${activeTab === 'workers' ? ' active' : ''}`}
             onClick={() => setActiveTab('workers')}
@@ -208,13 +282,15 @@ export default function App() {
             ניהול עובדים
           </button>
         )}
-        <button
-          className={`tab-btn${activeTab === 'shifts' ? ' active' : ''}`}
-          onClick={() => setActiveTab('shifts')}
-        >
-          בקשות משמרות
-        </button>
-        {isAdmin && (
+        {(!isSuperAdmin || selectedBranchId) && (
+          <button
+            className={`tab-btn${activeTab === 'shifts' ? ' active' : ''}`}
+            onClick={() => setActiveTab('shifts')}
+          >
+            בקשות משמרות
+          </button>
+        )}
+        {isAdmin && selectedBranchId && (
           <button
             className={`tab-btn${activeTab === 'rooms' ? ' active' : ''}`}
             onClick={() => setActiveTab('rooms')}
@@ -225,10 +301,26 @@ export default function App() {
       </div>
 
       {showSettings && isAdmin && (
-        <AdminPanel config={config} authToken={authToken} onConfigChange={setConfig} onClose={() => setShowSettings(false)} />
+        <AdminPanel
+          config={config}
+          authToken={authToken}
+          branchId={selectedBranchId}
+          isSuperAdmin={isSuperAdmin}
+          branches={branches}
+          onConfigChange={setConfig}
+          onBranchesChange={handleBranchesChange}
+          onClose={() => setShowSettings(false)}
+        />
       )}
 
-      {activeTab === 'workers' && isAdmin && (
+      {activeTab === 'overview' && isSuperAdmin && (
+        <BranchOverview
+          authToken={authToken}
+          onSelectBranch={id => handleBranchSelect(id)}
+        />
+      )}
+
+      {activeTab === 'workers' && isAdmin && selectedBranchId && (
         <>
           <div className="filters">
             <select value={filterJobId} onChange={e => setFilterJobId(e.target.value)}>
@@ -244,9 +336,16 @@ export default function App() {
               <option value="inactive">לא פעילים</option>
               <option value="all">כולם</option>
             </select>
-            {(filterJobId || filterEmpTypeId || filterActive !== 'active') && (
+            {!isSuperAdmin && (
+              <select value={filterBranchType} onChange={e => setFilterBranchType(e.target.value)}>
+                <option value="primary">סניף ראשי</option>
+                <option value="secondary">מושאלים</option>
+                <option value="all">כולם</option>
+              </select>
+            )}
+            {(filterJobId || filterEmpTypeId || filterActive !== 'active' || filterBranchType !== 'primary') && (
               <button className="btn-secondary"
-                onClick={() => { setFilterJobId(''); setFilterEmpTypeId(''); setFilterActive('active'); }}>
+                onClick={() => { setFilterJobId(''); setFilterEmpTypeId(''); setFilterActive('active'); setFilterBranchType('primary'); }}>
                 נקה סינון
               </button>
             )}
@@ -258,19 +357,29 @@ export default function App() {
               config={config}
               onSave={handleSave}
               onCancel={handleCancel}
+              isSuperAdmin={isSuperAdmin}
+              authToken={authToken}
             />
           )}
-          <WorkerList workers={filteredWorkers} onEdit={handleEdit} onDelete={handleDelete} onResetPassword={handleResetPassword} authToken={authToken} config={config} />
+          <WorkerList
+            workers={filteredWorkers}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onResetPassword={handleResetPassword}
+            authToken={authToken}
+            config={config}
+            isSuperAdmin={isSuperAdmin}
+            currentBranchId={selectedBranchId}
+          />
         </>
       )}
 
       {activeTab === 'shifts' && (
-        <ShiftRequests currentUser={currentUser} token={authToken} config={config} />
+        <ShiftRequests currentUser={currentUser} token={authToken} config={config} selectedBranchId={selectedBranchId} />
       )}
 
-
-      {activeTab === 'rooms' && isAdmin && (
-        <DailyRoomView config={config} authToken={authToken} />
+      {activeTab === 'rooms' && isAdmin && selectedBranchId && (
+        <DailyRoomView config={config} authToken={authToken} branchId={selectedBranchId} />
       )}
     </div>
   );

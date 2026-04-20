@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function AdminPanel({ config, authToken, onConfigChange, onClose }) {
+export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, branches = [], onConfigChange, onBranchesChange, onClose }) {
   const [newJob, setNewJob] = useState('');
   const [newEmpType, setNewEmpType] = useState('');
   const [newHonorific, setNewHonorific] = useState('');
@@ -15,7 +15,46 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
   const [editingValue, setEditingValue] = useState('');
   const [expandedActivityAuths, setExpandedActivityAuths] = useState({});
   const [groupAllowedJobsModal, setGroupAllowedJobsModal] = useState(null);
-  const [activeTab, setActiveTab] = useState('groups');
+  const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'branches' : 'groups');
+  const [newBranchName, setNewBranchName] = useState('');
+  const [newBranchDesc, setNewBranchDesc] = useState('');
+
+  function branchParam() {
+    if (isSuperAdmin && branchId) return `?branch_id=${branchId}`;
+    return '';
+  }
+
+  async function createBranch() {
+    if (!newBranchName.trim()) return;
+    const res = await fetch('/api/branches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ name: newBranchName.trim(), description: newBranchDesc.trim() || null }),
+    });
+    if (res.ok) {
+      const branch = await res.json();
+      onBranchesChange?.([...branches, branch]);
+      setNewBranchName('');
+      setNewBranchDesc('');
+    } else {
+      const err = await res.json();
+      alert('שגיאה: ' + (err.error || 'שגיאה'));
+    }
+  }
+
+  async function deleteBranch(id) {
+    if (!confirm('למחוק את הסניף? פעולה זו בלתי הפיכה.')) return;
+    const res = await fetch(`/api/branches/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (res.ok) {
+      onBranchesChange?.(branches.filter(b => b.id !== id));
+    } else {
+      const err = await res.json();
+      alert('שגיאה: ' + (err.error || 'שגיאה'));
+    }
+  }
 
   useEffect(() => {
     if (activeTab === 'templates') {
@@ -264,6 +303,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
   }
 
   const tabs = [
+    ...(isSuperAdmin ? [{ key: 'branches', label: 'סניפים' }] : []),
     { key: 'groups', label: 'קבוצות אתרים' },
     { key: 'sites', label: 'אתרים' },
     { key: 'jobs', label: 'תפקידים' },
@@ -311,6 +351,38 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
 
           {/* Content */}
           <div style={{flex: 1, overflow: 'auto', padding: '1rem 1.25rem 1.25rem'}}>
+            {activeTab === 'branches' && isSuperAdmin && (
+              <>
+                <ul className="config-list">
+                  {branches.map(b => (
+                    <li key={b.id}>
+                      <div>
+                        <div style={{fontWeight: 500}}>{b.name}</div>
+                        {b.description && <div style={{fontSize: '0.8rem', color: '#6b7280'}}>{b.description}</div>}
+                      </div>
+                      <button className="btn-remove" onClick={() => deleteBranch(b.id)}>✕</button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="add-item-row" style={{flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch'}}>
+                  <input
+                    className="config-input"
+                    placeholder="שם סניף חדש"
+                    value={newBranchName}
+                    onChange={e => setNewBranchName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && createBranch()}
+                  />
+                  <input
+                    className="config-input"
+                    placeholder="תיאור (אופציונלי)"
+                    value={newBranchDesc}
+                    onChange={e => setNewBranchDesc(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && createBranch()}
+                  />
+                  <button className="btn-add-config" onClick={createBranch}>הוסף סניף</button>
+                </div>
+              </>
+            )}
             {activeTab === 'groups' && (
               <>
                 <ul className="config-list">

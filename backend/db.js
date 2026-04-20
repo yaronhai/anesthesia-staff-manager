@@ -30,6 +30,13 @@ async function initializeSchema() {
         name TEXT NOT NULL UNIQUE
       );
 
+      CREATE TABLE IF NOT EXISTS branches (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS workers (
         id SERIAL PRIMARY KEY,
         honorific_id INTEGER REFERENCES honorifics(id) ON DELETE SET NULL,
@@ -43,7 +50,15 @@ async function initializeSchema() {
         id_number TEXT UNIQUE,
         classification TEXT NOT NULL DEFAULT 'user',
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        primary_branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS worker_branches (
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        PRIMARY KEY (worker_id, branch_id)
       );
 
       CREATE TABLE IF NOT EXISTS users (
@@ -53,6 +68,7 @@ async function initializeSchema() {
         email TEXT,
         worker_id INTEGER REFERENCES workers(id) ON DELETE CASCADE,
         role TEXT NOT NULL DEFAULT 'user',
+        branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
         must_change_password INTEGER NOT NULL DEFAULT 1,
         reset_token TEXT,
         reset_token_expires TEXT,
@@ -65,15 +81,17 @@ async function initializeSchema() {
         date TEXT NOT NULL,
         shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night', 'oncall')),
         preference_type TEXT NOT NULL DEFAULT 'can' CHECK(preference_type IN ('can', 'prefer', 'cannot')),
-        created_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(user_id, date, shift_type)
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW()
       );
 
       CREATE TABLE IF NOT EXISTS site_groups (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
         color TEXT DEFAULT '#667eea',
-        created_at TIMESTAMP DEFAULT NOW()
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(name, branch_id)
       );
 
       CREATE TABLE IF NOT EXISTS sites (
@@ -99,8 +117,10 @@ async function initializeSchema() {
 
       CREATE TABLE IF NOT EXISTS activity_types (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL UNIQUE,
-        created_at TIMESTAMP DEFAULT NOW()
+        name TEXT NOT NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(name, branch_id)
       );
 
       CREATE TABLE IF NOT EXISTS site_shift_activities (
@@ -121,8 +141,10 @@ async function initializeSchema() {
 
       CREATE TABLE IF NOT EXISTS activity_templates (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL UNIQUE,
-        created_at TIMESTAMP DEFAULT NOW()
+        name TEXT NOT NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(name, branch_id)
       );
 
       CREATE TABLE IF NOT EXISTS activity_template_items (
@@ -166,6 +188,9 @@ async function initializeSchema() {
     await query(`
       ALTER TABLE workers ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
     `);
+    // Add branch_id to legacy tables if they exist without it
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL;`);
+    await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS primary_branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL;`);
     console.log('✓ Database schema initialized');
   } catch (error) {
     console.error('Error initializing schema:', error);
@@ -191,9 +216,124 @@ async function ensureSiteGroupAllowedJobsTable() {
   }
 }
 
+// Migration: move existing data to default branch, fix unique constraints
+async function runMigrations() {
+  try {
+    // 1. Create default branch if none exist
+    await query(`
+      INSERT INTO branches (name, description)
+      SELECT 'ברירת מחדל', 'סניף ברירת מחדל'
+      WHERE NOT EXISTS (SELECT 1 FROM branches WHERE name = 'ברירת מחדל')
+    `);
+
+    // 1b. Add branch_id columns to existing tables that may not have them
+    await query(`ALTER TABLE site_groups ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE;`);
+    await query(`ALTER TABLE activity_types ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE;`);
+    await query(`ALTER TABLE activity_templates ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE;`);
+    await query(`ALTER TABLE shift_requests ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE;`);
+
+    // 2. Drop old name-only unique constraints and add composite ones (idempotent)
+    await query(`
+      DO $$
+      BEGIN
+        -- site_groups: drop old unique(name), add unique(name, branch_id)
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'site_groups_name_key') THEN
+          ALTER TABLE site_groups DROP CONSTRAINT site_groups_name_key;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'site_groups_name_branch_id_key') THEN
+          ALTER TABLE site_groups ADD CONSTRAINT site_groups_name_branch_id_key UNIQUE (name, branch_id);
+        END IF;
+
+        -- activity_types: drop old unique(name), add unique(name, branch_id)
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'activity_types_name_key') THEN
+          ALTER TABLE activity_types DROP CONSTRAINT activity_types_name_key;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'activity_types_name_branch_id_key') THEN
+          ALTER TABLE activity_types ADD CONSTRAINT activity_types_name_branch_id_key UNIQUE (name, branch_id);
+        END IF;
+
+        -- activity_templates: drop old unique(name), add unique(name, branch_id)
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'activity_templates_name_key') THEN
+          ALTER TABLE activity_templates DROP CONSTRAINT activity_templates_name_key;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'activity_templates_name_branch_id_key') THEN
+          ALTER TABLE activity_templates ADD CONSTRAINT activity_templates_name_branch_id_key UNIQUE (name, branch_id);
+        END IF;
+      END $$;
+    `);
+
+    // 3. Migrate orphaned rows to default branch
+    await query(`
+      UPDATE site_groups SET branch_id = (SELECT id FROM branches WHERE name = 'ברירת מחדל')
+      WHERE branch_id IS NULL
+    `);
+    await query(`
+      UPDATE activity_types SET branch_id = (SELECT id FROM branches WHERE name = 'ברירת מחדל')
+      WHERE branch_id IS NULL
+    `);
+    await query(`
+      UPDATE activity_templates SET branch_id = (SELECT id FROM branches WHERE name = 'ברירת מחדל')
+      WHERE branch_id IS NULL
+    `);
+
+    // 4. Fix shift_requests unique constraint to include branch_id
+    await query(`
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'shift_requests_user_id_date_shift_type_key') THEN
+          ALTER TABLE shift_requests DROP CONSTRAINT shift_requests_user_id_date_shift_type_key;
+        END IF;
+      END $$;
+    `);
+    await query(`
+      UPDATE shift_requests SET branch_id = (SELECT id FROM branches WHERE name = 'ברירת מחדל')
+      WHERE branch_id IS NULL
+    `);
+    await query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'shift_requests_user_id_date_shift_type_branch_id_key') THEN
+          ALTER TABLE shift_requests ADD CONSTRAINT shift_requests_user_id_date_shift_type_branch_id_key
+            UNIQUE (user_id, date, shift_type, branch_id);
+        END IF;
+      END $$;
+    `);
+
+    // 5. Set primary_branch_id for workers that don't have one yet
+    await query(`
+      UPDATE workers SET primary_branch_id = (SELECT id FROM branches WHERE name = 'ברירת מחדל')
+      WHERE primary_branch_id IS NULL
+    `);
+
+    // 6. Create worker_branches entries for workers not yet assigned to default branch
+    await query(`
+      INSERT INTO worker_branches (worker_id, branch_id, is_active)
+      SELECT w.id, b.id, w.is_active
+      FROM workers w
+      CROSS JOIN branches b
+      WHERE b.name = 'ברירת מחדל'
+        AND NOT EXISTS (
+          SELECT 1 FROM worker_branches wb WHERE wb.worker_id = w.id AND wb.branch_id = b.id
+        )
+    `);
+
+    // 6. Assign existing admin users to default branch if not yet assigned
+    await query(`
+      UPDATE users SET branch_id = (SELECT id FROM branches WHERE name = 'ברירת מחדל')
+      WHERE role = 'admin' AND branch_id IS NULL
+    `);
+
+    console.log('✓ Migrations complete');
+  } catch (error) {
+    console.error('Error running migrations:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   query,
   pool,
   initializeSchema,
   ensureSiteGroupAllowedJobsTable,
+  runMigrations,
 };
