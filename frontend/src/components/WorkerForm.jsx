@@ -16,12 +16,14 @@ export default function WorkerForm({ initial, config, onSave, onCancel }) {
     notes: '',
     id_number: '',
     classification: 'user',
+    is_active: true,
     ...initial,
   });
   const [saveError, setSaveError] = useState('');
 
   function handleChange(e) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, type, checked, value } = e.target;
+    setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
   }
 
   async function handleSubmit(e) {
@@ -133,6 +135,18 @@ export default function WorkerForm({ initial, config, onSave, onCancel }) {
             rows={3}
           />
         </label>
+
+        {initial && (
+          <label className="form-row-checkbox">
+            <input
+              type="checkbox"
+              name="is_active"
+              checked={form.is_active}
+              onChange={handleChange}
+            />
+            עובד פעיל
+          </label>
+        )}
 
         {saveError && <p className="error-msg">{saveError}</p>}
 

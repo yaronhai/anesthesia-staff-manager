@@ -11,9 +11,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - No linter or formatter configured; manual code quality
 
 ### Architecture
-- **Backend**: Single-file Express app (server.js, 700+ lines) with SQLite database
+- **Backend**: Single-file Express app (server.js, 700+ lines) with PostgreSQL database
 - **Frontend**: React 18 + Vite, tab-based UI without routing
-- **Database**: SQLite with WAL mode; migrations auto-run on startup
+- **Database**: PostgreSQL; schema initialized on startup via db.js
 - **Auth**: JWT-based with bcrypt hashing; worker creation auto-syncs user accounts
 - **Data Flow**: App.jsx orchestrates global state; components handle UI logic
 

@@ -42,6 +42,7 @@ async function initializeSchema() {
         notes TEXT,
         id_number TEXT UNIQUE,
         classification TEXT NOT NULL DEFAULT 'user',
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT NOW()
       );
 
@@ -159,9 +160,11 @@ async function initializeSchema() {
       CREATE INDEX IF NOT EXISTS idx_worker_site_assignments_date ON worker_site_assignments(date);
       CREATE INDEX IF NOT EXISTS idx_site_shift_activities_date ON site_shift_activities(date);
     `);
-    // Migrate existing employment_types table if column missing
     await query(`
       ALTER TABLE employment_types ADD COLUMN IF NOT EXISTS is_independent BOOLEAN DEFAULT FALSE NOT NULL;
+    `);
+    await query(`
+      ALTER TABLE workers ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
     `);
     console.log('✓ Database schema initialized');
   } catch (error) {

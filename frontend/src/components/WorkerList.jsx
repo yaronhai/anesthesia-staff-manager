@@ -236,7 +236,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
   );
 
   if (workers.length === 0) {
-    return <p className="empty">אין עובדים עדיין. לחץ על "+ הוסף עובד" כדי להתחיל.</p>;
+    return <p className="empty">אין עובדים להצגה.</p>;
   }
 
   return (
@@ -267,9 +267,12 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
         </thead>
         <tbody>
           {workers.map(w => (
-            <tr key={w.id}>
+            <tr key={w.id} className={w.is_active === false ? 'worker-row-inactive' : ''}>
               <td>{w.title}</td>
-              <td><strong>{w.first_name}</strong></td>
+              <td>
+                <strong>{w.first_name}</strong>
+                {w.is_active === false && <span className="badge badge-inactive" style={{ marginRight: '0.4rem' }}>לא פעיל</span>}
+              </td>
               <td><strong>{w.family_name}</strong></td>
               <td>{w.id_number || '—'}</td>
               <td>

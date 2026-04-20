@@ -238,7 +238,7 @@ const WORKER_SELECT = `
          w.job_id, j.name AS job,
          w.employment_type_id, e.name AS employment_type,
          w.phone, w.email, w.notes,
-         w.id_number, w.classification,
+         w.id_number, w.classification, w.is_active,
          w.created_at,
          u.id AS user_id
   FROM workers w
@@ -266,9 +266,12 @@ app.post('/api/auth/login', async (req, res) => {
     let displayName = user.username;
     
     if (user.worker_id) {
-      const workerRes = await query('SELECT email, first_name, family_name FROM workers WHERE id = $1', [user.worker_id]);
+      const workerRes = await query('SELECT email, first_name, family_name, is_active FROM workers WHERE id = $1', [user.worker_id]);
       const worker = workerRes.rows[0];
       if (worker) {
+        if (!worker.is_active) {
+          return res.status(403).json({ error: 'חשבון זה אינו פעיל' });
+        }
         email = email || worker.email;
         displayName = `${worker.first_name} ${worker.family_name}`;
       }
@@ -454,12 +457,14 @@ app.put('/api/workers/:id', requireAdmin, async (req, res) => {
     const idNum = id_number?.trim() || null;
     
     try {
+      const is_active = req.body.is_active !== undefined ? req.body.is_active : true;
       const updateRes = await query(`
         UPDATE workers SET honorific_id=$1, first_name=$2, family_name=$3, job_id=$4,
-          employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10
-        WHERE id=$11
+          employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10,
+          is_active=$11
+        WHERE id=$12
       `, [honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email.trim(), notes, idNum, cls, req.params.id]);
+           employment_type_id || null, phone, email.trim(), notes, idNum, cls, is_active, req.params.id]);
       
       if (updateRes.rowCount === 0) return res.status(404).json({ error: 'עובד לא נמצא' });
       
@@ -1181,7 +1186,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       FROM shift_requests sr
       JOIN users u ON sr.user_id = u.id
       JOIN workers w ON u.worker_id = w.id
-      WHERE sr.date = $1 AND sr.preference_type IN ('can', 'prefer')
+      WHERE sr.date = $1 AND sr.preference_type IN ('can', 'prefer') AND w.is_active = TRUE
       ORDER BY CASE sr.preference_type WHEN 'prefer' THEN 0 ELSE 1 END,
                w.first_name, w.family_name
     `, [date]);

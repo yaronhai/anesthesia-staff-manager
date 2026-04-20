@@ -260,9 +260,22 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   font-size: 0.78rem;
   font-weight: 600;
 }
-.badge-self    { background: #fef3c7; color: #92400e; }
-.badge-normal  { background: #dbeafe; color: #1e40af; }
-.badge-admin   { background: #fce7f3; color: #9d174d; }
+.badge-self     { background: #fef3c7; color: #92400e; }
+.badge-normal   { background: #dbeafe; color: #1e40af; }
+.badge-admin    { background: #fce7f3; color: #9d174d; }
+.badge-inactive { background: #e5e7eb; color: #6b7280; }
+
+.worker-row-inactive td { opacity: 0.6; }
+
+.form-row-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
 
 .empty {
   text-align: center;

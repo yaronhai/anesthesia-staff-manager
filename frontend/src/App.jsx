@@ -27,6 +27,7 @@ export default function App() {
   const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [], site_groups: [], sites: [], activity_types: [], shift_types: [], preference_types: [] });
   const [filterJobId, setFilterJobId] = useState('');
   const [filterEmpTypeId, setFilterEmpTypeId] = useState('');
+  const [filterActive, setFilterActive] = useState('active');
 
   const isAdmin = currentUser?.role === 'admin';
 
@@ -136,7 +137,8 @@ export default function App() {
 
   const filteredWorkers = workers.filter(w =>
     (!filterJobId     || w.job_id             === Number(filterJobId)) &&
-    (!filterEmpTypeId || w.employment_type_id === Number(filterEmpTypeId))
+    (!filterEmpTypeId || w.employment_type_id === Number(filterEmpTypeId)) &&
+    (filterActive === 'all' || (filterActive === 'active' ? w.is_active !== false : w.is_active === false))
   );
 
   // ── Not logged in ──────────────────────────────────────────────────────────
@@ -246,9 +248,14 @@ export default function App() {
               <option value="">כל סוגי ההעסקה</option>
               {config.employment_types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
-            {(filterJobId || filterEmpTypeId) && (
+            <select value={filterActive} onChange={e => setFilterActive(e.target.value)}>
+              <option value="active">פעילים</option>
+              <option value="inactive">לא פעילים</option>
+              <option value="all">כולם</option>
+            </select>
+            {(filterJobId || filterEmpTypeId || filterActive !== 'active') && (
               <button className="btn-secondary"
-                onClick={() => { setFilterJobId(''); setFilterEmpTypeId(''); }}>
+                onClick={() => { setFilterJobId(''); setFilterEmpTypeId(''); setFilterActive('active'); }}>
                 נקה סינון
               </button>
             )}

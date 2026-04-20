@@ -3,7 +3,5 @@ node_modules/
 frontend/dist/
 backend/data/
 *.db
-*.db-shm
-*.db-wal
 .env
 backend/.env
