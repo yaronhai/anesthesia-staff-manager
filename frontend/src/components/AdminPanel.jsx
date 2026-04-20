@@ -64,7 +64,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
   async function addItem(endpoint, value, setter) {
     if (!value.trim()) return;
-    const res = await fetch(endpoint, {
+    const res = await fetch(`${endpoint}${branchParam()}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -82,7 +82,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   }
 
   async function removeItem(endpoint, id) {
-    const res = await fetch(`${endpoint}/${id}`, {
+    const res = await fetch(`${endpoint}/${id}${branchParam()}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${authToken}` },
     });
@@ -95,7 +95,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
   async function saveEdit(endpoint, id) {
     if (!editingValue.trim()) return;
-    const res = await fetch(`${endpoint}/${id}`, {
+    const res = await fetch(`${endpoint}/${id}${branchParam()}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -118,7 +118,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
       return;
     }
     try {
-      const res = await fetch('/api/config/sites', {
+      const res = await fetch(`/api/config/sites${branchParam()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,7 +145,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   }
 
   async function removeSite(id) {
-    const res = await fetch(`/api/config/sites/${id}`, {
+    const res = await fetch(`/api/config/sites/${id}${branchParam()}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${authToken}` },
     });
@@ -157,7 +157,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   }
 
   async function toggleFairnessSite(siteId, enable) {
-    const res = await fetch(`/api/config/fairness-sites/${siteId}`, {
+    const res = await fetch(`/api/config/fairness-sites/${siteId}${branchParam()}`, {
       method: enable ? 'POST' : 'DELETE',
       headers: { 'Authorization': `Bearer ${authToken}` },
     });
@@ -166,7 +166,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   }
 
   async function updateSiteGroup(siteId, groupId) {
-    const res = await fetch(`/api/config/sites/${siteId}/group`, {
+    const res = await fetch(`/api/config/sites/${siteId}/group${branchParam()}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -183,7 +183,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
   async function loadTemplates() {
     try {
-      const res = await fetch('/api/config/activity-templates', {
+      const res = await fetch(`/api/config/activity-templates${branchParam()}`, {
         headers: { 'Authorization': `Bearer ${authToken}` },
       });
       if (res.ok) {
@@ -197,7 +197,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   async function createTemplate() {
     if (!newTemplateName.trim()) return;
     try {
-      const res = await fetch('/api/config/activity-templates', {
+      const res = await fetch(`/api/config/activity-templates${branchParam()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +221,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   async function renameTemplate(id, newName) {
     if (!newName.trim()) return;
     try {
-      const res = await fetch(`/api/config/activity-templates/${id}`, {
+      const res = await fetch(`/api/config/activity-templates/${id}${branchParam()}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
         body: JSON.stringify({ name: newName.trim() }),
@@ -242,7 +242,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   async function deleteTemplate(id) {
     if (!confirm('האם אתה בטוח?')) return;
     try {
-      const res = await fetch(`/api/config/activity-templates/${id}`, {
+      const res = await fetch(`/api/config/activity-templates/${id}${branchParam()}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${authToken}` },
       });
@@ -282,7 +282,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     });
 
     try {
-      const res = await fetch(`/api/config/activity-templates/${selectedTemplateId}/items`, {
+      const res = await fetch(`/api/config/activity-templates/${selectedTemplateId}/items${branchParam()}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

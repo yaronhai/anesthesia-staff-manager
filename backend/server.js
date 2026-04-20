@@ -72,18 +72,29 @@ async function seedDatabase() {
     // Seed shift types
     for (const st of shiftTypes) {
       await query(
-        `INSERT INTO shift_types (key, label_he, label_short, default_start, default_end, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (key) DO NOTHING`,
-        [st.key, st.label_he, st.label_short, st.default_start, st.default_end, st.sort_order]
+        `INSERT INTO shift_types (key, label_he, label_short, icon, color, bg_color, show_in_assignments, show_in_availability_bar, default_start, default_end, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (key) DO UPDATE SET
+           label_he = EXCLUDED.label_he, label_short = EXCLUDED.label_short,
+           icon = EXCLUDED.icon, color = EXCLUDED.color, bg_color = EXCLUDED.bg_color,
+           show_in_assignments = EXCLUDED.show_in_assignments,
+           show_in_availability_bar = EXCLUDED.show_in_availability_bar,
+           sort_order = EXCLUDED.sort_order`,
+        [st.key, st.label_he, st.label_short, st.icon, st.color, st.bg_color,
+         st.show_in_assignments, st.show_in_availability_bar,
+         st.default_start, st.default_end, st.sort_order]
       );
     }
 
     // Seed preference types
     for (const pt of preferenceTypes) {
       await query(
-        `INSERT INTO preference_types (key, label_he, sort_order)
-         VALUES ($1, $2, $3) ON CONFLICT (key) DO NOTHING`,
-        [pt.key, pt.label_he, pt.sort_order]
+        `INSERT INTO preference_types (key, label_he, label_group_he, color, sort_order)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (key) DO UPDATE SET
+           label_he = EXCLUDED.label_he, label_group_he = EXCLUDED.label_group_he,
+           color = EXCLUDED.color, sort_order = EXCLUDED.sort_order`,
+        [pt.key, pt.label_he, pt.label_group_he, pt.color, pt.sort_order]
       );
     }
 
@@ -214,7 +225,7 @@ async function getConfig(branchId = null) {
       ? query('SELECT id, name FROM activity_types WHERE branch_id = $1 ORDER BY name', [branchId])
       : query('SELECT id, name FROM activity_types ORDER BY name');
     const sitesQuery = branchId
-      ? query('SELECT s.id, s.name, s.description, s.group_id FROM sites s JOIN site_groups sg ON s.group_id = sg.id WHERE sg.branch_id = $1 ORDER BY s.name', [branchId])
+      ? query('SELECT id, name, description, group_id FROM sites WHERE branch_id = $1 ORDER BY name', [branchId])
       : query('SELECT id, name, description, group_id FROM sites ORDER BY name');
 
     const res = await Promise.all([
@@ -224,19 +235,28 @@ async function getConfig(branchId = null) {
       siteGroupsQuery,
       sitesQuery,
       activityTypesQuery,
-      query('SELECT key, label_he, label_short, default_start, default_end, sort_order FROM shift_types ORDER BY sort_order'),
-      query('SELECT key, label_he, sort_order FROM preference_types ORDER BY sort_order'),
+      query('SELECT key, label_he, label_short, icon, color, bg_color, show_in_assignments, show_in_availability_bar, default_start, default_end, sort_order FROM shift_types ORDER BY sort_order'),
+      query('SELECT key, label_he, label_group_he, color, sort_order FROM preference_types ORDER BY sort_order'),
     ]);
 
     // Try to get allowed jobs, but don't fail if table doesn't exist
     let allowedJobsByGroup = {};
     try {
-      const allowedJobsRes = await query(`
-        SELECT sgaj.group_id, sgaj.job_id, j.name
-        FROM site_group_allowed_jobs sgaj
-        JOIN job_titles j ON sgaj.job_id = j.id
-        ORDER BY sgaj.group_id, j.name
-      `);
+      const allowedJobsRes = branchId
+        ? await query(`
+            SELECT sgaj.group_id, sgaj.job_id, j.name
+            FROM site_group_allowed_jobs sgaj
+            JOIN job_titles j ON sgaj.job_id = j.id
+            JOIN site_groups sg ON sgaj.group_id = sg.id
+            WHERE sg.branch_id = $1
+            ORDER BY sgaj.group_id, j.name
+          `, [branchId])
+        : await query(`
+            SELECT sgaj.group_id, sgaj.job_id, j.name
+            FROM site_group_allowed_jobs sgaj
+            JOIN job_titles j ON sgaj.job_id = j.id
+            ORDER BY sgaj.group_id, j.name
+          `);
 
       allowedJobsRes.rows.forEach(row => {
         if (!allowedJobsByGroup[row.group_id]) {
@@ -283,7 +303,8 @@ const WORKER_SELECT = `
          w.job_id, j.name AS job,
          w.employment_type_id, e.name AS employment_type,
          w.phone, w.email, w.notes,
-         w.id_number, w.classification, w.is_active,
+         w.id_number, w.classification,
+         COALESCE((SELECT BOOL_OR(wb2.is_active) FROM worker_branches wb2 WHERE wb2.worker_id = w.id), TRUE) AS is_active,
          w.primary_branch_id, pb.name AS primary_branch_name,
          w.created_at,
          u.id AS user_id
@@ -312,8 +333,14 @@ app.post('/api/auth/login', async (req, res) => {
     let email = user.email;
     let displayName = user.username;
     
+    let effectiveBranchId = user.branch_id ?? null;
+
     if (user.worker_id) {
-      const workerRes = await query('SELECT email, first_name, family_name, is_active FROM workers WHERE id = $1', [user.worker_id]);
+      const workerRes = await query(`
+        SELECT w.email, w.first_name, w.family_name, w.primary_branch_id,
+               COALESCE((SELECT BOOL_OR(wb.is_active) FROM worker_branches wb WHERE wb.worker_id = w.id), TRUE) AS is_active
+        FROM workers w WHERE w.id = $1
+      `, [user.worker_id]);
       const worker = workerRes.rows[0];
       if (worker) {
         if (!worker.is_active) {
@@ -321,10 +348,14 @@ app.post('/api/auth/login', async (req, res) => {
         }
         email = email || worker.email;
         displayName = `${worker.first_name} ${worker.family_name}`;
+        // For admins, use the worker's primary branch as the effective branch
+        if ((user.role === 'admin') && worker.primary_branch_id) {
+          effectiveBranchId = worker.primary_branch_id;
+        }
       }
     }
-    
-    const payload = { id: user.id, username: user.username, role: user.role, worker_id: user.worker_id, branch_id: user.branch_id ?? null };
+
+    const payload = { id: user.id, username: user.username, role: user.role, worker_id: user.worker_id, branch_id: effectiveBranchId };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { ...payload, email, displayName, must_change_password: user.must_change_password } });
   } catch (error) {
@@ -461,7 +492,7 @@ app.get('/api/workers', requireAuth, async (req, res) => {
                w.job_id, j.name AS job,
                w.employment_type_id, e.name AS employment_type,
                w.phone, w.email, w.notes,
-               w.id_number, w.classification, w.is_active,
+               w.id_number, w.classification, wb.is_active,
                w.primary_branch_id, pb.name AS primary_branch_name,
                w.created_at, u.id AS user_id,
                (w.primary_branch_id = $1) AS is_primary_branch
@@ -543,26 +574,24 @@ app.put('/api/workers/:id', requireAdmin, async (req, res) => {
     const primaryBranchId = req.user.role === 'superadmin' ? (primary_branch_id || null) : undefined;
 
     try {
-      const is_active = req.body.is_active !== undefined ? req.body.is_active : true;
       let updateQuery, updateParams;
       if (primaryBranchId !== undefined) {
         updateQuery = `
           UPDATE workers SET honorific_id=$1, first_name=$2, family_name=$3, job_id=$4,
             employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10,
-            is_active=$11, primary_branch_id=$12
-          WHERE id=$13
-        `;
-        updateParams = [honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email.trim(), notes, idNum, cls, is_active, primaryBranchId, req.params.id];
-      } else {
-        updateQuery = `
-          UPDATE workers SET honorific_id=$1, first_name=$2, family_name=$3, job_id=$4,
-            employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10,
-            is_active=$11
+            primary_branch_id=$11
           WHERE id=$12
         `;
         updateParams = [honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email.trim(), notes, idNum, cls, is_active, req.params.id];
+           employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId, req.params.id];
+      } else {
+        updateQuery = `
+          UPDATE workers SET honorific_id=$1, first_name=$2, family_name=$3, job_id=$4,
+            employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10
+          WHERE id=$11
+        `;
+        updateParams = [honorific_id || null, first_name, family_name, job_id || null,
+           employment_type_id || null, phone, email.trim(), notes, idNum, cls, req.params.id];
       }
       const updateRes = await query(updateQuery, updateParams);
       
@@ -731,7 +760,7 @@ app.get('/api/shift-requests/admin/all-with-workers', requireAdmin, async (req, 
     let workersSql = WORKER_SELECT;
     let workersParams = [];
     if (branchId) {
-      workersSql += ' JOIN worker_branches wb ON wb.worker_id = w.id AND wb.branch_id = $1';
+      workersSql += ' JOIN worker_branches wb ON wb.worker_id = w.id AND wb.branch_id = $1 AND wb.is_active = TRUE';
       workersParams = [branchId];
     }
     workersSql += ' ORDER BY w.first_name, w.family_name';
@@ -957,10 +986,11 @@ app.post('/api/config/sites', requireAdmin, async (req, res) => {
   try {
     const { name, description } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'שם אתר חובה' });
+    const branchId = getEffectiveBranchId(req);
     try {
-      await query('INSERT INTO sites (name, description) VALUES ($1, $2)',
-        [name.trim(), description?.trim() || null]);
-      const config = await getConfig(getEffectiveBranchId(req));
+      await query('INSERT INTO sites (name, description, branch_id) VALUES ($1, $2, $3)',
+        [name.trim(), description?.trim() || null, branchId]);
+      const config = await getConfig(branchId);
       res.json(config);
     } catch (err) {
       res.status(400).json({ error: 'שם אתר כפול' });
@@ -976,9 +1006,12 @@ app.put('/api/config/sites/:id', requireAdmin, async (req, res) => {
     const { value, name } = req.body;
     const siteName = name || value;
     if (!siteName?.trim()) return res.status(400).json({ error: 'שם אתר חובה' });
+    const branchId = getEffectiveBranchId(req);
     try {
-      await query('UPDATE sites SET name=$1 WHERE id=$2', [siteName.trim(), req.params.id]);
-      const config = await getConfig(getEffectiveBranchId(req));
+      const r = await query('UPDATE sites SET name=$1 WHERE id=$2 AND branch_id=$3',
+        [siteName.trim(), req.params.id, branchId]);
+      if (r.rowCount === 0) return res.status(403).json({ error: 'אתר לא נמצא בסניף זה' });
+      const config = await getConfig(branchId);
       res.json(config);
     } catch (err) {
       res.status(400).json({ error: 'שם אתר כפול' });
@@ -991,8 +1024,10 @@ app.put('/api/config/sites/:id', requireAdmin, async (req, res) => {
 
 app.delete('/api/config/sites/:id', requireAdmin, async (req, res) => {
   try {
-    await query('DELETE FROM sites WHERE id=$1', [req.params.id]);
-    const config = await getConfig(getEffectiveBranchId(req));
+    const branchId = getEffectiveBranchId(req);
+    const r = await query('DELETE FROM sites WHERE id=$1 AND branch_id=$2', [req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'אתר לא נמצא בסניף זה' });
+    const config = await getConfig(branchId);
     res.json(config);
   } catch (error) {
     console.error('Delete site error:', error);
@@ -1024,7 +1059,9 @@ app.put('/api/config/site-groups/:id', requireAdmin, async (req, res) => {
     if (!value?.trim()) return res.status(400).json({ error: 'שם קבוצה חובה' });
     const branchId = getEffectiveBranchId(req);
     try {
-      await query('UPDATE site_groups SET name=$1, color=$2 WHERE id=$3', [value.trim(), color || '#667eea', req.params.id]);
+      const r = await query('UPDATE site_groups SET name=$1, color=$2 WHERE id=$3 AND branch_id=$4',
+        [value.trim(), color || '#667eea', req.params.id, branchId]);
+      if (r.rowCount === 0) return res.status(403).json({ error: 'קבוצה לא נמצאת בסניף זה' });
       const config = await getConfig(branchId);
       res.json(config);
     } catch {
@@ -1039,7 +1076,8 @@ app.put('/api/config/site-groups/:id', requireAdmin, async (req, res) => {
 app.delete('/api/config/site-groups/:id', requireAdmin, async (req, res) => {
   try {
     const branchId = getEffectiveBranchId(req);
-    await query('DELETE FROM site_groups WHERE id=$1', [req.params.id]);
+    const r = await query('DELETE FROM site_groups WHERE id=$1 AND branch_id=$2', [req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'קבוצה לא נמצאת בסניף זה' });
     const config = await getConfig(branchId);
     res.json(config);
   } catch (error) {
@@ -1118,8 +1156,11 @@ app.delete('/api/config/site-groups/:id/allowed-jobs/:jobId', requireAdmin, asyn
 app.put('/api/config/sites/:id/group', requireAdmin, async (req, res) => {
   try {
     const { group_id } = req.body;
-    await query('UPDATE sites SET group_id=$1 WHERE id=$2', [group_id || null, req.params.id]);
-    const config = await getConfig(getEffectiveBranchId(req));
+    const branchId = getEffectiveBranchId(req);
+    const r = await query('UPDATE sites SET group_id=$1 WHERE id=$2 AND branch_id=$3',
+      [group_id || null, req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'אתר לא נמצא בסניף זה' });
+    const config = await getConfig(branchId);
     res.json(config);
   } catch (error) {
     console.error('Update site group assignment error:', error);
@@ -1176,9 +1217,12 @@ app.put('/api/config/activity-types/:id', requireAdmin, async (req, res) => {
   try {
     const { value } = req.body;
     if (!value?.trim()) return res.status(400).json({ error: 'שם סוג פעילות חובה' });
+    const branchId = getEffectiveBranchId(req);
     try {
-      await query('UPDATE activity_types SET name=$1 WHERE id=$2', [value.trim(), req.params.id]);
-      const config = await getConfig(getEffectiveBranchId(req));
+      const r = await query('UPDATE activity_types SET name=$1 WHERE id=$2 AND branch_id=$3',
+        [value.trim(), req.params.id, branchId]);
+      if (r.rowCount === 0) return res.status(403).json({ error: 'סוג פעילות לא נמצא בסניף זה' });
+      const config = await getConfig(branchId);
       res.json(config);
     } catch {
       res.status(400).json({ error: 'סוג פעילות כפול' });
@@ -1191,8 +1235,10 @@ app.put('/api/config/activity-types/:id', requireAdmin, async (req, res) => {
 
 app.delete('/api/config/activity-types/:id', requireAdmin, async (req, res) => {
   try {
-    await query('DELETE FROM activity_types WHERE id=$1', [req.params.id]);
-    const config = await getConfig(getEffectiveBranchId(req));
+    const branchId = getEffectiveBranchId(req);
+    const r = await query('DELETE FROM activity_types WHERE id=$1 AND branch_id=$2', [req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'סוג פעילות לא נמצא בסניף זה' });
+    const config = await getConfig(branchId);
     res.json(config);
   } catch (error) {
     console.error('Delete activity type error:', error);
@@ -1211,7 +1257,7 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
     let workersSql = WORKER_SELECT;
     let workersParams = [];
     if (branchId) {
-      workersSql += ' JOIN worker_branches wb ON wb.worker_id = w.id AND wb.branch_id = $1';
+      workersSql += ' JOIN worker_branches wb ON wb.worker_id = w.id AND wb.branch_id = $1 AND wb.is_active = TRUE';
       workersParams = [branchId];
     }
     workersSql += ' ORDER BY w.first_name, w.family_name';
@@ -1296,13 +1342,13 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     }
     const branchId = getEffectiveBranchId(req);
 
-    // Get sites (filtered by branch)
+    // Get sites (filtered by branch via direct branch_id column)
     const sitesRes = branchId
       ? await query(`
           SELECT s.id, s.name, s.group_id, sg.name AS group_name
           FROM sites s
           LEFT JOIN site_groups sg ON s.group_id = sg.id
-          WHERE sg.branch_id = $1
+          WHERE s.branch_id = $1
           ORDER BY s.name
         `, [branchId])
       : await query(`
@@ -1313,10 +1359,17 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         `);
     const sites = sitesRes.rows;
 
-    // Get allowed jobs per site group
+    // Get allowed jobs per site group (filtered by branch)
     const groupAllowedJobs = new Map(); // group_id -> Set<job_id>
     try {
-      const allowedJobsRes = await query(`SELECT group_id, job_id FROM site_group_allowed_jobs`);
+      const allowedJobsRes = branchId
+        ? await query(`
+            SELECT sgaj.group_id, sgaj.job_id
+            FROM site_group_allowed_jobs sgaj
+            JOIN site_groups sg ON sgaj.group_id = sg.id
+            WHERE sg.branch_id = $1
+          `, [branchId])
+        : await query(`SELECT group_id, job_id FROM site_group_allowed_jobs`);
       allowedJobsRes.rows.forEach(row => {
         if (!groupAllowedJobs.has(row.group_id)) groupAllowedJobs.set(row.group_id, new Set());
         groupAllowedJobs.get(row.group_id).add(row.job_id);
@@ -1334,7 +1387,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
           JOIN users u ON sr.user_id = u.id
           JOIN workers w ON u.worker_id = w.id
           JOIN worker_branches wb ON wb.worker_id = w.id AND wb.branch_id = $2
-          WHERE sr.date = $1 AND sr.branch_id = $2 AND sr.preference_type IN ('can', 'prefer') AND w.is_active = TRUE
+          WHERE sr.date = $1 AND sr.branch_id = $2 AND sr.preference_type IN ('can', 'prefer') AND wb.is_active = TRUE
           ORDER BY CASE sr.preference_type WHEN 'prefer' THEN 0 ELSE 1 END,
                    w.first_name, w.family_name
         `, [date, branchId])
@@ -1344,7 +1397,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
           FROM shift_requests sr
           JOIN users u ON sr.user_id = u.id
           JOIN workers w ON u.worker_id = w.id
-          WHERE sr.date = $1 AND sr.preference_type IN ('can', 'prefer') AND w.is_active = TRUE
+          WHERE sr.date = $1 AND sr.preference_type IN ('can', 'prefer')
           ORDER BY CASE sr.preference_type WHEN 'prefer' THEN 0 ELSE 1 END,
                    w.first_name, w.family_name
         `, [date]);
@@ -1363,36 +1416,62 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       }
     });
 
-    // Workers already assigned somewhere on this date (per shift type)
-    const assignedRes = await query(`
-      SELECT worker_id, shift_type FROM worker_site_assignments WHERE date = $1
-    `, [date]);
+    // Workers already assigned somewhere on this date in this branch (per shift type)
+    const assignedRes = branchId
+      ? await query(`
+          SELECT wsa.worker_id, wsa.shift_type
+          FROM worker_site_assignments wsa
+          JOIN sites s ON wsa.site_id = s.id
+          WHERE wsa.date = $1 AND s.branch_id = $2
+        `, [date, branchId])
+      : await query(`SELECT worker_id, shift_type FROM worker_site_assignments WHERE date = $1`, [date]);
     const workerAssigned = new Set();
     assignedRes.rows.forEach(r => workerAssigned.add(`${r.worker_id}-${r.shift_type}`));
     console.log('=== SUGGEST DEBUG ===');
     console.log('date param:', JSON.stringify(date));
     console.log('existing assignments:', JSON.stringify(assignedRes.rows));
 
-    // Open slots: configured activity AND no worker assigned yet — built entirely in SQL
-    const openSlotsRes = await query(`
-      SELECT ssa.site_id, ssa.shift_type
-      FROM site_shift_activities ssa
-      WHERE ssa.date = $1
-        AND ssa.activity_type_id IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM worker_site_assignments wsa
-          WHERE wsa.site_id    = ssa.site_id
-            AND wsa.date       = $1
-            AND wsa.shift_type = ssa.shift_type
-        )
-    `, [date]);
+    // Open slots: configured activity AND no worker assigned yet, scoped to branch
+    const openSlotsRes = branchId
+      ? await query(`
+          SELECT ssa.site_id, ssa.shift_type
+          FROM site_shift_activities ssa
+          JOIN sites s ON ssa.site_id = s.id
+          WHERE ssa.date = $1
+            AND s.branch_id = $2
+            AND ssa.activity_type_id IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM worker_site_assignments wsa
+              WHERE wsa.site_id    = ssa.site_id
+                AND wsa.date       = $1
+                AND wsa.shift_type = ssa.shift_type
+            )
+        `, [date, branchId])
+      : await query(`
+          SELECT ssa.site_id, ssa.shift_type
+          FROM site_shift_activities ssa
+          WHERE ssa.date = $1
+            AND ssa.activity_type_id IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM worker_site_assignments wsa
+              WHERE wsa.site_id    = ssa.site_id
+                AND wsa.date       = $1
+                AND wsa.shift_type = ssa.shift_type
+            )
+        `, [date]);
     console.log('open slots from SQL:', JSON.stringify(openSlotsRes.rows));
 
-    // Fetch fairness scores: count assignments per worker to fairness-designated sites
+    // Fetch fairness scores: count assignments per worker to fairness-designated sites (branch-scoped)
     const fairnessCountByWorker = new Map();
     let fairnessSiteSet = new Set();
     try {
-      const fRes = await query('SELECT site_id FROM fairness_sites');
+      const fRes = branchId
+        ? await query(`
+            SELECT fs.site_id FROM fairness_sites fs
+            JOIN sites s ON fs.site_id = s.id
+            WHERE s.branch_id = $1
+          `, [branchId])
+        : await query('SELECT site_id FROM fairness_sites');
       const fIds = fRes.rows.map(r => r.site_id);
       fairnessSiteSet = new Set(fIds);
       if (fIds.length > 0) {
@@ -1509,10 +1588,15 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       });
     }
 
-    // Safety filter: re-query assignments and strip any suggestion that slipped through
-    const finalCheckRes = await query(`
-      SELECT worker_id, site_id, shift_type FROM worker_site_assignments WHERE date = $1
-    `, [date]);
+    // Safety filter: re-query assignments (branch-scoped) and strip any suggestion that slipped through
+    const finalCheckRes = branchId
+      ? await query(`
+          SELECT wsa.worker_id, wsa.site_id, wsa.shift_type
+          FROM worker_site_assignments wsa
+          JOIN sites s ON wsa.site_id = s.id
+          WHERE wsa.date = $1 AND s.branch_id = $2
+        `, [date, branchId])
+      : await query(`SELECT worker_id, site_id, shift_type FROM worker_site_assignments WHERE date = $1`, [date]);
     const staffedSlotsFinal  = new Set(finalCheckRes.rows.map(r => `${r.site_id}-${r.shift_type}`));
     const workerBusyFinal    = new Set(finalCheckRes.rows.map(r => `${r.worker_id}-${r.shift_type}`));
     const safeSuggestions = suggestions.filter(s =>
@@ -1741,7 +1825,10 @@ app.put('/api/config/activity-templates/:id', requireAdmin, async (req, res) => 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'שם התבנית חובה' });
     }
-    await query('UPDATE activity_templates SET name = $1 WHERE id = $2', [name.trim(), req.params.id]);
+    const branchId = getEffectiveBranchId(req);
+    const r = await query('UPDATE activity_templates SET name = $1 WHERE id = $2 AND branch_id = $3',
+      [name.trim(), req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'תבנית לא נמצאת בסניף זה' });
     res.json({ ok: true });
   } catch (error) {
     console.error('Error renaming template:', error);
@@ -1756,7 +1843,10 @@ app.put('/api/config/activity-templates/:id', requireAdmin, async (req, res) => 
 // Delete template
 app.delete('/api/config/activity-templates/:id', requireAdmin, async (req, res) => {
   try {
-    await query('DELETE FROM activity_templates WHERE id = $1', [req.params.id]);
+    const branchId = getEffectiveBranchId(req);
+    const r = await query('DELETE FROM activity_templates WHERE id = $1 AND branch_id = $2',
+      [req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'תבנית לא נמצאת בסניף זה' });
     res.json({ ok: true });
   } catch (error) {
     console.error('Error deleting template:', error);
@@ -1773,6 +1863,11 @@ app.put('/api/config/activity-templates/:id/items', requireAdmin, async (req, re
     if (!Array.isArray(items)) {
       return res.status(400).json({ error: 'items must be an array' });
     }
+
+    const branchId = getEffectiveBranchId(req);
+    const tmpl = await query('SELECT id FROM activity_templates WHERE id = $1 AND branch_id = $2',
+      [templateId, branchId]);
+    if (tmpl.rowCount === 0) return res.status(403).json({ error: 'תבנית לא נמצאת בסניף זה' });
 
     // Delete existing items
     await query('DELETE FROM activity_template_items WHERE template_id = $1', [templateId]);
@@ -1805,6 +1900,11 @@ app.post('/api/config/activity-templates/:id/apply', requireAdmin, async (req, r
     if (!date) {
       return res.status(400).json({ error: 'תאריך חובה' });
     }
+
+    const branchId = getEffectiveBranchId(req);
+    const tmpl = await query('SELECT id FROM activity_templates WHERE id = $1 AND branch_id = $2',
+      [templateId, branchId]);
+    if (tmpl.rowCount === 0) return res.status(403).json({ error: 'תבנית לא נמצאת בסניף זה' });
 
     // Insert template items into site_shift_activities, ignoring conflicts
     await query(`

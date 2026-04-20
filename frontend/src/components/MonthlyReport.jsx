@@ -31,8 +31,9 @@ export default function MonthlyReport({ token, config }) {
   const month = viewDate.getMonth();
   const year = viewDate.getFullYear();
 
-  // Shifts to include in the report (all except oncall)
-  const reportShifts = (config.shift_types || []).filter(st => st.key !== 'oncall');
+  // Shifts to include in the report (those shown in assignment views)
+  const reportShifts = (config.shift_types || []).filter(st => st.show_in_assignments);
+  const prefTypes = config.preference_types || [];
   const reportShiftKeys = new Set(reportShifts.map(st => st.key));
 
   const fetchRequests = useCallback(async () => {
@@ -105,14 +106,12 @@ export default function MonthlyReport({ token, config }) {
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <button onClick={() => window.print()} className="btn-primary btn-sm">🖨️ הדפסה</button>
           <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <div style={{ width: '12px', height: '12px', background: '#16a34a', borderRadius: '2px' }}></div>
-              <span>מעדיף</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <div style={{ width: '12px', height: '12px', background: '#0369a1', borderRadius: '2px' }}></div>
-              <span>יכול</span>
-            </div>
+            {prefTypes.filter(p => p.key !== 'cannot').map(p => (
+              <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <div style={{ width: '12px', height: '12px', background: p.key === 'prefer' ? '#16a34a' : '#0369a1', borderRadius: '2px' }}></div>
+                <span>{p.label_he}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -194,7 +193,7 @@ export default function MonthlyReport({ token, config }) {
                       <>
                         {dayData[st.key].prefer.length > 0 && (
                           <div className="daily-shift-group">
-                            <span className="group-label" style={{ color: '#16a34a', fontWeight: '700' }}>מעדיפים:</span>
+                            <span className="group-label" style={{ color: '#16a34a', fontWeight: '700' }}>{prefTypes.find(p => p.key === 'prefer')?.label_group_he || 'מעדיפים'}:</span>
                             <div className="names-list">
                               {dayData[st.key].prefer.map((name, i) => (
                                 <span key={`${st.key}-p-${i}`} className="name-badge" style={{ background: '#dcfce7', color: '#166534', borderColor: '#16a34a' }}>{name}</span>
@@ -204,7 +203,7 @@ export default function MonthlyReport({ token, config }) {
                         )}
                         {dayData[st.key].can.length > 0 && (
                           <div className="daily-shift-group">
-                            <span className="group-label" style={{ color: '#0369a1', fontWeight: '700' }}>יכולים:</span>
+                            <span className="group-label" style={{ color: '#0369a1', fontWeight: '700' }}>{prefTypes.find(p => p.key === 'can')?.label_group_he || 'יכולים'}:</span>
                             <div className="names-list">
                               {dayData[st.key].can.map((name, i) => (
                                 <span key={`${st.key}-c-${i}`} className="name-badge" style={{ background: '#e0f2fe', color: '#0c4a6e', borderColor: '#0369a1' }}>{name}</span>

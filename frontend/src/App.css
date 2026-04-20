@@ -90,8 +90,9 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   margin-right: 0.25rem;
 }
 .header-username {
-  font-size: 0.85rem;
-  opacity: 0.85;
+  font-size: 0.95rem;
+  font-weight: 700;
+  opacity: 1;
 }
 .btn-logout {
   background: rgba(255,255,255,0.15);

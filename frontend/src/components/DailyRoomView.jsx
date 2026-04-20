@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export default function DailyRoomView({ config, authToken }) {
+export default function DailyRoomView({ config, authToken, branchId }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [workers, setWorkers] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -81,7 +81,7 @@ export default function DailyRoomView({ config, authToken }) {
   const day = viewDate.getDate();
   const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-  useEffect(() => { fetchAll(); }, [month, year, authToken]);
+  useEffect(() => { fetchAll(); }, [month, year, authToken, branchId]);
 
   // Auto-select first group on mount
   useEffect(() => {
@@ -97,6 +97,7 @@ export default function DailyRoomView({ config, authToken }) {
     setLoading(true);
     try {
       const params = new URLSearchParams({ month, year });
+      if (branchId) params.set('branch_id', branchId);
       const [staffRes, shiftRes] = await Promise.all([
         fetch(`/api/staffing/month-view?${params}`, { headers: { Authorization: `Bearer ${authToken}` } }),
         fetch(`/api/shift-requests/admin/all-with-workers?${params}`, { headers: { Authorization: `Bearer ${authToken}` } }),
@@ -121,7 +122,9 @@ export default function DailyRoomView({ config, authToken }) {
   async function fetchSuggestions() {
     setSuggestLoading(true);
     try {
-      const res = await fetch(`/api/staffing/suggest?date=${dateStr}`, {
+      const suggestParams = new URLSearchParams({ date: dateStr });
+      if (branchId) suggestParams.set('branch_id', branchId);
+      const res = await fetch(`/api/staffing/suggest?${suggestParams}`, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       if (res.ok) {
@@ -168,15 +171,15 @@ export default function DailyRoomView({ config, authToken }) {
   }
 
   const dayRequests = shiftRequests.filter(r => r.date === dateStr);
-  const morningRequests = dayRequests.filter(r => r.shift_type === 'morning');
-  const eveningRequests = dayRequests.filter(r => r.shift_type === 'evening');
+  const availabilityShifts = (config.shift_types || []).filter(st => st.show_in_availability_bar);
+  const requestsByShift = Object.fromEntries(
+    availabilityShifts.map(st => [st.key, dayRequests.filter(r => r.shift_type === st.key)])
+  );
 
   function resolveTime(assignment, shiftType, field) {
     if (assignment[field]) return assignment[field];
-    if (shiftType === 'morning') return field === 'start_time' ? morningStart : morningEnd;
-    if (shiftType === 'evening') return field === 'start_time' ? eveningStart : eveningEnd;
-    if (shiftType === 'night') return field === 'start_time' ? nightStart : nightEnd;
-    return field === 'start_time' ? eveningStart : eveningEnd; // Default to evening
+    const sd = shiftDefaults[shiftType];
+    return field === 'start_time' ? (sd?.default_start || eveningStart) : (sd?.default_end || eveningEnd);
   }
 
   function openAddModalInSite(siteId, shiftType) {
@@ -255,11 +258,9 @@ export default function DailyRoomView({ config, authToken }) {
     const custom = siteShiftTimes[key];
     if (custom) return custom;
 
-    // Return default times
-    if (shiftType === 'morning') return { start_time: morningStart, end_time: morningEnd };
-    if (shiftType === 'evening') return { start_time: eveningStart, end_time: eveningEnd };
-    if (shiftType === 'night') return { start_time: nightStart, end_time: nightEnd };
-    return { start_time: eveningStart, end_time: eveningEnd };
+    // Return default times from config
+    const sd = shiftDefaults[shiftType];
+    return { start_time: sd?.default_start || eveningStart, end_time: sd?.default_end || eveningEnd };
   }
 
   function saveSiteShiftTimes(siteId, shiftType, startTime, endTime) {
@@ -646,17 +647,11 @@ export default function DailyRoomView({ config, authToken }) {
           <div className="worker-assignments">
             {worker.assignments.map((a) => {
               const site = config.sites.find(s => s.id === a.site_id);
-              let shiftLabel, shiftClass, startTime, endTime;
-              if (a.shift_type === 'morning') {
-                shiftLabel = '☀ בוקר'; shiftClass = 'morning';
-                startTime = a.start_time || morningStart; endTime = a.end_time || morningEnd;
-              } else if (a.shift_type === 'night') {
-                shiftLabel = '⭐ תורנות'; shiftClass = 'night';
-                startTime = a.start_time || nightStart; endTime = a.end_time || nightEnd;
-              } else {
-                shiftLabel = '🌙 ערב'; shiftClass = 'evening';
-                startTime = a.start_time || eveningStart; endTime = a.end_time || eveningEnd;
-              }
+              const sd = shiftDefaults[a.shift_type] || {};
+              const shiftLabel = `${sd.icon || ''} ${sd.label_he || a.shift_type}`.trim();
+              const shiftClass = a.shift_type;
+              const startTime = a.start_time || sd.default_start || eveningStart;
+              const endTime   = a.end_time   || sd.default_end   || eveningEnd;
               return (
                 <div key={a.id} className="assignment-row">
                   <span className={`assignment-shift-badge ${shiftClass}`}>{shiftLabel}</span>
@@ -964,7 +959,7 @@ export default function DailyRoomView({ config, authToken }) {
 
             const dayAssignments = assignments.filter(a => a.date === dateStr);
             const shiftStats = (config.shift_types || [])
-              .filter(st => st.key !== 'oncall')
+              .filter(st => st.show_in_assignments)
               .map(st => {
                 const slotsForShift = configuredSlots.filter(a => a.shift_type === st.key);
                 const assignedSiteIds = new Set(
@@ -1051,10 +1046,11 @@ export default function DailyRoomView({ config, authToken }) {
           <div className="room-requests-bar">
             <span className="room-requests-label">עובדים זמינים:</span>
             <div className="room-requests-content">
-              {[
-                { icon: '☀', label: 'בוקר', requests: morningRequests, color: '#b45309', bg: '#fef3c7' },
-                { icon: '🌙', label: 'ערב', requests: eveningRequests, color: '#1e40af', bg: '#dbeafe' }
-              ].map(({ icon, label, requests, color, bg }) => (
+              {availabilityShifts.map(st => {
+                const requests = requestsByShift[st.key] || [];
+                const { icon, label_he: label, color, bg_color: bg } = st;
+                return ({ icon, label, requests, color, bg });
+              }).map(({ icon, label, requests, color, bg }) => (
                 <div key={label} className="room-requests-shift">
                   <span className="room-requests-icon" style={{color, background: bg, padding: '0.05rem 0.35rem', borderRadius: '3px', fontWeight: 700}}>{icon} {label}:</span>
                   {requests.length === 0 ? (

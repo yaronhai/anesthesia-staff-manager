@@ -182,18 +182,6 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           />
         </label>
 
-        {initial && (
-          <label className="form-row-checkbox">
-            <input
-              type="checkbox"
-              name="is_active"
-              checked={form.is_active}
-              onChange={handleChange}
-            />
-            עובד פעיל (גלובלי)
-          </label>
-        )}
-
         {isSuperAdmin && (
           <label>
             סניף ראשי

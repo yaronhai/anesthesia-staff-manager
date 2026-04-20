@@ -436,15 +436,11 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
             <span className="legend-label">תרגום צבעים:</span>
           </div>
           <div className="legend-row">
-            <span className="legend-item">
-              <span className="legend-color" style={{ background: '#10b981' }}></span> יכול
-            </span>
-            <span className="legend-item">
-              <span className="legend-color" style={{ background: '#f59e0b' }}></span> מעדיף
-            </span>
-            <span className="legend-item">
-              <span className="legend-color" style={{ background: '#ef4444' }}></span> לא יכול
-            </span>
+            {prefs.map(p => (
+              <span key={p.key} className="legend-item">
+                <span className="legend-color" style={{ background: p.color }}></span> {p.label_he}
+              </span>
+            ))}
             <span className="legend-item">
               <span className="legend-color" style={{ background: '#fee2e2' }}></span> יום שבת
             </span>

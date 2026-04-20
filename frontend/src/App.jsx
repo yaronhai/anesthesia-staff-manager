@@ -241,7 +241,7 @@ export default function App() {
               <select
                 value={selectedBranchId ?? ''}
                 onChange={e => handleBranchSelect(e.target.value || null)}
-                style={{fontSize: '0.85rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.15)', color: 'inherit', cursor: 'pointer'}}
+                style={{fontSize: '0.85rem', padding: '2px 8px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', color: '#1a2e4a', cursor: 'pointer'}}
               >
                 <option value="">— כל הסניפים —</option>
                 {branches.map(b => (
@@ -259,7 +259,12 @@ export default function App() {
             <button onClick={() => setShowSettings(true)} className="btn-settings">⚙️</button>
           )}
           <div className="header-user">
-            <span className="header-username">{currentUser.displayName || currentUser.username}</span>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',lineHeight:1.2}}>
+              <span className="header-username">{currentUser.displayName || currentUser.username}</span>
+              <span style={{fontSize:'0.72rem',opacity:0.75,marginTop:'0.1rem'}}>
+                {isSuperAdmin ? 'מנהל ראשי' : isAdmin ? 'מנהל סניף' : 'משתמש'}
+              </span>
+            </div>
             <button onClick={handleLogout} className="btn-logout">יציאה</button>
           </div>
         </div>
@@ -336,13 +341,11 @@ export default function App() {
               <option value="inactive">לא פעילים</option>
               <option value="all">כולם</option>
             </select>
-            {!isSuperAdmin && (
-              <select value={filterBranchType} onChange={e => setFilterBranchType(e.target.value)}>
-                <option value="primary">סניף ראשי</option>
-                <option value="secondary">מושאלים</option>
-                <option value="all">כולם</option>
-              </select>
-            )}
+            <select value={filterBranchType} onChange={e => setFilterBranchType(e.target.value)}>
+              <option value="primary">ראשי בסניף</option>
+              <option value="secondary">מושאלים</option>
+              <option value="all">כולם</option>
+            </select>
             {(filterJobId || filterEmpTypeId || filterActive !== 'active' || filterBranchType !== 'primary') && (
               <button className="btn-secondary"
                 onClick={() => { setFilterJobId(''); setFilterEmpTypeId(''); setFilterActive('active'); setFilterBranchType('primary'); }}>
