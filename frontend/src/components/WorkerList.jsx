@@ -250,6 +250,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
           config={config}
         />
       )}
+      <div className="worker-table-wrap">
       <table className="worker-table">
         <thead>
           <tr>
@@ -303,6 +304,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
           ))}
         </tbody>
       </table>
+      </div>
     </>
   );
 }

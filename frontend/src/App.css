@@ -224,13 +224,23 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .btn-auth:hover { background: #16a34a; }
 
 /* Table */
+.worker-table-wrap {
+  overflow-y: auto;
+  max-height: calc(100vh - 230px);
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
 .worker-table {
   width: 100%;
   border-collapse: collapse;
   background: white;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.worker-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .worker-table th {

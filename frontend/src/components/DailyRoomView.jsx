@@ -1497,22 +1497,22 @@ export default function DailyRoomView({ config, authToken }) {
     {/* Suggestion modal */}
     {suggestionModal && (
       <div className="form-overlay" onClick={() => setSuggestionModal(null)}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto'}}>
-          <div className="modal-header">
-            <h3>הצעות שיבוץ אוטומטי ל-{dateLabel}</h3>
+        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto'}}>
+          <div className="modal-header" style={{padding: '0.6rem 1rem'}}>
+            <h3 style={{fontSize: '0.95rem'}}>הצעות שיבוץ אוטומטי ל-{dateLabel}</h3>
             <button className="btn-close" onClick={() => setSuggestionModal(null)}>✕</button>
           </div>
-          <div className="modal-body">
+          <div className="modal-body" style={{padding: '0.5rem 0.75rem'}}>
             {suggestionModal.suggestions.length === 0 && suggestionModal.unassignable.length === 0 ? (
               <p style={{textAlign: 'center', color: '#666'}}>אין הצעות שיבוץ זמינות. ודא שהוגדרו סוגי פעילות לחדרים ושעובדים ביקשו את המשמרות.</p>
             ) : (
               <>
                 {suggestionModal.suggestions.length > 0 && (
-                  <div style={{marginBottom: '1.5rem'}}>
-                    <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem', color: '#1a2e4a'}}>הצעות שיבוץ:</h4>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                  <div style={{marginBottom: '0.4rem'}}>
+                    <div style={{fontSize: '0.72rem', fontWeight: 600, marginBottom: '0.2rem', color: '#1a2e4a'}}>הצעות שיבוץ:</div>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '1px'}}>
                       {suggestionModal.suggestions.map((suggestion, idx) => (
-                        <label key={idx} style={{display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb', cursor: 'pointer'}}>
+                        <label key={idx} style={{display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.2rem 0.4rem', backgroundColor: suggestionModal.selected[idx] ? '#eff6ff' : '#f9fafb', borderRadius: '4px', border: `1px solid ${suggestionModal.selected[idx] ? '#bfdbfe' : '#e5e7eb'}`, cursor: 'pointer', fontSize: '0.8rem', lineHeight: 1.3}}>
                           <input
                             type="checkbox"
                             checked={!!suggestionModal.selected[idx]}
@@ -1525,24 +1525,20 @@ export default function DailyRoomView({ config, authToken }) {
                               }
                               setSuggestionModal({...suggestionModal, selected: newSelected});
                             }}
-                            style={{cursor: 'pointer'}}
+                            style={{cursor: 'pointer', flexShrink: 0}}
                           />
-                          <div style={{flex: 1}}>
-                            <span style={{fontWeight: 600, color: '#1a2e4a'}}>{suggestion.site_name}</span>
-                            <span style={{color: '#666', marginRight: '0.5rem'}}>({shiftDefaults[suggestion.shift_type]?.label_he || suggestion.shift_type})</span>
-                            <br />
-                            <span style={{fontSize: '0.9rem', color: '#666'}}>
-                              {suggestion.worker_name}
-                              <span style={{marginLeft: '0.5rem', padding: '0.1rem 0.4rem', backgroundColor: suggestion.preference_type === 'prefer' ? '#d1fae5' : '#dbeafe', borderRadius: '3px', fontSize: '0.8rem', fontWeight: 500, color: suggestion.preference_type === 'prefer' ? '#065f46' : '#0c4a6e'}}>
-                                ✓ {prefLabel[suggestion.preference_type] || suggestion.preference_type}
-                              </span>
-                              {suggestion.is_fairness_site && (
-                                <span title={`שיבוצי עובד לאתרי צדק: ${suggestion.fairness_count}`} style={{marginRight: '0.35rem', padding: '0.1rem 0.4rem', background: '#fef3c7', border: '1px solid #d97706', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 500, color: '#92400e'}}>
-                                  ⚖️ {suggestion.fairness_count}
-                                </span>
-                              )}
+                          <span style={{fontWeight: 600, color: '#1a2e4a'}}>{suggestion.site_name}</span>
+                          <span style={{color: '#888'}}>({shiftDefaults[suggestion.shift_type]?.label_he || suggestion.shift_type})</span>
+                          <span style={{color: '#555', marginRight: '0.1rem'}}>—</span>
+                          <span style={{color: '#333'}}>{suggestion.worker_name}</span>
+                          <span style={{padding: '0 0.25rem', backgroundColor: suggestion.preference_type === 'prefer' ? '#d1fae5' : '#dbeafe', borderRadius: '3px', fontSize: '0.68rem', fontWeight: 500, color: suggestion.preference_type === 'prefer' ? '#065f46' : '#0c4a6e', whiteSpace: 'nowrap'}}>
+                            ✓ {prefLabel[suggestion.preference_type] || suggestion.preference_type}
+                          </span>
+                          {suggestion.is_fairness_site && (
+                            <span title={`שיבוצי עובד לאתרי צדק: ${suggestion.fairness_count}`} style={{padding: '0 0.25rem', background: '#fef3c7', border: '1px solid #d97706', borderRadius: '3px', fontSize: '0.68rem', fontWeight: 500, color: '#92400e', whiteSpace: 'nowrap'}}>
+                              ⚖️{suggestion.fairness_count}
                             </span>
-                          </div>
+                          )}
                         </label>
                       ))}
                     </div>
@@ -1550,32 +1546,18 @@ export default function DailyRoomView({ config, authToken }) {
                 )}
 
                 {suggestionModal.unassignable.length > 0 && (
-                  <div style={{padding: '1rem', backgroundColor: '#fef2f2', borderRadius: '6px', border: '1px solid #fee2e2'}}>
-                    <h4 style={{fontSize: '1rem', fontWeight: 600, margin: '0 0 0.75rem 0', color: '#991b1b'}}>⚠️ לא ניתן לשבץ:</h4>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+                  <div style={{padding: '0.3rem 0.5rem', backgroundColor: '#fef2f2', borderRadius: '4px', border: '1px solid #fee2e2'}}>
+                    <div style={{fontSize: '0.72rem', fontWeight: 600, marginBottom: '0.2rem', color: '#991b1b'}}>⚠️ לא ניתן לשבץ:</div>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '1px'}}>
                       {suggestionModal.unassignable.map((item, idx) => (
-                        <div key={idx} style={{fontSize: '0.9rem', color: '#7f1d1d', paddingBottom: '0.75rem', borderBottom: item !== suggestionModal.unassignable[suggestionModal.unassignable.length - 1] ? '1px solid #fecaca' : 'none'}}>
-                          <div style={{fontWeight: 600, marginBottom: '0.5rem'}}>
-                            <span>{item.site_name}</span>
-                            <span style={{marginRight: '0.5rem'}}>({shiftDefaults[item.shift_type]?.label_he || item.shift_type})</span>
-                          </div>
-                          {item.group_name && (
-                            <div style={{fontSize: '0.85rem', color: '#991b1b', marginBottom: '0.5rem'}}>
-                              קבוצה: {item.group_name}
-                            </div>
-                          )}
-                          <div style={{fontSize: '0.9rem', fontWeight: 500, color: '#991b1b', marginBottom: '0.5rem', padding: '0.5rem', backgroundColor: '#fff5f5', borderRadius: '4px'}}>
-                            {item.reason}
-                          </div>
+                        <div key={idx} style={{fontSize: '0.75rem', color: '#7f1d1d', padding: '0.15rem 0.3rem', borderRadius: '3px', backgroundColor: '#fff5f5', lineHeight: 1.4}}>
+                          <span style={{fontWeight: 600}}>{item.site_name}</span>
+                          <span style={{color: '#991b1b', marginRight: '0.3rem'}}>({shiftDefaults[item.shift_type]?.label_he || item.shift_type})</span>
+                          <span style={{color: '#b91c1c'}}>: {item.reason}</span>
                           {item.unavailable_workers && item.unavailable_workers.length > 0 && (
-                            <div style={{fontSize: '0.85rem', color: '#7f1d1d', backgroundColor: '#fff7f7', padding: '0.5rem', borderRadius: '4px'}}>
-                              <div style={{fontWeight: 500, marginBottom: '0.3rem'}}>עובדים שביקשו אך חסרה להם הרשאה:</div>
-                              {item.unavailable_workers.map((w, wIdx) => (
-                                <div key={wIdx} style={{marginLeft: '1rem', fontSize: '0.85rem', padding: '0.2rem 0'}}>
-                                  • <span style={{fontWeight: 500}}>{w.name}</span>: {w.reason}
-                                </div>
-                              ))}
-                            </div>
+                            <span style={{color: '#9f1239', marginRight: '0.3rem'}}>
+                              [{item.unavailable_workers.map(w => w.name).join(', ')} — חסרה הרשאה]
+                            </span>
                           )}
                         </div>
                       ))}
@@ -1585,7 +1567,7 @@ export default function DailyRoomView({ config, authToken }) {
               </>
             )}
           </div>
-          <div className="modal-footer">
+          <div className="modal-footer" style={{padding: '0.5rem 0.75rem'}}>
             <div>
               <button className="btn-secondary" onClick={() => setSuggestionModal(null)}>ביטול</button>
               <button
