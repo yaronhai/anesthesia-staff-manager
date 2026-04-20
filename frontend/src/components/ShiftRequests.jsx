@@ -241,7 +241,21 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
     id: w.id,
     userId: w.user_id,
     name: `${w.first_name} ${w.family_name}`,
+    job: w.job || 'אחר',
   }));
+
+  // Group rows by job and sort each group alphabetically
+  const jobGroups = [];
+  const jobMap = {};
+  rows.forEach(row => {
+    if (!jobMap[row.job]) {
+      jobMap[row.job] = [];
+      jobGroups.push(row.job);
+    }
+    jobMap[row.job].push(row);
+  });
+  jobGroups.sort((a, b) => a.localeCompare(b, 'he'));
+  jobGroups.forEach(job => jobMap[job].sort((a, b) => a.name.localeCompare(b.name, 'he')));
 
   return (
     <>
@@ -263,28 +277,37 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
             </tr>
           </thead>
           <tbody>
-            {rows.map(row => (
-              <tr key={row.userId}>
-                <td className="admin-grid-name-col">{row.name}</td>
-                {days.map(d => {
-                  const dayData = requestMap[row.userId]?.[d] || {};
-                  const dow = new Date(year, month, d).getDay();
-                  const isSaturday = dow === 6;
-                  return (
-                    <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}`} onClick={() => setEditingCell({ userId: row.userId, day: d })}>
-                      <div className="admin-cell-pills">
-                        {shifts.map(s => {
-                          const req = dayData[s.key];
-                          return req
-                            ? <span key={s.key} className={`cell-pill pref-${req.pref}`}>{s.label_short}</span>
-                            : null;
-                        })}
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {jobGroups.map(job => ([
+              <tr key={`job-${job}`}>
+                <td colSpan={days.length + 1} style={{
+                  background: '#1a2e4a', color: 'white',
+                  fontWeight: 700, fontSize: '0.78rem',
+                  padding: '0.25rem 0.6rem', letterSpacing: '0.03em'
+                }}>{job}</td>
+              </tr>,
+              ...jobMap[job].map(row => (
+                <tr key={row.userId}>
+                  <td className="admin-grid-name-col">{row.name}</td>
+                  {days.map(d => {
+                    const dayData = requestMap[row.userId]?.[d] || {};
+                    const dow = new Date(year, month, d).getDay();
+                    const isSaturday = dow === 6;
+                    return (
+                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}`} onClick={() => setEditingCell({ userId: row.userId, day: d })}>
+                        <div className="admin-cell-pills">
+                          {shifts.map(s => {
+                            const req = dayData[s.key];
+                            return req
+                              ? <span key={s.key} className={`cell-pill pref-${req.pref}`}>{s.label_short}</span>
+                              : null;
+                          })}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            ]))}
           </tbody>
         </table>
       </div>

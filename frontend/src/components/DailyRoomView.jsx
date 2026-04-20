@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function DailyRoomView({ config, authToken }) {
   const [viewDate, setViewDate] = useState(new Date());
@@ -50,6 +50,8 @@ export default function DailyRoomView({ config, authToken }) {
   const [editingAssignment, setEditingAssignment] = useState(null);
   const [editTimes, setEditTimes] = useState({ start_time: '', end_time: '', notes: '' });
 
+
+  const datePickerRef = useRef(null);
 
   // Report preview modal
   const [showReportPreview, setShowReportPreview] = useState(false);
@@ -406,9 +408,34 @@ export default function DailyRoomView({ config, authToken }) {
     return group ? { name: group.name, color: group.color || '#667eea' } : { name: 'ללא קבוצה', color: '#e5e7eb' };
   }
 
+  function groupRequestsByJob(requests) {
+    const groups = {};
+    requests.forEach(r => {
+      const job = workers.find(w => w.id === r.worker_id)?.job || 'אחר';
+      if (!groups[job]) groups[job] = [];
+      groups[job].push(r);
+    });
+    return groups;
+  }
+
+  function groupWorkersByJob(workerList) {
+    const groups = {};
+    workerList.forEach(w => {
+      const job = w.job || 'אחר';
+      if (!groups[job]) groups[job] = [];
+      groups[job].push(w);
+    });
+    return groups;
+  }
+
   function getUnassignedWorkers() {
     const assignedWorkerIds = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
-    return workers.filter(w => !assignedWorkerIds.has(w.id)).sort((a, b) => a.first_name.localeCompare(b.first_name, 'he'));
+    const requestedWorkerIds = new Set(
+      shiftRequests.filter(r => r.date === dateStr && (r.preference_type === 'can' || r.preference_type === 'prefer')).map(r => r.worker_id)
+    );
+    return workers
+      .filter(w => !assignedWorkerIds.has(w.id) && requestedWorkerIds.has(w.id))
+      .sort((a, b) => a.first_name.localeCompare(b.first_name, 'he'));
   }
 
 
@@ -590,13 +617,52 @@ export default function DailyRoomView({ config, authToken }) {
       }
     });
 
-    // Get all workers with their assignments (including those with no assignments)
-    const allWorkerAssignments = workers.map(w => ({
-      id: w.id,
-      name: `${w.first_name} ${w.family_name}`,
-      first_name: w.first_name,
-      assignments: workerAssignments[w.id]?.assignments || []
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    // Get only workers who have at least one assignment, grouped by job
+    const allWorkerAssignments = workers
+      .filter(w => workerAssignments[w.id])
+      .map(w => ({
+        id: w.id,
+        name: `${w.first_name} ${w.family_name}`,
+        job: w.job || 'אחר',
+        assignments: workerAssignments[w.id].assignments
+      })).sort((a, b) => a.name.localeCompare(b.name, 'he'));
+
+    const byJob = {};
+    allWorkerAssignments.forEach(w => {
+      if (!byJob[w.job]) byJob[w.job] = [];
+      byJob[w.job].push(w);
+    });
+
+    function renderWorkerCard(worker) {
+      return (
+        <div key={worker.id} className="worker-report-section">
+          <div className="worker-report-name">{worker.name}</div>
+          <div className="worker-assignments">
+            {worker.assignments.map((a) => {
+              const site = config.sites.find(s => s.id === a.site_id);
+              let shiftLabel, shiftClass, startTime, endTime;
+              if (a.shift_type === 'morning') {
+                shiftLabel = '☀ בוקר'; shiftClass = 'morning';
+                startTime = a.start_time || morningStart; endTime = a.end_time || morningEnd;
+              } else if (a.shift_type === 'night') {
+                shiftLabel = '⭐ תורנות'; shiftClass = 'night';
+                startTime = a.start_time || nightStart; endTime = a.end_time || nightEnd;
+              } else {
+                shiftLabel = '🌙 ערב'; shiftClass = 'evening';
+                startTime = a.start_time || eveningStart; endTime = a.end_time || eveningEnd;
+              }
+              return (
+                <div key={a.id} className="assignment-row">
+                  <span className={`assignment-shift-badge ${shiftClass}`}>{shiftLabel}</span>
+                  <span className="assignment-site">{site?.name}</span>
+                  <span className="assignment-time">{formatTime24(startTime)}–{formatTime24(endTime)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="form-overlay" onClick={() => setShowReportPreview(false)}>
@@ -610,52 +676,19 @@ export default function DailyRoomView({ config, authToken }) {
           </div>
           <div className="report-content">
             <div className="report-wrapper">
-              <div className="report-title">
-                <h1>{title}</h1>
-                <p>דוח שיבוצים יומי לעובדים</p>
-              </div>
-              <div className="workers-list">
-                {allWorkerAssignments.map(worker => (
-                  <div key={worker.id} className="worker-report-section">
-                    <div className="worker-report-name">{worker.name}</div>
-                    <div className="worker-assignments">
-                      {worker.assignments.length === 0 ? (
-                        <div className="no-assignments">לא משובץ</div>
-                      ) : (
-                        <div style={{display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: '0.5rem', alignItems: 'center'}}>
-                          {worker.assignments.map((a) => {
-                            const site = config.sites.find(s => s.id === a.site_id);
-                            let shiftLabel = '🌙 ערב';
-                            let startTime, endTime;
-                            if (a.shift_type === 'morning') {
-                              shiftLabel = '☀ בוקר';
-                              startTime = a.start_time || morningStart;
-                              endTime = a.end_time || morningEnd;
-                            } else if (a.shift_type === 'night') {
-                              shiftLabel = '⭐ תורנות';
-                              startTime = a.start_time || nightStart;
-                              endTime = a.end_time || nightEnd;
-                            } else {
-                              startTime = a.start_time || eveningStart;
-                              endTime = a.end_time || eveningEnd;
-                            }
-
-                            return (
-                              <div key={a.id} style={{display: 'contents'}}>
-                                <div className="assignment-shift-badge">{shiftLabel}</div>
-                                <div className="assignment-site">{site?.name}</div>
-                                <div className="assignment-job">({a.job_name})</div>
-                                <div className="assignment-time">{formatTime24(startTime)}–{formatTime24(endTime)}</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+              <div className="report-print-title">{title}</div>
+              {Object.entries(byJob).map(([job, jobWorkers]) => (
+                <div key={job} style={{marginBottom: '1rem'}}>
+                  <div style={{
+                    fontSize: '0.7rem', fontWeight: 700, color: '#1a2e4a',
+                    marginBottom: '0.5rem', letterSpacing: '0.03em'
+                  }}>{job}</div>
+                  <div className="workers-list">
+                    {jobWorkers.map(renderWorkerCard)}
                   </div>
-                ))}
-              </div>
-              <div style={{marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #ddd'}}>
+                </div>
+              ))}
+              <div style={{marginTop: '1rem', paddingTop: '0'}}>
                 <h3 style={{fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem'}}>עובדים שלא משובצים:</h3>
                 <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem'}}>
                   {getUnassignedWorkers().length === 0 ? (
@@ -888,13 +921,33 @@ export default function DailyRoomView({ config, authToken }) {
     <>
     <div className="room-view-container">
       <div className="room-view-header">
+        <div className="room-nav" style={{marginBottom: '0.4rem'}}>
+          <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
+          <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
+          <button className="btn-secondary btn-sm" onClick={prevDay}>◀ יום</button>
+          <span
+            onClick={() => datePickerRef.current?.showPicker()}
+            style={{ fontSize: '1rem', fontWeight: 700, color: '#8B0000', borderRadius: '6px', border: '1px solid #d1d5db', padding: '0.25rem 0.75rem', cursor: 'pointer', background: 'white', userSelect: 'none' }}
+          >
+            {String(day).padStart(2,'0')}/{String(month).padStart(2,'0')}/{year}
+          </span>
+          <input
+            ref={datePickerRef}
+            type="date"
+            value={dateStr}
+            onChange={e => { if (e.target.value) setViewDate(new Date(e.target.value + 'T12:00:00')); }}
+            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+          />
+          <button className="btn-secondary btn-sm" onClick={nextDay}>יום ▶</button>
+          <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
+          <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
+        </div>
         <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
           <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <h2>שיבוצים לחדרים</h2>
             <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋 תבנית</button>
             <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
             <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
-            <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ הדפס</button>
+            <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ דו"ח שיבוצים</button>
           </div>
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
           {(() => {
@@ -970,16 +1023,6 @@ export default function DailyRoomView({ config, authToken }) {
             );
           })()}
         </div>
-        <div className="room-nav">
-
-          <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
-          <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
-          <button className="btn-secondary btn-sm" onClick={prevDay}>◀ יום</button>
-          <span className="room-date-label">{dateLabel}</span>
-          <button className="btn-secondary btn-sm" onClick={nextDay}>יום ▶</button>
-          <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
-          <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
-        </div>
         <div className="room-shift-times-bar">
           {(config.shift_types || []).filter(st => st.default_start).map(st => (
             <span key={st.key} style={{display: 'contents'}}>
@@ -1000,52 +1043,51 @@ export default function DailyRoomView({ config, authToken }) {
       ) : (
         <>
           <div className="room-requests-bar">
-            <span className="room-requests-label">עובדים זמינים ({dateStr}):</span>
+            <span className="room-requests-label">עובדים זמינים:</span>
             <div className="room-requests-content">
-              <div className="room-requests-shift">
-                <span className="room-requests-icon">☀ בוקר:</span>
-                {morningRequests.length === 0 ? (
-                  <span className="room-requests-empty">אין</span>
-                ) : (
-                  morningRequests.map(r => (
-                    <span
-                      key={r.id}
-                      className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
-                      title={prefLabel[r.preference_type]}
-                    >
-                      {r.first_name} {r.family_name}
-                    </span>
-                  ))
-                )}
-              </div>
-              <div className="room-requests-shift">
-                <span className="room-requests-icon">🌙 ערב:</span>
-                {eveningRequests.length === 0 ? (
-                  <span className="room-requests-empty">אין</span>
-                ) : (
-                  eveningRequests.map(r => (
-                    <span
-                      key={r.id}
-                      className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
-                      title={prefLabel[r.preference_type]}
-                    >
-                      {r.first_name} {r.family_name}
-                    </span>
-                  ))
-                )}
-              </div>
+              {[
+                { icon: '☀', label: 'בוקר', requests: morningRequests, color: '#b45309', bg: '#fef3c7' },
+                { icon: '🌙', label: 'ערב', requests: eveningRequests, color: '#1e40af', bg: '#dbeafe' }
+              ].map(({ icon, label, requests, color, bg }) => (
+                <div key={label} className="room-requests-shift">
+                  <span className="room-requests-icon" style={{color, background: bg, padding: '0.05rem 0.35rem', borderRadius: '3px', fontWeight: 700}}>{icon} {label}:</span>
+                  {requests.length === 0 ? (
+                    <span className="room-requests-empty">אין</span>
+                  ) : (
+                    Object.entries(groupRequestsByJob(requests)).map(([job, reqs]) => (
+                      <span key={job} style={{display:'inline-flex', alignItems:'center', gap:'0.15rem', marginRight:'0.4rem'}}>
+                        <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
+                        {reqs.map(r => (
+                          <span
+                            key={r.id}
+                            className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
+                            title={prefLabel[r.preference_type]}
+                          >
+                            {r.first_name} {r.family_name}
+                          </span>
+                        ))}
+                      </span>
+                    ))
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
           <div className="room-unassigned-bar">
-            <span className="room-unassigned-label">עובדים שלא משובצים ({dateStr}):</span>
+            <span className="room-unassigned-label">עובדים שלא משובצים:</span>
             <div className="room-unassigned-content">
               {getUnassignedWorkers().length === 0 ? (
                 <span className="room-unassigned-empty">כל העובדים משובצים ✓</span>
               ) : (
-                getUnassignedWorkers().map(w => (
-                  <span key={w.id} className="room-unassigned-worker">
-                    {w.first_name} {w.family_name}
+                Object.entries(groupWorkersByJob(getUnassignedWorkers())).map(([job, wList]) => (
+                  <span key={job} style={{display:'inline-flex', alignItems:'center', gap:'0.15rem', marginRight:'0.4rem'}}>
+                    <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
+                    {wList.map(w => (
+                      <span key={w.id} className="room-unassigned-worker">
+                        {w.first_name} {w.family_name}
+                      </span>
+                    ))}
                   </span>
                 ))
               )}
@@ -1060,6 +1102,19 @@ export default function DailyRoomView({ config, authToken }) {
               flexWrap: 'wrap', padding: '0.5rem 0.5rem 0 0.5rem',
               marginBottom: '1rem'
             }}>
+              <button
+                onClick={() => setSelectedGroupId('__all__')}
+                style={{
+                  padding: '0.75rem 1rem',
+                  border: 'none',
+                  background: selectedGroupId === '__all__' ? '#1a2e4a' : '#f3f4f6',
+                  color: selectedGroupId === '__all__' ? 'white' : '#666',
+                  fontWeight: selectedGroupId === '__all__' ? 600 : 400,
+                  cursor: 'pointer',
+                  borderRadius: '6px 6px 0 0',
+                  whiteSpace: 'nowrap',
+                }}
+              >הכל</button>
               {Object.entries(groupSitesByGroup(config.sites)).map(([groupId, sites]) => {
                 const group = getGroup(groupId);
                 return (
@@ -1086,13 +1141,18 @@ export default function DailyRoomView({ config, authToken }) {
             {selectedGroupId ? (
               // Sites grid for selected group
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                gap: '0.8rem',
-                maxHeight: 'calc(100vh - 250px)',
-                overflow: 'hidden'
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+                justifyContent: 'flex-start',
+                alignContent: 'flex-start',
+                maxHeight: 'calc(100vh - 200px)',
+                overflow: 'auto'
               }}>
-                {groupSitesByGroup(config.sites)[selectedGroupId]?.map((site) => {
+                {(selectedGroupId === '__all__'
+                  ? config.sites.slice().sort(sortSites)
+                  : groupSitesByGroup(config.sites)[selectedGroupId] || []
+                ).map((site) => {
                     const morningAssignments = getSiteShiftAssignments(site.id, 'morning');
                     const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
                     const morningActivity = getSiteShiftActivity(site.id, 'morning');
@@ -1122,7 +1182,7 @@ export default function DailyRoomView({ config, authToken }) {
                               </span>
                             )}
                           </div>
-                          <div className="site-square-names" style={{marginLeft: '1.2rem', fontSize: '0.75rem', lineHeight: '1.2'}}>
+                          <div className="site-square-names" style={{marginLeft: '1.2rem', fontSize: '0.58rem', lineHeight: '1.3'}}>
                             {morningAssignments.length > 0 ? (
                               morningAssignments.map((a, idx) => (
                                 <div key={idx}>{a.first_name} {a.family_name} ({a.job_name})</div>
@@ -1149,7 +1209,7 @@ export default function DailyRoomView({ config, authToken }) {
                               </span>
                             )}
                           </div>
-                          <div className="site-square-names" style={{marginLeft: '1.2rem', fontSize: '0.75rem', lineHeight: '1.2'}}>
+                          <div className="site-square-names" style={{marginLeft: '1.2rem', fontSize: '0.58rem', lineHeight: '1.3'}}>
                             {eveningAssignments.length > 0 ? (
                               eveningAssignments.map((a, idx) => (
                                 <div key={idx}>{a.first_name} {a.family_name} ({a.job_name})</div>

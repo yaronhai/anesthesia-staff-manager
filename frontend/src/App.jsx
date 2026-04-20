@@ -3,7 +3,6 @@ import WorkerList from './components/WorkerList';
 import WorkerForm from './components/WorkerForm';
 import AdminPanel from './components/AdminPanel';
 import ShiftRequests from './components/ShiftRequests';
-import MonthlyReport from './components/MonthlyReport';
 import DailyRoomView from './components/DailyRoomView';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
@@ -217,14 +216,6 @@ export default function App() {
         </button>
         {isAdmin && (
           <button
-            className={`tab-btn${activeTab === 'report' ? ' active' : ''}`}
-            onClick={() => setActiveTab('report')}
-          >
-            דו"ח חודשי
-          </button>
-        )}
-        {isAdmin && (
-          <button
             className={`tab-btn${activeTab === 'rooms' ? ' active' : ''}`}
             onClick={() => setActiveTab('rooms')}
           >
@@ -277,9 +268,6 @@ export default function App() {
         <ShiftRequests currentUser={currentUser} token={authToken} config={config} />
       )}
 
-      {activeTab === 'report' && isAdmin && (
-        <MonthlyReport token={authToken} config={config} />
-      )}
 
       {activeTab === 'rooms' && isAdmin && (
         <DailyRoomView config={config} authToken={authToken} />

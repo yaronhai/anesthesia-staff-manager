@@ -162,6 +162,9 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
 }
 
 function WorkerDetail({ worker, onClose, onEdit, authToken, config }) {
+  const independentTypeIds = new Set(
+    (config.employment_types || []).filter(t => t.is_independent).map(t => t.id)
+  );
   return (
     <div className="form-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={e => e.stopPropagation()}>

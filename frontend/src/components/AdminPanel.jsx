@@ -283,20 +283,25 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
 
         <div style={{display: 'flex', flexDirection: 'column', flex: 1}}>
           {/* Tabs */}
-          <div style={{display: 'flex', gap: '0.25rem', borderBottom: '2px solid #e5e7eb', flexWrap: 'wrap', padding: '0 0.5rem'}}>
+          <div style={{display: 'flex', gap: '0.2rem', borderBottom: '2px solid #e2e8f0', flexWrap: 'wrap', padding: '0.6rem 1rem 0', background: '#f1f5f9'}}>
             {tabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 style={{
-                  padding: '0.75rem 1rem',
-                  border: 'none',
-                  background: activeTab === tab.key ? '#1a2e4a' : '#f3f4f6',
-                  color: activeTab === tab.key ? 'white' : '#666',
-                  fontWeight: activeTab === tab.key ? 600 : 400,
+                  padding: '0.5rem 0.9rem',
+                  border: '1px solid',
+                  borderColor: activeTab === tab.key ? '#cbd5e1' : 'transparent',
+                  borderBottom: activeTab === tab.key ? '2px solid white' : '2px solid transparent',
+                  background: activeTab === tab.key ? 'white' : 'transparent',
+                  color: activeTab === tab.key ? '#1a2e4a' : '#64748b',
+                  fontWeight: activeTab === tab.key ? 700 : 400,
                   cursor: 'pointer',
-                  borderRadius: '6px 6px 0 0',
+                  borderRadius: '7px 7px 0 0',
                   whiteSpace: 'nowrap',
+                  fontSize: '0.82rem',
+                  marginBottom: '-2px',
+                  transition: 'all 0.12s',
                 }}
               >
                 {tab.label}
@@ -305,7 +310,7 @@ export default function AdminPanel({ config, authToken, onConfigChange, onClose 
           </div>
 
           {/* Content */}
-          <div style={{flex: 1, overflow: 'auto', padding: '1.5rem'}}>
+          <div style={{flex: 1, overflow: 'auto', padding: '1rem 1.25rem 1.25rem'}}>
             {activeTab === 'groups' && (
               <>
                 <ul className="config-list">
