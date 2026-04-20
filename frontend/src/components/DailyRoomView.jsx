@@ -70,6 +70,12 @@ export default function DailyRoomView({ config, authToken }) {
   const [suggestionModal, setSuggestionModal] = useState(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
 
+  // Site card size
+  const [cardSize, setCardSize] = useState(148);
+  const MIN_CARD = 90;
+  const MAX_CARD = 280;
+  const STEP = 20;
+
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
   const day = viewDate.getDate();
@@ -1097,11 +1103,13 @@ export default function DailyRoomView({ config, authToken }) {
           <div className="room-view-body">
             {/* Group tabs */}
             <div style={{
-              display: 'flex', gap: '0.25rem',
+              display: 'flex', gap: '0.25rem', alignItems: 'center',
               borderBottom: '2px solid #e5e7eb',
               flexWrap: 'wrap', padding: '0.5rem 0.5rem 0 0.5rem',
-              marginBottom: '1rem'
+              marginBottom: '1rem', flexShrink: 0
             }}>
+              <button onClick={() => setCardSize(s => Math.max(MIN_CARD, s - STEP))} className="btn-secondary btn-sm" title="הקטן כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding:'0.1rem 0.5rem'}}>−</button>
+              <button onClick={() => setCardSize(s => Math.min(MAX_CARD, s + STEP))} className="btn-secondary btn-sm" title="הגדל כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding:'0.1rem 0.5rem'}}>+</button>
               <button
                 onClick={() => setSelectedGroupId('__all__')}
                 style={{
@@ -1146,7 +1154,7 @@ export default function DailyRoomView({ config, authToken }) {
                 gap: '0.5rem',
                 justifyContent: 'flex-start',
                 alignContent: 'flex-start',
-                maxHeight: 'calc(100vh - 200px)',
+                flex: 1,
                 overflow: 'auto'
               }}>
                 {(selectedGroupId === '__all__'
@@ -1158,31 +1166,32 @@ export default function DailyRoomView({ config, authToken }) {
                     const morningActivity = getSiteShiftActivity(site.id, 'morning');
                     const eveningActivity = getSiteShiftActivity(site.id, 'evening');
 
+                    const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
+                    const fs = v => `${(v * scale).toFixed(3)}rem`;
+
                     return (
                       <div
                         key={site.id}
                         className="site-square"
+                        style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem` }}
                         onClick={() => setSelectedSiteId(site.id)}
                       >
-                        <div className="site-square-title">{site.name}</div>
-                        <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem'}}>
-                          <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem', width: '100%'}}>
-                            <span className="site-square-icon">☀</span>
+                        <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
+                        <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`}}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
+                            <span className="site-square-icon" style={{fontSize: fs(0.78)}}>☀</span>
                             {morningActivity?.activity_type_id && (
                               <span style={{
-                                fontSize: '0.65rem',
-                                color: '#b45309',
-                                fontWeight: 600,
-                                padding: '0.2rem 0.35rem',
-                                background: '#fef9e7',
-                                borderRadius: '3px',
-                                whiteSpace: 'nowrap'
+                                fontSize: fs(0.65),
+                                color: '#b45309', fontWeight: 600,
+                                padding: `${0.2 * scale}rem ${0.35 * scale}rem`,
+                                background: '#fef9e7', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                               }}>
                                 {(config.activity_types || []).find(at => at.id === morningActivity.activity_type_id)?.name}
                               </span>
                             )}
                           </div>
-                          <div className="site-square-names" style={{marginLeft: '1.2rem', fontSize: '0.58rem', lineHeight: '1.3'}}>
+                          <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
                             {morningAssignments.length > 0 ? (
                               morningAssignments.map((a, idx) => (
                                 <div key={idx}>{a.first_name} {a.family_name} ({a.job_name})</div>
@@ -1192,24 +1201,21 @@ export default function DailyRoomView({ config, authToken }) {
                             )}
                           </div>
                         </div>
-                        <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem'}}>
-                          <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem', width: '100%'}}>
-                            <span className="site-square-icon">🌙</span>
+                        <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`}}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
+                            <span className="site-square-icon" style={{fontSize: fs(0.78)}}>🌙</span>
                             {eveningActivity?.activity_type_id && (
                               <span style={{
-                                fontSize: '0.65rem',
-                                color: '#0369a1',
-                                fontWeight: 600,
-                                padding: '0.2rem 0.35rem',
-                                background: '#f0f9ff',
-                                borderRadius: '3px',
-                                whiteSpace: 'nowrap'
+                                fontSize: fs(0.65),
+                                color: '#0369a1', fontWeight: 600,
+                                padding: `${0.2 * scale}rem ${0.35 * scale}rem`,
+                                background: '#f0f9ff', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                               }}>
                                 {(config.activity_types || []).find(at => at.id === eveningActivity.activity_type_id)?.name}
                               </span>
                             )}
                           </div>
-                          <div className="site-square-names" style={{marginLeft: '1.2rem', fontSize: '0.58rem', lineHeight: '1.3'}}>
+                          <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
                             {eveningAssignments.length > 0 ? (
                               eveningAssignments.map((a, idx) => (
                                 <div key={idx}>{a.first_name} {a.family_name} ({a.job_name})</div>

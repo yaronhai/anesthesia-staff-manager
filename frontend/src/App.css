@@ -2399,10 +2399,15 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .room-view-container {
   padding: 0.4rem 0.75rem;
   direction: rtl;
+  height: calc(100vh - 162px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .room-view-header {
   margin-bottom: 0.3rem;
+  flex-shrink: 0;
 }
 
 .room-view-header h2 {
@@ -2440,6 +2445,10 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   margin-top: 0.5rem;
   position: relative;
   z-index: 1;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .room-groups-grid {
@@ -2508,7 +2517,7 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
 .site-square-title {
   font-weight: 700;
   font-size: 0.78rem;
-  color: #1a2e4a;
+  color: #8B0000;
   text-align: center;
 }
 
@@ -2818,6 +2827,7 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   margin-bottom: 0.2rem;
   font-size: 0.68rem;
   min-height: 0;
+  flex-shrink: 0;
 }
 
 .room-requests-label {
@@ -2879,6 +2889,7 @@ header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
   overflow: hidden;
   white-space: nowrap;
   min-height: 0;
+  flex-shrink: 0;
 }
 
 .room-unassigned-label {
