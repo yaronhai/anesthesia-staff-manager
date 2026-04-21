@@ -21,15 +21,21 @@ function buildCalendarWeeks(year, month) {
 }
 
 // ── Day cell in user calendar ────────────────────────────────────────────────
-function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts }) {
+function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations }) {
   const isSaturday = dayOfWeek === 6;
+  const isVacation = vacations?.some(v =>
+    (v.status === 'approved' || v.status === 'partial') &&
+    v.approved_start && v.approved_end &&
+    v.approved_start <= dateStr && v.approved_end >= dateStr
+  );
   return (
     <div
-      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : ''}${dayRequests.length ? ' cal-has-data' : ''}`}
+      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : ''}${dayRequests.length ? ' cal-has-data' : ''}${isVacation ? ' cal-vacation-day' : ''}`}
       onClick={() => onClick(day, dateStr)}
     >
       <span className="cal-day-num">{day}</span>
       <div className="cal-day-name">{DAYS_HE[dayOfWeek]}</div>
+      {isVacation && <div className="vac-indicator">חופש ✓</div>}
       <div className="cal-indicators">
         {shifts.map(s => {
           const r = dayRequests.find(r => r.shift_type === s.key);
@@ -133,7 +139,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
 }
 
 // ── User calendar view ───────────────────────────────────────────────────────
-function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId }) {
+function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations }) {
   const [editingDay, setEditingDay] = useState(null); // { day, dateStr }
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -165,6 +171,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
                       onClick={openEditor}
                       dayOfWeek={dow}
                       shifts={shifts}
+                      vacations={vacations}
                     />
                   )}
                 </div>
@@ -321,14 +328,15 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                     const dayData = requestMap[row.userId]?.[d] || {};
                     const dow = new Date(year, month, d).getDay();
                     const isSaturday = dow === 6;
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const vac = vacations.find(v =>
+                      Number(v.user_id) === Number(row.userId) &&
+                      (v.status === 'approved' || v.status === 'partial') &&
+                      v.approved_start && v.approved_end &&
+                      v.approved_start <= dateStr && v.approved_end >= dateStr
+                    );
                     return (
-                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}`} onClick={() => {
-  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-  const vac = vacations.find(v =>
-    v.user_id === row.userId &&
-    (v.status === 'approved' || v.status === 'partial') &&
-    v.approved_start <= dateStr && v.approved_end >= dateStr
-  );
+                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}${vac ? ' vacation-day' : ''}`} onClick={() => {
   if (vac) {
     setVacationWarning(`לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`);
     return;
@@ -345,6 +353,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                               : null;
                           })}
                         </div>
+                        {vac && <span className="vac-badge">חופש</span>}
                       </td>
                     );
                   })}
@@ -413,6 +422,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
             )}
           </div>
         </div>
+      </div>
       )}
     </>
   );
@@ -475,7 +485,8 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
 
   useEffect(() => {
     fetchRequests();
-    if (isAdmin) { fetchWorkers(); fetchVacations(); }
+    fetchVacations();
+    if (isAdmin) { fetchWorkers(); }
   }, [fetchRequests, fetchWorkers, fetchVacations, isAdmin]);
 
   function prevMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
@@ -543,7 +554,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           <span style={{fontSize: '0.85rem', color: '#6b7280'}}>{workerBranches[0]?.branch_name}</span>
         )}
       </div>
-      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} />
+      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} vacations={vacations} />
     </div>
   );
 }

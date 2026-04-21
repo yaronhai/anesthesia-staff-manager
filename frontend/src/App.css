@@ -1499,6 +1499,43 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .admin-grid-cell:hover {
   background: #f0f9ff !important;
 }
+.admin-grid-cell.vacation-day {
+  background-color: #eff6ff;
+}
+.admin-grid-cell.vacation-day.admin-grid-saturday {
+  background-color: #ffcccc !important;
+}
+.vac-badge {
+  display: block;
+  font-size: 9px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-radius: 3px;
+  padding: 0 3px;
+  text-align: center;
+  margin-top: 2px;
+  font-weight: 600;
+}
+.cal-day.cal-vacation-day {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+.cal-day.cal-vacation-day.cal-saturday {
+  background: #fecaca !important;
+}
+.cal-day.cal-vacation-day.cal-today {
+  background: #dbeafe !important;
+}
+.vac-indicator {
+  font-size: 10px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin-bottom: 2px;
+  text-align: center;
+  font-weight: 600;
+}
 
 .admin-cell-editor {
   position: fixed;
