@@ -1773,7 +1773,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     // Open slots: configured activity AND no worker assigned yet, scoped to branch
     const openSlotsRes = branchId
       ? await query(`
-          SELECT ssa.site_id, ssa.shift_type
+          SELECT ssa.site_id, ssa.shift_type, ssa.activity_type_id
           FROM site_shift_activities ssa
           JOIN sites s ON ssa.site_id = s.id
           WHERE ssa.date = $1
@@ -1787,7 +1787,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             )
         `, [date, branchId])
       : await query(`
-          SELECT ssa.site_id, ssa.shift_type
+          SELECT ssa.site_id, ssa.shift_type, ssa.activity_type_id
           FROM site_shift_activities ssa
           WHERE ssa.date = $1
             AND ssa.activity_type_id IS NOT NULL
@@ -1799,6 +1799,21 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             )
         `, [date]);
     console.log('open slots from SQL:', JSON.stringify(openSlotsRes.rows));
+
+    // Fetch activity authorizations for all workers who requested shifts
+    const workerIds = [...new Set(shiftsRes.rows.map(r => r.worker_id))];
+    const workerAuthSet = new Map(); // worker_id -> Set<activity_type_id>
+    if (workerIds.length > 0) {
+      const placeholders = workerIds.map((_, i) => `$${i + 1}`).join(', ');
+      const authRes = await query(
+        `SELECT worker_id, activity_type_id FROM worker_activity_authorizations WHERE worker_id IN (${placeholders})`,
+        workerIds
+      );
+      authRes.rows.forEach(r => {
+        if (!workerAuthSet.has(r.worker_id)) workerAuthSet.set(r.worker_id, new Set());
+        workerAuthSet.get(r.worker_id).add(r.activity_type_id);
+      });
+    }
 
     // Fetch fairness scores: count assignments per worker to fairness-designated sites (branch-scoped)
     const fairnessCountByWorker = new Map();
@@ -1834,7 +1849,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       const allowedJobs = site.group_id ? groupAllowedJobs.get(site.group_id) : null;
       const hasRestriction = allowedJobs && allowedJobs.size > 0;
       if (!slotsByShift[r.shift_type]) slotsByShift[r.shift_type] = [];
-      slotsByShift[r.shift_type].push({ site, shift: r.shift_type, hasRestriction, allowedJobs });
+      slotsByShift[r.shift_type].push({ site, shift: r.shift_type, hasRestriction, allowedJobs, activity_type_id: r.activity_type_id });
     });
 
     const suggestions = [];
@@ -1853,11 +1868,11 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       // adjacency[slotIdx] = sorted array of eligible workerIdx (prefer first)
       const adjacency = shiftSlots.map(slot => {
         return shiftWorkers
-          .map((w, idx) => ({
-            idx,
-            preferFirst: w.preference_type === 'prefer' ? 0 : 1,
-            eligible: !slot.hasRestriction || slot.allowedJobs.has(w.job_id),
-          }))
+          .map((w, idx) => {
+            const jobOk = !slot.hasRestriction || slot.allowedJobs.has(w.job_id);
+            const authOk = !slot.activity_type_id || (workerAuthSet.get(w.worker_id)?.has(slot.activity_type_id) ?? false);
+            return { idx, preferFirst: w.preference_type === 'prefer' ? 0 : 1, eligible: jobOk && authOk };
+          })
           .filter(e => e.eligible)
           .sort((a, b) => {
             if (a.preferFirst !== b.preferFirst) return a.preferFirst - b.preferFirst;
@@ -1905,24 +1920,29 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             fairness_count: fairnessCountByWorker.get(worker.worker_id) ?? 0,
             is_fairness_site: fairnessSiteSet.has(slot.site.id),
           });
-        } else if (slot.hasRestriction) {
-          // Only report unassignable when there are job restrictions (otherwise it's just "no one requested")
+        } else {
           const allForShift = availableByShift[shift] || [];
-          const wrongJob = allForShift.filter(w => !slot.allowedJobs.has(w.job_id));
-          const reason = wrongJob.length > 0
-            ? `${wrongJob.length} עובד/ים ביקשו את המשמרת אך תפקידם לא מורשה לקבוצה זו`
-            : 'אף עובד עם תפקיד מתאים לא ביקש משמרת זו';
-          unassignable.push({
-            site_id: slot.site.id,
-            site_name: slot.site.name,
-            group_name: slot.site.group_name,
-            shift_type: shift,
-            reason,
-            unavailable_workers: wrongJob.slice(0, 5).map(w => ({
-              name: `${w.first_name} ${w.family_name}`,
-              reason: 'תפקיד לא מורשה לקבוצה זו',
-            })),
+          const ineligible = allForShift.filter(w => {
+            const jobOk = !slot.hasRestriction || slot.allowedJobs.has(w.job_id);
+            const authOk = !slot.activity_type_id || (workerAuthSet.get(w.worker_id)?.has(slot.activity_type_id) ?? false);
+            return !jobOk || !authOk;
           });
+          if (ineligible.length > 0 || slot.hasRestriction || slot.activity_type_id) {
+            const reason = ineligible.length > 0
+              ? `${ineligible.length} עובד/ים ביקשו את המשמרת אך חסרה להם הרשאה`
+              : 'אף עובד מורשה לא ביקש משמרת זו';
+            unassignable.push({
+              site_id: slot.site.id,
+              site_name: slot.site.name,
+              group_name: slot.site.group_name,
+              shift_type: shift,
+              reason,
+              unavailable_workers: ineligible.slice(0, 5).map(w => ({
+                name: `${w.first_name} ${w.family_name}`,
+                reason: !slot.allowedJobs?.has(w.job_id) ? 'תפקיד לא מורשה לקבוצה זו' : 'אין הרשאה לסוג פעילות זה',
+              })),
+            });
+          }
         }
       });
     }
