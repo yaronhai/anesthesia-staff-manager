@@ -262,7 +262,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
       const res = await fetch('/api/shift-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, user_id: userId, branch_id: branchId }),
+        body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, user_id: userId, branch_id: branchId, force_override: editingCell?.overrideVacation || false }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -374,7 +374,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
             <div style={{padding: '1rem 0', color: '#374151', fontSize: '0.95rem'}}>{vacationWarning.message}</div>
             <div style={{marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'center'}}>
               <button className="btn-secondary" onClick={() => setVacationWarning(null)}>סגור</button>
-              <button className="btn-primary" onClick={() => { setCellError(null); setEditingCell({ userId: vacationWarning.userId, day: vacationWarning.day }); setVacationWarning(null); }}>הגש בקשה בכל זאת</button>
+              <button className="btn-primary" onClick={() => { setCellError(null); setEditingCell({ userId: vacationWarning.userId, day: vacationWarning.day, overrideVacation: true }); setVacationWarning(null); }}>הגש בקשה בכל זאת</button>
             </div>
           </div>
         </div>

@@ -838,7 +838,7 @@ app.get('/api/shift-requests/admin/all-with-workers', requireAdmin, async (req, 
 
 app.post('/api/shift-requests', requireAuth, async (req, res) => {
   try {
-    const { date, shift_type, preference_type, user_id, branch_id: bodyBranchId } = req.body;
+    const { date, shift_type, preference_type, user_id, branch_id: bodyBranchId, force_override } = req.body;
     if (!date || !['morning', 'evening', 'night', 'oncall'].includes(shift_type) ||
         !['can', 'prefer', 'cannot'].includes(preference_type)) {
       return res.status(400).json({ error: 'שדות לא תקינים' });
@@ -854,7 +854,7 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
        AND approved_start <= $2 AND approved_end >= $2`,
       [targetUserId, date]
     );
-    if (vacCheck.rows.length > 0) {
+    if (vacCheck.rows.length > 0 && !(isAdmin && force_override)) {
       return res.status(409).json({ error: 'לא ניתן לשלוח בקשת משמרת לתאריך זה — קיים חופש מאושר' });
     }
 
