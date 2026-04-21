@@ -255,9 +255,7 @@ export default function App() {
               </select>
             </div>
           )}
-          {isAdmin && activeTab === 'workers' && selectedBranchId && (
-            <button onClick={handleAdd} className="btn-primary">+ הוסף עובד</button>
-          )}
+
           {isAdmin && (
             <button onClick={() => setShowSettings(true)} className="btn-settings">⚙️</button>
           )}
@@ -339,6 +337,7 @@ export default function App() {
       {activeTab === 'workers' && isAdmin && selectedBranchId && (
         <>
           <div className="filters">
+            <button onClick={handleAdd} className="btn-primary" style={{whiteSpace:'nowrap'}}>+ הוסף עובד</button>
             <select value={filterJobId} onChange={e => setFilterJobId(e.target.value)}>
               <option value="">כל התפקידים</option>
               {config.jobs.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}

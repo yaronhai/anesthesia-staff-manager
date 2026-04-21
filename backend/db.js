@@ -130,7 +130,7 @@ async function initializeSchema() {
         site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
         date TEXT NOT NULL,
         shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night')),
-        activity_type_id INTEGER NOT NULL REFERENCES activity_types(id) ON DELETE SET NULL,
+        activity_type_id INTEGER REFERENCES activity_types(id) ON DELETE SET NULL,
         UNIQUE(site_id, date, shift_type)
       );
 
@@ -297,6 +297,9 @@ async function runMigrations() {
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'activity_types_name_branch_id_key') THEN
           ALTER TABLE activity_types ADD CONSTRAINT activity_types_name_branch_id_key UNIQUE (name, branch_id);
         END IF;
+
+        -- site_shift_activities.activity_type_id: remove NOT NULL so ON DELETE SET NULL works
+        ALTER TABLE site_shift_activities ALTER COLUMN activity_type_id DROP NOT NULL;
 
         -- activity_templates: drop old unique(name), add unique(name, branch_id)
         IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'activity_templates_name_key') THEN

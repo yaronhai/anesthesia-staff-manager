@@ -1870,7 +1870,8 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         return shiftWorkers
           .map((w, idx) => {
             const jobOk = !slot.hasRestriction || slot.allowedJobs.has(w.job_id);
-            const authOk = !slot.activity_type_id || (workerAuthSet.get(w.worker_id)?.has(slot.activity_type_id) ?? false);
+            const workerAuths = workerAuthSet.get(w.worker_id);
+            const authOk = !slot.activity_type_id || !workerAuths || workerAuths.has(slot.activity_type_id);
             return { idx, preferFirst: w.preference_type === 'prefer' ? 0 : 1, eligible: jobOk && authOk };
           })
           .filter(e => e.eligible)
@@ -1924,7 +1925,8 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
           const allForShift = availableByShift[shift] || [];
           const ineligible = allForShift.filter(w => {
             const jobOk = !slot.hasRestriction || slot.allowedJobs.has(w.job_id);
-            const authOk = !slot.activity_type_id || (workerAuthSet.get(w.worker_id)?.has(slot.activity_type_id) ?? false);
+            const workerAuths = workerAuthSet.get(w.worker_id);
+            const authOk = !slot.activity_type_id || !workerAuths || workerAuths.has(slot.activity_type_id);
             return !jobOk || !authOk;
           });
           if (ineligible.length > 0 || slot.hasRestriction || slot.activity_type_id) {
@@ -1992,14 +1994,21 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
 
     if (activityRes.rows.length > 0) {
       const activityTypeId = activityRes.rows[0].activity_type_id;
-      // Check if worker is authorized for this activity type
-      const authRes = await query(`
-        SELECT COUNT(*) as count FROM worker_activity_authorizations
-        WHERE worker_id = $1 AND activity_type_id = $2
-      `, [worker_id, activityTypeId]);
-
-      if (authRes.rows[0].count === 0) {
-        return res.status(403).json({ error: 'עובד לא מורשה לסוג פעילות זה' });
+      if (activityTypeId) {
+        const totalAuthRes = await query(
+          `SELECT COUNT(*) as count FROM worker_activity_authorizations WHERE worker_id = $1`,
+          [worker_id]
+        );
+        const hasAnyAuth = parseInt(totalAuthRes.rows[0].count) > 0;
+        if (hasAnyAuth) {
+          const specificAuthRes = await query(
+            `SELECT COUNT(*) as count FROM worker_activity_authorizations WHERE worker_id = $1 AND activity_type_id = $2`,
+            [worker_id, activityTypeId]
+          );
+          if (parseInt(specificAuthRes.rows[0].count) === 0) {
+            return res.status(403).json({ error: 'עובד לא מורשה לסוג פעילות זה' });
+          }
+        }
       }
     }
 

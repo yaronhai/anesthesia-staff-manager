@@ -331,6 +331,37 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const thStyle = { padding: '0.3rem 0.5rem', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' };
   const tdStyle = { padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' };
 
+  const tabDescriptions = {
+    branches: 'ניהול סניפים במערכת. כל סניף הוא יחידה עצמאית עם עובדים, אתרים והגדרות משלו. הוספת סניף מאפשרת לנהל יחידות ארגוניות נפרדות; מחיקת סניף תסיר את כל הנתונים הקשורים אליו.',
+    groups: 'קבוצות אתרים מאגדות מספר אתרים לקטגוריה משותפת. ניתן להגביל לכל קבוצה אילו תפקידים מורשים לשמש בה — שינוי זה ישפיע על סינון עובדים בהצעות האוטומטיות.',
+    sites: 'אתרים הם מקומות העבודה הפיזיים (לדוג׳ חדר ניתוח 1, IVF). הוספה/מחיקה משפיעה על לוח השיבוצים. סימון ⚖️ צדק יגרום למערכת לאזן שיבוצים לאתר זה בין עובדים בהצעות האוטומטיות.',
+    jobs: 'תפקידים מגדירים את סוגי התפקידים האפשריים לעובד (לדוג׳ רופא מרדים, אחות). שינויים ישפיעו על אפשרויות הבחירה בטופס עובד חדש ועל הרשאות שיבוץ לקבוצות אתרים.',
+    empTypes: 'סוגי העסקה מגדירים את מעמד ההעסקה של העובד (לדוג׳ קבוע, חלקי, חוזה). שינוי הרשימה ישפיע על אפשרויות הבחירה בעת יצירה או עריכה של עובד.',
+    honorifics: 'תארים מגדירים את הכינוי הרשמי של העובד (לדוג׳ ד״ר, פרופ׳). שינויים ישפיעו על האופן שבו שמות העובדים מוצגים בכל חלקי המערכת.',
+    activities: 'סוגי פעילות מגדירים סוגי עבודה ספציפיים שניתן להרשות לעובדים (לדוג׳ אנסתזיה כללית, ספינל). הרשאות אלו מיועדות לעובדים בנפרד ומשפיעות על הצעות השיבוץ האוטומטיות.',
+    templates: 'תבניות מאפשרות לשמור הרכב מוגדר מראש של סוגי פעילות לאתרים ומשמרות. כשמיישמים תבנית על יום עבודה, כל האתרים מקבלים אוטומטית את סוג הפעילות שהוגדר בתבנית.',
+  };
+
+  function TabDescription({ tabKey }) {
+    const text = tabDescriptions[tabKey];
+    if (!text) return null;
+    return (
+      <div style={{
+        background: '#f0f7ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: '8px',
+        padding: '0.6rem 0.85rem',
+        marginBottom: '0.85rem',
+        fontSize: '0.8rem',
+        color: '#1e3a5f',
+        lineHeight: 1.6,
+        direction: 'rtl',
+      }}>
+        ℹ️ {text}
+      </div>
+    );
+  }
+
   const tabs = [
     ...(isSuperAdmin ? [{ key: 'branches', label: 'סניפים' }] : []),
     { key: 'groups', label: 'קבוצות אתרים' },
@@ -394,6 +425,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
           <div style={{flex: 1, overflow: 'auto', padding: '1rem 1.25rem 1.25rem'}}>
             {activeTab === 'branches' && isSuperAdmin && (
               <>
+                <TabDescription tabKey="branches" />
                 <ul className="config-list">
                   {branches.map(b => (
                     <li key={b.id}>
@@ -426,6 +458,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
             )}
             {activeTab === 'groups' && (
               <>
+                <TabDescription tabKey="groups" />
                 <ul className="config-list">
                   {(config.site_groups || []).map(group => (
                     <li key={group.id}>
@@ -488,10 +521,9 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
             {activeTab === 'sites' && (
               <>
+                <TabDescription tabKey="sites" />
                 <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem'}}>
-                  <p style={{fontSize: '0.8rem', color: '#666', margin: 0}}>
-                    סמן אתרים לאיזון עומס (⚖️ צדק) — עובדים עם פחות שיבוצים לאתרים אלו יקבלו עדיפות בהצעות אוטומטיות.
-                  </p>
+                  <div style={{width: 0}} />
                   <button
                     className="btn-primary"
                     onClick={fetchFairnessReport}
@@ -609,6 +641,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
             {activeTab === 'jobs' && (
               <>
+                <TabDescription tabKey="jobs" />
                 <ul className="config-list">
                   {config.jobs.map(job => (
                     <li key={job.id}>
@@ -656,6 +689,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
             {activeTab === 'empTypes' && (
               <>
+                <TabDescription tabKey="empTypes" />
                 <ul className="config-list">
                   {config.employment_types.map(type => (
                     <li key={type.id}>
@@ -703,6 +737,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
             {activeTab === 'honorifics' && (
               <>
+                <TabDescription tabKey="honorifics" />
                 <ul className="config-list">
                   {(config.honorifics || []).map(h => (
                     <li key={h.id}>
@@ -750,6 +785,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
             {activeTab === 'activities' && (
               <>
+                <TabDescription tabKey="activities" />
                 <ul className="config-list">
                   {(config.activity_types || []).map(actType => (
                     <li key={actType.id}>
@@ -797,6 +833,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
             {activeTab === 'templates' && (
               <>
+                <TabDescription tabKey="templates" />
                 <div style={{display: 'flex', gap: '1rem', height: '100%'}}>
                   {/* Template list */}
                   <div style={{flex: '0 0 250px', borderRight: '1px solid #e5e7eb', paddingRight: '1rem', overflow: 'auto'}}>
