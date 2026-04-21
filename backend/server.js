@@ -573,12 +573,18 @@ app.get('/api/workers', requireAuth, async (req, res) => {
 app.post('/api/workers', requireAdmin, async (req, res) => {
   try {
     const { honorific_id, first_name, family_name, job_id, employment_type_id,
-            phone, email, notes, id_number, classification } = req.body;
+            phone, email, notes, id_number, classification, branch_ids } = req.body;
     if (!email?.trim()) return res.status(400).json({ error: 'אימייל הוא שדה חובה' });
 
     const cls = classification || 'user';
     const idNum = id_number?.trim() || null;
     const adminBranchId = req.user.branch_id ?? null;
+
+    // For superadmin: branch_ids array; first entry is primary. For admin: their own branch.
+    const selectedBranchIds = (req.user.role === 'superadmin' && Array.isArray(branch_ids) && branch_ids.length > 0)
+      ? branch_ids.map(Number)
+      : (adminBranchId ? [adminBranchId] : []);
+    const primaryBranchId = selectedBranchIds[0] || null;
 
     try {
       const insertRes = await query(`
@@ -587,16 +593,15 @@ app.post('/api/workers', requireAdmin, async (req, res) => {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id
       `, [honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email.trim(), notes, idNum, cls, adminBranchId]);
-      
+           employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId]);
+
       const workerId = insertRes.rows[0].id;
       await createUserForWorker(workerId, idNum, cls, email.trim());
 
-      // Auto-assign worker to the creating admin's branch
-      if (adminBranchId) {
+      for (const branchId of selectedBranchIds) {
         await query(
           'INSERT INTO worker_branches (worker_id, branch_id, is_active) VALUES ($1, $2, TRUE) ON CONFLICT DO NOTHING',
-          [workerId, adminBranchId]
+          [workerId, branchId]
         );
       }
 

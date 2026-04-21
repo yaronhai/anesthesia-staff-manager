@@ -373,6 +373,7 @@ export default function App() {
               onCancel={handleCancel}
               isSuperAdmin={isSuperAdmin}
               authToken={authToken}
+              branches={branches}
             />
           )}
           <WorkerList

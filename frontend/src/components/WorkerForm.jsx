@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function WorkerForm({ initial, config, onSave, onCancel, isSuperAdmin, authToken }) {
+export default function WorkerForm({ initial, config, onSave, onCancel, isSuperAdmin, authToken, branches = [] }) {
   const jobs = config?.jobs || [];
   const empTypes = config?.employment_types || [];
   const honorifics = config?.honorifics || [];
@@ -22,17 +22,13 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
   });
   const [saveError, setSaveError] = useState('');
   const [workerBranches, setWorkerBranches] = useState([]);
-  const [allBranches, setAllBranches] = useState([]);
+  const [selectedBranchIds, setSelectedBranchIds] = useState([]);
 
   useEffect(() => {
     if (isSuperAdmin && initial?.id) {
       fetch(`/api/workers/${initial.id}/branches`, {
         headers: { Authorization: `Bearer ${authToken}` },
       }).then(r => r.ok ? r.json() : []).then(setWorkerBranches);
-
-      fetch('/api/branches', {
-        headers: { Authorization: `Bearer ${authToken}` },
-      }).then(r => r.ok ? r.json() : []).then(setAllBranches);
     }
   }, [initial?.id, isSuperAdmin, authToken]);
 
@@ -41,10 +37,17 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
     setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
   }
 
+  function toggleBranchSelection(branchId) {
+    setSelectedBranchIds(prev =>
+      prev.includes(branchId) ? prev.filter(id => id !== branchId) : [...prev, branchId]
+    );
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSaveError('');
-    const err = await onSave(form);
+    const payload = initial?.id ? form : { ...form, branch_ids: selectedBranchIds };
+    const err = await onSave(payload);
     if (err) setSaveError(err);
   }
 
@@ -76,7 +79,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
     else setWorkerBranches(workerBranches.filter(b => b.branch_id !== branchId));
   }
 
-  const unassignedBranches = allBranches.filter(b => !workerBranches.find(wb => wb.branch_id === b.id));
+  const unassignedBranches = branches.filter(b => !workerBranches.find(wb => wb.branch_id === b.id));
 
   return (
     <div className="form-overlay">
@@ -182,14 +185,30 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           />
         </label>
 
-        {isSuperAdmin && (
-          <label>
-            סניף ראשי
-            <select name="primary_branch_id" value={form.primary_branch_id || ''} onChange={handleChange}>
-              <option value="">— ללא —</option>
-              {allBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </label>
+        {isSuperAdmin && !initial?.id && branches.length > 0 && (
+          <div style={{marginTop: '0.5rem'}}>
+            <div style={{fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem'}}>
+              סניפים
+              {selectedBranchIds.length > 0 && (
+                <span style={{fontWeight: 400, fontSize: '0.8rem', color: '#6b7280', marginRight: '0.5rem'}}>
+                  (סניף ראשי: {branches.find(b => b.id === selectedBranchIds[0])?.name})
+                </span>
+              )}
+            </div>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '0.3rem'}}>
+              {branches.map((b, idx) => {
+                const checked = selectedBranchIds.includes(b.id);
+                const isPrimary = selectedBranchIds[0] === b.id;
+                return (
+                  <label key={b.id} style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 'normal'}}>
+                    <input type="checkbox" checked={checked} onChange={() => toggleBranchSelection(b.id)} />
+                    <span>{b.name}</span>
+                    {isPrimary && <span style={{fontSize: '0.75rem', color: '#2563eb', fontWeight: 600}}>ראשי</span>}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {isSuperAdmin && initial?.id && (
