@@ -1615,16 +1615,16 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 )}
 
                 {suggestionModal.unassignable.length > 0 && (
-                  <div style={{padding: '0.3rem 0.5rem', backgroundColor: '#fef2f2', borderRadius: '4px', border: '1px solid #fee2e2'}}>
-                    <div style={{fontSize: '0.72rem', fontWeight: 600, marginBottom: '0.2rem', color: '#991b1b'}}>⚠️ לא ניתן לשבץ:</div>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '1px'}}>
+                  <div style={{padding: '0.15rem 0.35rem', backgroundColor: '#fef2f2', borderRadius: '4px', border: '1px solid #fee2e2'}}>
+                    <div style={{fontSize: '0.62rem', fontWeight: 600, marginBottom: '0.1rem', color: '#991b1b'}}>⚠️ לא ניתן לשבץ:</div>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '0'}}>
                       {suggestionModal.unassignable.map((item, idx) => (
-                        <div key={idx} style={{fontSize: '0.75rem', color: '#7f1d1d', padding: '0.15rem 0.3rem', borderRadius: '3px', backgroundColor: '#fff5f5', lineHeight: 1.4}}>
+                        <div key={idx} style={{fontSize: '0.62rem', color: '#7f1d1d', padding: '0.05rem 0.2rem', lineHeight: 1.3}}>
                           <span style={{fontWeight: 600}}>{item.site_name}</span>
-                          <span style={{color: '#991b1b', marginRight: '0.3rem'}}>({shiftDefaults[item.shift_type]?.label_he || item.shift_type})</span>
+                          <span style={{color: '#991b1b', marginRight: '0.2rem'}}>({shiftDefaults[item.shift_type]?.label_he || item.shift_type})</span>
                           <span style={{color: '#b91c1c'}}>: {item.reason}</span>
                           {item.unavailable_workers && item.unavailable_workers.length > 0 && (
-                            <span style={{color: '#9f1239', marginRight: '0.3rem'}}>
+                            <span style={{color: '#9f1239', marginRight: '0.2rem'}}>
                               [{item.unavailable_workers.map(w => w.name).join(', ')} — חסרה הרשאה]
                             </span>
                           )}
