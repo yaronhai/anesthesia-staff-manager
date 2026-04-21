@@ -205,7 +205,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
 }
 
 // ── Admin grid view ──────────────────────────────────────────────────────────
-function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, prefs }) {
+function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, prefs, branchId }) {
   const [editingCell, setEditingCell] = useState(null); // { userId, day, shiftKey }
 
   const year = viewDate.getFullYear();
@@ -242,7 +242,7 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
       await fetch('/api/shift-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, user_id: userId }),
+        body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, user_id: userId, branch_id: branchId }),
       });
     }
     onRefresh();
@@ -441,7 +441,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
             <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
           </div>
         </div>
-        <AdminGrid workers={workers} requests={requests} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} />
+        <AdminGrid workers={workers} requests={requests} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} />
         <div className="admin-grid-legend">
           <div className="legend-row">
             <span className="legend-label">תרגום צבעים:</span>
