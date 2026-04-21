@@ -50,8 +50,10 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
     parseInt(dateStr.split('-')[1]),
     parseInt(dateStr.split('-')[0]),
   ];
+  const [error, setError] = useState(null);
 
   async function setPref(shiftKey, prefKey) {
+    setError(null);
     const existing = dayRequests.find(r => r.shift_type === shiftKey);
     if (existing && existing.preference_type === prefKey) {
       await fetch(`/api/shift-requests/${existing.id}`, {
@@ -59,11 +61,16 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
         headers: { Authorization: `Bearer ${token}` },
       });
     } else {
-      await fetch('/api/shift-requests', {
+      const res = await fetch('/api/shift-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, branch_id: branchId }),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'שגיאה בשמירת הבקשה');
+        return;
+      }
     }
     onRefresh();
   }
@@ -107,6 +114,10 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
             })}
           </tbody>
         </table>
+
+        {error && (
+          <div className="vacation-conflict-msg">{error}</div>
+        )}
 
         <div className="day-editor-legend">
           {prefs.map(p => (

@@ -627,30 +627,17 @@ app.put('/api/workers/:id', requireAdmin, async (req, res) => {
 
     const cls = classification || 'user';
     const idNum = id_number?.trim() || null;
-    // Only superadmin can change primary_branch_id; others leave it unchanged
-    const primaryBranchId = req.user.role === 'superadmin' ? (primary_branch_id || null) : undefined;
+    const primaryBranchId = primary_branch_id || null;
 
     try {
-      let updateQuery, updateParams;
-      if (primaryBranchId !== undefined) {
-        updateQuery = `
-          UPDATE workers SET honorific_id=$1, first_name=$2, family_name=$3, job_id=$4,
-            employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10,
-            primary_branch_id=$11
-          WHERE id=$12
-        `;
-        updateParams = [honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId, req.params.id];
-      } else {
-        updateQuery = `
-          UPDATE workers SET honorific_id=$1, first_name=$2, family_name=$3, job_id=$4,
-            employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10
-          WHERE id=$11
-        `;
-        updateParams = [honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email.trim(), notes, idNum, cls, req.params.id];
-      }
-      const updateRes = await query(updateQuery, updateParams);
+      const updateRes = await query(
+        `UPDATE workers SET honorific_id=$1, first_name=$2, family_name=$3, job_id=$4,
+           employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10,
+           primary_branch_id=$11
+         WHERE id=$12`,
+        [honorific_id || null, first_name, family_name, job_id || null,
+         employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId, req.params.id]
+      );
       
       if (updateRes.rowCount === 0) return res.status(404).json({ error: 'עובד לא נמצא' });
       
@@ -860,6 +847,16 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
     const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
     const targetUserId = isAdmin && user_id ? user_id : req.user.id;
     const branchId = getEffectiveBranchId(req) || bodyBranchId || null;
+
+    const vacCheck = await query(
+      `SELECT id FROM vacation_requests
+       WHERE user_id = $1 AND status IN ('approved', 'partial')
+       AND approved_start <= $2 AND approved_end >= $2`,
+      [targetUserId, date]
+    );
+    if (vacCheck.rows.length > 0) {
+      return res.status(409).json({ error: 'לא ניתן לשלוח בקשת משמרת לתאריך זה — קיים חופש מאושר' });
+    }
 
     await query(`
       INSERT INTO shift_requests (user_id, date, shift_type, preference_type, branch_id) VALUES ($1, $2, $3, $4, $5)

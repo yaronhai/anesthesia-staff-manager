@@ -191,6 +191,18 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           </div>
         )}
 
+        {initial?.id && branches.length > 0 && (
+          <div style={{marginTop: '0.5rem'}}>
+            <label>
+              סניף ראשי
+              <select name="primary_branch_id" value={form.primary_branch_id || ''} onChange={handleChange}>
+                <option value="">— ללא סניף —</option>
+                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+
         {isSuperAdmin && initial?.id && (
           <div style={{marginTop: '1rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem'}}>
             <div style={{fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem'}}>שיוך לסניפים</div>
