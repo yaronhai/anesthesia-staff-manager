@@ -205,9 +205,10 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
 }
 
 // ── Admin grid view ──────────────────────────────────────────────────────────
-function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, prefs, branchId }) {
+function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, shifts, prefs, branchId }) {
   const [editingCell, setEditingCell] = useState(null);
   const [cellError, setCellError] = useState(null);
+  const [vacationWarning, setVacationWarning] = useState(null);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -321,7 +322,21 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
                     const dow = new Date(year, month, d).getDay();
                     const isSaturday = dow === 6;
                     return (
-                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}`} onClick={() => { setCellError(null); setEditingCell({ userId: row.userId, day: d }); }}>
+                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}`} onClick={() => {
+  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const vac = vacations.find(v =>
+    v.user_id === row.userId &&
+    (v.status === 'approved' || v.status === 'partial') &&
+    v.approved_start <= dateStr && v.approved_end >= dateStr
+  );
+  if (vac) {
+    setVacationWarning(`לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`);
+    return;
+  }
+  setVacationWarning(null);
+  setCellError(null);
+  setEditingCell({ userId: row.userId, day: d });
+}}>
                         <div className="admin-cell-pills">
                           {shifts.map(s => {
                             const req = dayData[s.key];
@@ -339,6 +354,21 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
           </tbody>
         </table>
       </div>
+
+      {vacationWarning && (
+        <div className="admin-editor-overlay" onClick={() => setVacationWarning(null)}>
+          <div className="admin-editor-modal" onClick={e => e.stopPropagation()} style={{textAlign: 'center'}}>
+            <div className="admin-editor-header">
+              <h3>חופש מאושר</h3>
+              <button className="btn-close" onClick={() => setVacationWarning(null)}>✕</button>
+            </div>
+            <div style={{padding: '1rem 0', color: '#374151', fontSize: '0.95rem'}}>{vacationWarning}</div>
+            <div style={{marginTop: '1rem'}}>
+              <button className="btn-secondary" onClick={() => setVacationWarning(null)}>סגור</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editingCell && (
         <div className="admin-editor-overlay" onClick={() => setEditingCell(null)}>
@@ -392,6 +422,7 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
 export default function ShiftRequests({ currentUser, token, config, selectedBranchId }) {
   const [requests, setRequests] = useState([]);
   const [workers, setWorkers] = useState([]);
+  const [vacations, setVacations] = useState([]);
   const [viewDate, setViewDate] = useState(new Date());
   const [workerBranches, setWorkerBranches] = useState([]);
   const [activeBranchId, setActiveBranchId] = useState(null);
@@ -435,10 +466,20 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
     if (res.ok) setWorkers(await res.json());
   }, [token, selectedBranchId]);
 
+  const fetchVacations = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (effectiveBranchId) params.set('branch_id', effectiveBranchId);
+    const qs = params.toString() ? `?${params}` : '';
+    const res = await fetch(`/api/vacation-requests${qs}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) setVacations(await res.json());
+  }, [token, effectiveBranchId]);
+
   useEffect(() => {
     fetchRequests();
-    if (isAdmin) fetchWorkers();
-  }, [fetchRequests, fetchWorkers, isAdmin]);
+    if (isAdmin) { fetchWorkers(); fetchVacations(); }
+  }, [fetchRequests, fetchWorkers, fetchVacations, isAdmin]);
 
   function prevMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
   function nextMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); }
@@ -460,7 +501,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
             <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
           </div>
         </div>
-        <AdminGrid workers={workers} requests={requests} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} />
+        <AdminGrid workers={workers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} />
         <div className="admin-grid-legend">
           <div className="legend-row">
             <span className="legend-label">תרגום צבעים:</span>
