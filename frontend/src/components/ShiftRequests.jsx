@@ -338,7 +338,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                     return (
                       <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}${vac ? ' vacation-day' : ''}`} onClick={() => {
   if (vac) {
-    setVacationWarning(`לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`);
+    setVacationWarning({ message: `לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`, userId: row.userId, day: d });
     return;
   }
   setVacationWarning(null);
@@ -371,9 +371,10 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               <h3>חופש מאושר</h3>
               <button className="btn-close" onClick={() => setVacationWarning(null)}>✕</button>
             </div>
-            <div style={{padding: '1rem 0', color: '#374151', fontSize: '0.95rem'}}>{vacationWarning}</div>
-            <div style={{marginTop: '1rem'}}>
+            <div style={{padding: '1rem 0', color: '#374151', fontSize: '0.95rem'}}>{vacationWarning.message}</div>
+            <div style={{marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'center'}}>
               <button className="btn-secondary" onClick={() => setVacationWarning(null)}>סגור</button>
+              <button className="btn-primary" onClick={() => { setCellError(null); setEditingCell({ userId: vacationWarning.userId, day: vacationWarning.day }); setVacationWarning(null); }}>הגש בקשה בכל זאת</button>
             </div>
           </div>
         </div>
