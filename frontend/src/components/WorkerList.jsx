@@ -235,10 +235,39 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
 
 export default function WorkerList({ workers, onEdit, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin }) {
   const [viewing, setViewing] = useState(null);
+  const [sortField, setSortField] = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
 
   const independentTypeIds = new Set(
     (config.employment_types || []).filter(t => t.is_independent).map(t => t.id)
   );
+
+  function handleSort(field) {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  }
+
+  const sorted = sortField ? [...workers].sort((a, b) => {
+    const av = (a[sortField] || '').toString().toLowerCase();
+    const bv = (b[sortField] || '').toString().toLowerCase();
+    return sortDir === 'asc' ? av.localeCompare(bv, 'he') : bv.localeCompare(av, 'he');
+  }) : workers;
+
+  function SortTh({ field, children }) {
+    const active = sortField === field;
+    return (
+      <th onClick={() => handleSort(field)} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+        {children}
+        <span style={{ marginRight: '4px', opacity: active ? 1 : 0.3, fontSize: '0.7rem' }}>
+          {active ? (sortDir === 'asc' ? '▲' : '▼') : '▲'}
+        </span>
+      </th>
+    );
+  }
 
   if (workers.length === 0) {
     return <p className="empty">אין עובדים להצגה.</p>;
@@ -260,20 +289,20 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
       <table className="worker-table">
         <thead>
           <tr>
-            <th>תואר</th>
-            <th>שם פרטי</th>
-            <th>שם משפחה</th>
-            <th>ת.ז.</th>
-            <th>סיווג</th>
-            <th>תפקיד</th>
-            <th>סוג העסקה</th>
+            <SortTh field="title">תואר</SortTh>
+            <SortTh field="first_name">שם פרטי</SortTh>
+            <SortTh field="family_name">שם משפחה</SortTh>
+            <SortTh field="id_number">ת.ז.</SortTh>
+            <SortTh field="classification">סיווג</SortTh>
+            <SortTh field="job">תפקיד</SortTh>
+            <SortTh field="employment_type">סוג העסקה</SortTh>
             <th>טלפון</th>
-            <th>אימייל</th>
+            <SortTh field="email">אימייל</SortTh>
             <th>פעולות</th>
           </tr>
         </thead>
         <tbody>
-          {workers.map(w => (
+          {sorted.map(w => (
             <tr key={w.id} className={w.is_active === false ? 'worker-row-inactive' : ''}>
               <td>{w.title}</td>
               <td>
