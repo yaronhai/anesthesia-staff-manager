@@ -467,14 +467,11 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   }, [token, selectedBranchId]);
 
   const fetchVacations = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (effectiveBranchId) params.set('branch_id', effectiveBranchId);
-    const qs = params.toString() ? `?${params}` : '';
-    const res = await fetch(`/api/vacation-requests${qs}`, {
+    const res = await fetch('/api/vacation-requests', {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) setVacations(await res.json());
-  }, [token, effectiveBranchId]);
+  }, [token]);
 
   useEffect(() => {
     fetchRequests();
