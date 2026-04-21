@@ -892,8 +892,8 @@ app.delete('/api/shift-requests/:id', requireAuth, async (req, res) => {
 
 app.get('/api/vacation-requests', requireAuth, async (req, res) => {
   try {
-    const { status } = req.query;
-    const branchId = getEffectiveBranchId(req);
+    const { status, all_branches } = req.query;
+    const branchId = all_branches === 'true' ? null : getEffectiveBranchId(req);
 
     if (req.user.role === 'admin' || req.user.role === 'superadmin') {
       const params = [];

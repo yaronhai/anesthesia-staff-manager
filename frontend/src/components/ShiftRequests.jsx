@@ -467,7 +467,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   }, [token, selectedBranchId]);
 
   const fetchVacations = useCallback(async () => {
-    const res = await fetch('/api/vacation-requests', {
+    const res = await fetch('/api/vacation-requests?all_branches=true', {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) setVacations(await res.json());
