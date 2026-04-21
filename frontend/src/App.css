@@ -177,7 +177,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   cursor: pointer;
   font-size: 0.7rem;
   font-weight: 600;
-  margin-left: 0.15rem;
+  margin-left: 0.22rem;
   transition: all 0.12s;
   display: inline-block;
 }
@@ -193,7 +193,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   cursor: pointer;
   font-size: 0.7rem;
   font-weight: 600;
-  margin-left: 0.15rem;
+  margin-left: 0.22rem;
   transition: all 0.12s;
   display: inline-block;
 }
@@ -209,7 +209,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   cursor: pointer;
   font-size: 0.7rem;
   font-weight: 600;
-  margin-left: 0.15rem;
+  margin-left: 0.22rem;
   transition: all 0.12s;
   display: inline-block;
 }
@@ -225,7 +225,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   cursor: pointer;
   font-size: 0.7rem;
   font-weight: 600;
-  margin-left: 0.15rem;
+  margin-left: 0.22rem;
   transition: all 0.12s;
   display: inline-block;
 }
@@ -241,7 +241,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   cursor: pointer;
   font-size: 0.7rem;
   font-weight: 600;
-  margin-left: 0.15rem;
+  margin-left: 0.22rem;
   transition: all 0.12s;
   display: inline-block;
 }
@@ -280,7 +280,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 }
 
 .worker-table td {
-  padding: 0.08rem 0.4rem;
+  padding: 0.2rem 0.4rem;
   border-bottom: 1px solid #f1f5f9;
   font-size: 0.7rem;
   line-height: 1.3;
