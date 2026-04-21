@@ -206,7 +206,8 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
 
 // ── Admin grid view ──────────────────────────────────────────────────────────
 function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, prefs, branchId }) {
-  const [editingCell, setEditingCell] = useState(null); // { userId, day, shiftKey }
+  const [editingCell, setEditingCell] = useState(null);
+  const [cellError, setCellError] = useState(null);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -223,29 +224,45 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
   });
 
   async function setPref(userId, day, shiftKey, prefKey) {
+    setCellError(null);
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const existing = requestMap[userId]?.[day]?.[shiftKey];
 
     if (existing && existing.pref === prefKey) {
-      await fetch(`/api/shift-requests/${existing.id}`, {
+      const res = await fetch(`/api/shift-requests/${existing.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setCellError(data.error || 'שגיאה במחיקת הבקשה');
+        return;
+      }
     } else if (prefKey === '') {
       if (existing) {
-        await fetch(`/api/shift-requests/${existing.id}`, {
+        const res = await fetch(`/api/shift-requests/${existing.id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setCellError(data.error || 'שגיאה במחיקת הבקשה');
+          return;
+        }
       }
     } else {
-      await fetch('/api/shift-requests', {
+      const res = await fetch('/api/shift-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, user_id: userId, branch_id: branchId }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setCellError(data.error || 'שגיאה בשמירת הבקשה');
+        return;
+      }
     }
-    onRefresh();
+    await onRefresh();
   }
 
   const rows = workers.map(w => ({
@@ -304,7 +321,7 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
                     const dow = new Date(year, month, d).getDay();
                     const isSaturday = dow === 6;
                     return (
-                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}`} onClick={() => setEditingCell({ userId: row.userId, day: d })}>
+                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}`} onClick={() => { setCellError(null); setEditingCell({ userId: row.userId, day: d }); }}>
                         <div className="admin-cell-pills">
                           {shifts.map(s => {
                             const req = dayData[s.key];
@@ -361,7 +378,9 @@ function AdminGrid({ workers, requests, token, viewDate, onRefresh, shifts, pref
                   </div>
                 );
               })}
-            </div>
+            {cellError && (
+              <div className="vacation-conflict-msg" style={{margin: '0.75rem 0 0'}}>{cellError}</div>
+            )}
           </div>
         </div>
       )}
