@@ -30,7 +30,8 @@ export default function App() {
   const [filterJobId, setFilterJobId] = useState('');
   const [filterEmpTypeId, setFilterEmpTypeId] = useState('');
   const [filterActive, setFilterActive] = useState('active');
-  const [filterBranchType, setFilterBranchType] = useState('primary');
+  const [filterBranchType, setFilterBranchType] = useState('all');
+  const [filterSearch, setFilterSearch] = useState('');
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
 
@@ -179,12 +180,21 @@ export default function App() {
     setBranches(newBranches);
   }
 
-  const filteredWorkers = workers.filter(w =>
-    (!filterJobId     || w.job_id             === Number(filterJobId)) &&
-    (!filterEmpTypeId || w.employment_type_id === Number(filterEmpTypeId)) &&
-    (filterActive === 'all' || (filterActive === 'active' ? w.is_active !== false : w.is_active === false)) &&
-    (filterBranchType === 'all' || (filterBranchType === 'primary' ? w.is_primary_branch !== false : w.is_primary_branch === false))
-  );
+  const filteredWorkers = workers.filter(w => {
+    const q = filterSearch.trim().toLowerCase();
+    const searchOk = !q || (
+      (w.first_name  || '').toLowerCase().includes(q) ||
+      (w.family_name || '').toLowerCase().includes(q) ||
+      (w.id_number   || '').toLowerCase().includes(q) ||
+      (w.email       || '').toLowerCase().includes(q) ||
+      (w.phone       || '').toLowerCase().includes(q)
+    );
+    return searchOk &&
+      (!filterJobId     || w.job_id             === Number(filterJobId)) &&
+      (!filterEmpTypeId || w.employment_type_id === Number(filterEmpTypeId)) &&
+      (filterActive === 'all' || (filterActive === 'active' ? w.is_active !== false : w.is_active === false)) &&
+      (filterBranchType === 'all' || (filterBranchType === 'primary' ? w.is_primary_branch !== false : w.is_primary_branch === false));
+  });
 
   const selectedBranchName = branches.find(b => b.id === selectedBranchId)?.name;
   const currentUserBranchName = branches.find(b => b.id === currentUser?.branch_id)?.name;
@@ -338,6 +348,13 @@ export default function App() {
         <>
           <div className="filters">
             <button onClick={handleAdd} className="btn-primary" style={{whiteSpace:'nowrap'}}>+ הוסף עובד</button>
+            <input
+              type="text"
+              placeholder="חיפוש לפי שם / ת.ז. / אימייל / טלפון"
+              value={filterSearch}
+              onChange={e => setFilterSearch(e.target.value)}
+              style={{minWidth: '220px'}}
+            />
             <select value={filterJobId} onChange={e => setFilterJobId(e.target.value)}>
               <option value="">כל התפקידים</option>
               {config.jobs.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
@@ -356,9 +373,9 @@ export default function App() {
               <option value="secondary">מושאלים</option>
               <option value="all">כולם</option>
             </select>
-            {(filterJobId || filterEmpTypeId || filterActive !== 'active' || filterBranchType !== 'primary') && (
+            {(filterSearch || filterJobId || filterEmpTypeId || filterActive !== 'active' || filterBranchType !== 'all') && (
               <button className="btn-secondary"
-                onClick={() => { setFilterJobId(''); setFilterEmpTypeId(''); setFilterActive('active'); setFilterBranchType('primary'); }}>
+                onClick={() => { setFilterSearch(''); setFilterJobId(''); setFilterEmpTypeId(''); setFilterActive('active'); setFilterBranchType('all'); }}>
                 נקה סינון
               </button>
             )}
