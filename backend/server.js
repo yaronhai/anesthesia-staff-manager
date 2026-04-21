@@ -65,8 +65,8 @@ async function seedDatabase() {
         const res = await query('SELECT id FROM site_groups WHERE name = $1 AND branch_id = $2', [site.groupName, defaultBranchId]);
         groupIdCache[site.groupName] = res.rows[0]?.id;
       }
-      await query('INSERT INTO sites (name, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [site.name, groupIdCache[site.groupName]]);
+      await query('INSERT INTO sites (name, group_id, branch_id) VALUES ($1, $2, $3) ON CONFLICT (name, branch_id) DO NOTHING',
+        [site.name, groupIdCache[site.groupName], defaultBranchId]);
     }
 
     // Seed shift types

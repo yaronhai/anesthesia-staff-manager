@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
 });
 
 // Query helper
@@ -318,10 +318,16 @@ async function runMigrations() {
       UPDATE sites SET branch_id = sg.branch_id
       FROM site_groups sg
       WHERE sites.group_id = sg.id AND sites.branch_id IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM sites s2 WHERE s2.name = sites.name AND s2.branch_id = sg.branch_id AND s2.id <> sites.id
+        )
     `);
     await query(`
       UPDATE sites SET branch_id = (SELECT id FROM branches WHERE name = 'ברירת מחדל')
       WHERE branch_id IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM sites s2 WHERE s2.name = sites.name AND s2.branch_id = (SELECT id FROM branches WHERE name = 'ברירת מחדל') AND s2.id <> sites.id
+        )
     `);
     await query(`
       UPDATE activity_types SET branch_id = (SELECT id FROM branches WHERE name = 'ברירת מחדל')
