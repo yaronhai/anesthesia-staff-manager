@@ -163,8 +163,8 @@ function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
               )}
             </div>
           )}
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 120px' }}>
               <label style={{ display: 'block', marginBottom: '4px' }}>מתאריך *</label>
               <input
                 type="date"
@@ -173,7 +173,7 @@ function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
               />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: '1 1 120px' }}>
               <label style={{ display: 'block', marginBottom: '4px' }}>עד תאריך *</label>
               <input
                 type="date"
@@ -388,17 +388,18 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
         הגשת בקשת חופשה חדשה
       </button>
 
+      <div className="vacation-table-wrap">
       <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
         <thead>
           <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-            <th style={{ padding: '12px', textAlign: 'right' }}>תאריך הגשה</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>מתאריך</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>עד תאריך</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>סיבה</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>סטטוס</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>תאריכים מאושרים</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>הערות</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>פעולה</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
           </tr>
         </thead>
         <tbody>
@@ -433,6 +434,7 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
           ))}
         </tbody>
       </table>
+      </div>
       {requests.length === 0 && <p style={{ color: '#666' }}>אין בקשות חופשה</p>}
     </div>
   );
@@ -476,30 +478,31 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
         </select>
       </div>
 
+      <div className="vacation-table-wrap">
       <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
         <thead>
           <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-            <th style={{ padding: '12px', textAlign: 'right' }}>שם עובד</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>תאריך הגשה</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>מתאריך</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>עד תאריך</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>סיבה</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>סטטוס</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>תאריכים מאושרים</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>הערות</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>פעולה</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>שם עובד</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
+            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
           </tr>
         </thead>
         <tbody>
           {requests.map((r) => (
             <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-              <td style={{ padding: '12px' }}>{r.first_name} {r.family_name}</td>
-              <td style={{ padding: '12px', fontSize: '0.9rem' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
-              <td style={{ padding: '12px' }}>{formatDateHe(r.start_date)}</td>
-              <td style={{ padding: '12px' }}>{formatDateHe(r.end_date)}</td>
+              <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{r.first_name} {r.family_name}</td>
+              <td style={{ padding: '12px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
+              <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{formatDateHe(r.start_date)}</td>
+              <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{formatDateHe(r.end_date)}</td>
               <td style={{ padding: '12px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
               <td style={{ padding: '12px' }}><StatusBadge status={r.status} /></td>
-              <td style={{ padding: '12px', fontSize: '0.9rem' }}>
+              <td style={{ padding: '12px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
                 {r.approved_start && r.approved_end
                   ? `${formatDateHe(r.approved_start)} – ${formatDateHe(r.approved_end)}`
                   : '—'}
@@ -531,6 +534,7 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
           ))}
         </tbody>
       </table>
+      </div>
       {requests.length === 0 && <p style={{ color: '#666' }}>אין בקשות</p>}
     </div>
   );
