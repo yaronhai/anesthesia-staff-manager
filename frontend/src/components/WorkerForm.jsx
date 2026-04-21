@@ -22,7 +22,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
   });
   const [saveError, setSaveError] = useState('');
   const [workerBranches, setWorkerBranches] = useState([]);
-  const [selectedBranchIds, setSelectedBranchIds] = useState([]);
+  const [primaryBranchId, setPrimaryBranchId] = useState('');
 
   useEffect(() => {
     if (isSuperAdmin && initial?.id) {
@@ -37,16 +37,10 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
     setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
   }
 
-  function toggleBranchSelection(branchId) {
-    setSelectedBranchIds(prev =>
-      prev.includes(branchId) ? prev.filter(id => id !== branchId) : [...prev, branchId]
-    );
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setSaveError('');
-    const payload = initial?.id ? form : { ...form, branch_ids: selectedBranchIds };
+    const payload = initial?.id ? form : { ...form, branch_ids: primaryBranchId ? [parseInt(primaryBranchId)] : [] };
     const err = await onSave(payload);
     if (err) setSaveError(err);
   }
@@ -187,27 +181,13 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
 
         {isSuperAdmin && !initial?.id && branches.length > 0 && (
           <div style={{marginTop: '0.5rem'}}>
-            <div style={{fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem'}}>
-              סניפים
-              {selectedBranchIds.length > 0 && (
-                <span style={{fontWeight: 400, fontSize: '0.8rem', color: '#6b7280', marginRight: '0.5rem'}}>
-                  (סניף ראשי: {branches.find(b => b.id === selectedBranchIds[0])?.name})
-                </span>
-              )}
-            </div>
-            <div style={{display: 'flex', flexDirection: 'column', gap: '0.3rem'}}>
-              {branches.map((b, idx) => {
-                const checked = selectedBranchIds.includes(b.id);
-                const isPrimary = selectedBranchIds[0] === b.id;
-                return (
-                  <label key={b.id} style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 'normal'}}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleBranchSelection(b.id)} />
-                    <span>{b.name}</span>
-                    {isPrimary && <span style={{fontSize: '0.75rem', color: '#2563eb', fontWeight: 600}}>ראשי</span>}
-                  </label>
-                );
-              })}
-            </div>
+            <label>
+              סניף ראשי
+              <select value={primaryBranchId} onChange={e => setPrimaryBranchId(e.target.value)}>
+                <option value="">— ללא סניף —</option>
+                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </label>
           </div>
         )}
 
