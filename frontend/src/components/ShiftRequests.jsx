@@ -148,13 +148,13 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
   const todayStr = toDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
 
   function openEditor(day, dateStr) {
-    if (!canSubmit) { setBlockedMsg(true); return; }
+    if (canSubmit === false) { setBlockedMsg(true); return; }
     setEditingDay({ day, dateStr });
   }
 
   return (
     <>
-      {!canSubmit && (
+      {canSubmit === false && (
         <div style={{padding: '0.75rem 1rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
           <strong>⛔ אין לך הרשאה להגיש או לערוך בקשות משמרת.</strong> לפרטים פנה למנהל.
         </div>
@@ -514,7 +514,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const [viewDate, setViewDate] = useState(new Date());
   const [workerBranches, setWorkerBranches] = useState([]);
   const [activeBranchId, setActiveBranchId] = useState(null);
-  const [canSubmit, setCanSubmit] = useState(true);
+  const [canSubmit, setCanSubmit] = useState(null); // null = טרם נטען
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const shifts = config.shift_types || [];
@@ -530,7 +530,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
         headers: { Authorization: `Bearer ${token}` },
       })
         .then(r => r.ok ? r.json() : null)
-        .then(w => { if (w) setCanSubmit(w.can_submit_requests !== false); });
+        .then(w => setCanSubmit(w ? w.can_submit_requests !== false : true));
       fetch(`/api/workers/${currentUser.worker_id}/branches`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -580,7 +580,9 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
 
   if (!shifts.length || !prefs.length) return null;
 
-  if (!isAdmin && !canSubmit) {
+  if (!isAdmin && canSubmit === null) return null; // טוען הרשאות
+
+  if (!isAdmin && canSubmit === false) {
     return (
       <div className="shift-view">
         <div style={{ padding: '2rem', textAlign: 'center', color: '#b91c1c', background: '#fee2e2', borderRadius: '8px', border: '1px solid #fca5a5', margin: '1rem' }}>
