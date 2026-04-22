@@ -139,19 +139,36 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
 }
 
 // ── User calendar view ───────────────────────────────────────────────────────
-function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations }) {
+function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit }) {
   const [editingDay, setEditingDay] = useState(null); // { day, dateStr }
+  const [blockedMsg, setBlockedMsg] = useState(false);
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const weeks = buildCalendarWeeks(year, month);
   const todayStr = toDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
 
   function openEditor(day, dateStr) {
+    if (!canSubmit) { setBlockedMsg(true); return; }
     setEditingDay({ day, dateStr });
   }
 
   return (
     <>
+      {!canSubmit && (
+        <div style={{padding: '0.75rem 1rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
+          <strong>⛔ אין לך הרשאה להגיש או לערוך בקשות משמרת.</strong> לפרטים פנה למנהל.
+        </div>
+      )}
+      {blockedMsg && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={() => setBlockedMsg(false)}>
+          <div style={{background:'#fff',borderRadius:'10px',padding:'2rem',maxWidth:'320px',textAlign:'center',boxShadow:'0 8px 32px rgba(0,0,0,0.2)'}}>
+            <div style={{fontSize:'2rem',marginBottom:'0.5rem'}}>⛔</div>
+            <strong style={{color:'#991b1b'}}>אין לך הרשאה להגיש או לערוך בקשות משמרת.</strong>
+            <div style={{color:'#7f1d1d',fontSize:'0.9rem',marginTop:'0.4rem',marginBottom:'1rem'}}>לפרטים פנה למנהל.</div>
+            <button className="btn-primary" onClick={() => setBlockedMsg(false)}>סגור</button>
+          </div>
+        </div>
+      )}
       <div className="cal-grid">
         <div className="cal-week-header">
           {WEEK_HEADERS.map(d => <div key={d} className="cal-week-day-name">{d}</div>)}
@@ -497,6 +514,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const [viewDate, setViewDate] = useState(new Date());
   const [workerBranches, setWorkerBranches] = useState([]);
   const [activeBranchId, setActiveBranchId] = useState(null);
+  const [canSubmit, setCanSubmit] = useState(true);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const shifts = config.shift_types || [];
@@ -505,9 +523,14 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
 
-  // For regular workers: fetch their branches
+  // For regular workers: fetch their branches and live can_submit_requests
   useEffect(() => {
     if (!isAdmin && currentUser?.worker_id) {
+      fetch(`/api/workers/${currentUser.worker_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(w => { if (w) setCanSubmit(w.can_submit_requests !== false); });
       fetch(`/api/workers/${currentUser.worker_id}/branches`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -556,6 +579,18 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   function nextYear() { setViewDate(d => new Date(d.getFullYear() + 1, d.getMonth(), 1)); }
 
   if (!shifts.length || !prefs.length) return null;
+
+  if (!isAdmin && !canSubmit) {
+    return (
+      <div className="shift-view">
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#b91c1c', background: '#fee2e2', borderRadius: '8px', border: '1px solid #fca5a5', margin: '1rem' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⛔</div>
+          <strong>אין לך הרשאה להגיש בקשות משמרת.</strong>
+          <div style={{ fontSize: '0.9rem', color: '#7f1d1d', marginTop: '0.4rem' }}>לפרטים פנה למנהל.</div>
+        </div>
+      </div>
+    );
+  }
 
   if (isAdmin) {
     return (
@@ -618,7 +653,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           <span style={{fontSize: '0.85rem', color: '#6b7280'}}>{workerBranches[0]?.branch_name}</span>
         )}
       </div>
-      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} vacations={vacations} />
+      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} vacations={vacations} canSubmit={canSubmit} />
     </div>
   );
 }

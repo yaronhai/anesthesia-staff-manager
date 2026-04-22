@@ -7,6 +7,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [shiftRequests, setShiftRequests] = useState([]);
   const [siteShiftActivities, setSiteShiftActivities] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [vacations, setVacations] = useState([]);
 
   // Derive shift time defaults from config
   const shiftDefaults = Object.fromEntries(
@@ -98,9 +99,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     try {
       const params = new URLSearchParams({ month, year });
       if (branchId) params.set('branch_id', branchId);
-      const [staffRes, shiftRes] = await Promise.all([
+      const [staffRes, shiftRes, vacRes] = await Promise.all([
         fetch(`/api/staffing/month-view?${params}`, { headers: { Authorization: `Bearer ${authToken}` } }),
         fetch(`/api/shift-requests/admin/all-with-workers?${params}`, { headers: { Authorization: `Bearer ${authToken}` } }),
+        fetch(`/api/vacation-requests?status=approved`, { headers: { Authorization: `Bearer ${authToken}` } }),
       ]);
       if (staffRes.ok) {
         const d = await staffRes.json();
@@ -112,6 +114,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         const d = await shiftRes.json();
         setShiftRequests(d.requests || []);
       }
+      if (vacRes.ok) setVacations(await vacRes.json());
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
@@ -282,6 +285,18 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       ...prev,
       [key]: notes
     }));
+  }
+
+  function isWorkerOnVacation(workerId) {
+    const worker = workers.find(w => w.id === workerId);
+    if (!worker) return null;
+    const vac = vacations.find(v =>
+      Number(v.worker_id) === Number(workerId) &&
+      (v.status === 'approved' || v.status === 'partial') &&
+      v.approved_start && v.approved_end &&
+      v.approved_start <= dateStr && v.approved_end >= dateStr
+    );
+    return vac || null;
   }
 
   function didWorkerRequestShift(workerId, shiftType) {
@@ -1314,6 +1329,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       </p>
                     )}
                   </div>
+
+                  {newAssignment.worker_id && (() => { const vac = isWorkerOnVacation(newAssignment.worker_id); return vac ? (
+                    <div style={{padding: '0.75rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
+                      <strong>⛔ אזהרה:</strong> לעובד חופש מאושר בתאריך זה ({vac.approved_start} עד {vac.approved_end})
+                    </div>
+                  ) : null; })()}
 
                   {newAssignment.worker_id && !didWorkerRequestShift(newAssignment.worker_id, addingToShiftInSite.shift_type) && (
                     <div style={{padding: '0.75rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>

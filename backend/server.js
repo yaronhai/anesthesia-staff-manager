@@ -364,12 +364,13 @@ app.post('/api/auth/login', async (req, res) => {
     
     let email = user.email;
     let displayName = user.username;
-    
+    let canSubmitRequests = true;
+
     let effectiveBranchId = user.branch_id ?? null;
 
     if (user.worker_id) {
       const workerRes = await query(`
-        SELECT w.email, w.first_name, w.family_name, w.primary_branch_id,
+        SELECT w.email, w.first_name, w.family_name, w.primary_branch_id, w.can_submit_requests,
                COALESCE((SELECT BOOL_OR(wb.is_active) FROM worker_branches wb WHERE wb.worker_id = w.id), TRUE) AS is_active
         FROM workers w WHERE w.id = $1
       `, [user.worker_id]);
@@ -380,6 +381,7 @@ app.post('/api/auth/login', async (req, res) => {
         }
         email = email || worker.email;
         displayName = `${worker.first_name} ${worker.family_name}`;
+        canSubmitRequests = worker.can_submit_requests;
         // For admins, use the worker's primary branch as the effective branch
         if ((user.role === 'admin') && worker.primary_branch_id) {
           effectiveBranchId = worker.primary_branch_id;
@@ -389,7 +391,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const payload = { id: user.id, username: user.username, role: user.role, worker_id: user.worker_id, branch_id: effectiveBranchId };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { ...payload, email, displayName, must_change_password: user.must_change_password } });
+    res.json({ token, user: { ...payload, email, displayName, must_change_password: user.must_change_password, can_submit_requests: canSubmitRequests } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'שגיאה בהתחברות' });
@@ -523,7 +525,7 @@ app.get('/api/workers', requireAuth, async (req, res) => {
                     w.job_id, j.name AS job,
                     w.employment_type_id, e.name AS employment_type,
                     w.phone, w.email, w.notes,
-                    w.id_number, w.classification,
+                    w.id_number, w.classification, w.can_submit_requests,
                     COALESCE((SELECT BOOL_OR(wb2.is_active) FROM worker_branches wb2 WHERE wb2.worker_id = w.id), TRUE) AS is_active,
                     w.primary_branch_id, pb.name AS primary_branch_name,
                     w.created_at, u.id AS user_id,
@@ -544,7 +546,7 @@ app.get('/api/workers', requireAuth, async (req, res) => {
                w.job_id, j.name AS job,
                w.employment_type_id, e.name AS employment_type,
                w.phone, w.email, w.notes,
-               w.id_number, w.classification, wb.is_active,
+               w.id_number, w.classification, w.can_submit_requests, wb.is_active,
                w.primary_branch_id, pb.name AS primary_branch_name,
                w.created_at, u.id AS user_id,
                (w.primary_branch_id = $1) AS is_primary_branch
@@ -671,6 +673,20 @@ app.delete('/api/workers/:id', requireAdmin, async (req, res) => {
 });
 
 // ── Worker Activity Authorizations ──────────────────────────────────────────
+
+app.get('/api/workers/:id', requireAuth, async (req, res) => {
+  try {
+    const workerId = parseInt(req.params.id);
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && req.user.worker_id !== workerId) {
+      return res.status(403).json({ error: 'אין הרשאה' });
+    }
+    const result = await query(WORKER_SELECT + ' WHERE w.id = $1', [workerId]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'עובד לא נמצא' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
 
 app.get('/api/workers/:id/activity-authorizations', requireAdmin, async (req, res) => {
   try {

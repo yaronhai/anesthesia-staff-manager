@@ -392,31 +392,31 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
         <thead>
           <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
           </tr>
         </thead>
         <tbody>
           {requests.map((r) => (
             <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-              <td style={{ padding: '12px' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
-              <td style={{ padding: '12px' }}>{formatDateHe(r.start_date)}</td>
-              <td style={{ padding: '12px' }}>{formatDateHe(r.end_date)}</td>
-              <td style={{ padding: '12px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
-              <td style={{ padding: '12px' }}><StatusBadge status={r.status} /></td>
-              <td style={{ padding: '12px', fontSize: '0.9rem' }}>
+              <td style={{ padding: '3px 8px' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
+              <td style={{ padding: '3px 8px' }}>{formatDateHe(r.start_date)}</td>
+              <td style={{ padding: '3px 8px' }}>{formatDateHe(r.end_date)}</td>
+              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
+              <td style={{ padding: '3px 8px' }}><StatusBadge status={r.status} /></td>
+              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>
                 {r.approved_start && r.approved_end
                   ? `${formatDateHe(r.approved_start)} – ${formatDateHe(r.approved_end)}`
                   : '—'}
               </td>
-              <td style={{ padding: '12px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
-              <td style={{ padding: '12px' }}>
+              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
+              <td style={{ padding: '3px 8px' }}>
                 {r.status === 'pending' && (
                   <button
                     onClick={() => onCancel(r.id)}
@@ -464,9 +464,7 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
         >
           הגש בקשה עבור עובד
         </button>
-      </div>
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ marginRight: '12px' }}>פילטר:</label>
+        <label style={{ marginRight: '4px' }}>פילטר:</label>
         <select
           value={statusFilter}
           onChange={(e) => onStatusFilterChange(e.target.value)}
@@ -482,33 +480,33 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
       <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
         <thead>
           <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>שם עובד</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
-            <th style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>שם עובד</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
+            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
           </tr>
         </thead>
         <tbody>
           {requests.map((r) => (
             <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-              <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{r.first_name} {r.family_name}</td>
-              <td style={{ padding: '12px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
-              <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{formatDateHe(r.start_date)}</td>
-              <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{formatDateHe(r.end_date)}</td>
-              <td style={{ padding: '12px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
-              <td style={{ padding: '12px' }}><StatusBadge status={r.status} /></td>
-              <td style={{ padding: '12px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+              <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{r.first_name} {r.family_name}</td>
+              <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
+              <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{formatDateHe(r.start_date)}</td>
+              <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{formatDateHe(r.end_date)}</td>
+              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
+              <td style={{ padding: '3px 8px' }}><StatusBadge status={r.status} /></td>
+              <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
                 {r.approved_start && r.approved_end
                   ? `${formatDateHe(r.approved_start)} – ${formatDateHe(r.approved_end)}`
                   : '—'}
               </td>
-              <td style={{ padding: '12px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
-              <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>
+              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
+              <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>
                 <button
                   onClick={() => onDecide(r)}
                   style={{
@@ -603,8 +601,8 @@ export default function VacationRequests({ currentUser, token, selectedBranchId,
   };
 
   return (
-    <div style={{ padding: '16px', direction: 'rtl' }}>
-      <h2>בקשות חופשה</h2>
+    <div style={{ padding: '4px 16px 16px', direction: 'rtl' }}>
+      <h2 style={{ marginTop: '0' }}>בקשות חופשה</h2>
       {loading ? <p>טוען...</p> : (
         isAdmin ? (
           <AdminView
