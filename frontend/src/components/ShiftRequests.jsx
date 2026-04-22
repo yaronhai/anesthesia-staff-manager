@@ -233,6 +233,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   const [editingCell, setEditingCell] = useState(null);
   const [cellError, setCellError] = useState(null);
   const [vacationWarning, setVacationWarning] = useState(null);
+  const [blockedWorkerMsg, setBlockedWorkerMsg] = useState(null);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -296,6 +297,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
     name: `${w.first_name} ${w.family_name}`,
     job: w.job || 'אחר',
     isPrimary: w.is_primary_branch !== false,
+    canSubmit: w.can_submit_requests !== false,
   }));
 
   function buildJobGroups(rowList) {
@@ -358,7 +360,8 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                       v.approved_start <= dateStr && v.approved_end >= dateStr
                     );
                     return (
-                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}${vac ? ' vacation-day' : ''}`} onClick={() => {
+                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}`} onClick={() => {
+  if (!row.canSubmit) { setBlockedWorkerMsg(row.name); return; }
   if (vac) {
     setVacationWarning({ message: `לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`, userId: row.userId, day: d });
     return;
@@ -414,7 +417,8 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                         v.approved_start <= dateStr && v.approved_end >= dateStr
                       );
                       return (
-                        <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}${vac ? ' vacation-day' : ''}`} style={{background: isSaturday ? undefined : '#fffbeb'}} onClick={() => {
+                        <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}`} style={{background: isSaturday ? undefined : '#fffbeb'}} onClick={() => {
+                          if (!row.canSubmit) { setBlockedWorkerMsg(row.name); return; }
                           if (vac) {
                             setVacationWarning({ message: `לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`, userId: row.userId, day: d });
                             return;
@@ -440,6 +444,22 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
           </tbody>
         </table>
       </div>
+
+      {blockedWorkerMsg && (
+        <div className="admin-editor-overlay" onClick={() => setBlockedWorkerMsg(null)}>
+          <div className="admin-editor-modal" onClick={e => e.stopPropagation()} style={{textAlign: 'center'}}>
+            <div className="admin-editor-header">
+              <h3>עובד חסום</h3>
+              <button className="btn-close" onClick={() => setBlockedWorkerMsg(null)}>✕</button>
+            </div>
+            <div style={{padding: '1rem 0', fontSize: '1.5rem'}}>⛔</div>
+            <div style={{color: '#991b1b', fontWeight: 600}}>{blockedWorkerMsg} אינו/ה מורשה/ת להגיש בקשות משמרת.</div>
+            <div style={{marginTop: '1rem'}}>
+              <button className="btn-secondary" onClick={() => setBlockedWorkerMsg(null)}>סגור</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {vacationWarning && (
         <div className="admin-editor-overlay" onClick={() => setVacationWarning(null)}>

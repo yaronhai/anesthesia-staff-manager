@@ -866,14 +866,13 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
     const targetUserId = isAdmin && user_id ? user_id : req.user.id;
     const branchId = getEffectiveBranchId(req) || bodyBranchId || null;
 
-    if (!isAdmin) {
-      const workerCheck = await query(
-        'SELECT w.can_submit_requests FROM workers w JOIN users u ON u.worker_id = w.id WHERE u.id = $1',
-        [targetUserId]
-      );
-      if (workerCheck.rows.length > 0 && workerCheck.rows[0].can_submit_requests === false) {
-        return res.status(403).json({ error: 'אין לך הרשאה להגיש בקשות משמרת' });
-      }
+    // Always check can_submit_requests for the target worker, regardless of submitter's role
+    const workerCheck = await query(
+      'SELECT w.can_submit_requests FROM workers w JOIN users u ON u.worker_id = w.id WHERE u.id = $1',
+      [targetUserId]
+    );
+    if (workerCheck.rows.length > 0 && workerCheck.rows[0].can_submit_requests === false) {
+      return res.status(403).json({ error: 'עובד זה אינו מורשה להגיש בקשות משמרת' });
     }
 
     const vacCheck = await query(
@@ -904,7 +903,25 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
 
 app.delete('/api/shift-requests/:id', requireAuth, async (req, res) => {
   try {
-    if (req.user.role === 'admin') {
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
+
+    // Check can_submit_requests for the owner of this request
+    const ownerCheck = await query(
+      `SELECT sr.user_id, w.can_submit_requests
+       FROM shift_requests sr
+       JOIN users u ON sr.user_id = u.id
+       LEFT JOIN workers w ON u.worker_id = w.id
+       WHERE sr.id = $1`,
+      [req.params.id]
+    );
+    if (ownerCheck.rows.length > 0 && ownerCheck.rows[0].can_submit_requests === false) {
+      const isOwnRequest = ownerCheck.rows[0].user_id === req.user.id;
+      if (isOwnRequest) {
+        return res.status(403).json({ error: 'אין לך הרשאה לערוך בקשות משמרת' });
+      }
+    }
+
+    if (isAdmin) {
       await query('DELETE FROM shift_requests WHERE id = $1', [req.params.id]);
     } else {
       await query('DELETE FROM shift_requests WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
