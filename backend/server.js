@@ -335,7 +335,7 @@ const WORKER_SELECT = `
          w.job_id, j.name AS job,
          w.employment_type_id, e.name AS employment_type,
          w.phone, w.email, w.notes,
-         w.id_number, w.classification,
+         w.id_number, w.classification, w.can_submit_requests,
          COALESCE((SELECT BOOL_OR(wb2.is_active) FROM worker_branches wb2 WHERE wb2.worker_id = w.id), TRUE) AS is_active,
          w.primary_branch_id, pb.name AS primary_branch_name,
          w.created_at,
@@ -573,12 +573,13 @@ app.get('/api/workers', requireAuth, async (req, res) => {
 app.post('/api/workers', requireAdmin, async (req, res) => {
   try {
     const { honorific_id, first_name, family_name, job_id, employment_type_id,
-            phone, email, notes, id_number, classification, branch_ids } = req.body;
+            phone, email, notes, id_number, classification, branch_ids, can_submit_requests } = req.body;
     if (!email?.trim()) return res.status(400).json({ error: 'אימייל הוא שדה חובה' });
 
     const cls = classification || 'user';
     const idNum = id_number?.trim() || null;
     const adminBranchId = req.user.branch_id ?? null;
+    const canSubmit = can_submit_requests !== undefined ? Boolean(can_submit_requests) : true;
 
     // For superadmin: branch_ids array; first entry is primary. For admin: their own branch.
     const selectedBranchIds = (req.user.role === 'superadmin' && Array.isArray(branch_ids) && branch_ids.length > 0)
@@ -589,11 +590,11 @@ app.post('/api/workers', requireAdmin, async (req, res) => {
     try {
       const insertRes = await query(`
         INSERT INTO workers (honorific_id, first_name, family_name, job_id, employment_type_id,
-                             phone, email, notes, id_number, classification, primary_branch_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                             phone, email, notes, id_number, classification, primary_branch_id, can_submit_requests)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING id
       `, [honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId]);
+           employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId, canSubmit]);
 
       const workerId = insertRes.rows[0].id;
       await createUserForWorker(workerId, idNum, cls, email.trim());
@@ -622,21 +623,22 @@ app.post('/api/workers', requireAdmin, async (req, res) => {
 app.put('/api/workers/:id', requireAdmin, async (req, res) => {
   try {
     const { honorific_id, first_name, family_name, job_id, employment_type_id,
-            phone, email, notes, id_number, classification, primary_branch_id } = req.body;
+            phone, email, notes, id_number, classification, primary_branch_id, can_submit_requests } = req.body;
     if (!email?.trim()) return res.status(400).json({ error: 'אימייל הוא שדה חובה' });
 
     const cls = classification || 'user';
     const idNum = id_number?.trim() || null;
     const primaryBranchId = primary_branch_id || null;
+    const canSubmit = can_submit_requests !== undefined ? Boolean(can_submit_requests) : true;
 
     try {
       const updateRes = await query(
         `UPDATE workers SET honorific_id=$1, first_name=$2, family_name=$3, job_id=$4,
            employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10,
-           primary_branch_id=$11
-         WHERE id=$12`,
+           primary_branch_id=$11, can_submit_requests=$12
+         WHERE id=$13`,
         [honorific_id || null, first_name, family_name, job_id || null,
-         employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId, req.params.id]
+         employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId, canSubmit, req.params.id]
       );
       
       if (updateRes.rowCount === 0) return res.status(404).json({ error: 'עובד לא נמצא' });
@@ -847,6 +849,16 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
     const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
     const targetUserId = isAdmin && user_id ? user_id : req.user.id;
     const branchId = getEffectiveBranchId(req) || bodyBranchId || null;
+
+    if (!isAdmin) {
+      const workerCheck = await query(
+        'SELECT w.can_submit_requests FROM workers w JOIN users u ON u.worker_id = w.id WHERE u.id = $1',
+        [targetUserId]
+      );
+      if (workerCheck.rows.length > 0 && workerCheck.rows[0].can_submit_requests === false) {
+        return res.status(403).json({ error: 'אין לך הרשאה להגיש בקשות משמרת' });
+      }
+    }
 
     const vacCheck = await query(
       `SELECT id FROM vacation_requests
@@ -2037,6 +2049,18 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
           }
         }
       }
+    }
+
+    // Check if worker is on approved vacation on this date
+    const workerVacCheck = await query(
+      `SELECT vr.id FROM vacation_requests vr
+       JOIN users u ON vr.user_id = u.id
+       WHERE u.worker_id = $1 AND vr.status IN ('approved', 'partial')
+       AND vr.approved_start <= $2 AND vr.approved_end >= $2`,
+      [worker_id, date]
+    );
+    if (workerVacCheck.rows.length > 0) {
+      return res.status(409).json({ error: 'לא ניתן לשבץ עובד זה — קיים חופש מאושר בתאריך זה' });
     }
 
     await query(`

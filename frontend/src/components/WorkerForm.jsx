@@ -18,6 +18,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
     classification: 'user',
     is_active: true,
     primary_branch_id: '',
+    can_submit_requests: true,
     ...initial,
   });
   const [saveError, setSaveError] = useState('');
@@ -237,6 +238,18 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
             )}
           </div>
         )}
+
+        <div style={{marginTop: '0.75rem'}}>
+          <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none'}}>
+            <input
+              type="checkbox"
+              name="can_submit_requests"
+              checked={form.can_submit_requests}
+              onChange={handleChange}
+            />
+            רשאי להגיש בקשות למשמרות
+          </label>
+        </div>
 
         {saveError && <p className="error-msg">{saveError}</p>}
 

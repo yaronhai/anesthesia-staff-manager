@@ -278,20 +278,25 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
     userId: w.user_id,
     name: `${w.first_name} ${w.family_name}`,
     job: w.job || 'אחר',
+    isPrimary: w.is_primary_branch !== false,
   }));
 
-  // Group rows by job and sort each group alphabetically
-  const jobGroups = [];
-  const jobMap = {};
-  rows.forEach(row => {
-    if (!jobMap[row.job]) {
-      jobMap[row.job] = [];
-      jobGroups.push(row.job);
-    }
-    jobMap[row.job].push(row);
-  });
-  jobGroups.sort((a, b) => a.localeCompare(b, 'he'));
-  jobGroups.forEach(job => jobMap[job].sort((a, b) => a.name.localeCompare(b.name, 'he')));
+  function buildJobGroups(rowList) {
+    const groups = [];
+    const map = {};
+    rowList.forEach(row => {
+      if (!map[row.job]) { map[row.job] = []; groups.push(row.job); }
+      map[row.job].push(row);
+    });
+    groups.sort((a, b) => a.localeCompare(b, 'he'));
+    groups.forEach(job => map[job].sort((a, b) => a.name.localeCompare(b.name, 'he')));
+    return { groups, map };
+  }
+
+  const primaryRows = rows.filter(r => r.isPrimary);
+  const borrowedRows = rows.filter(r => !r.isPrimary);
+  const { groups: primaryJobGroups, map: primaryJobMap } = buildJobGroups(primaryRows);
+  const { groups: borrowedJobGroups, map: borrowedJobMap } = buildJobGroups(borrowedRows);
 
   return (
     <>
@@ -313,7 +318,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
             </tr>
           </thead>
           <tbody>
-            {jobGroups.map(job => ([
+            {primaryJobGroups.map(job => ([
               <tr key={`job-${job}`}>
                 <td colSpan={days.length + 1} style={{
                   background: '#1a2e4a', color: 'white',
@@ -321,7 +326,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                   padding: '0.25rem 0.6rem', letterSpacing: '0.03em'
                 }}>{job}</td>
               </tr>,
-              ...jobMap[job].map(row => (
+              ...primaryJobMap[job].map(row => (
                 <tr key={row.userId}>
                   <td className="admin-grid-name-col">{row.name}</td>
                   {days.map(d => {
@@ -360,6 +365,61 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                 </tr>
               ))
             ]))}
+            {borrowedRows.length > 0 && [
+              <tr key="borrowed-section-header">
+                <td colSpan={days.length + 1} style={{
+                  background: '#92400e', color: '#fef3c7',
+                  fontWeight: 700, fontSize: '0.78rem',
+                  padding: '0.35rem 0.6rem', letterSpacing: '0.03em',
+                  borderTop: '3px solid #78350f',
+                }}>מושאלים</td>
+              </tr>,
+              ...borrowedJobGroups.map(job => ([
+                <tr key={`borrowed-job-${job}`}>
+                  <td colSpan={days.length + 1} style={{
+                    background: '#1a2e4a', color: '#fde68a',
+                    fontWeight: 700, fontSize: '0.78rem',
+                    padding: '0.25rem 0.6rem', letterSpacing: '0.03em'
+                  }}>{job}</td>
+                </tr>,
+                ...borrowedJobMap[job].map(row => (
+                  <tr key={row.userId} style={{background: '#fffbeb'}}>
+                    <td className="admin-grid-name-col" style={{color: '#92400e', fontStyle: 'italic'}}>{row.name}</td>
+                    {days.map(d => {
+                      const dayData = requestMap[row.userId]?.[d] || {};
+                      const dow = new Date(year, month, d).getDay();
+                      const isSaturday = dow === 6;
+                      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                      const vac = vacations.find(v =>
+                        Number(v.user_id) === Number(row.userId) &&
+                        (v.status === 'approved' || v.status === 'partial') &&
+                        v.approved_start && v.approved_end &&
+                        v.approved_start <= dateStr && v.approved_end >= dateStr
+                      );
+                      return (
+                        <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}${vac ? ' vacation-day' : ''}`} style={{background: isSaturday ? undefined : '#fffbeb'}} onClick={() => {
+                          if (vac) {
+                            setVacationWarning({ message: `לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`, userId: row.userId, day: d });
+                            return;
+                          }
+                          setVacationWarning(null);
+                          setCellError(null);
+                          setEditingCell({ userId: row.userId, day: d });
+                        }}>
+                          <div className="admin-cell-pills">
+                            {shifts.map(s => {
+                              const req = dayData[s.key];
+                              return req ? <span key={s.key} className={`cell-pill pref-${req.pref}`}>{s.label_short}</span> : null;
+                            })}
+                          </div>
+                          {vac && <span className="vac-badge">חופש</span>}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))
+              ])).flat()
+            ]}
           </tbody>
         </table>
       </div>
@@ -523,6 +583,9 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
             ))}
             <span className="legend-item">
               <span className="legend-color" style={{ background: '#fee2e2' }}></span> יום שבת
+            </span>
+            <span className="legend-item">
+              <span className="legend-color" style={{ background: '#fffbeb', border: '1px solid #fcd34d' }}></span> עובד מושאל
             </span>
           </div>
         </div>

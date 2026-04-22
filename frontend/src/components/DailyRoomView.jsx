@@ -1645,8 +1645,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 onClick={async () => {
                   try {
                     const toApply = suggestionModal.suggestions.filter((_, i) => suggestionModal.selected[i]);
+                    const errors = [];
                     for (const suggestion of toApply) {
-                      await fetch('/api/worker-site-assignments', {
+                      const r = await fetch('/api/worker-site-assignments', {
                         method: 'POST',
                         headers: {
                           'Authorization': `Bearer ${authToken}`,
@@ -1659,7 +1660,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           shift_type: suggestion.shift_type
                         })
                       });
+                      if (!r.ok) {
+                        const e = await r.json();
+                        errors.push(`${suggestion.worker_name || suggestion.worker_id}: ${e.error || 'שגיאה'}`);
+                      }
                     }
+                    if (errors.length > 0) alert('שגיאות בשיבוץ:\n' + errors.join('\n'));
                     setSuggestionModal(null);
                     fetchAll();
                   } catch (err) {
