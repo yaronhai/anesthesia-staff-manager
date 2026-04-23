@@ -577,7 +577,8 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const [workerBranches, setWorkerBranches] = useState([]);
   const [activeBranchId, setActiveBranchId] = useState(null);
   const [canSubmit, setCanSubmit] = useState(null); // null = טרם נטען
-  const [workerFilter, setWorkerFilter] = useState('allowed'); // 'allowed' | 'blocked' | 'all'
+  const [workerFilter, setWorkerFilter] = useState('all'); // 'allowed' | 'blocked' | 'all'
+  const [jobFilter, setJobFilter] = useState(''); // '' = כל התפקידים
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const shifts = config.shift_types || [];
@@ -658,9 +659,12 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   }
 
   if (isAdmin) {
+    const jobOptions = [...new Set(workers.map(w => w.job || 'אחר'))].sort((a, b) => a.localeCompare(b, 'he'));
+
     const filteredWorkers = workers.filter(w => {
-      if (workerFilter === 'allowed') return w.can_submit_requests !== false;
-      if (workerFilter === 'blocked') return w.can_submit_requests === false;
+      if (workerFilter === 'allowed' && w.can_submit_requests === false) return false;
+      if (workerFilter === 'blocked' && w.can_submit_requests !== false) return false;
+      if (jobFilter && (w.job || 'אחר') !== jobFilter) return false;
       return true;
     });
 
@@ -676,7 +680,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0 }}>ניהול בקשות משמרות</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <label style={{ fontSize: '0.85rem' }}>פילטר:</label>
+              <label style={{ fontSize: '0.85rem' }}>הרשאה:</label>
               <select
                 value={workerFilter}
                 onChange={e => setWorkerFilter(e.target.value)}
@@ -687,18 +691,30 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
                 ))}
               </select>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.78rem', color: '#374151', borderRight: '1px solid #d1d5db', paddingRight: '0.75rem' }}>
-              <span style={{ fontWeight: 600, color: '#6b7280' }}>תרגום צבעים:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <label style={{ fontSize: '0.85rem' }}>תפקיד:</label>
+              <select
+                value={jobFilter}
+                onChange={e => setJobFilter(e.target.value)}
+                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}
+              >
+                <option value=''>כל התפקידים</option>
+                {jobOptions.map(job => (
+                  <option key={job} value={job}>{job}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: '#374151', borderRight: '1px solid #d1d5db', paddingRight: '0.6rem' }}>
               {prefs.map(p => (
-                <span key={p.key} className="legend-item">
-                  <span className="legend-color" style={{ background: p.color }}></span> {p.label_he}
+                <span key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: p.color, flexShrink: 0 }}></span>{p.label_he}
                 </span>
               ))}
-              <span className="legend-item">
-                <span className="legend-color" style={{ background: '#fee2e2' }}></span> יום שבת
+              <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#fee2e2', border: '1px solid #fca5a5', flexShrink: 0 }}></span>שבת
               </span>
-              <span className="legend-item">
-                <span className="legend-color" style={{ background: '#fffbeb', border: '1px solid #fcd34d' }}></span> עובד מושאל
+              <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#fffbeb', border: '1px solid #fcd34d', flexShrink: 0 }}></span>מושאל
               </span>
             </div>
           </div>
