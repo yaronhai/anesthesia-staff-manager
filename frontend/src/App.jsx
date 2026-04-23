@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import WorkerList from './components/WorkerList';
 import WorkerForm from './components/WorkerForm';
 import AdminPanel from './components/AdminPanel';
@@ -163,6 +163,25 @@ export default function App() {
     setBranches([]);
     setSelectedBranchId(null);
   }
+
+  const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
+  const inactivityTimer = useRef(null);
+
+  const resetInactivityTimer = useCallback(() => {
+    clearTimeout(inactivityTimer.current);
+    inactivityTimer.current = setTimeout(() => handleLogout(), INACTIVITY_TIMEOUT);
+  }, []);
+
+  useEffect(() => {
+    if (!authToken) return;
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }));
+    resetInactivityTimer();
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetInactivityTimer));
+      clearTimeout(inactivityTimer.current);
+    };
+  }, [authToken, resetInactivityTimer]);
 
   function handlePasswordChanged() {
     const updated = { ...currentUser, must_change_password: 0 };
