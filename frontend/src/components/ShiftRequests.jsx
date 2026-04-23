@@ -631,10 +631,10 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
     return (
       <div className="shift-view">
         <div className="shift-admin-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0 }}>ניהול בקשות משמרות</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <label>פילטר:</label>
+              <label style={{ fontSize: '0.85rem' }}>פילטר:</label>
               <select
                 value={workerFilter}
                 onChange={e => setWorkerFilter(e.target.value)}
@@ -644,6 +644,20 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
                   <option key={opt.key} value={opt.key}>{opt.label}</option>
                 ))}
               </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.78rem', color: '#374151', borderRight: '1px solid #d1d5db', paddingRight: '0.75rem' }}>
+              <span style={{ fontWeight: 600, color: '#6b7280' }}>תרגום צבעים:</span>
+              {prefs.map(p => (
+                <span key={p.key} className="legend-item">
+                  <span className="legend-color" style={{ background: p.color }}></span> {p.label_he}
+                </span>
+              ))}
+              <span className="legend-item">
+                <span className="legend-color" style={{ background: '#fee2e2' }}></span> יום שבת
+              </span>
+              <span className="legend-item">
+                <span className="legend-color" style={{ background: '#fffbeb', border: '1px solid #fcd34d' }}></span> עובד מושאל
+              </span>
             </div>
           </div>
           <div className="month-year-nav">
@@ -655,24 +669,6 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           </div>
         </div>
         <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} />
-        <div className="admin-grid-legend">
-          <div className="legend-row">
-            <span className="legend-label">תרגום צבעים:</span>
-          </div>
-          <div className="legend-row">
-            {prefs.map(p => (
-              <span key={p.key} className="legend-item">
-                <span className="legend-color" style={{ background: p.color }}></span> {p.label_he}
-              </span>
-            ))}
-            <span className="legend-item">
-              <span className="legend-color" style={{ background: '#fee2e2' }}></span> יום שבת
-            </span>
-            <span className="legend-item">
-              <span className="legend-color" style={{ background: '#fffbeb', border: '1px solid #fcd34d' }}></span> עובד מושאל
-            </span>
-          </div>
-        </div>
       </div>
     );
   }
