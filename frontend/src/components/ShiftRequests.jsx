@@ -535,6 +535,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const [workerBranches, setWorkerBranches] = useState([]);
   const [activeBranchId, setActiveBranchId] = useState(null);
   const [canSubmit, setCanSubmit] = useState(null); // null = טרם נטען
+  const [workerFilter, setWorkerFilter] = useState('allowed'); // 'allowed' | 'blocked' | 'all'
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const shifts = config.shift_types || [];
@@ -615,10 +616,36 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   }
 
   if (isAdmin) {
+    const filteredWorkers = workers.filter(w => {
+      if (workerFilter === 'allowed') return w.can_submit_requests !== false;
+      if (workerFilter === 'blocked') return w.can_submit_requests === false;
+      return true;
+    });
+
+    const filterOptions = [
+      { key: 'allowed', label: 'מורשים בלבד' },
+      { key: 'blocked', label: 'לא מורשים' },
+      { key: 'all',     label: 'כולם' },
+    ];
+
     return (
       <div className="shift-view">
         <div className="shift-admin-header">
-          <h2>ניהול בקשות משמרות</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <h2 style={{ margin: 0 }}>ניהול בקשות משמרות</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <label>פילטר:</label>
+              <select
+                value={workerFilter}
+                onChange={e => setWorkerFilter(e.target.value)}
+                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}
+              >
+                {filterOptions.map(opt => (
+                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div className="month-year-nav">
             <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
             <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
@@ -627,7 +654,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
             <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
           </div>
         </div>
-        <AdminGrid workers={workers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} />
+        <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} />
         <div className="admin-grid-legend">
           <div className="legend-row">
             <span className="legend-label">תרגום צבעים:</span>
