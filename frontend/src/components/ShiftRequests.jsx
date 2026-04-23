@@ -317,11 +317,45 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   const { groups: primaryJobGroups, map: primaryJobMap } = buildJobGroups(primaryRows);
   const { groups: borrowedJobGroups, map: borrowedJobMap } = buildJobGroups(borrowedRows);
 
+  // Summary: per day per shift, count workers who have any request
+  const summaryMap = {};
+  days.forEach(d => {
+    summaryMap[d] = {};
+    shifts.forEach(s => {
+      summaryMap[d][s.key] = rows.filter(row => requestMap[row.userId]?.[d]?.[s.key]).length;
+    });
+  });
+
   return (
     <>
-      <div className="admin-grid-wrap">
+      <div className="admin-grid-header-wrap">
         <table className="admin-grid">
+          <colgroup>
+            <col style={{ width: '90px' }} />
+            {days.map(d => <col key={d} />)}
+          </colgroup>
           <thead>
+            <tr>
+              <td className="admin-grid-name-col" style={{ background: '#fffde7', color: '#991b1b', fontWeight: 700, fontSize: '0.68rem', padding: '0.25rem 0.4rem', borderBottom: '2px solid #fde047' }}>סיכום</td>
+              {days.map(d => {
+                const dow = new Date(year, month, d).getDay();
+                const isSaturday = dow === 6;
+                return (
+                  <td key={d} style={{ background: isSaturday ? '#fef9c3' : '#fffde7', border: '1px solid #fde047', borderBottom: '2px solid #fde047', textAlign: 'center', padding: '0.15rem 0.05rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', alignItems: 'center' }}>
+                      {shifts.map(s => {
+                        const count = summaryMap[d][s.key];
+                        return count > 0 ? (
+                          <span key={s.key} style={{ color: '#991b1b', padding: '0 2px', display: 'inline-block', fontWeight: 700 }}>
+                            {s.label_short}{count}
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
             <tr>
               <th className="admin-grid-name-col">עובד</th>
               {days.map(d => {
@@ -336,6 +370,14 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               })}
             </tr>
           </thead>
+        </table>
+      </div>
+      <div className="admin-grid-wrap">
+        <table className="admin-grid">
+          <colgroup>
+            <col style={{ width: '90px' }} />
+            {days.map(d => <col key={d} />)}
+          </colgroup>
           <tbody>
             {primaryJobGroups.map(job => ([
               <tr key={`job-${job}`}>
