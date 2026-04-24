@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import VacationRequests from './components/VacationRequests';
+import SpecialDaysCalendar from './components/SpecialDaysCalendar';
 import logoAssuta from './assets/logo-assuta.png';
 import './App.css';
 
@@ -341,6 +342,14 @@ export default function App() {
             שיבוצים לחדרים
           </button>
         )}
+        {isAdmin && selectedBranchId && (
+          <button
+            className={`tab-btn${activeTab === 'special-days' ? ' active' : ''}`}
+            onClick={() => setActiveTab('special-days')}
+          >
+            ימים מיוחדים
+          </button>
+        )}
       </div>
 
       {showSettings && isAdmin && (
@@ -434,6 +443,18 @@ export default function App() {
 
       {activeTab === 'rooms' && isAdmin && selectedBranchId && (
         <DailyRoomView config={config} authToken={authToken} branchId={selectedBranchId} />
+      )}
+
+      {activeTab === 'special-days' && isAdmin && selectedBranchId && (
+        <div style={{ padding: '1.5rem', maxWidth: 700, margin: '0 auto' }}>
+          <h2 style={{ marginBottom: '1rem', color: '#1a2e4a' }}>ניהול ימים מיוחדים</h2>
+          <SpecialDaysCalendar
+            config={config}
+            authToken={authToken}
+            branchId={selectedBranchId}
+            onConfigChange={setConfig}
+          />
+        </div>
       )}
     </div>
   );
