@@ -949,8 +949,10 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .admin-grid thead .admin-grid-name-col { background: #1a2e4a; color: #e2e8f0; z-index: 4; }
 .admin-grid-day-col { width: 0; padding: 0.1rem !important; }
 .admin-grid-day-col.admin-grid-saturday { background: #ff4444; color: white; }
+.admin-grid-day-col.admin-grid-friday { background: #f59e0b; color: white; }
 .admin-grid-day-letter { font-size: 0.55rem; opacity: 0.75; }
 .admin-grid-day-col.admin-grid-saturday .admin-grid-day-letter { opacity: 1; color: white; }
+.admin-grid-day-col.admin-grid-friday .admin-grid-day-letter { opacity: 1; color: white; }
 .special-day-label { font-size: 0.45rem; color: #92400e; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100%; font-weight: 600; }
 .admin-grid-day-col.admin-grid-saturday .special-day-label { color: #fff3cd; }
 
@@ -962,6 +964,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .admin-grid tr:nth-child(even) td.evening { background: #ede9fe; }
 .admin-grid-cell.admin-grid-saturday { background: #ffcccc !important; }
 .admin-grid tr:nth-child(even) td.admin-grid-saturday { background: #ffcccc !important; }
+.admin-grid-cell.admin-grid-friday { background: #fef3c7 !important; }
+.admin-grid tr:nth-child(even) td.admin-grid-friday { background: #fef3c7 !important; }
 
 .admin-grid tbody tr {
   height: 22px;
@@ -1070,6 +1074,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .cal-day.cal-today .cal-day-num { color: #1d4ed8; font-weight: 800; }
 .cal-day.cal-saturday { background: #fecaca; }
 .cal-day.cal-today.cal-saturday { background: #fecaca; border-color: #dc2626; }
+.cal-day.cal-friday { background: #fef9c3; }
+.cal-day.cal-today.cal-friday { background: #fef9c3; border-color: #f59e0b; }
 .cal-day.cal-has-data { }
 .cal-day.cal-special-day { border-width: 2px; }
 .cal-special-day-badge { font-size: 0.6rem; font-weight: 600; border-radius: 3px; padding: 0 3px; margin-top: 1px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

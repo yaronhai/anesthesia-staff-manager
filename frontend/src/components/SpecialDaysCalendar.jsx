@@ -227,6 +227,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
           const dateStr = toStr(year, month, d);
           const dow = new Date(year, month, d).getDay();
           const isSat = dow === 6;
+          const isFri = dow === 5;
           const sd = sdForDate(dateStr);
           const isActive = activeDay === dateStr;
           return (
@@ -238,7 +239,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
                 minHeight: 58, borderRadius: 6, padding: '4px 3px', textAlign: 'center',
                 cursor: 'pointer',
                 border: isActive ? '2px solid #2563eb' : `2px solid ${sd ? sd.color + 'bb' : 'transparent'}`,
-                background: sd ? sd.color + '1c' : isSat ? '#fecaca22' : '#f9fafb',
+                background: sd ? sd.color + '1c' : isSat ? '#fecaca22' : isFri ? '#fef3c722' : '#f9fafb',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
                 boxShadow: isActive ? '0 0 0 2px #bfdbfe' : 'none',
                 transition: 'box-shadow 0.1s',
@@ -246,7 +247,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
             >
               <span style={{
                 fontSize: '0.88rem', fontWeight: sd ? 700 : 400,
-                color: sd ? sd.color : isSat ? '#dc2626' : '#374151',
+                color: sd ? sd.color : isSat ? '#dc2626' : isFri ? '#b45309' : '#374151',
               }}>{d}</span>
               {sd && (
                 <>

@@ -23,6 +23,7 @@ function buildCalendarWeeks(year, month) {
 // ── Day cell in user calendar ────────────────────────────────────────────────
 function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations, specialDays }) {
   const isSaturday = dayOfWeek === 6;
+  const isFriday = dayOfWeek === 5;
   const isVacation = vacations?.some(v =>
     (v.status === 'approved' || v.status === 'partial') &&
     v.approved_start && v.approved_end &&
@@ -31,7 +32,7 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
   const sd = (specialDays || []).find(s => s.date === dateStr);
   return (
     <div
-      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : ''}${dayRequests.length ? ' cal-has-data' : ''}${isVacation ? ' cal-vacation-day' : ''}${sd ? ' cal-special-day' : ''}`}
+      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : isFriday ? ' cal-friday' : ''}${dayRequests.length ? ' cal-has-data' : ''}${isVacation ? ' cal-vacation-day' : ''}${sd ? ' cal-special-day' : ''}`}
       style={sd ? { borderColor: sd.color } : undefined}
       onClick={() => onClick(day, dateStr)}
     >
@@ -365,13 +366,15 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               {days.map(d => {
                 const dow = new Date(year, month, d).getDay();
                 const isSaturday = dow === 6;
+                const isFriday = dow === 5;
                 const dateStr = toDateStr(year, month, d);
                 const sd = (specialDays || []).find(s => s.date === dateStr);
+                const isWeekend = isSaturday || isFriday;
                 return (
                   <th
                     key={d}
-                    className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : ''}${sd ? ' admin-grid-special-day' : ''}`}
-                    style={sd && !isSaturday ? { background: sd.color + '44' } : undefined}
+                    className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}`}
+                    style={sd && !isWeekend ? { background: sd.color + '44' } : undefined}
                   >
                     <div>{d}</div>
                     <div className="admin-grid-day-letter">{DAYS_HE[dow]}</div>
@@ -405,6 +408,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                     const dayData = requestMap[row.userId]?.[d] || {};
                     const dow = new Date(year, month, d).getDay();
                     const isSaturday = dow === 6;
+                    const isFriday = dow === 5;
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                     const vac = vacations.find(v =>
                       Number(v.user_id) === Number(row.userId) &&
@@ -413,7 +417,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                       v.approved_start <= dateStr && v.approved_end >= dateStr
                     );
                     return (
-                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}`} onClick={() => {
+                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}`} onClick={() => {
   if (!row.canSubmit) { setBlockedWorkerMsg(row.name); return; }
   if (vac) {
     setVacationWarning({ message: `לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`, userId: row.userId, day: d });
