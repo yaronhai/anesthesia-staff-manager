@@ -21,20 +21,23 @@ function buildCalendarWeeks(year, month) {
 }
 
 // ── Day cell in user calendar ────────────────────────────────────────────────
-function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations }) {
+function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations, specialDays }) {
   const isSaturday = dayOfWeek === 6;
   const isVacation = vacations?.some(v =>
     (v.status === 'approved' || v.status === 'partial') &&
     v.approved_start && v.approved_end &&
     v.approved_start <= dateStr && v.approved_end >= dateStr
   );
+  const sd = (specialDays || []).find(s => s.date === dateStr);
   return (
     <div
-      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : ''}${dayRequests.length ? ' cal-has-data' : ''}${isVacation ? ' cal-vacation-day' : ''}`}
+      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : ''}${dayRequests.length ? ' cal-has-data' : ''}${isVacation ? ' cal-vacation-day' : ''}${sd ? ' cal-special-day' : ''}`}
+      style={sd ? { borderColor: sd.color } : undefined}
       onClick={() => onClick(day, dateStr)}
     >
-      <span className="cal-day-num">{day}</span>
+      <span className={`cal-day-num${sd ? ' cal-special-day-num' : ''}`} style={sd ? { color: sd.color } : undefined}>{day}</span>
       <div className="cal-day-name">{DAYS_HE[dayOfWeek]}</div>
+      {sd && <div className="cal-special-day-badge" style={{ background: sd.color + '33', color: sd.color }}>{sd.name}</div>}
       {isVacation && <div className="vac-indicator">חופש ✓</div>}
       <div className="cal-indicators">
         {shifts.map(s => {
@@ -139,7 +142,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
 }
 
 // ── User calendar view ───────────────────────────────────────────────────────
-function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit }) {
+function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit, specialDays }) {
   const [editingDay, setEditingDay] = useState(null); // { day, dateStr }
   const [blockedMsg, setBlockedMsg] = useState(false);
   const year = viewDate.getFullYear();
@@ -189,6 +192,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
                       dayOfWeek={dow}
                       shifts={shifts}
                       vacations={vacations}
+                      specialDays={specialDays}
                     />
                   )}
                 </div>
@@ -229,7 +233,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
 }
 
 // ── Admin grid view ──────────────────────────────────────────────────────────
-function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, shifts, prefs, branchId }) {
+function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, shifts, prefs, branchId, specialDays }) {
   const [editingCell, setEditingCell] = useState(null);
   const [cellError, setCellError] = useState(null);
   const [vacationWarning, setVacationWarning] = useState(null);
@@ -361,10 +365,17 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               {days.map(d => {
                 const dow = new Date(year, month, d).getDay();
                 const isSaturday = dow === 6;
+                const dateStr = toDateStr(year, month, d);
+                const sd = (specialDays || []).find(s => s.date === dateStr);
                 return (
-                  <th key={d} className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : ''}`}>
+                  <th
+                    key={d}
+                    className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : ''}${sd ? ' admin-grid-special-day' : ''}`}
+                    style={sd && !isSaturday ? { background: sd.color + '44' } : undefined}
+                  >
                     <div>{d}</div>
                     <div className="admin-grid-day-letter">{DAYS_HE[dow]}</div>
+                    {sd && <div className="special-day-label" title={sd.name}>{sd.name}</div>}
                   </th>
                 );
               })}
@@ -726,7 +737,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
             <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
           </div>
         </div>
-        <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} />
+        <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} specialDays={config.special_days || []} />
       </div>
     );
   }
@@ -756,7 +767,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           <span style={{fontSize: '0.85rem', color: '#6b7280'}}>{workerBranches[0]?.branch_name}</span>
         )}
       </div>
-      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} vacations={vacations} canSubmit={canSubmit} />
+      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} vacations={vacations} canSubmit={canSubmit} specialDays={config.special_days || []} />
     </div>
   );
 }
