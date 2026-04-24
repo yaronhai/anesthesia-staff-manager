@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import SpecialDaysCalendar from './SpecialDaysCalendar';
 
 export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, branches = [], onConfigChange, onBranchesChange, onClose }) {
   const [newJob, setNewJob] = useState('');
@@ -8,11 +9,6 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [newSiteGroup, setNewSiteGroup] = useState('');
   const [newActivityType, setNewActivityType] = useState('');
   const [newTemplateName, setNewTemplateName] = useState('');
-  const [newSpecialDate, setNewSpecialDate] = useState('');
-  const [newSpecialName, setNewSpecialName] = useState('');
-  const [newSpecialType, setNewSpecialType] = useState('holiday');
-  const [newSpecialColor, setNewSpecialColor] = useState('#f59e0b');
-  const [editingSpecialDay, setEditingSpecialDay] = useState(null); // { id, date, name, type, color }
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [templateItems, setTemplateItems] = useState({});
@@ -946,63 +942,12 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
             )}
 
             {activeTab === 'special-days' && (
-              <>
-                <ul className="config-list">
-                  {(config.special_days || []).map(sd => (
-                    <li key={sd.id}>
-                      {editingSpecialDay?.id === sd.id ? (
-                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flex: 1, flexWrap: 'wrap' }}>
-                          <input type="date" value={editingSpecialDay.date} onChange={e => setEditingSpecialDay(p => ({ ...p, date: e.target.value }))} style={{ padding: '4px', borderRadius: '4px', border: '1px solid #d1d5db' }} />
-                          <input value={editingSpecialDay.name} onChange={e => setEditingSpecialDay(p => ({ ...p, name: e.target.value }))} placeholder="שם..." style={{ flex: 1, padding: '4px', borderRadius: '4px', border: '1px solid #d1d5db' }} />
-                          <select value={editingSpecialDay.type} onChange={e => setEditingSpecialDay(p => ({ ...p, type: e.target.value }))} style={{ padding: '4px', borderRadius: '4px', border: '1px solid #d1d5db' }}>
-                            <option value="holiday">חג / שבת</option>
-                            <option value="eve">ערב חג / שישי</option>
-                          </select>
-                          <input type="color" value={editingSpecialDay.color} onChange={e => setEditingSpecialDay(p => ({ ...p, color: e.target.value }))} style={{ width: 32, height: 28, padding: 0, border: 'none', cursor: 'pointer' }} />
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-                          <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: sd.color, flexShrink: 0 }}></span>
-                          <span style={{ fontWeight: 600 }}>{sd.date}</span>
-                          <span>{sd.name}</span>
-                          <span style={{ fontSize: '0.75rem', color: '#6b7280', background: '#f3f4f6', borderRadius: 4, padding: '1px 6px' }}>{sd.type === 'eve' ? 'ערב חג / שישי' : 'חג / שבת'}</span>
-                        </div>
-                      )}
-                      <div className="config-item-actions">
-                        {editingSpecialDay?.id === sd.id ? (
-                          <>
-                            <button className="btn-save-inline" onClick={async () => {
-                              const { id, date, name, type, color } = editingSpecialDay;
-                              const res = await fetch(`/api/config/special-days/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ date, name, type, color }) });
-                              if (res.ok) { onConfigChange(await res.json()); setEditingSpecialDay(null); } else alert('שגיאה בשמירה');
-                            }}>שמור</button>
-                            <button className="btn-remove" onClick={() => setEditingSpecialDay(null)}>✕</button>
-                          </>
-                        ) : (
-                          <>
-                            <button className="btn-edit-inline" onClick={() => setEditingSpecialDay({ id: sd.id, date: sd.date, name: sd.name, type: sd.type, color: sd.color })}>עריכה</button>
-                            <button className="btn-remove" onClick={() => removeItem('/api/config/special-days', sd.id)}>✕</button>
-                          </>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                <div className="config-add" style={{ flexWrap: 'wrap', gap: '0.4rem' }}>
-                  <input type="date" value={newSpecialDate} onChange={e => setNewSpecialDate(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #d1d5db' }} />
-                  <input value={newSpecialName} onChange={e => setNewSpecialName(e.target.value)} placeholder="שם היום המיוחד..." style={{ flex: 1, minWidth: 120 }} />
-                  <select value={newSpecialType} onChange={e => setNewSpecialType(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #d1d5db' }}>
-                    <option value="holiday">חג / שבת</option>
-                    <option value="eve">ערב חג / שישי</option>
-                  </select>
-                  <input type="color" value={newSpecialColor} onChange={e => setNewSpecialColor(e.target.value)} style={{ width: 36, height: 34, padding: 0, border: 'none', cursor: 'pointer' }} />
-                  <button className="btn-primary" onClick={async () => {
-                    if (!newSpecialDate || !newSpecialName.trim()) return alert('יש למלא תאריך ושם');
-                    const res = await fetch('/api/config/special-days', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ date: newSpecialDate, name: newSpecialName.trim(), type: newSpecialType, color: newSpecialColor }) });
-                    if (res.ok) { onConfigChange(await res.json()); setNewSpecialDate(''); setNewSpecialName(''); setNewSpecialType('holiday'); setNewSpecialColor('#f59e0b'); } else alert('שגיאה בהוספה');
-                  }}>הוסף</button>
-                </div>
-              </>
+              <SpecialDaysCalendar
+                config={config}
+                authToken={authToken}
+                branchId={localBranchId}
+                onConfigChange={onConfigChange}
+              />
             )}
 
           </div>

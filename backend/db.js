@@ -184,6 +184,15 @@ async function initializeSchema() {
         site_id INTEGER PRIMARY KEY REFERENCES sites(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS special_days (
+        id SERIAL PRIMARY KEY,
+        date TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'holiday' CHECK(type IN ('holiday','eve')),
+        color TEXT NOT NULL DEFAULT '#f59e0b',
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS vacation_requests (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

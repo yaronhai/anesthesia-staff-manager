@@ -310,6 +310,16 @@ async function getConfig(branchId = null) {
       console.warn('fairness_sites not available:', e.message);
     }
 
+    let specialDays = [];
+    try {
+      const sdRes = branchId
+        ? await query('SELECT id, date, name, type, color FROM special_days WHERE branch_id = $1 OR branch_id IS NULL ORDER BY date', [branchId])
+        : await query('SELECT id, date, name, type, color FROM special_days ORDER BY date');
+      specialDays = sdRes.rows;
+    } catch (e) {
+      console.warn('special_days not available:', e.message);
+    }
+
     return {
       jobs: res[0].rows,
       employment_types: res[1].rows,
@@ -321,6 +331,7 @@ async function getConfig(branchId = null) {
       shift_types: res[6].rows,
       preference_types: res[7].rows,
       fairness_sites: fairnessSiteIds,
+      special_days: specialDays,
     };
   } catch (error) {
     console.error('Error in getConfig:', error);
@@ -1514,6 +1525,45 @@ app.delete('/api/config/fairness-sites/:siteId', requireAdmin, async (req, res) 
   } catch (e) {
     console.error('Remove fairness site error:', e);
     res.status(500).json({ error: 'שגיאה בהסרת אתר מהצדק' });
+  }
+});
+
+// ── Special Days ─────────────────────────────────────────────────────────────
+
+app.post('/api/config/special-days', requireAdmin, async (req, res) => {
+  try {
+    const { date, name, type, color } = req.body;
+    if (!date || !name) return res.status(400).json({ error: 'תאריך ושם נדרשים' });
+    const branchId = getEffectiveBranchId(req);
+    await query('INSERT INTO special_days (date, name, type, color, branch_id) VALUES ($1, $2, $3, $4, $5)',
+      [date, name.trim(), type === 'eve' ? 'eve' : 'holiday', color || '#f59e0b', branchId]);
+    res.json(await getConfig(branchId));
+  } catch (e) {
+    console.error('Add special day error:', e);
+    res.status(500).json({ error: 'שגיאה בהוספת יום מיוחד' });
+  }
+});
+
+app.put('/api/config/special-days/:id', requireAdmin, async (req, res) => {
+  try {
+    const { date, name, type, color } = req.body;
+    if (!date || !name) return res.status(400).json({ error: 'תאריך ושם נדרשים' });
+    await query('UPDATE special_days SET date=$1, name=$2, type=$3, color=$4 WHERE id=$5',
+      [date, name.trim(), type === 'eve' ? 'eve' : 'holiday', color || '#f59e0b', req.params.id]);
+    res.json(await getConfig(getEffectiveBranchId(req)));
+  } catch (e) {
+    console.error('Update special day error:', e);
+    res.status(500).json({ error: 'שגיאה בעדכון יום מיוחד' });
+  }
+});
+
+app.delete('/api/config/special-days/:id', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM special_days WHERE id=$1', [req.params.id]);
+    res.json(await getConfig(getEffectiveBranchId(req)));
+  } catch (e) {
+    console.error('Delete special day error:', e);
+    res.status(500).json({ error: 'שגיאה במחיקת יום מיוחד' });
   }
 });
 
