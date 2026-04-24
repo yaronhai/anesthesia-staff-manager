@@ -419,6 +419,8 @@ async function runMigrations() {
 
     await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS can_submit_requests BOOLEAN NOT NULL DEFAULT TRUE;`);
 
+    await query(`ALTER TABLE special_days ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'holiday';`);
+
     console.log('✓ Migrations complete');
   } catch (error) {
     console.error('Error running migrations:', error);

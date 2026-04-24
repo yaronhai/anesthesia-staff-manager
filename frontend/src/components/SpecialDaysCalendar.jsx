@@ -161,8 +161,16 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
   const activeSd = activeDay ? sdForDate(activeDay) : null;
   const newCount = (importList || []).filter(h => importSel[h.id] && !specialDays.some(s => s.date === h.date && s.type === h.type)).length;
 
+  const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const monthSDs = specialDays.filter(s => s.date.startsWith(monthStr));
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+      {/* Debug: special days count */}
+      <div style={{ fontSize: '0.75rem', color: '#6b7280', background: '#f3f4f6', borderRadius: 4, padding: '3px 8px', display: 'inline-block', alignSelf: 'flex-start' }}>
+        סה"כ: {specialDays.length} ימים מיוחדים | חודש זה: {monthSDs.length}
+      </div>
 
       {/* Navigation */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -241,10 +249,10 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
               style={{
                 minHeight: 58, borderRadius: 6, padding: '4px 3px', textAlign: 'center',
                 cursor: 'pointer',
-                border: isActive ? '2px solid #2563eb' : `2px solid ${sd ? sd.color + 'bb' : 'transparent'}`,
-                background: sd ? sd.color + '1c' : isSat ? '#fecaca22' : isFri ? '#fef3c722' : '#f9fafb',
+                border: isActive ? '2px solid #2563eb' : sd ? `2px solid ${sd.color}` : '2px solid transparent',
+                background: sd ? sd.color + '28' : isSat ? '#fee2e2' : isFri ? '#fef3c7' : '#f9fafb',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
-                boxShadow: isActive ? '0 0 0 2px #bfdbfe' : 'none',
+                boxShadow: isActive ? '0 0 0 2px #bfdbfe' : sd ? `0 0 0 1px ${sd.color}55` : 'none',
                 transition: 'box-shadow 0.1s',
               }}
             >
@@ -254,10 +262,10 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
               }}>{d}</span>
               {sd && (
                 <>
-                  <span style={{ fontSize: '0.48rem', color: sd.color, fontWeight: 600, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
+                  <span style={{ fontSize: '0.65rem', color: sd.color, fontWeight: 700, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
                     {sd.name}
                   </span>
-                  <span style={{ fontSize: '0.42rem', background: 'rgba(255,255,255,0.7)', borderRadius: 2, padding: '0 2px', color: '#6b7280' }}>
+                  <span style={{ fontSize: '0.58rem', background: sd.color, borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>
                     {sd.type === 'holiday' ? 'חג' : 'ערב חג'}
                   </span>
                 </>
