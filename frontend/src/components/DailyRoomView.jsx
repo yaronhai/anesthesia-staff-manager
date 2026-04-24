@@ -939,9 +939,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     <div className="room-view-container">
       <div className="room-view-header">
         <div className="room-nav" style={{marginBottom: '0.4rem'}}>
-          <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
-          <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
-          <button className="btn-secondary btn-sm" onClick={prevDay}>◀ יום</button>
+          <button className="btn-secondary btn-sm" onClick={nextYear} title="שנה קדימה">›››</button>
+          <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">››</button>
+          <button className="btn-secondary btn-sm" onClick={nextDay} title="יום קדימה">›</button>
           <span
             onClick={() => datePickerRef.current?.showPicker()}
             style={{ fontSize: '1rem', fontWeight: 700, color: '#8B0000', borderRadius: '6px', border: '1px solid #d1d5db', padding: '0.25rem 0.75rem', cursor: 'pointer', background: 'white', userSelect: 'none' }}
@@ -955,9 +955,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             onChange={e => { if (e.target.value) setViewDate(new Date(e.target.value + 'T12:00:00')); }}
             style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
           />
-          <button className="btn-secondary btn-sm" onClick={nextDay}>יום ▶</button>
-          <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
-          <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
+          <button className="btn-secondary btn-sm" onClick={prevDay} title="יום אחורה">‹</button>
+          <button className="btn-secondary btn-sm" onClick={prevMonth} title="חודש אחורה">‹‹</button>
+          <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">‹‹‹</button>
         </div>
         <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
           <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>

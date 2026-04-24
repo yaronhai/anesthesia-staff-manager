@@ -5,8 +5,8 @@ function WorkerAuthButton({ worker, authToken, config }) {
 
   return (
     <>
-      <button onClick={() => setShowModal(true)} className="btn-auth">
-        הרשאות
+      <button onClick={() => setShowModal(true)} className="btn-auth" title="הרשאות">
+        🔑
       </button>
       {showModal && (
         <WorkerActivityAuthorizations
@@ -334,17 +334,17 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
               <td>{w.phone || '—'}</td>
               <td>{w.email || '—'}</td>
               <td>
-                <button onClick={() => setViewing(w)} className="btn-view">צפייה</button>
+                <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
                 {(isSuperAdmin || w.is_primary_branch !== false) && (
                   <>
                     <WorkerAuthButton worker={w} authToken={authToken} config={config} />
-                    <button onClick={() => onEdit(w)} className="btn-edit">עריכה</button>
+                    <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
                     <button onClick={() => {
                       if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
                         onResetPassword(w.id);
                       }
-                    }} className="btn-reset">איפוס</button>
-                    <button onClick={() => onDelete(w.id)} className="btn-delete">מחיקה</button>
+                    }} className="btn-reset" title="איפוס סיסמא">🔄</button>
+                    <button onClick={() => onDelete(w.id)} className="btn-delete" title="מחיקה">🗑️</button>
                   </>
                 )}
               </td>

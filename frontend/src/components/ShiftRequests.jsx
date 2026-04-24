@@ -341,12 +341,12 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
           </colgroup>
           <thead>
             <tr>
-              <td className="admin-grid-name-col" style={{ background: '#fffde7', color: '#991b1b', fontWeight: 700, fontSize: '0.68rem', padding: '0.25rem 0.4rem', borderBottom: '2px solid #fde047' }}>סיכום</td>
+              <td className="admin-grid-name-col" style={{ background: '#e0f2fe', color: '#0c4a6e', fontWeight: 700, fontSize: '0.68rem', padding: '0.25rem 0.4rem', borderBottom: '2px solid #7dd3fc' }}>סיכום</td>
               {days.map(d => {
                 const dow = new Date(year, month, d).getDay();
                 const isSaturday = dow === 6;
                 return (
-                  <td key={d} style={{ background: isSaturday ? '#fef9c3' : '#fffde7', border: '1px solid #fde047', borderBottom: '2px solid #fde047', textAlign: 'center', padding: '0.15rem 0.05rem' }}>
+                  <td key={d} style={{ background: isSaturday ? '#9ca3af' : '#e5e7eb', border: '1px solid #7dd3fc', borderBottom: '2px solid #7dd3fc', textAlign: 'center', padding: '0.15rem 0.05rem' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', alignItems: 'center' }}>
                       {shifts.map(s => {
                         const count = summaryMap[d][s.key];
@@ -394,13 +394,6 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
           </colgroup>
           <tbody>
             {primaryJobGroups.map(job => ([
-              <tr key={`job-${job}`}>
-                <td colSpan={days.length + 1} style={{
-                  background: '#1a2e4a', color: 'white',
-                  fontWeight: 700, fontSize: '0.78rem',
-                  padding: '0.25rem 0.6rem', letterSpacing: '0.03em'
-                }}>{job}</td>
-              </tr>,
               ...primaryJobMap[job].map(row => (
                 <tr key={row.userId}>
                   <td className="admin-grid-name-col">{row.name}</td>
@@ -443,29 +436,18 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               ))
             ]))}
             {borrowedRows.length > 0 && [
-              <tr key="borrowed-section-header">
-                <td colSpan={days.length + 1} style={{
-                  background: '#92400e', color: '#fef3c7',
-                  fontWeight: 700, fontSize: '0.78rem',
-                  padding: '0.35rem 0.6rem', letterSpacing: '0.03em',
-                  borderTop: '3px solid #78350f',
-                }}>מושאלים</td>
-              </tr>,
               ...borrowedJobGroups.map(job => ([
-                <tr key={`borrowed-job-${job}`}>
-                  <td colSpan={days.length + 1} style={{
-                    background: '#1a2e4a', color: '#fde68a',
-                    fontWeight: 700, fontSize: '0.78rem',
-                    padding: '0.25rem 0.6rem', letterSpacing: '0.03em'
-                  }}>{job}</td>
-                </tr>,
                 ...borrowedJobMap[job].map(row => (
-                  <tr key={row.userId} style={{background: '#fffbeb'}}>
-                    <td className="admin-grid-name-col" style={{color: '#92400e', fontStyle: 'italic'}}>{row.name}</td>
+                  <tr key={row.userId}>
+                    <td className="admin-grid-name-col">
+                      {row.name}
+                      <span style={{fontSize: '0.5rem', color: '#991b1b', fontWeight: 600, display: 'block', lineHeight: 1}}> מושאל</span>
+                    </td>
                     {days.map(d => {
                       const dayData = requestMap[row.userId]?.[d] || {};
                       const dow = new Date(year, month, d).getDay();
                       const isSaturday = dow === 6;
+                      const isFriday = dow === 5;
                       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                       const vac = vacations.find(v =>
                         Number(v.user_id) === Number(row.userId) &&
@@ -474,7 +456,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                         v.approved_start <= dateStr && v.approved_end >= dateStr
                       );
                       return (
-                        <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}`} style={{background: isSaturday ? undefined : '#fffbeb'}} onClick={() => {
+                        <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}`} onClick={() => {
                           if (!row.canSubmit) { setBlockedWorkerMsg(row.name); return; }
                           if (vac) {
                             setVacationWarning({ message: `לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`, userId: row.userId, day: d });
@@ -726,19 +708,19 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
                 </span>
               ))}
               <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#fee2e2', border: '1px solid #fca5a5', flexShrink: 0 }}></span>שבת
+                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#9ca3af', flexShrink: 0 }}></span>שבת
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#fffbeb', border: '1px solid #fcd34d', flexShrink: 0 }}></span>מושאל
+                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#e5e7eb', border: '1px solid #9ca3af', flexShrink: 0 }}></span>שישי
               </span>
             </div>
           </div>
           <div className="month-year-nav">
-            <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
-            <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
+            <button className="btn-secondary btn-sm" onClick={nextYear} title="שנה קדימה">»</button>
+            <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">›</button>
             <span className="month-year-label">{MONTHS[month]} {year}</span>
-            <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
-            <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
+            <button className="btn-secondary btn-sm" onClick={prevMonth} title="חודש אחורה">‹</button>
+            <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">«</button>
           </div>
         </div>
         <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} specialDays={config.special_days || []} />
