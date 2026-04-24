@@ -72,7 +72,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
   }
 
   async function removeSD(id) {
-    const res = await fetch(`/api/config/special-days/${id}`, {
+    const res = await fetch(`/api/config/special-days/${id}${branchQ}`, {
       method: 'DELETE', headers: { Authorization: `Bearer ${authToken}` },
     });
     if (res.ok) { onConfigChange(await res.json()); setActiveDay(null); setAddForm(null); }
@@ -80,7 +80,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
 
   async function addSD() {
     if (!addForm?.name.trim()) return alert('יש למלא שם');
-    const res = await fetch('/api/config/special-days', {
+    const res = await fetch(`/api/config/special-days${branchQ}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
       body: JSON.stringify({ date: addForm.date, name: addForm.name.trim(), type: addForm.type, color: addForm.color }),
@@ -124,21 +124,24 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
   async function applyImport() {
     setApplying(true);
     const existing = new Set(specialDays.map(s => `${s.date}:${s.type}`));
-    const toAdd = (importList || []).filter(h => importSel[h.id] && !existing.has(`${h.date}:${h.type}`));
-    let lastConfig = null;
+    const toAdd = (importList || [])
+      .filter(h => importSel[h.id] && !existing.has(`${h.date}:${h.type}`))
+      .sort((a, b) => a.date.localeCompare(b.date));
     for (const h of toAdd) {
-      const res = await fetch('/api/config/special-days', {
+      await fetch(`/api/config/special-days${branchQ}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ date: h.date, name: h.name, type: h.type, color: h.color }),
       });
-      if (res.ok) lastConfig = await res.json();
     }
-    if (lastConfig) {
-      onConfigChange(lastConfig);
-    } else {
-      const r = await fetch(`/api/config${branchQ}`, { headers: { Authorization: `Bearer ${authToken}` } });
-      if (r.ok) onConfigChange(await r.json());
+    // Always fetch fresh config after bulk insert
+    const r = await fetch(`/api/config${branchQ}`, { headers: { Authorization: `Bearer ${authToken}` } });
+    if (r.ok) onConfigChange(await r.json());
+    // Navigate to first added holiday's month
+    if (toAdd.length > 0) {
+      const [y, m] = toAdd[0].date.split('-').map(Number);
+      setYear(y);
+      setMonth(m - 1);
     }
     setImportList(null);
     setApplying(false);
