@@ -42,6 +42,23 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [inlineNotes, setInlineNotes] = useState('');
   const [addingToShiftInSite, setAddingToShiftInSite] = useState(null); // { site_id, shift_type } - for adding within site modal
 
+  // Fairness report
+  const [fairnessReport, setFairnessReport] = useState(null);
+  const [fairnessLoading, setFairnessLoading] = useState(false);
+
+  async function fetchFairnessReport() {
+    setFairnessLoading(true);
+    try {
+      const res = await fetch(`/api/fairness-report${branchId ? `?branch_id=${branchId}` : ''}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) setFairnessReport(await res.json());
+      else alert('שגיאה בטעינת טבלת צדק');
+    } finally {
+      setFairnessLoading(false);
+    }
+  }
+
   // Add assignment state
   const [newAssignment, setNewAssignment] = useState({ worker_id: null });
   const [showAllWorkers, setShowAllWorkers] = useState(false);
@@ -938,9 +955,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     <>
     <div className="room-view-container">
       <div className="room-view-header">
-        <div className="room-nav" style={{marginBottom: '0.4rem'}}>
+        <div className="room-nav">
           <button className="btn-secondary btn-sm" onClick={nextYear} title="שנה קדימה">›››</button>
-          <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">››</button>
+          <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">‹‹</button>
           <button className="btn-secondary btn-sm" onClick={nextDay} title="יום קדימה">›</button>
           <span
             onClick={() => datePickerRef.current?.showPicker()}
@@ -958,14 +975,13 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button className="btn-secondary btn-sm" onClick={prevDay} title="יום אחורה">‹</button>
           <button className="btn-secondary btn-sm" onClick={prevMonth} title="חודש אחורה">‹‹</button>
           <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">‹‹‹</button>
-        </div>
-        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋 תבנית</button>
-            <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
-            <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
-            <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ דו"ח שיבוצים</button>
-          </div>
+          <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
+          <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋 תבנית</button>
+          <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
+          <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
+          <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ דו"ח שיבוצים</button>
+          <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️ טבלת צדק</button>
+          <div style={{flex: 1}} />
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
           {(() => {
             const sitesInSelectedGroup = (selectedGroupId === '__all__' || !selectedGroupId)
@@ -1704,6 +1720,45 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     )}
 
     {showReportPreview && <ReportPreview />}
+
+    {fairnessReport && (
+      <div className="form-overlay" onClick={() => setFairnessReport(null)}>
+        <div className="settings-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700, direction: 'rtl' }}>
+          <div className="settings-header">
+            <h2>⚖️ טבלת צדק</h2>
+            <button className="btn-close" onClick={() => setFairnessReport(null)}>✕</button>
+          </div>
+          <div style={{ padding: '1rem 1.25rem', overflowX: 'auto' }}>
+            {fairnessReport.sites.length === 0 ? (
+              <p style={{ fontSize: '0.85rem', color: '#666' }}>לא הוגדרו אתרי צדק.</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', direction: 'rtl' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    <th style={{ padding: '0.3rem 0.5rem', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>עובד</th>
+                    {fairnessReport.sites.map(s => (
+                      <th key={s.site_id} style={{ padding: '0.3rem 0.5rem', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{s.site_name}</th>
+                    ))}
+                    <th style={{ padding: '0.3rem 0.5rem', textAlign: 'center', fontWeight: 700, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>סה"כ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fairnessReport.workers.map(w => (
+                    <tr key={w.worker_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}>{w.name}</td>
+                      {fairnessReport.sites.map(s => (
+                        <td key={s.site_id} style={{ padding: '0.25rem 0.5rem', textAlign: 'center', whiteSpace: 'nowrap' }}>{w.counts[s.site_id] || 0}</td>
+                      ))}
+                      <td style={{ padding: '0.25rem 0.5rem', textAlign: 'center', fontWeight: 700, whiteSpace: 'nowrap' }}>{w.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }

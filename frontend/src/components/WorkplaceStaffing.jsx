@@ -153,7 +153,6 @@ export default function WorkplaceStaffing({ config, authToken }) {
   return (
     <div className="staffing-container">
       <div className="staffing-header">
-        <h2>ניהול התמנויות אתר</h2>
         <div className="staffing-controls">
           <button onClick={() => setViewDate(new Date(year - 1, month - 1))}>◀ שנה</button>
           <button onClick={() => setViewDate(new Date(year, month - 2))}>◀ חודש</button>

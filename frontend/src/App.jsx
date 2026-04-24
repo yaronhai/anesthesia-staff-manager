@@ -375,7 +375,7 @@ export default function App() {
       {activeTab === 'workers' && isAdmin && selectedBranchId && (
         <>
           <div className="filters">
-            <button onClick={handleAdd} className="btn-primary" style={{whiteSpace:'nowrap'}}>+ הוסף עובד</button>
+            <button onClick={handleAdd} className="btn-primary" title="הוסף עובד" style={{whiteSpace:'nowrap', fontSize:'1.3rem', padding:'0.35rem 0.7rem', lineHeight:1}}>＋</button>
             <input
               type="text"
               placeholder="חיפוש לפי שם / ת.ז. / אימייל / טלפון"

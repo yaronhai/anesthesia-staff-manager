@@ -147,29 +147,45 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
     setApplying(false);
   }
 
-  async function deleteAllForYear() {
-    if (!window.confirm(`למחוק את כל ${yearSDs.length} הימים המיוחדים לשנת ${year}?`)) return;
-    let last = null;
-    for (const sd of yearSDs) {
-      const r = await fetch(`/api/config/special-days/${sd.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${authToken}` } });
-      if (r.ok) last = await r.json();
-    }
-    if (last) onConfigChange(last);
-  }
-
-  const yearSDs = specialDays.filter(s => s.date.startsWith(String(year))).sort((a, b) => a.date.localeCompare(b.date));
   const activeSd = activeDay ? sdForDate(activeDay) : null;
   const newCount = (importList || []).filter(h => importSel[h.id] && !specialDays.some(s => s.date === h.date && s.type === h.type)).length;
 
   const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
   const monthSDs = specialDays.filter(s => s.date.startsWith(monthStr));
 
+  const monthHolidays = monthSDs.filter(s => s.type === 'holiday').length;
+  const monthEves = monthSDs.filter(s => s.type === 'eve').length;
+  const monthFridays = Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1).getDay()).filter(d => d === 5).length;
+  const monthSaturdays = Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1).getDay()).filter(d => d === 6).length;
+  const monthTotal = monthHolidays + monthEves + monthFridays + monthSaturdays;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-      {/* Debug: special days count */}
-      <div style={{ fontSize: '0.75rem', color: '#6b7280', background: '#f3f4f6', borderRadius: 4, padding: '3px 8px', display: 'inline-block', alignSelf: 'flex-start' }}>
-        סה"כ: {specialDays.length} ימים מיוחדים | חודש זה: {monthSDs.length}
+      {/* Month summary */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', fontSize: '0.8rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 12px' }}>
+        <span style={{ color: '#374151', fontWeight: 700 }}>סה"כ חודש זה: {monthTotal}</span>
+        <span style={{ color: '#9ca3af' }}>|</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#dc2626', display: 'inline-block' }} />
+          <span style={{ color: '#dc2626', fontWeight: 600 }}>חג</span>
+          <span style={{ color: '#374151' }}>{monthHolidays}</span>
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#f59e0b', display: 'inline-block' }} />
+          <span style={{ color: '#b45309', fontWeight: 600 }}>ערב חג</span>
+          <span style={{ color: '#374151' }}>{monthEves}</span>
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#f59e0b', display: 'inline-block' }} />
+          <span style={{ color: '#b45309', fontWeight: 600 }}>שישי</span>
+          <span style={{ color: '#374151' }}>{monthFridays}</span>
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#dc2626', display: 'inline-block' }} />
+          <span style={{ color: '#dc2626', fontWeight: 600 }}>שבת</span>
+          <span style={{ color: '#374151' }}>{monthSaturdays}</span>
+        </span>
       </div>
 
       {/* Navigation */}
@@ -270,7 +286,13 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
                   </span>
                 </>
               )}
-              {!sd && !isSat && (
+              {!sd && isSat && (
+                <span style={{ fontSize: '0.58rem', background: '#dc2626', borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>שבת</span>
+              )}
+              {!sd && isFri && (
+                <span style={{ fontSize: '0.58rem', background: '#f59e0b', borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>שישי</span>
+              )}
+              {!sd && !isSat && !isFri && (
                 <span style={{ fontSize: '0.5rem', color: '#d1d5db', lineHeight: 1.5 }}>+</span>
               )}
             </div>
@@ -336,39 +358,6 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
         </span>
       </div>
 
-      {/* Year summary list */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-          <strong style={{ fontSize: '0.88rem', color: '#374151' }}>כל הימים המיוחדים לשנת {year} ({yearSDs.length})</strong>
-          {yearSDs.length > 0 && (
-            <button
-              onClick={deleteAllForYear}
-              style={{ fontSize: '0.75rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              מחק הכל לשנה זו
-            </button>
-          )}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-          {yearSDs.map(sd => (
-            <span key={sd.id} style={{
-              display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-              background: sd.color + '1c', border: `1px solid ${sd.color}`,
-              borderRadius: 6, padding: '2px 8px', fontSize: '0.78rem',
-            }}>
-              <span style={{ color: sd.color, fontWeight: 700, fontSize: '0.7rem' }}>{sd.date}</span>
-              <span>{sd.name}</span>
-              <span style={{ fontSize: '0.68rem', color: '#9ca3af', background: '#f3f4f6', borderRadius: 3, padding: '0 4px' }}>
-                {sd.type === 'holiday' ? 'חג' : 'ערב'}
-              </span>
-              <button onClick={() => removeSD(sd.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: '0.75rem', padding: 0, lineHeight: 1, marginRight: '-2px' }}>✕</button>
-            </span>
-          ))}
-          {yearSDs.length === 0 && (
-            <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>אין ימים מיוחדים לשנת {year}</span>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

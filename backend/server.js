@@ -2459,17 +2459,35 @@ app.get('/api/branches', requireAdmin, async (req, res) => {
 
 app.get('/api/branches/overview', requireSuperAdmin, async (req, res) => {
   try {
-    const result = await query(`
-      SELECT b.id, b.name, b.description,
-             COUNT(DISTINCT w.id) AS worker_count,
-             COUNT(DISTINCT CASE WHEN w.is_active = true THEN w.id END) AS active_worker_count
-      FROM branches b
-      LEFT JOIN worker_branches wb ON wb.branch_id = b.id
-      LEFT JOIN workers w ON w.id = wb.worker_id AND w.primary_branch_id = b.id
-      GROUP BY b.id, b.name, b.description
-      ORDER BY b.id
-    `);
-    res.json(result.rows);
+    const [branches, empBreakdown] = await Promise.all([
+      query(`
+        SELECT b.id, b.name, b.description,
+               COUNT(DISTINCT w.id)::int AS worker_count,
+               COUNT(DISTINCT CASE WHEN w.is_active = true THEN w.id END)::int AS active_worker_count
+        FROM branches b
+        LEFT JOIN worker_branches wb ON wb.branch_id = b.id
+        LEFT JOIN workers w ON w.id = wb.worker_id AND w.primary_branch_id = b.id
+        GROUP BY b.id, b.name, b.description
+        ORDER BY b.id
+      `),
+      query(`
+        SELECT wb.branch_id,
+               COALESCE(et.name, 'לא מוגדר') AS emp_type_name,
+               COUNT(*)::int AS active_count
+        FROM worker_branches wb
+        JOIN workers w ON w.id = wb.worker_id AND w.primary_branch_id = wb.branch_id AND w.is_active = true
+        LEFT JOIN employment_types et ON et.id = w.employment_type_id
+        GROUP BY wb.branch_id, et.id, et.name
+        ORDER BY et.name NULLS LAST
+      `),
+    ]);
+    const byBranch = {};
+    for (const row of empBreakdown.rows) {
+      if (!byBranch[row.branch_id]) byBranch[row.branch_id] = [];
+      byBranch[row.branch_id].push({ name: row.emp_type_name, count: row.active_count });
+    }
+    const result = branches.rows.map(b => ({ ...b, emp_type_breakdown: byBranch[b.id] || [] }));
+    res.json(result);
   } catch (error) {
     console.error('Get branches overview error:', error);
     res.status(500).json({ error: 'שגיאה' });
@@ -2478,14 +2496,27 @@ app.get('/api/branches/overview', requireSuperAdmin, async (req, res) => {
 
 app.get('/api/dashboard-stats', requireSuperAdmin, async (req, res) => {
   try {
-    const result = await query(`
-      SELECT
-        COUNT(*) AS total_workers,
-        COUNT(CASE WHEN is_active = true THEN 1 END) AS active_workers,
-        COUNT(CASE WHEN is_active = false THEN 1 END) AS inactive_workers
-      FROM workers
-    `);
-    res.json(result.rows[0]);
+    const [summary, byType] = await Promise.all([
+      query(`
+        SELECT
+          COUNT(*)::int AS total_workers,
+          COUNT(CASE WHEN is_active = true THEN 1 END)::int AS active_workers,
+          COUNT(CASE WHEN is_active = false THEN 1 END)::int AS inactive_workers
+        FROM workers
+      `),
+      query(`
+        SELECT
+          COALESCE(et.name, 'לא מוגדר') AS name,
+          et.is_independent,
+          COUNT(CASE WHEN w.is_active = true THEN 1 END)::int AS active_count,
+          COUNT(*)::int AS total_count
+        FROM workers w
+        LEFT JOIN employment_types et ON et.id = w.employment_type_id
+        GROUP BY et.id, et.name, et.is_independent
+        ORDER BY et.name NULLS LAST
+      `),
+    ]);
+    res.json({ ...summary.rows[0], by_type: byType.rows });
   } catch (error) {
     console.error('Dashboard stats error:', error);
     res.status(500).json({ error: 'שגיאה' });

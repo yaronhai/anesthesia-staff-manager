@@ -440,7 +440,7 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
   );
 }
 
-function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatusFilterChange, onNewRequest }) {
+function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatusFilterChange, onNewRequest, nameFilter, onNameFilterChange }) {
   const statuses = ['', 'pending', 'approved', 'partial', 'rejected', 'cancelled'];
   const statusLabels = {
     '': 'כל הסטטוסים',
@@ -450,6 +450,10 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
     rejected: 'נדחתה',
     cancelled: 'בוטלה'
   };
+
+  const filtered = nameFilter.trim()
+    ? requests.filter(r => `${r.first_name} ${r.family_name}`.includes(nameFilter.trim()))
+    : requests;
 
   return (
     <div>
@@ -474,6 +478,13 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
             <option key={s} value={s}>{statusLabels[s]}</option>
           ))}
         </select>
+        <input
+          type="text"
+          placeholder="חיפוש לפי שם..."
+          value={nameFilter}
+          onChange={(e) => onNameFilterChange(e.target.value)}
+          style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc', minWidth: '160px' }}
+        />
       </div>
 
       <div className="vacation-table-wrap">
@@ -492,7 +503,7 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
           </tr>
         </thead>
         <tbody>
-          {requests.map((r) => (
+          {filtered.map((r) => (
             <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
               <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{r.first_name} {r.family_name}</td>
               <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
@@ -533,7 +544,7 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
         </tbody>
       </table>
       </div>
-      {requests.length === 0 && <p style={{ color: '#666' }}>אין בקשות</p>}
+      {filtered.length === 0 && <p style={{ color: '#666' }}>אין בקשות</p>}
     </div>
   );
 }
@@ -546,6 +557,7 @@ export default function VacationRequests({ currentUser, token, selectedBranchId,
   const [showNewModal, setShowNewModal] = useState(false);
   const [decisionRequest, setDecisionRequest] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -613,6 +625,8 @@ export default function VacationRequests({ currentUser, token, selectedBranchId,
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
             onNewRequest={() => setShowNewModal(true)}
+            nameFilter={nameFilter}
+            onNameFilterChange={setNameFilter}
           />
         ) : (
           <WorkerView
