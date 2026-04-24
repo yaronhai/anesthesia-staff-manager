@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import SpecialDaysCalendar from './SpecialDaysCalendar';
 
 export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, branches = [], onConfigChange, onBranchesChange, onClose }) {
   const [newJob, setNewJob] = useState('');
@@ -372,7 +371,6 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     { key: 'honorifics', label: 'תארים' },
     { key: 'activities', label: 'סוגי פעילות' },
     { key: 'templates', label: 'תבניות' },
-    { key: 'special-days', label: 'ימים מיוחדים' },
   ];
 
   return (
@@ -941,14 +939,6 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
               </>
             )}
 
-            {activeTab === 'special-days' && (
-              <SpecialDaysCalendar
-                config={config}
-                authToken={authToken}
-                branchId={localBranchId}
-                onConfigChange={onConfigChange}
-              />
-            )}
 
           </div>
         </div>
