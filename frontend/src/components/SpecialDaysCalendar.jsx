@@ -176,7 +176,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
           onClick={loadHolidays}
           disabled={loadingImport}
         >
-          {loadingImport ? '⏳ טוען...' : `ייבא חגי ישראל ${year}`}
+          {loadingImport ? '⏳ טוען נתוני חגים...' : `ייבא חגי ישראל ${year}`}
         </button>
       </div>
 
