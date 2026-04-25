@@ -14,22 +14,10 @@ function shiftDate(dateStr, days) {
   return d.toISOString().substring(0, 10);
 }
 
-async function fetchIsraeliHolidays(year) {
-  const url = `https://www.hebcal.com/hebcal?v=1&cfg=json&year=${year}&maj=on&min=off&ss=off&mf=off&nx=off&mod=on&i=off&c=off&s=off&lg=he`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const data = await res.json();
-  return (data.items || []).filter(item => item.category === 'holiday');
-}
-
 export default function SpecialDaysCalendar({ config, authToken, branchId, onConfigChange }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
-  const [importList, setImportList] = useState(null);
-  const [importSel, setImportSel] = useState({});
-  const [loadingImport, setLoadingImport] = useState(false);
-  const [applying, setApplying] = useState(false);
   const [activeDay, setActiveDay] = useState(null);
   const [addForm, setAddForm] = useState(null);
 
@@ -89,75 +77,31 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
     else alert('שגיאה בהוספה');
   }
 
-  async function loadHolidays() {
-    setLoadingImport(true);
-    try {
-      const raw = await fetchIsraeliHolidays(year);
-      const seen = new Set();
-      const list = [];
-      raw.forEach(item => {
-        const date = item.date.substring(0, 10);
-        const name = item.title;
-        const hKey = `${date}:holiday`;
-        if (!seen.has(hKey)) {
-          seen.add(hKey);
-          list.push({ id: hKey, date, name, type: 'holiday', color: '#dc2626' });
-        }
-        const eveDate = shiftDate(date, -1);
-        const eKey = `${eveDate}:eve`;
-        if (!seen.has(eKey)) {
-          seen.add(eKey);
-          list.push({ id: eKey, date: eveDate, name: `ערב ${name}`, type: 'eve', color: '#f59e0b' });
-        }
-      });
-      list.sort((a, b) => a.date.localeCompare(b.date));
-      setImportList(list);
-      const sel = {};
-      list.forEach(h => { sel[h.id] = true; });
-      setImportSel(sel);
-    } catch {
-      alert('שגיאה בטעינת חגים מהאינטרנט. בדוק חיבור.');
-    }
-    setLoadingImport(false);
-  }
-
-  async function applyImport() {
-    setApplying(true);
-    const existing = new Set(specialDays.map(s => `${s.date}:${s.type}`));
-    const toAdd = (importList || [])
-      .filter(h => importSel[h.id] && !existing.has(`${h.date}:${h.type}`))
-      .sort((a, b) => a.date.localeCompare(b.date));
-    for (const h of toAdd) {
-      await fetch(`/api/config/special-days${branchQ}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ date: h.date, name: h.name, type: h.type, color: h.color }),
-      });
-    }
-    // Always fetch fresh config after bulk insert
-    const r = await fetch(`/api/config${branchQ}`, { headers: { Authorization: `Bearer ${authToken}` } });
-    if (r.ok) onConfigChange(await r.json());
-    // Navigate to first added holiday's month
-    if (toAdd.length > 0) {
-      const [y, m] = toAdd[0].date.split('-').map(Number);
-      setYear(y);
-      setMonth(m - 1);
-    }
-    setImportList(null);
-    setApplying(false);
-  }
-
   const activeSd = activeDay ? sdForDate(activeDay) : null;
-  const newCount = (importList || []).filter(h => importSel[h.id] && !specialDays.some(s => s.date === h.date && s.type === h.type)).length;
 
   const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
   const monthSDs = specialDays.filter(s => s.date.startsWith(monthStr));
 
+  const specialDayDates = new Set(monthSDs.map(s => s.date));
   const monthHolidays = monthSDs.filter(s => s.type === 'holiday').length;
-  const monthEves = monthSDs.filter(s => s.type === 'eve').length;
-  const monthFridays = Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1).getDay()).filter(d => d === 5).length;
-  const monthSaturdays = Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1).getDay()).filter(d => d === 6).length;
-  const monthTotal = monthHolidays + monthEves + monthFridays + monthSaturdays;
+  // Eves not on Saturday (eve on Sat counts as Saturday instead)
+  const monthEves = monthSDs.filter(s => {
+    if (s.type !== 'eve') return false;
+    return new Date(s.date + 'T12:00:00').getDay() !== 6;
+  }).length;
+  // Saturdays: no special day OR eve on Saturday
+  const monthSaturdays = Array.from({ length: daysInMonth }, (_, i) => {
+    const dateStr = toStr(year, month, i + 1);
+    if (new Date(year, month, i + 1).getDay() !== 6) return false;
+    const sd = monthSDs.find(s => s.date === dateStr);
+    return !sd || sd.type === 'eve';
+  }).filter(Boolean).length;
+  // Fridays: not in specialDayDates (any special day overrides Friday)
+  const monthFridays = Array.from({ length: daysInMonth }, (_, i) => {
+    return new Date(year, month, i + 1).getDay() === 5 &&
+           !specialDayDates.has(toStr(year, month, i + 1));
+  }).filter(Boolean).length;
+  const monthTotal = monthHolidays + monthEves + monthSaturdays + monthFridays;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -177,14 +121,14 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
           <span style={{ color: '#374151' }}>{monthEves}</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#f59e0b', display: 'inline-block' }} />
-          <span style={{ color: '#b45309', fontWeight: 600 }}>שישי</span>
-          <span style={{ color: '#374151' }}>{monthFridays}</span>
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, background: '#dc2626', display: 'inline-block' }} />
           <span style={{ color: '#dc2626', fontWeight: 600 }}>שבת</span>
           <span style={{ color: '#374151' }}>{monthSaturdays}</span>
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#f59e0b', display: 'inline-block' }} />
+          <span style={{ color: '#b45309', fontWeight: 600 }}>שישי</span>
+          <span style={{ color: '#374151' }}>{monthFridays}</span>
         </span>
       </div>
 
@@ -197,52 +141,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
         <button className="btn-secondary" onClick={prevMonth}>◀</button>
         <strong style={{ minWidth: 64, textAlign: 'center' }}>{MONTHS_HE[month]}</strong>
         <button className="btn-secondary" onClick={nextMonth}>▶</button>
-        <button
-          className="btn-primary"
-          style={{ marginRight: 'auto', fontSize: '0.85rem' }}
-          onClick={loadHolidays}
-          disabled={loadingImport}
-        >
-          {loadingImport ? '⏳ טוען נתוני חגים...' : `ייבא חגי ישראל ${year}`}
-        </button>
       </div>
-
-      {/* Import panel */}
-      {importList && (
-        <div style={{ border: '2px solid #f59e0b', borderRadius: 8, padding: '0.75rem', background: '#fffbeb' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <strong style={{ fontSize: '0.88rem' }}>חגי ישראל לשנת {year} — סמן את מה להוסיף:</strong>
-            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexShrink: 0 }}>
-              <button style={{ fontSize: '0.78rem' }} onClick={() => { const s = {}; importList.forEach(h => { s[h.id] = true; }); setImportSel(s); }}>בחר הכל</button>
-              <button style={{ fontSize: '0.78rem' }} onClick={() => setImportSel({})}>בטל הכל</button>
-              <button className="btn-primary" style={{ fontSize: '0.82rem' }} onClick={applyImport} disabled={applying || newCount === 0}>
-                {applying ? '⏳' : `הוסף ${newCount}`}
-              </button>
-              <button style={{ fontSize: '0.9rem' }} onClick={() => setImportList(null)}>✕</button>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.2rem', maxHeight: 260, overflowY: 'auto', fontSize: '0.82rem' }}>
-            {importList.map(h => {
-              const exists = specialDays.some(s => s.date === h.date && s.type === h.type);
-              return (
-                <label key={h.id} style={{
-                  display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '3px 6px',
-                  borderRadius: 4, cursor: exists ? 'default' : 'pointer',
-                  background: exists ? '#f3f4f6' : importSel[h.id] ? h.color + '22' : 'transparent',
-                  opacity: exists ? 0.55 : 1,
-                }}>
-                  <input type="checkbox" checked={!!importSel[h.id]} disabled={exists}
-                    onChange={e => setImportSel(s => ({ ...s, [h.id]: e.target.checked }))} />
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: h.color, flexShrink: 0 }} />
-                  <span style={{ color: '#6b7280', fontSize: '0.75rem', flexShrink: 0 }}>{h.date}</span>
-                  <span style={{ flex: 1 }}>{h.name}</span>
-                  {exists && <span style={{ fontSize: '0.68rem', color: '#9ca3af' }}>✓ קיים</span>}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Calendar grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
@@ -282,7 +181,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
                     {sd.name}
                   </span>
                   <span style={{ fontSize: '0.58rem', background: sd.color, borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>
-                    {sd.type === 'holiday' ? 'חג' : 'ערב חג'}
+                    {sd.type === 'holiday' ? 'חג' : sd.type === 'eve' ? 'ערב חג' : 'אחר'}
                   </span>
                 </>
               )}
@@ -307,7 +206,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
           <strong style={{ fontSize: '0.9rem' }}>{activeDay}</strong>
           <span style={{ fontSize: '0.9rem' }}>{activeSd.name}</span>
           <span style={{ fontSize: '0.78rem', color: '#6b7280', background: '#fff', borderRadius: 4, padding: '1px 8px', border: '1px solid #e5e7eb' }}>
-            {activeSd.type === 'holiday' ? 'חג / שבת' : 'ערב חג / שישי'}
+            {activeSd.type === 'holiday' ? 'חג / שבת' : activeSd.type === 'eve' ? 'ערב חג / שישי' : 'אחר'}
           </span>
           <button
             className="btn-remove"
@@ -334,11 +233,12 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
             />
             <select
               value={addForm.type}
-              onChange={e => setAddForm(f => ({ ...f, type: e.target.value, color: e.target.value === 'eve' ? '#f59e0b' : '#dc2626' }))}
+              onChange={e => setAddForm(f => ({ ...f, type: e.target.value, color: e.target.value === 'eve' ? '#f59e0b' : e.target.value === 'other' ? '#6b7280' : '#dc2626' }))}
               style={{ padding: '6px', borderRadius: 4, border: '1px solid #93c5fd' }}
             >
               <option value="holiday">חג / שבת</option>
               <option value="eve">ערב חג / שישי</option>
+              <option value="other">אחר</option>
             </select>
             <input type="color" value={addForm.color} onChange={e => setAddForm(f => ({ ...f, color: e.target.value }))} style={{ width: 36, height: 32, padding: 0, border: 'none', cursor: 'pointer', borderRadius: 4 }} />
             <button className="btn-primary" onClick={addSD}>הוסף</button>

@@ -188,7 +188,7 @@ async function initializeSchema() {
         id SERIAL PRIMARY KEY,
         date TEXT NOT NULL,
         name TEXT NOT NULL,
-        type TEXT NOT NULL DEFAULT 'holiday' CHECK(type IN ('holiday','eve')),
+        type TEXT NOT NULL DEFAULT 'holiday' CHECK(type IN ('holiday','eve','other')),
         color TEXT NOT NULL DEFAULT '#f59e0b',
         branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE
       );
@@ -420,6 +420,9 @@ async function runMigrations() {
     await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS can_submit_requests BOOLEAN NOT NULL DEFAULT TRUE;`);
 
     await query(`ALTER TABLE special_days ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'holiday';`);
+
+    await query(`ALTER TABLE special_days DROP CONSTRAINT IF NOT EXISTS special_days_type_check;`);
+    await query(`ALTER TABLE special_days ADD CONSTRAINT special_days_type_check CHECK(type IN ('holiday','eve','other'));`);
 
     console.log('✓ Migrations complete');
   } catch (error) {

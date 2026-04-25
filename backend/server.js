@@ -1536,7 +1536,7 @@ app.post('/api/config/special-days', requireAdmin, async (req, res) => {
     if (!date || !name) return res.status(400).json({ error: 'תאריך ושם נדרשים' });
     const branchId = getEffectiveBranchId(req);
     await query('INSERT INTO special_days (date, name, type, color, branch_id) VALUES ($1, $2, $3, $4, $5)',
-      [date, name.trim(), type === 'eve' ? 'eve' : 'holiday', color || '#f59e0b', branchId]);
+      [date, name.trim(), type === 'eve' ? 'eve' : type === 'other' ? 'other' : 'holiday', color || '#f59e0b', branchId]);
     res.json(await getConfig(branchId));
   } catch (e) {
     console.error('Add special day error:', e);
