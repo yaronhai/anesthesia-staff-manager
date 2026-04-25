@@ -1538,8 +1538,9 @@ app.post('/api/config/special-days', requireAdmin, async (req, res) => {
     const branchId = getEffectiveBranchId(req);
     const resolvedType = ['holiday','eve','other'].includes(type) ? type : 'holiday';
     console.log('[special-days POST] resolved type:', resolvedType);
-    await query('INSERT INTO special_days (date, name, type, color, branch_id) VALUES ($1, $2, $3, $4, $5)',
+    const inserted = await query('INSERT INTO special_days (date, name, type, color, branch_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, type',
       [date, name.trim(), resolvedType, color || '#f59e0b', branchId]);
+    console.log('[special-days POST] inserted row:', inserted.rows[0]);
     res.json(await getConfig(branchId));
   } catch (e) {
     console.error('Add special day error:', e);

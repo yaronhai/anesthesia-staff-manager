@@ -227,6 +227,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
       {activeDay && !activeSd && addForm && (
         <div style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 8, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <strong style={{ fontSize: '0.75rem', color: '#1d4ed8' }}>הוסף יום מיוחד — {activeDay}</strong>
+          <span style={{ fontSize: '0.7rem', color: '#dc2626' }}>DEBUG type: {addForm.type}</span>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               value={addForm.name}
