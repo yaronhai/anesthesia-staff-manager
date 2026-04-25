@@ -3,6 +3,7 @@ import { useState } from 'react';
 const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
                    'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 const DAY_INITIALS = ['א','ב','ג','ד','ה','ו','ש'];
+const COLOR_PALETTE = ['#059669', '#6ee7b7', '#6b7280', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#ca8a04'];
 
 function toStr(year, month, day) {
   return `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -116,38 +117,25 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
   const monthTotal = monthHolidays + monthEves + monthSaturdays + monthFridays;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginLeft: 'auto', marginRight: 0 }}>
 
       {/* Month summary */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', fontSize: '0.8rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', fontSize: '0.7rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 12px' }}>
         <span style={{ color: '#374151', fontWeight: 700 }}>סה"כ חודש זה: {monthTotal}</span>
         <span style={{ color: '#9ca3af' }}>|</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#059669', display: 'inline-block' }} />
-          <span style={{ color: '#dc2626', fontWeight: 600 }}>חג</span>
-          <span style={{ color: '#374151' }}>{monthHolidays}</span>
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#6ee7b7', display: 'inline-block' }} />
-          <span style={{ color: '#b45309', fontWeight: 600 }}>ערב חג</span>
-          <span style={{ color: '#374151' }}>{monthEves}</span>
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#059669', display: 'inline-block' }} />
-          <span style={{ color: '#dc2626', fontWeight: 600 }}>שבת</span>
-          <span style={{ color: '#374151' }}>{monthSaturdays}</span>
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#0369a1', display: 'inline-block' }} />
-          <span style={{ color: '#b45309', fontWeight: 600 }}>שישי</span>
-          <span style={{ color: '#374151' }}>{monthFridays}</span>
-        </span>
+        <span style={{ color: '#374151' }}>חג: <span style={{ fontWeight: 700, color: '#7f1d1d' }}>{monthHolidays}</span></span>
+        <span style={{ color: '#9ca3af' }}>|</span>
+        <span style={{ color: '#374151' }}>ערב חג: <span style={{ fontWeight: 700, color: '#7f1d1d' }}>{monthEves}</span></span>
+        <span style={{ color: '#9ca3af' }}>|</span>
+        <span style={{ color: '#374151' }}>שבת: <span style={{ fontWeight: 700, color: '#7f1d1d' }}>{monthSaturdays}</span></span>
+        <span style={{ color: '#9ca3af' }}>|</span>
+        <span style={{ color: '#374151' }}>שישי: <span style={{ fontWeight: 700, color: '#7f1d1d' }}>{monthFridays}</span></span>
       </div>
 
       {/* Navigation */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
         <button className="btn-secondary" onClick={() => { setYear(y => y-1); setActiveDay(null); setAddForm(null); }}>◀</button>
-        <strong style={{ fontSize: '1rem', minWidth: 40, textAlign: 'center' }}>{year}</strong>
+        <strong style={{ fontSize: '0.85rem', minWidth: 40, textAlign: 'center' }}>{year}</strong>
         <button className="btn-secondary" onClick={() => { setYear(y => y+1); setActiveDay(null); setAddForm(null); }}>▶</button>
         <span style={{ width: 10 }} />
         <button className="btn-secondary" onClick={prevMonth}>◀</button>
@@ -158,7 +146,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
       {/* Calendar grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
         {DAY_INITIALS.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', paddingBottom: 2 }}>{d}</div>
+          <div key={d} style={{ textAlign: 'center', fontSize: '0.6rem', fontWeight: 700, color: '#9ca3af', paddingBottom: 2 }}>{d}</div>
         ))}
         {cells.map((d, i) => {
           if (!d) return <div key={`e${i}`} style={{ minHeight: 58 }} />;
@@ -174,7 +162,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
               onClick={() => handleDayClick(dateStr)}
               title={sd ? `${sd.name} — לחץ לאפשרויות` : 'לחץ להוספת יום מיוחד'}
               style={{
-                minHeight: 58, borderRadius: 6, padding: '4px 3px', textAlign: 'center',
+                minHeight: 48, borderRadius: 6, padding: '3px 2px', textAlign: 'center',
                 cursor: 'pointer',
                 border: isActive ? '2px solid #2563eb' : sd ? `2px solid ${sd.color}` : '2px solid transparent',
                 background: sd ? sd.color + '28' : isSat ? '#fecaca' : isFri ? '#bfdbfe' : '#f9fafb',
@@ -184,21 +172,21 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
               }}
             >
               <span style={{
-                fontSize: '0.88rem', fontWeight: sd ? 700 : 400,
+                fontSize: '0.75rem', fontWeight: sd ? 700 : 400,
                 color: sd ? sd.color : isSat ? '#dc2626' : isFri ? '#b45309' : '#374151',
               }}>{d}</span>
               {sd && (
                 <>
-                  <span style={{ fontSize: '0.65rem', color: sd.color, fontWeight: 700, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                  <span style={{ fontSize: '0.55rem', color: sd.color, fontWeight: 700, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
                     {sd.name}
                   </span>
-                  <span style={{ fontSize: '0.58rem', background: sd.color, borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>
+                  <span style={{ fontSize: '0.48rem', background: sd.color, borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>
                     {sd.type === 'holiday' ? 'חג' : sd.type === 'eve' ? 'ערב חג' : 'אחר'}
                   </span>
                 </>
               )}
               {!sd && !isSat && !isFri && (
-                <span style={{ fontSize: '0.5rem', color: '#d1d5db', lineHeight: 1.5 }}>+</span>
+                <span style={{ fontSize: '0.42rem', color: '#d1d5db', lineHeight: 1.5 }}>+</span>
               )}
             </div>
           );
@@ -209,9 +197,9 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
       {activeDay && activeSd && (
         <div style={{ background: activeSd.color + '18', border: `2px solid ${activeSd.color}`, borderRadius: 8, padding: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <span style={{ width: 12, height: 12, borderRadius: 3, background: activeSd.color, flexShrink: 0 }} />
-          <strong style={{ fontSize: '0.9rem' }}>{activeDay}</strong>
-          <span style={{ fontSize: '0.9rem' }}>{activeSd.name}</span>
-          <span style={{ fontSize: '0.78rem', color: '#6b7280', background: '#fff', borderRadius: 4, padding: '1px 8px', border: '1px solid #e5e7eb' }}>
+          <strong style={{ fontSize: '0.78rem' }}>{activeDay}</strong>
+          <span style={{ fontSize: '0.78rem' }}>{activeSd.name}</span>
+          <span style={{ fontSize: '0.68rem', color: '#6b7280', background: '#fff', borderRadius: 4, padding: '1px 8px', border: '1px solid #e5e7eb' }}>
             {activeSd.type === 'holiday' ? 'חג / שבת' : activeSd.type === 'eve' ? 'ערב חג / שישי' : 'אחר'}
           </span>
           <button
@@ -233,7 +221,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
 
       {activeDay && !activeSd && addForm && (
         <div style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 8, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <strong style={{ fontSize: '0.88rem', color: '#1d4ed8' }}>הוסף יום מיוחד — {activeDay}</strong>
+          <strong style={{ fontSize: '0.75rem', color: '#1d4ed8' }}>הוסף יום מיוחד — {activeDay}</strong>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               value={addForm.name}
@@ -252,16 +240,28 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
               <option value="eve">ערב חג / שישי</option>
               <option value="other">אחר</option>
             </select>
-            <input type="color" value={addForm.color} onChange={e => setAddForm(f => ({ ...f, color: e.target.value }))} style={{ width: 36, height: 32, padding: 0, border: 'none', cursor: 'pointer', borderRadius: 4 }} />
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {COLOR_PALETTE.map(col => (
+                <button
+                  key={col}
+                  onClick={() => setAddForm(f => ({ ...f, color: col }))}
+                  style={{
+                    width: 24, height: 24, borderRadius: 4, background: col, border: addForm.color === col ? '2px solid #1f2937' : '1px solid #d1d5db',
+                    cursor: 'pointer', padding: 0
+                  }}
+                  title={col}
+                />
+              ))}
+            </div>
             <button className="btn-primary" onClick={addSD}>הוסף</button>
-            <button onClick={() => { setActiveDay(null); setAddForm(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '1rem' }}>✕</button>
+            <button onClick={() => { setActiveDay(null); setAddForm(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '0.85rem' }}>✕</button>
           </div>
         </div>
       )}
 
       {editingSD && (
         <div style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 8, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <strong style={{ fontSize: '0.88rem', color: '#1d4ed8' }}>ערוך יום מיוחד — {editingSD.date}</strong>
+          <strong style={{ fontSize: '0.75rem', color: '#1d4ed8' }}>ערוך יום מיוחד — {editingSD.date}</strong>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               value={editingSD.name}
@@ -280,15 +280,27 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
               <option value="eve">ערב חג / שישי</option>
               <option value="other">אחר</option>
             </select>
-            <input type="color" value={editingSD.color} onChange={e => setEditingSD(f => ({ ...f, color: e.target.value }))} style={{ width: 36, height: 32, padding: 0, border: 'none', cursor: 'pointer', borderRadius: 4 }} />
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {COLOR_PALETTE.map(col => (
+                <button
+                  key={col}
+                  onClick={() => setEditingSD(f => ({ ...f, color: col }))}
+                  style={{
+                    width: 24, height: 24, borderRadius: 4, background: col, border: editingSD.color === col ? '2px solid #1f2937' : '1px solid #d1d5db',
+                    cursor: 'pointer', padding: 0
+                  }}
+                  title={col}
+                />
+              ))}
+            </div>
             <button className="btn-primary" onClick={updateSD}>עדכן</button>
-            <button onClick={() => setEditingSD(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '1rem' }}>✕</button>
+            <button onClick={() => setEditingSD(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '0.85rem' }}>✕</button>
           </div>
         </div>
       )}
 
       {/* Instructions */}
-      <div style={{ fontSize: '0.78rem', color: '#6b7280' }}>
+      <div style={{ fontSize: '0.68rem', color: '#6b7280' }}>
         לחץ על יום ריק להוספה • לחץ על יום מסומן לעריכה/הסרה
       </div>
 
