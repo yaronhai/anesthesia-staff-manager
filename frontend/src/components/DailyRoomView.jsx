@@ -88,6 +88,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [suggestionModal, setSuggestionModal] = useState(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
 
+  // Send schedule modal
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendWorkerIds, setSendWorkerIds] = useState([]);
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState(null);
+
   // Site card size
   const [cardSize, setCardSize] = useState(148);
   const MIN_CARD = 90;
@@ -176,6 +182,33 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       alert(`שגיאה בהצעת שיבוצים: ${err.message}`);
     } finally {
       setSuggestLoading(false);
+    }
+  }
+
+  async function sendSchedule() {
+    if (sendWorkerIds.length === 0) {
+      alert('בחר לפחות עובד אחד');
+      return;
+    }
+    setSending(true);
+    setSendResult(null);
+    try {
+      const res = await fetch('/api/send-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ date: dateStr, workerIds: sendWorkerIds }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSendResult(data);
+      } else {
+        alert(`שגיאה: ${data.error || 'שגיאה בserver'}`);
+      }
+    } catch (err) {
+      console.error('Error sending schedule:', err);
+      alert(`שגיאה בשליחת תוכנית: ${err.message}`);
+    } finally {
+      setSending(false);
     }
   }
 
@@ -980,6 +1013,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
           <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ דו"ח שיבוצים</button>
+          <button onClick={() => { setShowSendModal(true); setSendWorkerIds([]); }} className="btn-primary btn-sm" title="שלח תוכנית יומית במייל">📧 שלח תוכנית</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️ טבלת צדק</button>
           <div style={{flex: 1}} />
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
@@ -1720,6 +1754,90 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     )}
 
     {showReportPreview && <ReportPreview />}
+
+    {showSendModal && (
+      <div className="form-overlay" onClick={() => setShowSendModal(false)}>
+        <div className="settings-modal" onClick={e => e.stopPropagation()} style={{ direction: 'rtl', maxWidth: 500 }}>
+          <div className="settings-header">
+            <h2>📧 שלח תוכנית יום</h2>
+            <button className="btn-close" onClick={() => { setShowSendModal(false); setSendResult(null); }}>✕</button>
+          </div>
+          <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {!sendResult ? (
+              <>
+                <p style={{ fontSize: '0.9rem', color: '#6b7280' }}>תאריך: <strong>{dateStr}</strong></p>
+                <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 6, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {workers.length === 0 ? (
+                    <p style={{ fontSize: '0.85rem', color: '#999' }}>אין עובדים במערכת</p>
+                  ) : (
+                    <>
+                      <div>
+                        <button onClick={() => setSendWorkerIds(sendWorkerIds.length === workers.length ? [] : workers.map(w => w.id))} style={{ fontSize: '0.85rem', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                          {sendWorkerIds.length === workers.length ? 'בטל הכל' : 'בחר הכל'}
+                        </button>
+                      </div>
+                      {workers.map(w => (
+                        <label key={w.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', padding: '0.25rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={sendWorkerIds.includes(w.id)}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setSendWorkerIds([...sendWorkerIds, w.id]);
+                              } else {
+                                setSendWorkerIds(sendWorkerIds.filter(id => id !== w.id));
+                              }
+                            }}
+                          />
+                          {w.first_name} {w.family_name} {w.email ? '' : '(אין מייל)'}
+                        </label>
+                      ))}
+                    </>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button onClick={sendSchedule} disabled={sending || sendWorkerIds.length === 0} className="btn-primary" style={{ flex: 1 }}>
+                    {sending ? '...שולח' : '✓ שלח'}
+                  </button>
+                  <button onClick={() => setShowSendModal(false)} className="btn-secondary">ביטול</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ padding: '1rem', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, color: '#166534' }}>
+                  <p style={{ margin: 0, fontWeight: 600 }}>✓ נשלח בהצלחה!</p>
+                </div>
+                {sendResult.sent.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>נשלח ל-{sendResult.sent.length}:</p>
+                    <ul style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.5rem 0', paddingRight: '1.5rem' }}>
+                      {sendResult.sent.map(name => <li key={name}>{name}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {sendResult.noEmail.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ea580c' }}>בלא מייל ({sendResult.noEmail.length}):</p>
+                    <ul style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.5rem 0', paddingRight: '1.5rem' }}>
+                      {sendResult.noEmail.map(name => <li key={name}>{name}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {sendResult.failed.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#dc2626' }}>כשל ({sendResult.failed.length}):</p>
+                    <ul style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.5rem 0', paddingRight: '1.5rem' }}>
+                      {sendResult.failed.map(name => <li key={name}>{name}</li>)}
+                    </ul>
+                  </div>
+                )}
+                <button onClick={() => { setShowSendModal(false); setSendResult(null); }} className="btn-secondary" style={{ width: '100%' }}>סגור</button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
 
     {fairnessReport && (
       <div className="form-overlay" onClick={() => setFairnessReport(null)}>

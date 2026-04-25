@@ -1574,6 +1574,132 @@ app.delete('/api/config/special-days/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// ── Send Schedule Email ─────────────────────────────────────────────────────
+
+app.post('/api/send-schedule', requireAdmin, async (req, res) => {
+  try {
+    const { date, workerIds } = req.body;
+    if (!date || !Array.isArray(workerIds) || workerIds.length === 0) {
+      return res.status(400).json({ error: 'date ו-workerIds נדרשים' });
+    }
+
+    const branchId = getEffectiveBranchId(req);
+
+    // Get all assignments for the date with site/group/activity info
+    let query_str = `
+      SELECT wsa.worker_id, wsa.shift_type, wsa.start_time, wsa.end_time,
+             s.name AS site_name, sg.name AS group_name,
+             at.name AS activity_name,
+             w.first_name, w.family_name
+      FROM worker_site_assignments wsa
+      JOIN sites s ON wsa.site_id = s.id
+      LEFT JOIN site_groups sg ON s.group_id = sg.id
+      LEFT JOIN site_shift_activities ssa ON ssa.site_id = wsa.site_id AND ssa.date = wsa.date AND ssa.shift_type = wsa.shift_type
+      LEFT JOIN activity_types at ON ssa.activity_type_id = at.id
+      JOIN workers w ON wsa.worker_id = w.id
+      WHERE wsa.date = $1
+    `;
+    const params = [date];
+    let paramIndex = 2;
+    if (branchId) {
+      query_str += ` AND s.branch_id = $${paramIndex}`;
+      params.push(branchId);
+      paramIndex++;
+    }
+    query_str += ' ORDER BY sg.name, s.name, wsa.shift_type';
+
+    const assignRes = await query(query_str, params);
+    const assignments = assignRes.rows;
+
+    // Get worker details for selected workers
+    let workersQuery = `SELECT id, first_name, family_name, email FROM workers WHERE id = ANY($1)`;
+    const workerParams = [workerIds];
+    if (branchId) {
+      workersQuery = `
+        SELECT w.id, w.first_name, w.family_name, w.email
+        FROM workers w
+        JOIN worker_branches wb ON wb.worker_id = w.id AND wb.branch_id = $2 AND wb.is_active = TRUE
+        WHERE w.id = ANY($1)
+      `;
+      workerParams.push(branchId);
+    }
+    const workersRes = await query(workersQuery, workerParams);
+    const workers = workersRes.rows;
+
+    // Format date
+    const [y, m, d] = date.split('-');
+    const dateStr = `${d}.${m}.${y}`;
+
+    // Build HTML for schedule
+    let html = `
+      <div style="direction: rtl; font-family: Arial, sans-serif; background: #f9fafb; padding: 20px;">
+        <h2 style="color: #1f2937; margin: 0 0 20px 0;">תוכנית עבודה — ${dateStr}</h2>
+        <table style="width: 100%; border-collapse: collapse; background: white;">
+          <thead>
+            <tr style="background: #f3f4f6; border-bottom: 2px solid #d1d5db;">
+              <th style="padding: 10px; text-align: right; border: 1px solid #e5e7eb;">קבוצה</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #e5e7eb;">חדר</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #e5e7eb;">משמרת</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #e5e7eb;">שעות</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #e5e7eb;">פעילות</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #e5e7eb;">עובד</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    const shiftLabels = { morning: 'בוקר', evening: 'ערב', night: 'לילה', oncall: 'זימון' };
+    assignments.forEach(a => {
+      const hours = a.start_time && a.end_time ? `${a.start_time}-${a.end_time}` : '—';
+      html += `
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${a.group_name || '—'}</td>
+          <td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${a.site_name}</td>
+          <td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${shiftLabels[a.shift_type] || a.shift_type}</td>
+          <td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${hours}</td>
+          <td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${a.activity_name || '—'}</td>
+          <td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${a.first_name} ${a.family_name}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // Send emails
+    const sent = [];
+    const noEmail = [];
+    const failed = [];
+
+    for (const worker of workers) {
+      if (!worker.email) {
+        noEmail.push(`${worker.first_name} ${worker.family_name}`);
+        continue;
+      }
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: worker.email,
+          subject: `תוכנית עבודה — ${dateStr}`,
+          html,
+        });
+        sent.push(`${worker.first_name} ${worker.family_name}`);
+      } catch (err) {
+        console.error(`Failed to send to ${worker.email}:`, err);
+        failed.push(`${worker.first_name} ${worker.family_name}`);
+      }
+    }
+
+    res.json({ sent, noEmail, failed });
+  } catch (e) {
+    console.error('Send schedule error:', e);
+    res.status(500).json({ error: 'שגיאה בשליחת תוכנית' });
+  }
+});
+
 // ── Fairness Report ─────────────────────────────────────────────────────────
 
 app.get('/api/fairness-report', requireAdmin, async (req, res) => {
