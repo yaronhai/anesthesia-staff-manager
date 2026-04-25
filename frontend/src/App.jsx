@@ -446,7 +446,7 @@ export default function App() {
       )}
 
       {activeTab === 'special-days' && isAdmin && selectedBranchId && (
-        <div style={{ padding: '1.5rem', maxWidth: 700, margin: '0 auto' }}>
+        <div style={{ padding: '1.5rem', maxWidth: 700, marginLeft: 'auto', marginRight: 0 }}>
           <h2 style={{ marginBottom: '1rem', color: '#1a2e4a' }}>ניהול ימים מיוחדים</h2>
           <SpecialDaysCalendar
             config={config}
