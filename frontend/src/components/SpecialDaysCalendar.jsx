@@ -20,6 +20,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
   const [month, setMonth] = useState(now.getMonth());
   const [activeDay, setActiveDay] = useState(null);
   const [addForm, setAddForm] = useState(null);
+  const [editingSD, setEditingSD] = useState(null);
 
   const specialDays = config.special_days || [];
   const branchQ = branchId ? `?branch_id=${branchId}` : '';
@@ -75,6 +76,17 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
     });
     if (res.ok) { onConfigChange(await res.json()); setActiveDay(null); setAddForm(null); }
     else alert('שגיאה בהוספה');
+  }
+
+  async function updateSD() {
+    if (!editingSD?.name.trim()) return alert('יש למלא שם');
+    const res = await fetch(`/api/config/special-days/${editingSD.id}${branchQ}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ date: editingSD.date, name: editingSD.name.trim(), type: editingSD.type, color: editingSD.color }),
+    });
+    if (res.ok) { onConfigChange(await res.json()); setEditingSD(null); }
+    else alert('שגיאה בעדכון');
   }
 
   const activeSd = activeDay ? sdForDate(activeDay) : null;
@@ -203,13 +215,19 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
             {activeSd.type === 'holiday' ? 'חג / שבת' : activeSd.type === 'eve' ? 'ערב חג / שישי' : 'אחר'}
           </span>
           <button
-            className="btn-remove"
+            className="btn-secondary"
             style={{ marginRight: 'auto' }}
+            onClick={() => setEditingSD({ ...activeSd })}
+          >
+            עריכה
+          </button>
+          <button
+            className="btn-remove"
             onClick={() => removeSD(activeSd.id)}
           >
             הסר סימון
           </button>
-          <button onClick={() => { setActiveDay(null); setAddForm(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+          <button onClick={() => { setActiveDay(null); setAddForm(null); setEditingSD(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
         </div>
       )}
 
@@ -241,15 +259,37 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
         </div>
       )}
 
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: '1rem', fontSize: '0.78rem', color: '#6b7280', alignItems: 'center', flexWrap: 'wrap' }}>
-        <span>לחץ על יום ריק להוספה • לחץ על יום מסומן להסרה</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#059669', display: 'inline-block' }} />חג / שבת
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#6ee7b7', display: 'inline-block' }} />ערב חג / שישי
-        </span>
+      {editingSD && (
+        <div style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 8, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <strong style={{ fontSize: '0.88rem', color: '#1d4ed8' }}>ערוך יום מיוחד — {editingSD.date}</strong>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              value={editingSD.name}
+              onChange={e => setEditingSD(f => ({ ...f, name: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && updateSD()}
+              placeholder="שם היום המיוחד..."
+              autoFocus
+              style={{ flex: 1, minWidth: 130, padding: '6px 8px', borderRadius: 4, border: '1px solid #93c5fd', outline: 'none' }}
+            />
+            <select
+              value={editingSD.type}
+              onChange={e => setEditingSD(f => ({ ...f, type: e.target.value, color: e.target.value === 'eve' ? '#6ee7b7' : e.target.value === 'other' ? '#6b7280' : '#059669' }))}
+              style={{ padding: '6px', borderRadius: 4, border: '1px solid #93c5fd' }}
+            >
+              <option value="holiday">חג / שבת</option>
+              <option value="eve">ערב חג / שישי</option>
+              <option value="other">אחר</option>
+            </select>
+            <input type="color" value={editingSD.color} onChange={e => setEditingSD(f => ({ ...f, color: e.target.value }))} style={{ width: 36, height: 32, padding: 0, border: 'none', cursor: 'pointer', borderRadius: 4 }} />
+            <button className="btn-primary" onClick={updateSD}>עדכן</button>
+            <button onClick={() => setEditingSD(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '1rem' }}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Instructions */}
+      <div style={{ fontSize: '0.78rem', color: '#6b7280' }}>
+        לחץ על יום ריק להוספה • לחץ על יום מסומן לעריכה/הסרה
       </div>
 
     </div>
