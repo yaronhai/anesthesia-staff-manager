@@ -209,8 +209,8 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
               <span style={{ fontSize: '0.68rem', color: '#6b7280', background: '#fff', borderRadius: 4, padding: '1px 6px', border: '1px solid #e5e7eb' }}>
                 {activeSd.type === 'holiday' ? 'חג / שבת' : activeSd.type === 'eve' ? 'ערב חג / שישי' : 'אחר'}
               </span>
-              <button title="ערוך" style={{ marginRight: 'auto', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', fontSize: '0.95rem', padding: '1px 7px', lineHeight: 1.4 }} onClick={() => setEditingSD({ ...activeSd })}>✏</button>
-              <button title="הסר סימון" style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', fontSize: '0.95rem', padding: '1px 7px', lineHeight: 1.4, color: '#dc2626' }} onClick={() => removeSD(activeSd.id)}>🗑</button>
+              <button className="btn-edit" title="ערוך" style={{ marginRight: 'auto' }} onClick={() => setEditingSD({ ...activeSd })}>✏️</button>
+              <button className="btn-delete" title="הסר סימון" onClick={() => removeSD(activeSd.id)}>🗑️</button>
               <button onClick={() => { setActiveDay(null); setAddForm(null); setEditingSD(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '0.9rem' }}>✕</button>
             </>
           ) : (
