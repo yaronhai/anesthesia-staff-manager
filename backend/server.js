@@ -1674,6 +1674,8 @@ app.post('/api/send-schedule', requireAdmin, async (req, res) => {
     const noEmail = [];
     const failed = [];
 
+    const subject = `תוכנית עבודה — ${dateStr}`;
+
     for (const worker of workers) {
       if (!worker.email) {
         noEmail.push(`${worker.first_name} ${worker.family_name}`);
@@ -1683,13 +1685,23 @@ app.post('/api/send-schedule', requireAdmin, async (req, res) => {
         await transporter.sendMail({
           from: process.env.SMTP_FROM || process.env.SMTP_USER,
           to: worker.email,
-          subject: `תוכנית עבודה — ${dateStr}`,
+          subject,
           html,
         });
         sent.push(`${worker.first_name} ${worker.family_name}`);
+        // Log successful send
+        await query(
+          'INSERT INTO sent_emails (schedule_date, worker_id, recipient_email, subject, status, branch_id) VALUES ($1, $2, $3, $4, $5, $6)',
+          [date, worker.id, worker.email, subject, 'sent', branchId || null]
+        );
       } catch (err) {
         console.error(`Failed to send to ${worker.email}:`, err);
         failed.push(`${worker.first_name} ${worker.family_name}`);
+        // Log failed send
+        await query(
+          'INSERT INTO sent_emails (schedule_date, worker_id, recipient_email, subject, status, error_message, branch_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [date, worker.id, worker.email, subject, 'failed', err.message, branchId || null]
+        );
       }
     }
 
@@ -1697,6 +1709,37 @@ app.post('/api/send-schedule', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error('Send schedule error:', e);
     res.status(500).json({ error: 'שגיאה בשליחת תוכנית' });
+  }
+});
+
+// ── Sent Emails History ────────────────────────────────────────────────────
+
+app.get('/api/sent-emails', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const { days = 30 } = req.query;
+
+    let sql = `
+      SELECT se.id, se.schedule_date, se.worker_id, w.first_name, w.family_name,
+             se.recipient_email, se.subject, se.status, se.error_message, se.created_at
+      FROM sent_emails se
+      JOIN workers w ON se.worker_id = w.id
+      WHERE se.created_at > NOW() - INTERVAL '${parseInt(days)} days'
+    `;
+    const params = [];
+
+    if (branchId) {
+      sql += ` AND (se.branch_id = $1 OR se.branch_id IS NULL)`;
+      params.push(branchId);
+    }
+
+    sql += ` ORDER BY se.created_at DESC LIMIT 500`;
+
+    const result = await query(sql, params);
+    res.json(result.rows);
+  } catch (e) {
+    console.error('Sent emails error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת הודעות' });
   }
 });
 

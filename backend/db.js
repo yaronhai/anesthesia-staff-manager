@@ -193,6 +193,18 @@ async function initializeSchema() {
         branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS sent_emails (
+        id SERIAL PRIMARY KEY,
+        schedule_date TEXT NOT NULL,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        recipient_email TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('sent', 'failed')),
+        error_message TEXT,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS vacation_requests (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
