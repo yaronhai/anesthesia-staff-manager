@@ -189,7 +189,7 @@ async function initializeSchema() {
         date TEXT NOT NULL,
         name TEXT NOT NULL,
         type TEXT NOT NULL DEFAULT 'holiday' CHECK(type IN ('holiday','eve','other')),
-        color TEXT NOT NULL DEFAULT '#f59e0b',
+        color TEXT NOT NULL DEFAULT '#6ee7b7',
         branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE
       );
 

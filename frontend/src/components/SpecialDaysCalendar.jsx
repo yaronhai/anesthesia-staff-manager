@@ -53,7 +53,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
     if (!sd) {
       const dow = new Date(dateStr).getDay();
       const type = dow === 5 ? 'eve' : 'holiday';
-      setAddForm({ date: dateStr, name: '', type, color: type === 'eve' ? '#10b981' : '#059669' });
+      setAddForm({ date: dateStr, name: '', type, color: type === 'eve' ? '#6ee7b7' : '#059669' });
     } else {
       setAddForm(null);
     }
@@ -116,7 +116,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
           <span style={{ color: '#374151' }}>{monthHolidays}</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#10b981', display: 'inline-block' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#6ee7b7', display: 'inline-block' }} />
           <span style={{ color: '#b45309', fontWeight: 600 }}>ערב חג</span>
           <span style={{ color: '#374151' }}>{monthEves}</span>
         </span>
@@ -165,7 +165,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
                 minHeight: 58, borderRadius: 6, padding: '4px 3px', textAlign: 'center',
                 cursor: 'pointer',
                 border: isActive ? '2px solid #2563eb' : sd ? `2px solid ${sd.color}` : '2px solid transparent',
-                background: sd ? sd.color + '28' : isSat ? '#fee2e2' : isFri ? '#fef3c7' : '#f9fafb',
+                background: sd ? sd.color + '28' : isSat ? '#fecaca' : isFri ? '#bfdbfe' : '#f9fafb',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
                 boxShadow: isActive ? '0 0 0 2px #bfdbfe' : sd ? `0 0 0 1px ${sd.color}55` : 'none',
                 transition: 'box-shadow 0.1s',
@@ -184,12 +184,6 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
                     {sd.type === 'holiday' ? 'חג' : sd.type === 'eve' ? 'ערב חג' : 'אחר'}
                   </span>
                 </>
-              )}
-              {!sd && isSat && (
-                <span style={{ fontSize: '0.58rem', background: '#059669', borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>שבת</span>
-              )}
-              {!sd && isFri && (
-                <span style={{ fontSize: '0.58rem', background: '#0369a1', borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>שישי</span>
               )}
               {!sd && !isSat && !isFri && (
                 <span style={{ fontSize: '0.5rem', color: '#d1d5db', lineHeight: 1.5 }}>+</span>
@@ -233,7 +227,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
             />
             <select
               value={addForm.type}
-              onChange={e => setAddForm(f => ({ ...f, type: e.target.value, color: e.target.value === 'eve' ? '#10b981' : e.target.value === 'other' ? '#6b7280' : '#059669' }))}
+              onChange={e => setAddForm(f => ({ ...f, type: e.target.value, color: e.target.value === 'eve' ? '#6ee7b7' : e.target.value === 'other' ? '#6b7280' : '#059669' }))}
               style={{ padding: '6px', borderRadius: 4, border: '1px solid #93c5fd' }}
             >
               <option value="holiday">חג / שבת</option>
@@ -254,7 +248,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
           <span style={{ width: 10, height: 10, borderRadius: 2, background: '#059669', display: 'inline-block' }} />חג / שבת
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#10b981', display: 'inline-block' }} />ערב חג / שישי
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#6ee7b7', display: 'inline-block' }} />ערב חג / שישי
         </span>
       </div>
 
