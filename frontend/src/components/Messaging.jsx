@@ -78,17 +78,18 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   // Polling for messages
   useEffect(() => {
     fetchConversations();
-    const interval = setInterval(() => {
-      fetchConversations();
-      if (selectedUserId) fetchMessages(selectedUserId);
-    }, 3000);
+    const interval = setInterval(fetchConversations, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [authToken]);
 
-  // Fetch messages when selected user changes
+  // Fetch messages when selectedUserId changes
   useEffect(() => {
-    if (selectedUserId) fetchMessages(selectedUserId);
-  }, [selectedUserId]);
+    if (selectedUserId) {
+      fetchMessages(selectedUserId);
+      const interval = setInterval(() => fetchMessages(selectedUserId), 3000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedUserId, authToken]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -101,11 +102,11 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     <div style={{ direction: 'rtl', display: 'flex', height: 'calc(100vh - 200px)', gap: '1rem', padding: '1rem' }}>
       {/* Conversations list (only for admin) */}
       {isAdmin && (
-        <div style={{ width: '250px', display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-          <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#1f2937' }}>עובדים</div>
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.25rem', padding: '0.5rem' }}>
+        <div style={{ width: '140px', display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb', fontWeight: 700, color: '#991b1b', fontSize: '0.8rem', textAlign: 'center' }}>עובדים</div>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.125rem', padding: '0.25rem' }}>
             {workers.length === 0 ? (
-              <p style={{ fontSize: '0.85rem', color: '#9ca3af', padding: '1rem', textAlign: 'center' }}>אין עובדים</p>
+              <p style={{ fontSize: '0.7rem', color: '#9ca3af', padding: '0.5rem', textAlign: 'center' }}>אין עובדים</p>
             ) : (
               workers.map(worker => {
                 const conversation = conversations.find(c => c.partner_name?.includes(worker.first_name));
@@ -113,7 +114,6 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                   <button
                     key={worker.id}
                     onClick={() => {
-                      // Get the user_id for this worker
                       const userId = conversation?.partner_id || worker.user_id;
                       if (userId) {
                         setSelectedUserId(userId);
@@ -122,29 +122,26 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                       }
                     }}
                     style={{
-                      padding: '0.75rem',
-                      borderRadius: '6px',
+                      padding: '0.3rem 0.4rem',
+                      borderRadius: '3px',
                       border: 'none',
                       textAlign: 'right',
                       cursor: 'pointer',
-                      background: selectedUserId === (conversation?.partner_id || worker.user_id) ? '#3b82f6' : 'white',
-                      color: selectedUserId === (conversation?.partner_id || worker.user_id) ? 'white' : '#1f2937',
-                      fontSize: '0.9rem',
+                      background: selectedUserId === (conversation?.partner_id || worker.user_id) ? '#1e40af' : 'white',
+                      color: selectedUserId === (conversation?.partner_id || worker.user_id) ? 'white' : '#1e40af',
+                      fontSize: '0.7rem',
                       position: 'relative',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      fontWeight: 700,
                     }}
                   >
-                    <div style={{ fontWeight: 600 }}>{worker.first_name} {worker.family_name}</div>
-                    {conversation && (
-                      <>
-                        <div style={{ fontSize: '0.8rem', opacity: 0.8, maxHeight: '2.4em', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {conversation.last_message}
-                        </div>
-                        {conversation.unread_count > 0 && (
-                          <span style={{ position: 'absolute', left: '0.5rem', top: '0.5rem', background: '#ef4444', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
-                            {conversation.unread_count}
-                          </span>
-                        )}
-                      </>
+                    {worker.first_name} {worker.family_name}
+                    {conversation?.unread_count > 0 && (
+                      <span style={{ position: 'absolute', left: '0.3rem', top: '-5px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '15px', height: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700 }}>
+                        {conversation.unread_count}
+                      </span>
                     )}
                   </button>
                 );
@@ -156,17 +153,20 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
 
       {/* Chat area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        {selectedConversation ? (
+        {selectedUserId ? (
           <>
             {/* Chat header */}
-            <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#1f2937' }}>
-              {selectedConversation.partner_name || selectedConversation.partner_username}
+            <div style={{ padding: '0.75rem', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#1f2937', fontSize: '0.95rem' }}>
+              {selectedConversation?.partner_name || (() => {
+                const worker = workers.find(w => w.user_id === selectedUserId);
+                return worker ? `${worker.first_name} ${worker.family_name}` : selectedConversation?.partner_username || 'שיחה';
+              })()}
             </div>
 
             {/* Messages */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
               {messages.length === 0 ? (
-                <p style={{ color: '#9ca3af', textAlign: 'center', marginTop: '2rem' }}>אין הודעות עדיין</p>
+                <p style={{ color: '#9ca3af', textAlign: 'center', marginTop: '2rem', fontSize: '0.75rem' }}>אין הודעות עדיין</p>
               ) : (
                 messages.map(msg => {
                   const isOwn = msg.sender_id === currentUser.id;
@@ -174,19 +174,23 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                     <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
                       <div
                         style={{
-                          maxWidth: '60%',
-                          padding: '0.75rem 1rem',
-                          borderRadius: '8px',
+                          maxWidth: '80%',
+                          padding: '0.2rem 0.4rem',
+                          borderRadius: '2px',
                           background: isOwn ? '#3b82f6' : '#e5e7eb',
                           color: isOwn ? 'white' : '#1f2937',
-                          fontSize: '0.9rem',
+                          fontSize: '0.7rem',
                           wordBreak: 'break-word',
+                          lineHeight: '1.1',
+                          display: 'flex',
+                          alignItems: 'flex-end',
+                          gap: '0.3rem',
                         }}
                       >
-                        {msg.content}
-                        <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.25rem' }}>
+                        <span>{msg.content}</span>
+                        <span style={{ fontSize: '0.6rem', opacity: 0.6, whiteSpace: 'nowrap' }}>
                           {new Date(msg.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                        </span>
                       </div>
                     </div>
                   );
