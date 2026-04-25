@@ -205,6 +205,16 @@ async function initializeSchema() {
         created_at TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        read_at TIMESTAMP,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS vacation_requests (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -231,6 +241,8 @@ async function initializeSchema() {
       CREATE INDEX IF NOT EXISTS idx_vacation_requests_user_id ON vacation_requests(user_id);
       CREATE INDEX IF NOT EXISTS idx_vacation_requests_branch_id ON vacation_requests(branch_id);
       CREATE INDEX IF NOT EXISTS idx_vacation_requests_status ON vacation_requests(status);
+      CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+      CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id);
     `);
     await query(`
       ALTER TABLE employment_types ADD COLUMN IF NOT EXISTS is_independent BOOLEAN DEFAULT FALSE NOT NULL;

@@ -10,7 +10,7 @@ import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import VacationRequests from './components/VacationRequests';
 import SpecialDaysCalendar from './components/SpecialDaysCalendar';
-import SentEmailsHistory from './components/SentEmailsHistory';
+import Messaging from './components/Messaging';
 import logoAssuta from './assets/logo-assuta.png';
 import './App.css';
 
@@ -351,12 +351,12 @@ export default function App() {
             ימים מיוחדים
           </button>
         )}
-        {isAdmin && selectedBranchId && (
+        {selectedBranchId && (
           <button
-            className={`tab-btn${activeTab === 'sent-emails' ? ' active' : ''}`}
-            onClick={() => setActiveTab('sent-emails')}
+            className={`tab-btn${activeTab === 'messages' ? ' active' : ''}`}
+            onClick={() => setActiveTab('messages')}
           >
-            📧 הודעות שנשלחו
+            💬 הודעות
           </button>
         )}
       </div>
@@ -466,8 +466,8 @@ export default function App() {
         </div>
       )}
 
-      {activeTab === 'sent-emails' && isAdmin && selectedBranchId && (
-        <SentEmailsHistory authToken={authToken} branchId={selectedBranchId} />
+      {activeTab === 'messages' && selectedBranchId && (
+        <Messaging authToken={authToken} currentUser={currentUser} workers={workers} branchId={selectedBranchId} />
       )}
     </div>
   );

@@ -1743,6 +1743,122 @@ app.get('/api/sent-emails', requireAdmin, async (req, res) => {
   }
 });
 
+// ── Messaging ──────────────────────────────────────────────────────────────────
+
+app.post('/api/messages', requireAuth, async (req, res) => {
+  try {
+    const { recipient_id, content } = req.body;
+    if (!recipient_id || !content?.trim()) {
+      return res.status(400).json({ error: 'מקבל והודעה נדרשים' });
+    }
+    const sender_id = req.user.id;
+    const branchId = getEffectiveBranchId(req);
+
+    const result = await query(
+      'INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1, $2, $3, $4) RETURNING *',
+      [sender_id, recipient_id, content.trim(), branchId || null]
+    );
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error('Send message error:', e);
+    res.status(500).json({ error: 'שגיאה בשליחת הודעה' });
+  }
+});
+
+app.get('/api/messages/conversations', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const branchId = getEffectiveBranchId(req);
+
+    let sql = `
+      SELECT DISTINCT ON (partner_id)
+        partner_id,
+        u.username as partner_username,
+        (SELECT CASE WHEN w.id IS NOT NULL THEN CONCAT(w.first_name, ' ', w.family_name) ELSE u.username END
+         FROM users u2 LEFT JOIN workers w ON u2.worker_id = w.id WHERE u2.id = partner_id) as partner_name,
+        m.content as last_message,
+        m.created_at as last_at,
+        COUNT(CASE WHEN m.recipient_id = $1 AND m.read_at IS NULL THEN 1 END) OVER (
+          PARTITION BY CASE WHEN m.sender_id = $1 THEN m.recipient_id ELSE m.sender_id END
+        ) as unread_count
+      FROM (
+        SELECT CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS partner_id,
+               sender_id, recipient_id, content, created_at, read_at
+        FROM messages WHERE sender_id = $1 OR recipient_id = $1
+    `;
+    const params = [userId];
+    let paramIndex = 2;
+
+    if (branchId) {
+      sql += ` AND (branch_id = $${paramIndex} OR branch_id IS NULL)`;
+      params.push(branchId);
+      paramIndex++;
+    }
+
+    sql += `
+      ) m
+      JOIN users u ON m.partner_id = u.id
+      ORDER BY partner_id, created_at DESC
+      LIMIT 50
+    `;
+
+    const result = await query(sql, params);
+    res.json(result.rows);
+  } catch (e) {
+    console.error('Get conversations error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת שיחות' });
+  }
+});
+
+app.get('/api/messages/with/:user_id', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const otherUserId = parseInt(req.params.user_id);
+    const branchId = getEffectiveBranchId(req);
+
+    let sql = `
+      SELECT m.*, u.username as sender_username, uw.username as recipient_username
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      JOIN users uw ON m.recipient_id = uw.id
+      WHERE (m.sender_id = $1 AND m.recipient_id = $2)
+         OR (m.sender_id = $2 AND m.recipient_id = $1)
+    `;
+    const params = [userId, otherUserId];
+    let paramIndex = 3;
+
+    if (branchId) {
+      sql += ` AND (m.branch_id = $${paramIndex} OR m.branch_id IS NULL)`;
+      params.push(branchId);
+      paramIndex++;
+    }
+
+    sql += ` ORDER BY m.created_at ASC`;
+
+    const result = await query(sql, params);
+    res.json(result.rows);
+  } catch (e) {
+    console.error('Get messages error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת הודעות' });
+  }
+});
+
+app.post('/api/messages/read/:user_id', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const otherUserId = parseInt(req.params.user_id);
+
+    await query(
+      'UPDATE messages SET read_at = NOW() WHERE sender_id = $1 AND recipient_id = $2 AND read_at IS NULL',
+      [otherUserId, userId]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Mark read error:', e);
+    res.status(500).json({ error: 'שגיאה בעדכון הודעות' });
+  }
+});
+
 // ── Fairness Report ─────────────────────────────────────────────────────────
 
 app.get('/api/fairness-report', requireAdmin, async (req, res) => {
