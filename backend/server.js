@@ -1549,7 +1549,7 @@ app.put('/api/config/special-days/:id', requireAdmin, async (req, res) => {
     const { date, name, type, color } = req.body;
     if (!date || !name) return res.status(400).json({ error: 'תאריך ושם נדרשים' });
     await query('UPDATE special_days SET date=$1, name=$2, type=$3, color=$4 WHERE id=$5',
-      [date, name.trim(), type === 'eve' ? 'eve' : 'holiday', color || '#f59e0b', req.params.id]);
+      [date, name.trim(), type === 'eve' ? 'eve' : type === 'other' ? 'other' : 'holiday', color || '#f59e0b', req.params.id]);
     res.json(await getConfig(getEffectiveBranchId(req)));
   } catch (e) {
     console.error('Update special day error:', e);
