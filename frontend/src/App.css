@@ -882,7 +882,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   table-layout: fixed;
 }
 .admin-grid th, .admin-grid td {
-  border: 1px solid #9ca3af;
+  border: 1px solid #6b7280;
   text-align: center;
   padding: 0.1rem 0.08rem;
   height: 22px;

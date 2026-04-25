@@ -957,7 +957,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       <div className="room-view-header">
         <div className="room-nav">
           <button className="btn-secondary btn-sm" onClick={nextYear} title="שנה קדימה">›››</button>
-          <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">‹‹</button>
+          <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">››</button>
           <button className="btn-secondary btn-sm" onClick={nextDay} title="יום קדימה">›</button>
           <span
             onClick={() => datePickerRef.current?.showPicker()}
