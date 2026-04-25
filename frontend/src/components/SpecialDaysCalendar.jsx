@@ -102,17 +102,19 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
     if (s.type !== 'eve') return false;
     return new Date(s.date + 'T12:00:00').getDay() !== 6;
   }).length;
-  // Saturdays: no special day OR eve on Saturday
+  // Saturdays: count if no special day, "אחר", or eve on Saturday
   const monthSaturdays = Array.from({ length: daysInMonth }, (_, i) => {
     const dateStr = toStr(year, month, i + 1);
     if (new Date(year, month, i + 1).getDay() !== 6) return false;
     const sd = monthSDs.find(s => s.date === dateStr);
-    return !sd || sd.type === 'eve';
+    return !sd || sd.type === 'other' || sd.type === 'eve';
   }).filter(Boolean).length;
-  // Fridays: not in specialDayDates (any special day overrides Friday)
+  // Fridays: count if no special day or "אחר" (holiday/eve override)
   const monthFridays = Array.from({ length: daysInMonth }, (_, i) => {
-    return new Date(year, month, i + 1).getDay() === 5 &&
-           !specialDayDates.has(toStr(year, month, i + 1));
+    const dateStr = toStr(year, month, i + 1);
+    if (new Date(year, month, i + 1).getDay() !== 5) return false;
+    const sd = monthSDs.find(s => s.date === dateStr);
+    return !sd || sd.type === 'other';
   }).filter(Boolean).length;
   const monthTotal = monthHolidays + monthEves + monthSaturdays + monthFridays;
 
@@ -180,9 +182,11 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
                   <span style={{ fontSize: '0.55rem', color: sd.color, fontWeight: 700, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
                     {sd.name}
                   </span>
-                  <span style={{ fontSize: '0.48rem', background: sd.color, borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>
-                    {sd.type === 'holiday' ? 'חג' : sd.type === 'eve' ? 'ערב חג' : 'אחר'}
-                  </span>
+                  {sd.type !== 'other' && (
+                    <span style={{ fontSize: '0.48rem', background: sd.color, borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>
+                      {sd.type === 'holiday' ? 'חג' : 'ערב חג'}
+                    </span>
+                  )}
                 </>
               )}
               {!sd && !isSat && !isFri && (
