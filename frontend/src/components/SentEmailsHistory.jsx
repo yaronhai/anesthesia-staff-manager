@@ -41,7 +41,7 @@ export default function SentEmailsHistory({ authToken, branchId }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <div>
           <label style={{ fontSize: '0.9rem', color: '#6b7280' }}>הראה מ-</label>
-          <select value={days} onChange={e => setDays(e.target.value)} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', marginRight: '0.5rem' }}>
+          <select value={days} onChange={e => setDays(parseInt(e.target.value))} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', marginRight: '0.5rem' }}>
             <option value="7">7 ימים אחרונים</option>
             <option value="30">30 ימים אחרונים</option>
             <option value="90">90 ימים אחרונים</option>
