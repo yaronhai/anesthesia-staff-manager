@@ -1689,19 +1689,19 @@ app.post('/api/send-schedule', requireAdmin, async (req, res) => {
           html,
         });
         sent.push(`${worker.first_name} ${worker.family_name}`);
-        // Log successful send
-        await query(
+        // Log successful send (async, fire-and-forget)
+        query(
           'INSERT INTO sent_emails (schedule_date, worker_id, recipient_email, subject, status, branch_id) VALUES ($1, $2, $3, $4, $5, $6)',
           [date, worker.id, worker.email, subject, 'sent', branchId || null]
-        );
+        ).catch(err => console.warn('Failed to log email:', err.message));
       } catch (err) {
         console.error(`Failed to send to ${worker.email}:`, err);
         failed.push(`${worker.first_name} ${worker.family_name}`);
-        // Log failed send
-        await query(
+        // Log failed send (async, fire-and-forget)
+        query(
           'INSERT INTO sent_emails (schedule_date, worker_id, recipient_email, subject, status, error_message, branch_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
           [date, worker.id, worker.email, subject, 'failed', err.message, branchId || null]
-        );
+        ).catch(err => console.warn('Failed to log email error:', err.message));
       }
     }
 
