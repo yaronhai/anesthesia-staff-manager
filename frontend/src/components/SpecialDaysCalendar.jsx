@@ -53,7 +53,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
     if (!sd) {
       const dow = new Date(dateStr).getDay();
       const type = dow === 5 ? 'eve' : 'holiday';
-      setAddForm({ date: dateStr, name: '', type, color: type === 'eve' ? '#f59e0b' : '#dc2626' });
+      setAddForm({ date: dateStr, name: '', type, color: type === 'eve' ? '#10b981' : '#059669' });
     } else {
       setAddForm(null);
     }
@@ -111,22 +111,22 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
         <span style={{ color: '#374151', fontWeight: 700 }}>סה"כ חודש זה: {monthTotal}</span>
         <span style={{ color: '#9ca3af' }}>|</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#dc2626', display: 'inline-block' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#059669', display: 'inline-block' }} />
           <span style={{ color: '#dc2626', fontWeight: 600 }}>חג</span>
           <span style={{ color: '#374151' }}>{monthHolidays}</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#f59e0b', display: 'inline-block' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#10b981', display: 'inline-block' }} />
           <span style={{ color: '#b45309', fontWeight: 600 }}>ערב חג</span>
           <span style={{ color: '#374151' }}>{monthEves}</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#dc2626', display: 'inline-block' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#059669', display: 'inline-block' }} />
           <span style={{ color: '#dc2626', fontWeight: 600 }}>שבת</span>
           <span style={{ color: '#374151' }}>{monthSaturdays}</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#f59e0b', display: 'inline-block' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#0369a1', display: 'inline-block' }} />
           <span style={{ color: '#b45309', fontWeight: 600 }}>שישי</span>
           <span style={{ color: '#374151' }}>{monthFridays}</span>
         </span>
@@ -186,10 +186,10 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
                 </>
               )}
               {!sd && isSat && (
-                <span style={{ fontSize: '0.58rem', background: '#dc2626', borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>שבת</span>
+                <span style={{ fontSize: '0.58rem', background: '#059669', borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>שבת</span>
               )}
               {!sd && isFri && (
-                <span style={{ fontSize: '0.58rem', background: '#f59e0b', borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>שישי</span>
+                <span style={{ fontSize: '0.58rem', background: '#0369a1', borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>שישי</span>
               )}
               {!sd && !isSat && !isFri && (
                 <span style={{ fontSize: '0.5rem', color: '#d1d5db', lineHeight: 1.5 }}>+</span>
@@ -233,7 +233,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
             />
             <select
               value={addForm.type}
-              onChange={e => setAddForm(f => ({ ...f, type: e.target.value, color: e.target.value === 'eve' ? '#f59e0b' : e.target.value === 'other' ? '#6b7280' : '#dc2626' }))}
+              onChange={e => setAddForm(f => ({ ...f, type: e.target.value, color: e.target.value === 'eve' ? '#10b981' : e.target.value === 'other' ? '#6b7280' : '#059669' }))}
               style={{ padding: '6px', borderRadius: 4, border: '1px solid #93c5fd' }}
             >
               <option value="holiday">חג / שבת</option>
@@ -251,10 +251,10 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
       <div style={{ display: 'flex', gap: '1rem', fontSize: '0.78rem', color: '#6b7280', alignItems: 'center', flexWrap: 'wrap' }}>
         <span>לחץ על יום ריק להוספה • לחץ על יום מסומן להסרה</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#dc2626', display: 'inline-block' }} />חג / שבת
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#059669', display: 'inline-block' }} />חג / שבת
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f59e0b', display: 'inline-block' }} />ערב חג / שישי
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#10b981', display: 'inline-block' }} />ערב חג / שישי
         </span>
       </div>
 
