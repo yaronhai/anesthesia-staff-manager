@@ -198,36 +198,54 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
         })}
       </div>
 
-      {/* Active day action panel */}
+      {/* Active day panel — view or inline edit */}
       {activeDay && activeSd && (
-        <div style={{ background: activeSd.color + '18', border: `2px solid ${activeSd.color}`, borderRadius: 8, padding: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <span style={{ width: 12, height: 12, borderRadius: 3, background: activeSd.color, flexShrink: 0 }} />
-          <strong style={{ fontSize: '0.78rem' }}>{activeDay}</strong>
-          <span style={{ fontSize: '0.78rem' }}>{activeSd.name}</span>
-          <span style={{ fontSize: '0.68rem', color: '#6b7280', background: '#fff', borderRadius: 4, padding: '1px 8px', border: '1px solid #e5e7eb' }}>
-            {activeSd.type === 'holiday' ? 'חג / שבת' : activeSd.type === 'eve' ? 'ערב חג / שישי' : 'אחר'}
-          </span>
-          <button
-            className="btn-secondary"
-            style={{ marginRight: 'auto' }}
-            onClick={() => setEditingSD({ ...activeSd })}
-          >
-            עריכה
-          </button>
-          <button
-            className="btn-remove"
-            onClick={() => removeSD(activeSd.id)}
-          >
-            הסר סימון
-          </button>
-          <button onClick={() => { setActiveDay(null); setAddForm(null); setEditingSD(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+        <div style={{ background: editingSD ? '#eff6ff' : activeSd.color + '18', border: `2px solid ${editingSD ? '#3b82f6' : activeSd.color}`, borderRadius: 8, padding: '0.6rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {!editingSD ? (
+            <>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: activeSd.color, flexShrink: 0 }} />
+              <strong style={{ fontSize: '0.78rem' }}>{activeDay}</strong>
+              <span style={{ fontSize: '0.78rem' }}>{activeSd.name}</span>
+              <span style={{ fontSize: '0.68rem', color: '#6b7280', background: '#fff', borderRadius: 4, padding: '1px 6px', border: '1px solid #e5e7eb' }}>
+                {activeSd.type === 'holiday' ? 'חג / שבת' : activeSd.type === 'eve' ? 'ערב חג / שישי' : 'אחר'}
+              </span>
+              <button title="ערוך" style={{ marginRight: 'auto', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', fontSize: '0.95rem', padding: '1px 7px', lineHeight: 1.4 }} onClick={() => setEditingSD({ ...activeSd })}>✏</button>
+              <button title="הסר סימון" style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', fontSize: '0.95rem', padding: '1px 7px', lineHeight: 1.4, color: '#dc2626' }} onClick={() => removeSD(activeSd.id)}>🗑</button>
+              <button onClick={() => { setActiveDay(null); setAddForm(null); setEditingSD(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '0.9rem' }}>✕</button>
+            </>
+          ) : (
+            <>
+              <input
+                value={editingSD.name}
+                onChange={e => setEditingSD(f => ({ ...f, name: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && updateSD()}
+                autoFocus
+                style={{ flex: 1, minWidth: 120, padding: '4px 8px', borderRadius: 4, border: '1px solid #93c5fd', outline: 'none', fontSize: '0.78rem' }}
+              />
+              <select
+                value={editingSD.type}
+                onChange={e => setEditingSD(f => ({ ...f, type: e.target.value, color: e.target.value === 'eve' ? '#6ee7b7' : e.target.value === 'other' ? '#6b7280' : '#059669' }))}
+                style={{ padding: '4px 6px', borderRadius: 4, border: '1px solid #93c5fd', fontSize: '0.78rem' }}
+              >
+                <option value="holiday">חג / שבת</option>
+                <option value="eve">ערב חג / שישי</option>
+                <option value="other">אחר</option>
+              </select>
+              <div style={{ display: 'flex', gap: 3 }}>
+                {COLOR_PALETTE.map(col => (
+                  <button key={col} onClick={() => setEditingSD(f => ({ ...f, color: col }))} style={{ width: 20, height: 20, borderRadius: 3, background: col, border: editingSD.color === col ? '2px solid #1f2937' : '1px solid #d1d5db', cursor: 'pointer', padding: 0 }} title={col} />
+                ))}
+              </div>
+              <button style={{ background: '#059669', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', padding: '3px 10px', fontSize: '0.85rem' }} onClick={updateSD}>✓</button>
+              <button onClick={() => setEditingSD(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '0.9rem' }}>✕</button>
+            </>
+          )}
         </div>
       )}
 
       {activeDay && !activeSd && addForm && (
         <div style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 8, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <strong style={{ fontSize: '0.75rem', color: '#1d4ed8' }}>הוסף יום מיוחד — {activeDay}</strong>
-          <span style={{ fontSize: '0.7rem', color: '#dc2626' }}>DEBUG type: {addForm.type}</span>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               value={addForm.name}
@@ -265,45 +283,6 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
         </div>
       )}
 
-      {editingSD && (
-        <div style={{ background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 8, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <strong style={{ fontSize: '0.75rem', color: '#1d4ed8' }}>ערוך יום מיוחד — {editingSD.date}</strong>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <input
-              value={editingSD.name}
-              onChange={e => setEditingSD(f => ({ ...f, name: e.target.value }))}
-              onKeyDown={e => e.key === 'Enter' && updateSD()}
-              placeholder="שם היום המיוחד..."
-              autoFocus
-              style={{ flex: 1, minWidth: 130, padding: '6px 8px', borderRadius: 4, border: '1px solid #93c5fd', outline: 'none' }}
-            />
-            <select
-              value={editingSD.type}
-              onChange={e => setEditingSD(f => ({ ...f, type: e.target.value, color: e.target.value === 'eve' ? '#6ee7b7' : e.target.value === 'other' ? '#6b7280' : '#059669' }))}
-              style={{ padding: '6px', borderRadius: 4, border: '1px solid #93c5fd' }}
-            >
-              <option value="holiday">חג / שבת</option>
-              <option value="eve">ערב חג / שישי</option>
-              <option value="other">אחר</option>
-            </select>
-            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              {COLOR_PALETTE.map(col => (
-                <button
-                  key={col}
-                  onClick={() => setEditingSD(f => ({ ...f, color: col }))}
-                  style={{
-                    width: 24, height: 24, borderRadius: 4, background: col, border: editingSD.color === col ? '2px solid #1f2937' : '1px solid #d1d5db',
-                    cursor: 'pointer', padding: 0
-                  }}
-                  title={col}
-                />
-              ))}
-            </div>
-            <button className="btn-primary" onClick={updateSD}>עדכן</button>
-            <button onClick={() => setEditingSD(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '0.85rem' }}>✕</button>
-          </div>
-        </div>
-      )}
 
       {/* Instructions */}
       <div style={{ fontSize: '0.68rem', color: '#6b7280' }}>
