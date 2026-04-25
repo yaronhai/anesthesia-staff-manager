@@ -37,6 +37,9 @@ npm run preview
 
 No test framework configured. Agents should run build commands to validate changes.
 
+### Data Management
+- **No hardcoded business data**: All business data (job titles, employment types, special days, site groups, shift types, etc.) must live in the database and be served via `/api/config`. Never hardcode business values in source files.
+
 ### Conventions
 - ID Number as Username: Worker's `id_number` becomes login username
 - Worker ↔ User Sync: Editing worker auto-updates linked user
