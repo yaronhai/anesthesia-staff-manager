@@ -421,8 +421,20 @@ async function runMigrations() {
 
     await query(`ALTER TABLE special_days ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'holiday';`);
 
-    await query(`ALTER TABLE special_days DROP CONSTRAINT IF NOT EXISTS special_days_type_check;`);
-    await query(`ALTER TABLE special_days ADD CONSTRAINT special_days_type_check CHECK(type IN ('holiday','eve','other'));`);
+    await query(`
+      DO $$
+      DECLARE r RECORD;
+      BEGIN
+        FOR r IN
+          SELECT c.conname FROM pg_constraint c
+          JOIN pg_class t ON c.conrelid = t.oid
+          WHERE t.relname = 'special_days' AND c.contype = 'c'
+        LOOP
+          EXECUTE format('ALTER TABLE special_days DROP CONSTRAINT IF EXISTS %I', r.conname);
+        END LOOP;
+      END $$
+    `);
+    await query(`ALTER TABLE special_days ADD CONSTRAINT special_days_type_check CHECK(type IN ('holiday','eve','other'))`);
 
     console.log('✓ Migrations complete');
   } catch (error) {
