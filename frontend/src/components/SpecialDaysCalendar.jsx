@@ -70,6 +70,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
 
   async function addSD() {
     if (!addForm?.name.trim()) return alert('יש למלא שם');
+    console.log('[addSD] sending type:', addForm.type, 'full form:', addForm);
     const res = await fetch(`/api/config/special-days${branchQ}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },

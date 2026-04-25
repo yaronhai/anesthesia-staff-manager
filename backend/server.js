@@ -1533,10 +1533,13 @@ app.delete('/api/config/fairness-sites/:siteId', requireAdmin, async (req, res) 
 app.post('/api/config/special-days', requireAdmin, async (req, res) => {
   try {
     const { date, name, type, color } = req.body;
+    console.log('[special-days POST] received type:', type);
     if (!date || !name) return res.status(400).json({ error: 'תאריך ושם נדרשים' });
     const branchId = getEffectiveBranchId(req);
+    const resolvedType = ['holiday','eve','other'].includes(type) ? type : 'holiday';
+    console.log('[special-days POST] resolved type:', resolvedType);
     await query('INSERT INTO special_days (date, name, type, color, branch_id) VALUES ($1, $2, $3, $4, $5)',
-      [date, name.trim(), type === 'eve' ? 'eve' : type === 'other' ? 'other' : 'holiday', color || '#f59e0b', branchId]);
+      [date, name.trim(), resolvedType, color || '#f59e0b', branchId]);
     res.json(await getConfig(branchId));
   } catch (e) {
     console.error('Add special day error:', e);
@@ -1547,9 +1550,12 @@ app.post('/api/config/special-days', requireAdmin, async (req, res) => {
 app.put('/api/config/special-days/:id', requireAdmin, async (req, res) => {
   try {
     const { date, name, type, color } = req.body;
+    console.log('[special-days PUT] received type:', type);
     if (!date || !name) return res.status(400).json({ error: 'תאריך ושם נדרשים' });
+    const resolvedType = ['holiday','eve','other'].includes(type) ? type : 'holiday';
+    console.log('[special-days PUT] resolved type:', resolvedType);
     await query('UPDATE special_days SET date=$1, name=$2, type=$3, color=$4 WHERE id=$5',
-      [date, name.trim(), type === 'eve' ? 'eve' : type === 'other' ? 'other' : 'holiday', color || '#f59e0b', req.params.id]);
+      [date, name.trim(), resolvedType, color || '#f59e0b', req.params.id]);
     res.json(await getConfig(getEffectiveBranchId(req)));
   } catch (e) {
     console.error('Update special day error:', e);
