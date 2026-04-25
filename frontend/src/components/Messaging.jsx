@@ -102,38 +102,53 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
       {/* Conversations list (only for admin) */}
       {isAdmin && (
         <div style={{ width: '250px', display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-          <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#1f2937' }}>שיחות</div>
+          <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#1f2937' }}>עובדים</div>
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.25rem', padding: '0.5rem' }}>
-            {conversations.length === 0 ? (
-              <p style={{ fontSize: '0.85rem', color: '#9ca3af', padding: '1rem', textAlign: 'center' }}>אין שיחות עדיין</p>
+            {workers.length === 0 ? (
+              <p style={{ fontSize: '0.85rem', color: '#9ca3af', padding: '1rem', textAlign: 'center' }}>אין עובדים</p>
             ) : (
-              conversations.map(conv => (
-                <button
-                  key={conv.partner_id}
-                  onClick={() => setSelectedUserId(conv.partner_id)}
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: '6px',
-                    border: 'none',
-                    textAlign: 'right',
-                    cursor: 'pointer',
-                    background: selectedUserId === conv.partner_id ? '#3b82f6' : 'white',
-                    color: selectedUserId === conv.partner_id ? 'white' : '#1f2937',
-                    fontSize: '0.9rem',
-                    position: 'relative',
-                  }}
-                >
-                  <div style={{ fontWeight: 600 }}>{conv.partner_name || conv.partner_username}</div>
-                  <div style={{ fontSize: '0.8rem', opacity: 0.8, maxHeight: '2.4em', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {conv.last_message}
-                  </div>
-                  {conv.unread_count > 0 && (
-                    <span style={{ position: 'absolute', left: '0.5rem', top: '0.5rem', background: '#ef4444', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
-                      {conv.unread_count}
-                    </span>
-                  )}
-                </button>
-              ))
+              workers.map(worker => {
+                const conversation = conversations.find(c => c.partner_name?.includes(worker.first_name));
+                return (
+                  <button
+                    key={worker.id}
+                    onClick={() => {
+                      // Get the user_id for this worker
+                      const userId = conversation?.partner_id || worker.user_id;
+                      if (userId) {
+                        setSelectedUserId(userId);
+                      } else {
+                        alert('לא ניתן להודיע לעובד זה - אין קשר למשתמש');
+                      }
+                    }}
+                    style={{
+                      padding: '0.75rem',
+                      borderRadius: '6px',
+                      border: 'none',
+                      textAlign: 'right',
+                      cursor: 'pointer',
+                      background: selectedUserId === (conversation?.partner_id || worker.user_id) ? '#3b82f6' : 'white',
+                      color: selectedUserId === (conversation?.partner_id || worker.user_id) ? 'white' : '#1f2937',
+                      fontSize: '0.9rem',
+                      position: 'relative',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{worker.first_name} {worker.family_name}</div>
+                    {conversation && (
+                      <>
+                        <div style={{ fontSize: '0.8rem', opacity: 0.8, maxHeight: '2.4em', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {conversation.last_message}
+                        </div>
+                        {conversation.unread_count > 0 && (
+                          <span style={{ position: 'absolute', left: '0.5rem', top: '0.5rem', background: '#ef4444', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
+                            {conversation.unread_count}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
