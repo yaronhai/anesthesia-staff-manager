@@ -1774,7 +1774,7 @@ app.get('/api/messages/conversations', requireAuth, async (req, res) => {
       SELECT DISTINCT ON (partner_id)
         partner_id,
         u.username as partner_username,
-        (SELECT CASE WHEN w.id IS NOT NULL THEN CONCAT(w.first_name, ' ', w.family_name) ELSE u.username END
+        (SELECT CASE WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name ELSE u.username END
          FROM users u2 LEFT JOIN workers w ON u2.worker_id = w.id WHERE u2.id = partner_id) as partner_name,
         m.content as last_message,
         m.created_at as last_at,
