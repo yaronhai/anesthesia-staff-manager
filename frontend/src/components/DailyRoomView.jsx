@@ -1010,17 +1010,17 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button className="btn-secondary btn-sm" onClick={prevMonth} title="חודש אחורה">‹‹</button>
           <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">‹‹‹</button>
           <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
-          <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋 תבנית</button>
-          <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
-          <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
-          <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ דו"ח שיבוצים</button>
+          <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋</button>
+          <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾</button>
+          <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖</button>
+          <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
           <button onClick={() => {
             setShowSendModal(true);
             const todayAssignments = assignments.filter(a => a.date === dateStr);
             const workerIds = [...new Set(todayAssignments.map(a => a.worker_id))];
             setSendWorkerIds(workerIds);
-          }} className="btn-primary btn-sm" title="שלח תוכנית יומית בהודעה">💬 שלח תוכנית</button>
-          <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️ טבלת צדק</button>
+          }} className="btn-primary btn-sm" title="שלח תוכנית יומית בהודעה">💬</button>
+          <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️</button>
           <div style={{flex: 1}} />
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
           {(() => {
