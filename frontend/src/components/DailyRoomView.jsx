@@ -1069,18 +1069,20 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             const configuredSlots = siteShiftActivities.filter(
               a => a.date === dateStr && a.activity_type_id && sitesInSelectedGroup.some(s => s.id === a.site_id)
             );
-            if (configuredSlots.length === 0) return null;
-
             const dayAssignments = assignments.filter(a => a.date === dateStr);
+            if (configuredSlots.length === 0 && dayAssignments.length === 0) return null;
+
             const shiftStats = (config.shift_types || [])
               .filter(st => st.show_in_assignments)
               .map(st => {
                 const slotsForShift = configuredSlots.filter(a => a.shift_type === st.key);
-                const assignedSiteIds = new Set(
-                  dayAssignments.filter(a => a.shift_type === st.key).map(a => a.site_id)
-                );
-                const filled = slotsForShift.filter(a => assignedSiteIds.has(a.site_id)).length;
-                return { key: st.key, label: st.label_he, total: slotsForShift.length, filled, missing: slotsForShift.length - filled };
+                const shiftAssignments = dayAssignments.filter(a => a.shift_type === st.key);
+                const assignedSiteIds = new Set(shiftAssignments.map(a => a.site_id));
+                const filled = configuredSlots.length > 0
+                  ? slotsForShift.filter(a => assignedSiteIds.has(a.site_id)).length
+                  : shiftAssignments.length;
+                const total = configuredSlots.length > 0 ? slotsForShift.length : shiftAssignments.length;
+                return { key: st.key, label: st.label_he, total, filled, missing: total - filled };
               })
               .filter(s => s.total > 0);
 
