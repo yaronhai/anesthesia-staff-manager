@@ -1090,35 +1090,29 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             const pct = totalSlots > 0 ? Math.round((totalFilled / totalSlots) * 100) : 0;
             const barColor = totalMissing === 0 ? '#16a34a' : totalFilled === 0 ? '#ef4444' : '#f59e0b';
 
+
             return (
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                background: 'white',
-                border: '1.5px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '0.3rem 0.75rem',
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'white', border: '1.5px solid #e2e8f0',
+                borderRadius: '8px', padding: '0.3rem 0.75rem',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
               }}>
-                <div style={{ width: '80px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width 0.3s' }} />
-                </div>
-                <span style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                  {totalFilled}/{totalSlots}
-                </span>
-                <span style={{
-                  padding: '0.1rem 0.45rem',
-                  borderRadius: '10px',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
-                  color:      totalMissing === 0 ? '#166534' : '#991b1b',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
-                </span>
-                {shiftStats.map(s => {
+                  <div style={{ width: '80px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                    {totalFilled}/{totalSlots}
+                  </span>
+                  <span style={{
+                    padding: '0.1rem 0.45rem', borderRadius: '10px',
+                    fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
+                    background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
+                    color:      totalMissing === 0 ? '#166534' : '#991b1b',
+                  }}>
+                    {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
+                  </span>
+                  {shiftStats.map(s => {
                     const chipBg     = s.missing === 0 ? '#dcfce7' : s.filled === 0 ? '#fef2f2' : '#fef9e7';
                     const chipColor  = s.missing === 0 ? '#166534' : s.filled === 0 ? '#991b1b' : '#92400e';
                     const chipBorder = s.missing === 0 ? '#86efac' : s.filled === 0 ? '#fca5a5' : '#fde68a';
