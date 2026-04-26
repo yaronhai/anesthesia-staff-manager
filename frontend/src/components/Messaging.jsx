@@ -216,35 +216,41 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
             <div style={{ flex: 1, overflowY: 'auto', padding: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
               {messages.length === 0 ? (
                 <p style={{ color: '#9ca3af', textAlign: 'center', marginTop: '2rem', fontSize: '0.75rem' }}>אין הודעות עדיין</p>
-              ) : (
-                messages.map(msg => {
+              ) : (() => {
+                const items = [];
+                let lastDate = null;
+                messages.forEach(msg => {
+                  const date = new Date(msg.created_at);
+                  const dateKey = date.toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                  if (dateKey !== lastDate) {
+                    lastDate = dateKey;
+                    items.push(
+                      <div key={`date-${dateKey}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.4rem 0' }}>
+                        <div style={{ flex: 1, height: '1px', background: '#d1d5db' }} />
+                        <span style={{ fontSize: '0.65rem', color: '#6b7280', whiteSpace: 'nowrap' }}>{dateKey}</span>
+                        <div style={{ flex: 1, height: '1px', background: '#d1d5db' }} />
+                      </div>
+                    );
+                  }
                   const isOwn = msg.sender_id === currentUser.id;
-                  return (
+                  const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                  items.push(
                     <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
-                      <div
-                        style={{
-                          maxWidth: '80%',
-                          padding: '0.2rem 0.4rem',
-                          borderRadius: '2px',
-                          background: isOwn ? '#3b82f6' : '#e5e7eb',
-                          color: isOwn ? 'white' : '#1f2937',
-                          fontSize: '0.7rem',
-                          wordBreak: 'break-word',
-                          lineHeight: '1.1',
-                          display: 'flex',
-                          alignItems: 'flex-end',
-                          gap: '0.3rem',
-                        }}
-                      >
+                      <div style={{
+                        maxWidth: '80%', padding: '0.2rem 0.4rem', borderRadius: '2px',
+                        background: isOwn ? '#3b82f6' : '#e5e7eb',
+                        color: isOwn ? 'white' : '#1f2937',
+                        fontSize: '0.7rem', wordBreak: 'break-word', lineHeight: '1.1',
+                        display: 'flex', alignItems: 'flex-end', gap: '0.3rem',
+                      }}>
+                        <span style={{ fontSize: '0.6rem', opacity: 0.6, whiteSpace: 'nowrap' }}>{timeStr}</span>
                         <span>{msg.content}</span>
-                        <span style={{ fontSize: '0.6rem', opacity: 0.6, whiteSpace: 'nowrap' }}>
-                          {msg.time_display || new Date(msg.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
                       </div>
                     </div>
                   );
-                })
-              )}
+                });
+                return items;
+              })()}
               <div ref={messagesEndRef} />
             </div>
 
