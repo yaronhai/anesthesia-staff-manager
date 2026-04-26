@@ -224,10 +224,16 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   }
 
   const dayRequests = shiftRequests.filter(r => r.date === dateStr);
-  const assignedWorkerIdsToday = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
+  const assignedWorkerIdsByShift = assignments
+    .filter(a => a.date === dateStr)
+    .reduce((map, a) => {
+      if (!map[a.shift_type]) map[a.shift_type] = new Set();
+      map[a.shift_type].add(a.worker_id);
+      return map;
+    }, {});
   const availabilityShifts = (config.shift_types || []).filter(st => st.show_in_availability_bar);
   const requestsByShift = Object.fromEntries(
-    availabilityShifts.map(st => [st.key, dayRequests.filter(r => r.shift_type === st.key)])
+    availabilityShifts.map(st => [st.key, dayRequests.filter(r => r.shift_type === st.key && r.preference_type !== 'cannot')])
   );
 
   function resolveTime(assignment, shiftType, field) {
@@ -1156,9 +1162,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             <div className="room-requests-content">
               {availabilityShifts.map(st => {
                 const requests = requestsByShift[st.key] || [];
-                const { icon, label_he: label, color, bg_color: bg } = st;
-                return ({ icon, label, requests, color, bg });
-              }).map(({ icon, label, requests, color, bg }) => (
+                const { icon, label_he: label, color, bg_color: bg, key: shiftKey } = st;
+                return ({ icon, label, requests, color, bg, shiftKey });
+              }).map(({ icon, label, requests, color, bg, shiftKey }) => (
                 <div key={label} className="room-requests-shift">
                   <span className="room-requests-icon" style={{color, background: bg, padding: '0.05rem 0.35rem', borderRadius: '3px', fontWeight: 700}}>{icon} {label}:</span>
                   {requests.length === 0 ? (
@@ -1172,7 +1178,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             key={r.id}
                             className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
                             title={prefLabel[r.preference_type]}
-                            style={assignedWorkerIdsToday.has(r.worker_id) ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}
+                            style={assignedWorkerIdsByShift[shiftKey]?.has(r.worker_id) ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}
                           >
                             {r.first_name} {r.family_name}
                           </span>
