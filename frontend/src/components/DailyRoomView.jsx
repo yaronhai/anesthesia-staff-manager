@@ -224,6 +224,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   }
 
   const dayRequests = shiftRequests.filter(r => r.date === dateStr);
+  const assignedWorkerIdsToday = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
   const availabilityShifts = (config.shift_types || []).filter(st => st.show_in_availability_bar);
   const requestsByShift = Object.fromEntries(
     availabilityShifts.map(st => [st.key, dayRequests.filter(r => r.shift_type === st.key)])
@@ -1171,6 +1172,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             key={r.id}
                             className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
                             title={prefLabel[r.preference_type]}
+                            style={assignedWorkerIdsToday.has(r.worker_id) ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}
                           >
                             {r.first_name} {r.family_name}
                           </span>
