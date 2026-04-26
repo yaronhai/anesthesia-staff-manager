@@ -36,6 +36,7 @@ export default function App() {
   const [filterSearch, setFilterSearch] = useState('');
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   const isSuperAdmin = currentUser?.role === 'superadmin';
   const isAdmin = currentUser?.role === 'admin' || isSuperAdmin;
@@ -61,10 +62,18 @@ export default function App() {
       fetchWorkers();
       fetchConfig();
     } else {
+      setSelectedBranchId(currentUser.branch_id ?? null);
       setActiveTab('shifts');
       fetchConfig();
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 5000);
+    return () => clearInterval(interval);
+  }, [currentUser, authToken]);
 
   useEffect(() => {
     if (!currentUser || !isSuperAdmin) return;
@@ -77,6 +86,17 @@ export default function App() {
       setWorkers([]);
     }
   }, [selectedBranchId]);
+
+  async function fetchUnreadCount() {
+    if (!authToken) return;
+    try {
+      const res = await fetch('/api/messages/conversations', { headers: authHeaders() });
+      if (res.ok) {
+        const convs = await res.json();
+        setUnreadMessages(convs.reduce((sum, c) => sum + (parseInt(c.unread_count) || 0), 0));
+      }
+    } catch {}
+  }
 
   async function fetchBranches() {
     const res = await fetch('/api/branches', { headers: authHeaders() });
@@ -296,6 +316,11 @@ export default function App() {
               <span className="header-role">
                 {isSuperAdmin ? 'מנהל ראשי' : isAdmin ? 'מנהל סניף' : 'משתמש'}
               </span>
+              {!isSuperAdmin && currentUser.branch_name && (
+                <span style={{fontSize: '0.7rem', opacity: 0.75, marginTop: '1px'}}>
+                  {currentUser.branch_name}
+                </span>
+              )}
             </div>
             <button onClick={handleLogout} className="btn-logout">יציאה</button>
           </div>
@@ -355,8 +380,14 @@ export default function App() {
           <button
             className={`tab-btn${activeTab === 'messages' ? ' active' : ''}`}
             onClick={() => setActiveTab('messages')}
+            style={{ position: 'relative' }}
           >
             💬 הודעות
+            {unreadMessages > 0 && activeTab !== 'messages' && (
+              <span style={{ position: 'absolute', top: '-6px', left: '-6px', background: '#ef4444', color: 'white', borderRadius: '50%', minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700, padding: '0 3px' }}>
+                {unreadMessages}
+              </span>
+            )}
           </button>
         )}
       </div>

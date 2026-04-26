@@ -261,6 +261,16 @@ async function initializeSchema() {
     await query(`ALTER TABLE shift_types ADD COLUMN IF NOT EXISTS show_in_availability_bar BOOLEAN NOT NULL DEFAULT FALSE;`);
     await query(`ALTER TABLE preference_types ADD COLUMN IF NOT EXISTS label_group_he TEXT NOT NULL DEFAULT '';`);
     await query(`ALTER TABLE preference_types ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT '';`);
+    await query(`
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='created_at' AND data_type='timestamp without time zone') THEN
+          ALTER TABLE messages ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='read_at' AND data_type='timestamp without time zone') THEN
+          ALTER TABLE messages ALTER COLUMN read_at TYPE TIMESTAMPTZ USING read_at AT TIME ZONE 'UTC';
+        END IF;
+      END $$;
+    `);
     console.log('✓ Database schema initialized');
   } catch (error) {
     console.error('Error initializing schema:', error);

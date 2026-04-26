@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function Messaging({ authToken, currentUser, workers, branchId }) {
   const [conversations, setConversations] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
@@ -10,6 +11,17 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const isWorker = currentUser?.role === 'user';
+
+  async function fetchContacts() {
+    try {
+      const res = await fetch('/api/messages/contacts', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) setContacts(await res.json());
+    } catch (err) {
+      console.error('Error fetching contacts:', err);
+    }
+  }
 
   // Fetch conversations list
   async function fetchConversations() {
@@ -67,17 +79,32 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     }
   }
 
-  // Auto-select admin for workers
+  // Merge contacts + active conversations (e.g. system_sidur) into one list, sidur first
+  const mergedContacts = isAdmin ? [] : (() => {
+    const list = [...contacts];
+    conversations.forEach(conv => {
+      if (!list.find(c => c.id === conv.partner_id)) {
+        list.push({ id: conv.partner_id, display_name: conv.partner_name || conv.partner_username });
+      }
+    });
+    return list.sort((a, b) => {
+      if (a.display_name === 'סידור עבודה') return -1;
+      if (b.display_name === 'סידור עבודה') return 1;
+      return 0;
+    });
+  })();
+
+  // Auto-select first contact for workers
   useEffect(() => {
-    if (isWorker && conversations.length > 0 && !selectedUserId) {
-      // For workers, auto-select the first (and likely only) admin conversation
-      setSelectedUserId(conversations[0].partner_id);
+    if (isWorker && mergedContacts.length > 0 && !selectedUserId) {
+      setSelectedUserId(mergedContacts[0].id);
     }
-  }, [conversations, isWorker, selectedUserId]);
+  }, [mergedContacts.length, isWorker, selectedUserId]);
 
   // Polling for messages
   useEffect(() => {
     fetchConversations();
+    fetchContacts();
     const interval = setInterval(fetchConversations, 3000);
     return () => clearInterval(interval);
   }, [authToken]);
@@ -100,41 +127,33 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
 
   return (
     <div style={{ direction: 'rtl', display: 'flex', height: 'calc(100vh - 200px)', gap: '1rem', padding: '1rem' }}>
-      {/* Conversations list (only for admin) */}
-      {isAdmin && (
-        <div style={{ width: '140px', display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-          <div style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb', fontWeight: 700, color: '#991b1b', fontSize: '0.8rem', textAlign: 'center' }}>עובדים</div>
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.125rem', padding: '0.25rem' }}>
-            {workers.length === 0 ? (
+      {/* Contacts/Conversations list */}
+      <div style={{ width: '140px', display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb', fontWeight: 700, color: '#991b1b', fontSize: '0.8rem', textAlign: 'center' }}>
+          {isAdmin ? 'עובדים' : 'אנשי קשר'}
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.125rem', padding: '0.25rem' }}>
+          {isAdmin ? (
+            workers.length === 0 ? (
               <p style={{ fontSize: '0.7rem', color: '#9ca3af', padding: '0.5rem', textAlign: 'center' }}>אין עובדים</p>
             ) : (
               workers.map(worker => {
                 const conversation = conversations.find(c => c.partner_name?.includes(worker.first_name));
+                const contactId = conversation?.partner_id || worker.user_id;
                 return (
                   <button
                     key={worker.id}
                     onClick={() => {
-                      const userId = conversation?.partner_id || worker.user_id;
-                      if (userId) {
-                        setSelectedUserId(userId);
-                      } else {
-                        alert('לא ניתן להודיע לעובד זה - אין קשר למשתמש');
-                      }
+                      if (contactId) setSelectedUserId(contactId);
+                      else alert('לא ניתן להודיע לעובד זה - אין קשר למשתמש');
                     }}
                     style={{
-                      padding: '0.3rem 0.4rem',
-                      borderRadius: '3px',
-                      border: 'none',
-                      textAlign: 'right',
+                      padding: '0.3rem 0.4rem', borderRadius: '3px', border: 'none', textAlign: 'right',
                       cursor: 'pointer',
-                      background: selectedUserId === (conversation?.partner_id || worker.user_id) ? '#1e40af' : 'white',
-                      color: selectedUserId === (conversation?.partner_id || worker.user_id) ? 'white' : '#1e40af',
-                      fontSize: '0.7rem',
-                      position: 'relative',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      fontWeight: 700,
+                      background: selectedUserId === contactId ? '#1e40af' : 'white',
+                      color: selectedUserId === contactId ? 'white' : '#1e40af',
+                      fontSize: '0.7rem', position: 'relative', whiteSpace: 'nowrap',
+                      overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 700,
                     }}
                   >
                     {worker.first_name} {worker.family_name}
@@ -146,10 +165,40 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                   </button>
                 );
               })
-            )}
-          </div>
+            )
+          ) : (
+            mergedContacts.length === 0 ? (
+              <p style={{ fontSize: '0.7rem', color: '#9ca3af', padding: '0.5rem', textAlign: 'center' }}>אין אנשי קשר</p>
+            ) : (
+              mergedContacts.map(contact => {
+                const conversation = conversations.find(c => c.partner_id === contact.id);
+                return (
+                  <button
+                    key={contact.id}
+                    onClick={() => setSelectedUserId(contact.id)}
+                    style={{
+                      padding: '0.3rem 0.4rem', borderRadius: '3px', border: 'none', textAlign: 'right',
+                      cursor: 'pointer',
+                      background: selectedUserId === contact.id ? '#1e40af' : 'white',
+                      color: selectedUserId === contact.id ? 'white' : contact.display_name === 'סידור עבודה' ? '#7f1d1d' : '#1e40af',
+                      fontWeight: contact.display_name === 'סידור עבודה' ? 800 : 700,
+                      fontSize: '0.7rem', position: 'relative', whiteSpace: 'nowrap',
+                      overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 700,
+                    }}
+                  >
+                    {contact.display_name}
+                    {conversation?.unread_count > 0 && (
+                      <span style={{ position: 'absolute', left: '0.3rem', top: '-5px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '15px', height: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700 }}>
+                        {conversation.unread_count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            )
+          )}
         </div>
-      )}
+      </div>
 
       {/* Chat area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -189,7 +238,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                       >
                         <span>{msg.content}</span>
                         <span style={{ fontSize: '0.6rem', opacity: 0.6, whiteSpace: 'nowrap' }}>
-                          {new Date(msg.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                          {msg.time_display || new Date(msg.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                     </div>

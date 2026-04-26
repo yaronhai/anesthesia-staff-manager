@@ -193,7 +193,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     setSending(true);
     setSendResult(null);
     try {
-      const res = await fetch('/api/send-schedule', {
+      const res = await fetch('/api/send-schedule-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ date: dateStr, workerIds: sendWorkerIds }),
@@ -311,9 +311,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     const custom = siteShiftTimes[key];
     if (custom) return custom;
 
-    // Return default times from config
     const sd = shiftDefaults[shiftType];
-    return { start_time: sd?.default_start || eveningStart, end_time: sd?.default_end || eveningEnd };
+    const fallbacks = { morning: [morningStart, morningEnd], evening: [eveningStart, eveningEnd], night: [nightStart, nightEnd] };
+    const [fs, fe] = fallbacks[shiftType] || [morningStart, morningEnd];
+    return { start_time: sd?.default_start || fs, end_time: sd?.default_end || fe };
   }
 
   function saveSiteShiftTimes(siteId, shiftType, startTime, endTime) {
@@ -1013,7 +1014,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾 שמור כתבנית</button>
           <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖 הצע שיבוץ</button>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️ דו"ח שיבוצים</button>
-          <button onClick={() => { setShowSendModal(true); setSendWorkerIds([]); }} className="btn-primary btn-sm" title="שלח תוכנית יומית במייל">📧 שלח תוכנית</button>
+          <button onClick={() => {
+            setShowSendModal(true);
+            const todayAssignments = assignments.filter(a => a.date === dateStr);
+            const workerIds = [...new Set(todayAssignments.map(a => a.worker_id))];
+            setSendWorkerIds(workerIds);
+          }} className="btn-primary btn-sm" title="שלח תוכנית יומית בהודעה">💬 שלח תוכנית</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️ טבלת צדק</button>
           <div style={{flex: 1}} />
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
@@ -1233,6 +1239,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
                     const morningActivity = getSiteShiftActivity(site.id, 'morning');
                     const eveningActivity = getSiteShiftActivity(site.id, 'evening');
+                    const morningTimes = getSiteShiftTimes(site.id, 'morning');
+                    const eveningTimes = getSiteShiftTimes(site.id, 'evening');
 
                     const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
                     const fs = v => `${(v * scale).toFixed(3)}rem`;
@@ -1248,17 +1256,22 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`}}>
                           <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                             <span className="site-square-icon" style={{fontSize: fs(0.78)}}>☀</span>
-                            {morningActivity?.activity_type_id && (
+                            <span style={{fontSize: fs(0.6), color: '#b45309', fontWeight: 600, whiteSpace: 'nowrap'}}>
+                              {formatTime24(morningTimes.start_time)}–{formatTime24(morningTimes.end_time)}
+                            </span>
+                          </div>
+                          {morningActivity?.activity_type_id && (
+                            <div style={{marginRight: `${1.2 * scale}rem`}}>
                               <span style={{
                                 fontSize: fs(0.65),
                                 color: '#b45309', fontWeight: 600,
                                 padding: `${0.2 * scale}rem ${0.35 * scale}rem`,
-                                background: '#fef9e7', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                                background: '#fef9e7', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block'
                               }}>
                                 {(config.activity_types || []).find(at => at.id === morningActivity.activity_type_id)?.name}
                               </span>
-                            )}
-                          </div>
+                            </div>
+                          )}
                           <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
                             {morningAssignments.length > 0 ? (
                               morningAssignments.map((a, idx) => (
@@ -1272,17 +1285,22 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`}}>
                           <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                             <span className="site-square-icon" style={{fontSize: fs(0.78)}}>🌙</span>
-                            {eveningActivity?.activity_type_id && (
+                            <span style={{fontSize: fs(0.6), color: '#0369a1', fontWeight: 600, whiteSpace: 'nowrap'}}>
+                              {formatTime24(eveningTimes.start_time)}–{formatTime24(eveningTimes.end_time)}
+                            </span>
+                          </div>
+                          {eveningActivity?.activity_type_id && (
+                            <div style={{marginRight: `${1.2 * scale}rem`}}>
                               <span style={{
                                 fontSize: fs(0.65),
                                 color: '#0369a1', fontWeight: 600,
                                 padding: `${0.2 * scale}rem ${0.35 * scale}rem`,
-                                background: '#f0f9ff', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                                background: '#f0f9ff', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block'
                               }}>
                                 {(config.activity_types || []).find(at => at.id === eveningActivity.activity_type_id)?.name}
                               </span>
-                            )}
-                          </div>
+                            </div>
+                          )}
                           <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
                             {eveningAssignments.length > 0 ? (
                               eveningAssignments.map((a, idx) => (
@@ -1759,7 +1777,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       <div className="form-overlay" onClick={() => setShowSendModal(false)}>
         <div className="settings-modal" onClick={e => e.stopPropagation()} style={{ direction: 'rtl', maxWidth: 500 }}>
           <div className="settings-header">
-            <h2>📧 שלח תוכנית יום</h2>
+            <h2>💬 שלח תוכנית יום</h2>
             <button className="btn-close" onClick={() => { setShowSendModal(false); setSendResult(null); }}>✕</button>
           </div>
           <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1771,9 +1789,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     <p style={{ fontSize: '0.85rem', color: '#999' }}>אין עובדים במערכת</p>
                   ) : (
                     <>
-                      <div>
-                        <button onClick={() => setSendWorkerIds(sendWorkerIds.length === workers.length ? [] : workers.map(w => w.id))} style={{ fontSize: '0.85rem', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                          {sendWorkerIds.length === workers.length ? 'בטל הכל' : 'בחר הכל'}
+                      <div style={{ display: 'flex', gap: '1rem' }}>
+                        <button onClick={() => setSendWorkerIds(workers.map(w => w.id))} style={{ fontSize: '0.85rem', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                          בחר הכל
+                        </button>
+                        <button onClick={() => setSendWorkerIds([])} style={{ fontSize: '0.85rem', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                          בטל הכל
                         </button>
                       </div>
                       {workers.map(w => (
@@ -1789,7 +1810,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                               }
                             }}
                           />
-                          {w.first_name} {w.family_name} {w.email ? '' : '(אין מייל)'}
+                          {w.first_name} {w.family_name} {w.user_id ? '' : '(אין חשבון)'}
                         </label>
                       ))}
                     </>
@@ -1815,11 +1836,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     </ul>
                   </div>
                 )}
-                {sendResult.noEmail.length > 0 && (
+                {sendResult.noAccount.length > 0 && (
                   <div>
-                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ea580c' }}>בלא מייל ({sendResult.noEmail.length}):</p>
+                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ea580c' }}>ללא חשבון ({sendResult.noAccount.length}):</p>
                     <ul style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.5rem 0', paddingRight: '1.5rem' }}>
-                      {sendResult.noEmail.map(name => <li key={name}>{name}</li>)}
+                      {sendResult.noAccount.map(name => <li key={name}>{name}</li>)}
                     </ul>
                   </div>
                 )}

@@ -79,6 +79,8 @@ async function seedDatabase() {
            icon = EXCLUDED.icon, color = EXCLUDED.color, bg_color = EXCLUDED.bg_color,
            show_in_assignments = EXCLUDED.show_in_assignments,
            show_in_availability_bar = EXCLUDED.show_in_availability_bar,
+           default_start = EXCLUDED.default_start,
+           default_end = EXCLUDED.default_end,
            sort_order = EXCLUDED.sort_order`,
         [st.key, st.label_he, st.label_short, st.icon, st.color, st.bg_color,
          st.show_in_assignments, st.show_in_availability_bar,
@@ -108,6 +110,15 @@ async function seedDatabase() {
       await query(
         'INSERT INTO users (username, password_hash, role, must_change_password, branch_id) VALUES ($1, $2, $3, $4, $5)',
         [adminUsername, bcrypt.hashSync(adminPassword, 8), 'admin', 0, defBranchId]
+      );
+    }
+
+    // Bootstrap system user for schedule messages
+    const sidurCheck = await query("SELECT id FROM users WHERE username = 'system_sidur'");
+    if (sidurCheck.rows.length === 0) {
+      await query(
+        "INSERT INTO users (username, password_hash, role, must_change_password) VALUES ('system_sidur', $1, 'system', 0)",
+        [bcrypt.hashSync('disabled_' + Date.now(), 10)]
       );
     }
 
@@ -242,7 +253,15 @@ async function syncUserForWorker(worker_id, id_number, classification, email) {
     await query('UPDATE users SET username = $1, role = $2, email = $3 WHERE id = $4',
       [id_number, classification, email || null, user.id]);
   } else {
-    await createUserForWorker(worker_id, id_number, classification, email);
+    // User not linked by worker_id — check if username already exists
+    const existingRes = await query('SELECT id FROM users WHERE username = $1', [id_number]);
+    const existing = existingRes.rows[0];
+    if (existing) {
+      await query('UPDATE users SET worker_id = $1, role = $2, email = $3 WHERE id = $4',
+        [worker_id, classification, email || null, existing.id]);
+    } else {
+      await createUserForWorker(worker_id, id_number, classification, email);
+    }
   }
 }
 
@@ -393,16 +412,22 @@ app.post('/api/auth/login', async (req, res) => {
         email = email || worker.email;
         displayName = `${worker.first_name} ${worker.family_name}`;
         canSubmitRequests = worker.can_submit_requests;
-        // For admins, use the worker's primary branch as the effective branch
-        if ((user.role === 'admin') && worker.primary_branch_id) {
+        // Use worker's primary branch as effective branch for all roles
+        if (worker.primary_branch_id) {
           effectiveBranchId = worker.primary_branch_id;
         }
       }
     }
 
+    let branchName = null;
+    if (effectiveBranchId) {
+      const branchRes = await query('SELECT name FROM branches WHERE id = $1', [effectiveBranchId]);
+      branchName = branchRes.rows[0]?.name ?? null;
+    }
+
     const payload = { id: user.id, username: user.username, role: user.role, worker_id: user.worker_id, branch_id: effectiveBranchId };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { ...payload, email, displayName, must_change_password: user.must_change_password, can_submit_requests: canSubmitRequests } });
+    res.json({ token, user: { ...payload, email, displayName, branch_name: branchName, must_change_password: user.must_change_password, can_submit_requests: canSubmitRequests } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'שגיאה בהתחברות' });
@@ -1712,6 +1737,132 @@ app.post('/api/send-schedule', requireAdmin, async (req, res) => {
   }
 });
 
+// ── Send Schedule via Chat ──────────────────────────────────────────────────
+
+app.post('/api/send-schedule-chat', requireAdmin, async (req, res) => {
+  try {
+    const { date, workerIds } = req.body;
+    if (!date || !Array.isArray(workerIds)) {
+      return res.status(400).json({ error: 'תאריך ורשימת עובדים נדרשים' });
+    }
+
+    const sidurRes = await query("SELECT id FROM users WHERE username = 'system_sidur'");
+    const senderId = sidurRes.rows[0]?.id || req.user.id;
+    const branchId = getEffectiveBranchId(req);
+    const sent = [];
+    const noAccount = [];
+    const failed = [];
+
+    const shiftLabels = {
+      morning: 'בוקר',
+      evening: 'ערב',
+      night: 'לילה',
+      oncall: 'כוננות'
+    };
+    const shiftDefaultTimes = {
+      morning: { start: '07:00', end: '15:00' },
+      evening: { start: '15:00', end: '23:00' },
+      night:   { start: '23:00', end: '07:00' },
+    };
+
+    for (const workerId of workerIds) {
+      try {
+        const userRes = await query(
+          'SELECT u.id FROM users u WHERE u.worker_id = $1',
+          [workerId]
+        );
+
+        const workerRes = await query('SELECT first_name, family_name FROM workers WHERE id = $1', [workerId]);
+
+        if (userRes.rows.length === 0) {
+          const worker = workerRes.rows[0];
+          noAccount.push(`${worker.first_name} ${worker.family_name}`);
+          continue;
+        }
+
+        const user = userRes.rows[0];
+        const userId = user.id;
+        const worker = workerRes.rows[0];
+        const workerName = `${worker.first_name} ${worker.family_name}`;
+
+        const assignRes = await query(
+          `SELECT s.name AS site_name, wsa.shift_type,
+                  COALESCE(wsa.start_time, st.default_start) AS start_time,
+                  COALESCE(wsa.end_time, st.default_end) AS end_time,
+                  wsa.notes, at.name AS activity_name
+           FROM worker_site_assignments wsa
+           JOIN sites s ON s.id = wsa.site_id
+           LEFT JOIN shift_types st ON st.key = wsa.shift_type
+           LEFT JOIN site_shift_activities ssa ON ssa.site_id = wsa.site_id AND ssa.shift_type = wsa.shift_type AND ssa.date = wsa.date
+           LEFT JOIN activity_types at ON at.id = ssa.activity_type_id
+           WHERE wsa.worker_id = $1 AND wsa.date = $2
+           ORDER BY s.name`,
+          [workerId, date]
+        );
+
+        if (assignRes.rows.length === 0) {
+          continue;
+        }
+
+        const lines = [`תוכנית יומית ל-${date}`];
+        const formatTime = (time) => {
+          if (!time) return null;
+          const timeStr = String(time).trim();
+          if (timeStr.length === 0) return null;
+          const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
+          if (match) {
+            const hours = String(match[1]).padStart(2, '0');
+            const mins = String(match[2]).padStart(2, '0');
+            return `${hours}:${mins}`;
+          }
+          return null;
+        };
+
+        for (const a of assignRes.rows) {
+          const shiftLabel = shiftLabels[a.shift_type] || a.shift_type;
+          const defaults = shiftDefaultTimes[a.shift_type] || {};
+          const startTime = formatTime(a.start_time) || defaults.start || null;
+          const endTime = formatTime(a.end_time) || defaults.end || null;
+          const hours = startTime && endTime ? `${startTime}-${endTime}` : '—';
+          let line = `${a.site_name} | ${shiftLabel} | ${hours}`;
+          if (a.activity_name) {
+            line += ` | ${a.activity_name}`;
+          }
+          if (a.notes) {
+            line += ` | הערה: ${a.notes}`;
+          }
+          lines.push(line);
+        }
+        const content = lines.join('\n');
+
+        await query(
+          'INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1, $2, $3, $4)',
+          [senderId, userId, content, branchId || null]
+        );
+
+        sent.push(workerName);
+      } catch (e) {
+        console.error(`Error sending schedule to worker ${workerId}:`, e);
+        try {
+          const workerRes = await query('SELECT first_name, family_name FROM workers WHERE id = $1', [workerId]);
+          if (workerRes.rows[0]) {
+            const worker = workerRes.rows[0];
+            failed.push(`${worker.first_name} ${worker.family_name}`);
+          }
+        } catch (err) {
+          console.error('Error fetching worker name:', err);
+          failed.push(`Worker ${workerId}`);
+        }
+      }
+    }
+
+    res.json({ sent, noAccount, failed });
+  } catch (e) {
+    console.error('Send schedule chat error:', e);
+    res.status(500).json({ error: 'שגיאה בשליחת תוכנית' });
+  }
+});
+
 // ── Sent Emails History ────────────────────────────────────────────────────
 
 app.get('/api/sent-emails', requireAdmin, async (req, res) => {
@@ -1774,7 +1925,11 @@ app.get('/api/messages/conversations', requireAuth, async (req, res) => {
       SELECT DISTINCT ON (partner_id)
         partner_id,
         u.username as partner_username,
-        (SELECT CASE WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name ELSE u.username END
+        (SELECT CASE
+           WHEN u2.role = 'system' THEN 'סידור עבודה'
+           WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name
+           ELSE u2.username
+         END
          FROM users u2 LEFT JOIN workers w ON u2.worker_id = w.id WHERE u2.id = partner_id) as partner_name,
         m.content as last_message,
         m.created_at as last_at,
@@ -1798,7 +1953,7 @@ app.get('/api/messages/conversations', requireAuth, async (req, res) => {
     sql += `
       ) m
       JOIN users u ON m.partner_id = u.id
-      ORDER BY partner_id, created_at DESC
+      ORDER BY partner_id, m.created_at DESC
       LIMIT 50
     `;
 
@@ -1817,7 +1972,10 @@ app.get('/api/messages/with/:user_id', requireAuth, async (req, res) => {
     const branchId = getEffectiveBranchId(req);
 
     let sql = `
-      SELECT m.*, u.username as sender_username, uw.username as recipient_username
+      SELECT m.id, m.sender_id, m.recipient_id, m.content, m.read_at, m.branch_id,
+             u.username as sender_username, uw.username as recipient_username,
+             TO_CHAR(m.created_at AT TIME ZONE 'Asia/Jerusalem', 'HH24:MI') as time_display,
+             m.created_at
       FROM messages m
       JOIN users u ON m.sender_id = u.id
       JOIN users uw ON m.recipient_id = uw.id
@@ -1856,6 +2014,46 @@ app.post('/api/messages/read/:user_id', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Mark read error:', e);
     res.status(500).json({ error: 'שגיאה בעדכון הודעות' });
+  }
+});
+
+app.get('/api/messages/contacts', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRes = await query(
+      `SELECT u.role, COALESCE(w.primary_branch_id, u.branch_id) AS branch_id
+       FROM users u LEFT JOIN workers w ON w.id = u.worker_id
+       WHERE u.id = $1`,
+      [userId]
+    );
+    const user = userRes.rows[0];
+    if (!user) return res.status(404).json({ error: 'משתמש לא נמצא' });
+
+    let contacts;
+    if (user.role === 'admin' || user.role === 'superadmin') {
+      const r = await query(
+        `SELECT u.id, w.first_name || ' ' || w.family_name AS display_name
+         FROM users u JOIN workers w ON w.id = u.worker_id
+         WHERE u.role = 'user' AND (w.primary_branch_id = $1 OR u.branch_id = $1) AND u.id != $2
+         ORDER BY w.first_name, w.family_name`,
+        [user.branch_id, userId]
+      );
+      contacts = r.rows;
+    } else {
+      // Workers see all users in their branch
+      const r = await query(
+        `SELECT u.id, w.first_name || ' ' || w.family_name AS display_name
+         FROM users u JOIN workers w ON w.id = u.worker_id
+         WHERE (w.primary_branch_id = $1 OR u.branch_id = $1) AND u.id != $2
+         ORDER BY w.first_name, w.family_name`,
+        [user.branch_id, userId]
+      );
+      contacts = r.rows;
+    }
+    res.json(contacts);
+  } catch (e) {
+    console.error('Contacts error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת אנשי קשר' });
   }
 });
 
@@ -2962,3 +3160,4 @@ async function start() {
 }
 
 start();
+

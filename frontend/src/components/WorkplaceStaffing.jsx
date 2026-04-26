@@ -225,12 +225,19 @@ export default function WorkplaceStaffing({ config, authToken }) {
                         onClick={() => openEditModal(worker.id, day)}
                       >
                         <div className="cell-content">
-                          {assignments.map(a => (
-                            <div key={a.id} className="assignment-chip">
-                              <span>{a.position_name}</span>
-                              <span className="site-info">@ {a.site_name}</span>
-                            </div>
-                          ))}
+                          {assignments.map(a => {
+                            const shiftDef = (config.shift_types || []).find(st => st.key === a.shift_type);
+                            const startTime = a.start_time || shiftDef?.default_start || '';
+                            const endTime = a.end_time || shiftDef?.default_end || '';
+                            const hoursLabel = startTime && endTime ? `${startTime}–${endTime}` : shiftDef?.label_short || '';
+                            return (
+                              <div key={a.id} className="assignment-chip">
+                                <span>{a.position_name}</span>
+                                <span className="site-info">@ {a.site_name}</span>
+                                {hoursLabel && <span className="shift-hours">{hoursLabel}</span>}
+                              </div>
+                            );
+                          })}
                         </div>
                       </td>
                     );
