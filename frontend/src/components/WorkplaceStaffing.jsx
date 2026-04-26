@@ -154,11 +154,11 @@ export default function WorkplaceStaffing({ config, authToken }) {
     <div className="staffing-container">
       <div className="staffing-header">
         <div className="staffing-controls">
-          <button onClick={() => setViewDate(new Date(year - 1, month - 1))}>◀ שנה</button>
-          <button onClick={() => setViewDate(new Date(year, month - 2))}>◀ חודש</button>
+          <button title="שנה קודמת" onClick={() => setViewDate(new Date(year - 1, month - 1))}>«</button>
+          <button title="חודש קודם" onClick={() => setViewDate(new Date(year, month - 2))}>‹</button>
           <span className="current-month">{monthName}</span>
-          <button onClick={() => setViewDate(new Date(year, month))}>חודש ▶</button>
-          <button onClick={() => setViewDate(new Date(year + 1, month - 1))}>שנה ▶</button>
+          <button title="חודש הבא" onClick={() => setViewDate(new Date(year, month))}>›</button>
+          <button title="שנה הבאה" onClick={() => setViewDate(new Date(year + 1, month - 1))}>»</button>
         </div>
 
         {(config.site_groups?.length > 0) && (
@@ -306,22 +306,24 @@ export default function WorkplaceStaffing({ config, authToken }) {
               {editingCell.existingId && (
                 <button
                   className="btn-delete"
+                  title="הסר התמנייה"
                   onClick={() => {
                     deleteAssignment(editingCell.existingId);
                     setEditingCell(null);
                   }}
                 >
-                  הסר התמנייה
+                  🗑
                 </button>
               )}
               <div>
-                <button className="btn-secondary" onClick={() => setEditingCell(null)}>ביטול</button>
+                <button className="btn-secondary" title="ביטול" onClick={() => setEditingCell(null)}>✕</button>
                 <button
                   className="btn-primary"
+                  title="שמור"
                   onClick={saveAssignment}
                   disabled={!editingAssignment.site_id || !editingAssignment.position_id}
                 >
-                  שמור
+                  ✓
                 </button>
               </div>
             </div>
