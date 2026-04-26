@@ -501,6 +501,38 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     return groups;
   }
 
+  function openSendModal() {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (dateStr < todayStr) {
+      if (!window.confirm(`התאריך ${dateStr} הוא בעבר. האם לשלוח את ההודעות בכל זאת?`)) return;
+    }
+
+    const sitesInGroup = (selectedGroupId === '__all__' || !selectedGroupId)
+      ? config.sites
+      : selectedGroupId === 'ungrouped'
+      ? config.sites.filter(s => !s.group_id)
+      : config.sites.filter(s => s.group_id === parseInt(selectedGroupId));
+
+    const configuredSlots = siteShiftActivities.filter(
+      a => a.date === dateStr && a.activity_type_id && sitesInGroup.some(s => s.id === a.site_id)
+    );
+    const dayAssignments = assignments.filter(a => a.date === dateStr);
+    const totalSlots = configuredSlots.length;
+    const filledSlots = configuredSlots.filter(slot =>
+      dayAssignments.some(a => a.site_id === slot.site_id && a.shift_type === slot.shift_type)
+    ).length;
+
+    if (totalSlots > 0 && filledSlots < totalSlots) {
+      if (!window.confirm(`השיבוץ אינו מלא (${filledSlots}/${totalSlots} אתרים מאויישים). האם לשלוח בכל זאת?`)) return;
+    }
+
+    setShowSendModal(true);
+    const todayAssignments = assignments.filter(a => a.date === dateStr);
+    const workerIds = [...new Set(todayAssignments.map(a => a.worker_id))];
+    setSendWorkerIds(workerIds);
+  }
+
   function getUnassignedWorkers() {
     const assignedWorkerIds = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
     const requestedWorkerIds = new Set(
@@ -1016,12 +1048,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖</button>
           <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
-          <button onClick={() => {
-            setShowSendModal(true);
-            const todayAssignments = assignments.filter(a => a.date === dateStr);
-            const workerIds = [...new Set(todayAssignments.map(a => a.worker_id))];
-            setSendWorkerIds(workerIds);
-          }} className="btn-primary btn-sm" title="שלח תוכנית יומית בהודעה">💬</button>
+          <button onClick={openSendModal} className="btn-primary btn-sm" title="שלח תוכנית יומית בהודעה">💬</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️</button>
           <div style={{flex: 1}} />
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
