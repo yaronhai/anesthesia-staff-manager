@@ -126,7 +126,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   const selectedConversation = conversations.find(c => c.partner_id === selectedUserId);
 
   return (
-    <div style={{ direction: 'rtl', display: 'flex', height: 'calc(100vh - 200px)', gap: '1rem', padding: '1rem' }}>
+    <div style={{ direction: 'rtl', display: 'flex', height: 'calc(100vh - 200px)', gap: '1rem', padding: '1rem', maxWidth: '60%', margin: '0 auto' }}>
       {/* Contacts/Conversations list */}
       <div style={{ width: '140px', display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
         <div style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb', fontWeight: 700, color: '#991b1b', fontSize: '0.8rem', textAlign: 'center' }}>
@@ -238,8 +238,8 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                     <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
                       <div style={{
                         maxWidth: '80%', padding: '0.2rem 0.4rem', borderRadius: '2px',
-                        background: isOwn ? '#3b82f6' : '#e5e7eb',
-                        color: isOwn ? 'white' : '#1f2937',
+                        background: isOwn ? '#e0f2fe' : '#ede9fe',
+                        color: isOwn ? '#1f2937' : '#1f2937',
                         fontSize: '0.7rem', wordBreak: 'break-word', lineHeight: '1.1',
                         display: 'flex', alignItems: 'flex-end', gap: '0.3rem',
                       }}>
