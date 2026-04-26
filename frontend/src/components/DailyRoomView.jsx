@@ -1012,7 +1012,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
           <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋</button>
           <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾</button>
+          <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
           <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖</button>
+          <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
           <button onClick={() => {
             setShowSendModal(true);
