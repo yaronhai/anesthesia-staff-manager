@@ -59,29 +59,37 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   // Send message
   async function sendMessage(e) {
     e.preventDefault();
-    if (!draft.trim() || !selectedUserId) return;
+    if (!draft.trim() || !selectedUserId || loading) return;
+    const content = draft.trim();
+    setDraft('');
     setLoading(true);
     try {
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ recipient_id: selectedUserId, content: draft }),
+        body: JSON.stringify({ recipient_id: selectedUserId, content }),
       });
       if (res.ok) {
-        setDraft('');
         await fetchMessages(selectedUserId);
         await fetchConversations();
+      } else {
+        setDraft(content);
+        alert('שגיאה בשליחת ההודעה, נסה שוב');
       }
     } catch (err) {
       console.error('Error sending message:', err);
+      setDraft(content);
+      alert('שגיאת רשת, נסה שוב');
     } finally {
       setLoading(false);
     }
   }
 
-  // Merge contacts + active conversations (e.g. system_sidur) into one list, sidur first
-  const mergedContacts = isAdmin ? [] : (() => {
-    const list = [...contacts];
+  // Build unified contact list for both admins and workers, with system_sidur first
+  const mergedContacts = (() => {
+    const list = isAdmin
+      ? workers.filter(w => w.user_id).map(w => ({ id: w.user_id, display_name: `${w.first_name} ${w.family_name}` }))
+      : [...contacts];
     conversations.forEach(conv => {
       if (!list.find(c => c.id === conv.partner_id)) {
         list.push({ id: conv.partner_id, display_name: conv.partner_name || conv.partner_username });
@@ -133,70 +141,34 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
           {isAdmin ? 'עובדים' : 'אנשי קשר'}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.125rem', padding: '0.25rem' }}>
-          {isAdmin ? (
-            workers.length === 0 ? (
-              <p style={{ fontSize: '0.7rem', color: '#9ca3af', padding: '0.5rem', textAlign: 'center' }}>אין עובדים</p>
-            ) : (
-              workers.map(worker => {
-                const conversation = conversations.find(c => c.partner_name?.includes(worker.first_name));
-                const contactId = conversation?.partner_id || worker.user_id;
-                return (
-                  <button
-                    key={worker.id}
-                    onClick={() => {
-                      if (contactId) setSelectedUserId(contactId);
-                      else alert('לא ניתן להודיע לעובד זה - אין קשר למשתמש');
-                    }}
-                    style={{
-                      padding: '0.3rem 0.4rem', borderRadius: '3px', border: 'none', textAlign: 'right',
-                      cursor: 'pointer',
-                      background: selectedUserId === contactId ? '#1e40af' : 'white',
-                      color: selectedUserId === contactId ? 'white' : '#1e40af',
-                      fontSize: '0.7rem', position: 'relative', whiteSpace: 'nowrap',
-                      overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 700,
-                    }}
-                  >
-                    {worker.first_name} {worker.family_name}
-                    {conversation?.unread_count > 0 && (
-                      <span style={{ position: 'absolute', left: '0.3rem', top: '-5px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '15px', height: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700 }}>
-                        {conversation.unread_count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })
-            )
-          ) : (
-            mergedContacts.length === 0 ? (
-              <p style={{ fontSize: '0.7rem', color: '#9ca3af', padding: '0.5rem', textAlign: 'center' }}>אין אנשי קשר</p>
-            ) : (
-              mergedContacts.map(contact => {
-                const conversation = conversations.find(c => c.partner_id === contact.id);
-                return (
-                  <button
-                    key={contact.id}
-                    onClick={() => setSelectedUserId(contact.id)}
-                    style={{
-                      padding: '0.3rem 0.4rem', borderRadius: '3px', border: 'none', textAlign: 'right',
-                      cursor: 'pointer',
-                      background: selectedUserId === contact.id ? '#1e40af' : 'white',
-                      color: selectedUserId === contact.id ? 'white' : contact.display_name === 'סידור עבודה' ? '#7f1d1d' : '#1e40af',
-                      fontWeight: contact.display_name === 'סידור עבודה' ? 800 : 700,
-                      fontSize: '0.7rem', position: 'relative', whiteSpace: 'nowrap',
-                      overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 700,
-                    }}
-                  >
-                    {contact.display_name}
-                    {conversation?.unread_count > 0 && (
-                      <span style={{ position: 'absolute', left: '0.3rem', top: '-5px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '15px', height: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700 }}>
-                        {conversation.unread_count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })
-            )
-          )}
+          {mergedContacts.length === 0 ? (
+            <p style={{ fontSize: '0.7rem', color: '#9ca3af', padding: '0.5rem', textAlign: 'center' }}>אין אנשי קשר</p>
+          ) : mergedContacts.map(contact => {
+            const conversation = conversations.find(c => c.partner_id === contact.id);
+            const isSidur = contact.display_name === 'סידור עבודה';
+            return (
+              <button
+                key={contact.id}
+                onClick={() => setSelectedUserId(contact.id)}
+                style={{
+                  padding: '0.3rem 0.4rem', borderRadius: '3px', border: 'none', textAlign: 'right',
+                  cursor: 'pointer',
+                  background: selectedUserId === contact.id ? '#1e40af' : 'white',
+                  color: selectedUserId === contact.id ? 'white' : isSidur ? '#7f1d1d' : '#1e40af',
+                  fontWeight: isSidur ? 800 : 700,
+                  fontSize: '0.7rem', position: 'relative', whiteSpace: 'nowrap',
+                  overflow: 'hidden', textOverflow: 'ellipsis',
+                }}
+              >
+                {contact.display_name}
+                {conversation?.unread_count > 0 && (
+                  <span style={{ position: 'absolute', left: '0.3rem', top: '-5px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '15px', height: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700 }}>
+                    {conversation.unread_count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
