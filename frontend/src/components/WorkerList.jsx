@@ -91,23 +91,23 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
-        <div style={{ padding: '1rem', fontSize: '0.9rem' }}>
+        <div style={{ padding: '0.6rem 1rem', fontSize: '0.85rem' }}>
           {loading ? (
             <p>טוען...</p>
           ) : (
             <>
-              <div style={{ marginBottom: '1rem' }}>
-                <h4 style={{ marginBottom: '0.5rem', color: '#1a2e4a' }}>מורשה עבור:</h4>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <h4 style={{ marginBottom: '0.25rem', color: '#1a2e4a', fontSize: '0.8rem' }}>מורשה עבור:</h4>
                 {authorizations.length === 0 ? (
-                  <p style={{ color: '#666' }}>—</p>
+                  <p style={{ color: '#666', margin: 0 }}>—</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                     {authorizations.map(auth => (
                       <div key={auth.activity_type_id} style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '0.5rem',
+                        padding: '0.2rem 0.4rem',
                         background: '#dbeafe',
                         borderRadius: '4px',
                         border: '1px solid #0369a1'
@@ -116,7 +116,7 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
                         <button
                           className="btn-remove"
                           onClick={() => removeAuthorization(auth.activity_type_id)}
-                          style={{ padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                          style={{ padding: '0.1rem 0.35rem', fontSize: '0.75rem' }}
                         >✕</button>
                       </div>
                     ))}
@@ -125,22 +125,23 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
               </div>
 
               <div>
-                <h4 style={{ marginBottom: '0.5rem', color: '#1a2e4a' }}>הוסף הרשאה:</h4>
+                <h4 style={{ marginBottom: '0.25rem', color: '#1a2e4a', fontSize: '0.8rem' }}>הוסף הרשאה:</h4>
                 {availableActivities.length === 0 ? (
-                  <p style={{ color: '#666' }}>כל סוגי הפעילות מורשים כבר</p>
+                  <p style={{ color: '#666', margin: 0 }}>כל סוגי הפעילות מורשים כבר</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                     {availableActivities.map(at => (
                       <button
                         key={at.id}
                         onClick={() => addAuthorization(at.id)}
                         style={{
-                          padding: '0.5rem',
+                          padding: '0.2rem 0.4rem',
                           background: '#f3f4f6',
                           border: '1px solid #d1d5db',
                           borderRadius: '4px',
                           cursor: 'pointer',
-                          textAlign: 'right'
+                          textAlign: 'right',
+                          fontSize: '0.85rem'
                         }}
                       >
                         {at.name}

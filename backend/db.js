@@ -279,20 +279,30 @@ async function initializeSchema() {
   }
 }
 
-// Initialize site_group_allowed_jobs table separately
-async function ensureSiteGroupAllowedJobsTable() {
+// Initialize site_allowed_jobs table (per-site job restrictions)
+async function ensureSiteAllowedJobsTable() {
   try {
     await query(`
-      CREATE TABLE IF NOT EXISTS site_group_allowed_jobs (
+      CREATE TABLE IF NOT EXISTS site_allowed_jobs (
         id SERIAL PRIMARY KEY,
-        group_id INTEGER NOT NULL REFERENCES site_groups(id) ON DELETE CASCADE,
+        site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
         job_id INTEGER NOT NULL REFERENCES job_titles(id) ON DELETE CASCADE,
-        UNIQUE(group_id, job_id)
+        UNIQUE(site_id, job_id)
       );
     `);
-    console.log('✓ site_group_allowed_jobs table initialized');
+    // Migrate existing per-group restrictions to per-site
+    await query(`
+      INSERT INTO site_allowed_jobs (site_id, job_id)
+      SELECT s.id, sgaj.job_id
+      FROM site_group_allowed_jobs sgaj
+      JOIN sites s ON s.group_id = sgaj.group_id
+      ON CONFLICT DO NOTHING
+    `).catch(() => {}); // site_group_allowed_jobs may not exist
+    // Drop old per-group table
+    await query(`DROP TABLE IF EXISTS site_group_allowed_jobs`);
+    console.log('✓ site_allowed_jobs table initialized');
   } catch (error) {
-    console.error('Error initializing site_group_allowed_jobs table:', error);
+    console.error('Error initializing site_allowed_jobs table:', error);
     throw error;
   }
 }
@@ -577,6 +587,6 @@ module.exports = {
   query,
   pool,
   initializeSchema,
-  ensureSiteGroupAllowedJobsTable,
+  ensureSiteAllowedJobsTable,
   runMigrations,
 };

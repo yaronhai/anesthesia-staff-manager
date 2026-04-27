@@ -16,7 +16,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
   const [expandedActivityAuths, setExpandedActivityAuths] = useState({});
-  const [groupAllowedJobsModal, setGroupAllowedJobsModal] = useState(null);
+  const [siteAllowedJobsModal, setSiteAllowedJobsModal] = useState(null);
   const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'branches' : 'groups');
   const [newBranchName, setNewBranchName] = useState('');
   const [newBranchDesc, setNewBranchDesc] = useState('');
@@ -376,9 +376,9 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
   const tabDescriptions = {
     branches: 'ניהול סניפים במערכת. כל סניף הוא יחידה עצמאית עם עובדים, אתרים והגדרות משלו. הוספת סניף מאפשרת לנהל יחידות ארגוניות נפרדות; מחיקת סניף תסיר את כל הנתונים הקשורים אליו.',
-    groups: 'קבוצות אתרים מאגדות מספר אתרים לקטגוריה משותפת. ניתן להגביל לכל קבוצה אילו תפקידים מורשים לשמש בה — שינוי זה ישפיע על סינון עובדים בהצעות האוטומטיות.',
-    sites: 'אתרים הם מקומות העבודה הפיזיים (לדוג׳ חדר ניתוח 1, IVF). הוספה/מחיקה משפיעה על לוח השיבוצים. סימון ⚖️ צדק יגרום למערכת לאזן שיבוצים לאתר זה בין עובדים בהצעות האוטומטיות.',
-    jobs: 'תפקידים מגדירים את סוגי התפקידים האפשריים לעובד (לדוג׳ רופא מרדים, אחות). שינויים ישפיעו על אפשרויות הבחירה בטופס עובד חדש ועל הרשאות שיבוץ לקבוצות אתרים.',
+    groups: 'קבוצות אתרים מאגדות מספר אתרים לקטגוריה משותפת (לדוג׳ תורנות, כוננות). ניתן לשייך כל אתר לקבוצה דרך כרטיסיית האתרים.',
+    sites: 'אתרים הם מקומות העבודה הפיזיים (לדוג׳ חדר ניתוח 1, IVF). ניתן להגביל לכל אתר אילו תפקידים מורשים לשמש בו — שינוי זה ישפיע על סינון עובדים בהצעות האוטומטיות. סימון ⚖️ צדק יגרום למערכת לאזן שיבוצים לאתר זה.',
+    jobs: 'תפקידים מגדירים את סוגי התפקידים האפשריים לעובד (לדוג׳ רופא מרדים, אחות). שינויים ישפיעו על אפשרויות הבחירה בטופס עובד חדש ועל הרשאות שיבוץ לאתרים.',
     empTypes: 'סוגי העסקה מגדירים את מעמד ההעסקה של העובד (לדוג׳ קבוע, חלקי, חוזה). שינוי הרשימה ישפיע על אפשרויות הבחירה בעת יצירה או עריכה של עובד.',
     honorifics: 'תארים מגדירים את הכינוי הרשמי של העובד (לדוג׳ ד״ר, פרופ׳). שינויים ישפיעו על האופן שבו שמות העובדים מוצגים בכל חלקי המערכת.',
     activities: 'סוגי פעילות מגדירים סוגי עבודה ספציפיים שניתן להרשות לעובדים (לדוג׳ אנסתזיה כללית, ספינל). הרשאות אלו מיועדות לעובדים בנפרד ומשפיעות על הצעות השיבוץ האוטומטיות.',
@@ -544,7 +544,6 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                             </>
                           ) : (
                             <>
-                              <button className="btn-edit-inline" onClick={() => setGroupAllowedJobsModal(group)} title="הגדר תפקידים מורשים">תפקידים</button>
                               <button className="btn-edit-inline" onClick={() => { setEditingKey(`group-${group.id}`); setEditingValue(group.name); setEditingGroupType(group.group_type || 'regular'); }}>עריכה</button>
                               <button className="btn-remove" onClick={() => removeItem('/api/config/site-groups', group.id)}>✕</button>
                             </>
@@ -568,14 +567,6 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   </select>
                   <button className="btn-primary" onClick={addSiteGroup}>הוסף</button>
                 </div>
-                {groupAllowedJobsModal && (
-                  <SiteGroupAllowedJobsModal
-                    group={groupAllowedJobsModal}
-                    authToken={authToken}
-                    config={config}
-                    onClose={() => setGroupAllowedJobsModal(null)}
-                  />
-                )}
               </>
             )}
 
@@ -635,6 +626,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                           </>
                         ) : (
                           <>
+                            <button className="btn-edit-inline" onClick={() => setSiteAllowedJobsModal(site)} title="הגדר תפקידים מורשים">תפקידים</button>
                             <button className="btn-edit-inline" onClick={() => { setEditingKey(`site-${site.id}`); setEditingValue(site.name); }}>עריכה</button>
                             <button className="btn-remove" onClick={() => removeSite(site.id)}>✕</button>
                           </>
@@ -653,6 +645,14 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   />
                   <button className="btn-primary" onClick={addSite}>הוסף</button>
                 </div>
+                {siteAllowedJobsModal && (
+                  <SiteAllowedJobsModal
+                    site={siteAllowedJobsModal}
+                    authToken={authToken}
+                    config={config}
+                    onClose={() => setSiteAllowedJobsModal(null)}
+                  />
+                )}
               </>
             )}
 
@@ -1054,16 +1054,16 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   );
 }
 
-function SiteGroupAllowedJobsModal({ group, authToken, config, onClose }) {
+function SiteAllowedJobsModal({ site, authToken, config, onClose }) {
   const [allowedJobs, setAllowedJobs] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { fetchAllowedJobs(); }, [group.id]);
+  useEffect(() => { fetchAllowedJobs(); }, [site.id]);
 
   async function fetchAllowedJobs() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/config/site-groups/${group.id}/allowed-jobs`, {
+      const res = await fetch(`/api/config/sites/${site.id}/allowed-jobs`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       if (res.ok) setAllowedJobs(await res.json());
@@ -1075,7 +1075,7 @@ function SiteGroupAllowedJobsModal({ group, authToken, config, onClose }) {
   }
 
   async function addAllowedJob(jobId) {
-    const res = await fetch(`/api/config/site-groups/${group.id}/allowed-jobs`, {
+    const res = await fetch(`/api/config/sites/${site.id}/allowed-jobs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
       body: JSON.stringify({ job_id: jobId }),
@@ -1085,7 +1085,7 @@ function SiteGroupAllowedJobsModal({ group, authToken, config, onClose }) {
   }
 
   async function removeAllowedJob(jobId) {
-    const res = await fetch(`/api/config/site-groups/${group.id}/allowed-jobs/${jobId}`, {
+    const res = await fetch(`/api/config/sites/${site.id}/allowed-jobs/${jobId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${authToken}` },
     });
@@ -1099,7 +1099,7 @@ function SiteGroupAllowedJobsModal({ group, authToken, config, onClose }) {
     <div className="form-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
         <div className="settings-header">
-          <h2>תפקידים מורשים — {group.name}</h2>
+          <h2>תפקידים מורשים — {site.name}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
         <div style={{ padding: '1rem', fontSize: '0.9rem' }}>
@@ -1108,7 +1108,7 @@ function SiteGroupAllowedJobsModal({ group, authToken, config, onClose }) {
               <div style={{ marginBottom: '1rem' }}>
                 <h4 style={{ marginBottom: '0.5rem', color: '#1a2e4a' }}>תפקידים מורשים:</h4>
                 {allowedJobs.length === 0 ? (
-                  <p style={{ color: '#666' }}>ללא הגבלה — כל התפקידים מורשים</p>
+                  <p style={{ color: '#666' }}>ללא הגבלה — כל התפקידים מורשים לאתר זה</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {allowedJobs.map(j => (

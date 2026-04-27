@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 
-const { query, pool, initializeSchema, ensureSiteGroupAllowedJobsTable, runMigrations } = require('./db');
+const { query, pool, initializeSchema, ensureSiteAllowedJobsTable, runMigrations } = require('./db');
 
 const app = express();
 app.disable('etag');
@@ -133,7 +133,7 @@ async function seedDatabase() {
 async function initializeApp() {
   try {
     await initializeSchema();
-    await ensureSiteGroupAllowedJobsTable();
+    await ensureSiteAllowedJobsTable();
     await runMigrations();
     await seedDatabase();
     console.log('✓ App initialized');
@@ -290,33 +290,33 @@ async function getConfig(branchId = null) {
       query('SELECT key, label_he, label_group_he, color, sort_order FROM preference_types ORDER BY sort_order'),
     ]);
 
-    // Try to get allowed jobs, but don't fail if table doesn't exist
-    let allowedJobsByGroup = {};
+    // Try to get allowed jobs per site, but don't fail if table doesn't exist
+    let allowedJobsBySite = {};
     try {
       const allowedJobsRes = branchId
         ? await query(`
-            SELECT sgaj.group_id, sgaj.job_id, j.name
-            FROM site_group_allowed_jobs sgaj
-            JOIN job_titles j ON sgaj.job_id = j.id
-            JOIN site_groups sg ON sgaj.group_id = sg.id
-            WHERE sg.branch_id = $1
-            ORDER BY sgaj.group_id, j.name
+            SELECT saj.site_id, saj.job_id, j.name
+            FROM site_allowed_jobs saj
+            JOIN job_titles j ON saj.job_id = j.id
+            JOIN sites s ON saj.site_id = s.id
+            WHERE s.branch_id = $1
+            ORDER BY saj.site_id, j.name
           `, [branchId])
         : await query(`
-            SELECT sgaj.group_id, sgaj.job_id, j.name
-            FROM site_group_allowed_jobs sgaj
-            JOIN job_titles j ON sgaj.job_id = j.id
-            ORDER BY sgaj.group_id, j.name
+            SELECT saj.site_id, saj.job_id, j.name
+            FROM site_allowed_jobs saj
+            JOIN job_titles j ON saj.job_id = j.id
+            ORDER BY saj.site_id, j.name
           `);
 
       allowedJobsRes.rows.forEach(row => {
-        if (!allowedJobsByGroup[row.group_id]) {
-          allowedJobsByGroup[row.group_id] = [];
+        if (!allowedJobsBySite[row.site_id]) {
+          allowedJobsBySite[row.site_id] = [];
         }
-        allowedJobsByGroup[row.group_id].push({ job_id: row.job_id, name: row.name });
+        allowedJobsBySite[row.site_id].push({ job_id: row.job_id, name: row.name });
       });
     } catch (err) {
-      console.warn('Warning: Could not fetch site_group_allowed_jobs:', err.message);
+      console.warn('Warning: Could not fetch site_allowed_jobs:', err.message);
     }
 
     let fairnessSiteIds = [];
@@ -346,7 +346,7 @@ async function getConfig(branchId = null) {
       site_groups: res[3].rows,
       sites: res[4].rows,
       activity_types: res[5].rows,
-      site_group_allowed_jobs: allowedJobsByGroup,
+      site_allowed_jobs: allowedJobsBySite,
       shift_types: res[6].rows,
       preference_types: res[7].rows,
       fairness_sites: fairnessSiteIds,
@@ -1450,69 +1450,69 @@ app.delete('/api/config/site-groups/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// ── Site Group Allowed Jobs ──
+// ── Site Allowed Jobs ──
 
-app.get('/api/config/site-groups/:id/allowed-jobs', requireAdmin, async (req, res) => {
+app.get('/api/config/sites/:id/allowed-jobs', requireAdmin, async (req, res) => {
   try {
     const result = await query(`
-      SELECT sgaj.id, sgaj.job_id, j.name
-      FROM site_group_allowed_jobs sgaj
-      JOIN job_titles j ON sgaj.job_id = j.id
-      WHERE sgaj.group_id = $1
+      SELECT saj.id, saj.job_id, j.name
+      FROM site_allowed_jobs saj
+      JOIN job_titles j ON saj.job_id = j.id
+      WHERE saj.site_id = $1
       ORDER BY j.name
     `, [req.params.id]);
     res.json(result.rows);
   } catch (error) {
-    console.error('Get site group allowed jobs error:', error);
+    console.error('Get site allowed jobs error:', error);
     res.status(500).json({ error: 'שגיאה בטעינת תפקידים מורשים' });
   }
 });
 
-app.post('/api/config/site-groups/:id/allowed-jobs', requireAdmin, async (req, res) => {
+app.post('/api/config/sites/:id/allowed-jobs', requireAdmin, async (req, res) => {
   try {
     const { job_id } = req.body;
     if (!job_id) return res.status(400).json({ error: 'תפקיד חובה' });
     try {
       await query(
-        'INSERT INTO site_group_allowed_jobs (group_id, job_id) VALUES ($1, $2)',
+        'INSERT INTO site_allowed_jobs (site_id, job_id) VALUES ($1, $2)',
         [req.params.id, job_id]
       );
       const result = await query(`
-        SELECT sgaj.id, sgaj.job_id, j.name
-        FROM site_group_allowed_jobs sgaj
-        JOIN job_titles j ON sgaj.job_id = j.id
-        WHERE sgaj.group_id = $1
+        SELECT saj.id, saj.job_id, j.name
+        FROM site_allowed_jobs saj
+        JOIN job_titles j ON saj.job_id = j.id
+        WHERE saj.site_id = $1
         ORDER BY j.name
       `, [req.params.id]);
       res.json(result.rows);
     } catch (e) {
       if (e.message?.includes('unique')) {
-        return res.status(400).json({ error: 'תפקיד כבר מורשה לקבוצה זו' });
+        return res.status(400).json({ error: 'תפקיד כבר מורשה לאתר זה' });
       }
       throw e;
     }
   } catch (error) {
-    console.error('Add site group allowed job error:', error);
+    console.error('Add site allowed job error:', error);
     res.status(500).json({ error: 'שגיאה בהוספת תפקיד מורשה' });
   }
 });
 
-app.delete('/api/config/site-groups/:id/allowed-jobs/:jobId', requireAdmin, async (req, res) => {
+app.delete('/api/config/sites/:id/allowed-jobs/:jobId', requireAdmin, async (req, res) => {
   try {
     await query(
-      'DELETE FROM site_group_allowed_jobs WHERE group_id = $1 AND job_id = $2',
+      'DELETE FROM site_allowed_jobs WHERE site_id = $1 AND job_id = $2',
       [req.params.id, req.params.jobId]
     );
     const result = await query(`
-      SELECT sgaj.id, sgaj.job_id, j.name
-      FROM site_group_allowed_jobs sgaj
-      JOIN job_titles j ON sgaj.job_id = j.id
-      WHERE sgaj.group_id = $1
+      SELECT saj.id, saj.job_id, j.name
+      FROM site_allowed_jobs saj
+      JOIN job_titles j ON saj.job_id = j.id
+      WHERE saj.site_id = $1
       ORDER BY j.name
     `, [req.params.id]);
     res.json(result.rows);
   } catch (error) {
-    console.error('Delete site group allowed job error:', error);
+    console.error('Delete site allowed job error:', error);
     res.status(500).json({ error: 'שגיאה בהסרת תפקיד מורשה' });
   }
 });
@@ -1822,6 +1822,27 @@ app.post('/api/send-schedule-chat', requireAdmin, async (req, res) => {
         );
 
         if (assignRes.rows.length === 0) {
+          const vacRes = await query(
+            `SELECT id FROM vacation_requests
+             WHERE worker_id = $1
+               AND status IN ('approved', 'partial')
+               AND (
+                 (approved_start IS NOT NULL AND approved_end IS NOT NULL
+                  AND $2 >= approved_start AND $2 <= approved_end)
+                 OR
+                 (approved_start IS NULL AND $2 >= start_date AND $2 <= end_date)
+               )`,
+            [workerId, date]
+          );
+          const onVacation = vacRes.rows.length > 0;
+          const msgContent = onVacation
+            ? `תוכנית יומית ל-${date}\nאינך משובץ — אתה בחופשה בתאריך זה.`
+            : `תוכנית יומית ל-${date}\nאינך משובץ לתאריך זה.`;
+          await query(
+            'INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1, $2, $3, $4)',
+            [senderId, userId, msgContent, branchId || null]
+          );
+          sent.push(workerName);
           continue;
         }
 
@@ -2267,7 +2288,15 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
     const activitiesRes = await query(activitiesQuery, actParams);
     const siteShiftActivities = activitiesRes.rows;
 
-    res.json({ workers, siteAssignments, siteShiftActivities });
+    // Get activity authorizations for all workers
+    const authRes = await query(`SELECT worker_id, activity_type_id FROM worker_activity_authorizations`);
+    const workerAuthorizations = {}; // worker_id -> [activity_type_id]
+    authRes.rows.forEach(r => {
+      if (!workerAuthorizations[r.worker_id]) workerAuthorizations[r.worker_id] = [];
+      workerAuthorizations[r.worker_id].push(r.activity_type_id);
+    });
+
+    res.json({ workers, siteAssignments, siteShiftActivities, workerAuthorizations });
   } catch (error) {
     console.error('Get month view error:', error);
     res.status(500).json({ error: 'שגיאה בטעינת תצוגת חודש' });
@@ -2304,23 +2333,23 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         `);
     const sites = sitesRes.rows;
 
-    // Get allowed jobs per site group (filtered by branch)
-    const groupAllowedJobs = new Map(); // group_id -> Set<job_id>
+    // Get allowed jobs per site (filtered by branch)
+    const siteAllowedJobs = new Map(); // site_id -> Set<job_id>
     try {
       const allowedJobsRes = branchId
         ? await query(`
-            SELECT sgaj.group_id, sgaj.job_id
-            FROM site_group_allowed_jobs sgaj
-            JOIN site_groups sg ON sgaj.group_id = sg.id
-            WHERE sg.branch_id = $1
+            SELECT saj.site_id, saj.job_id
+            FROM site_allowed_jobs saj
+            JOIN sites s ON saj.site_id = s.id
+            WHERE s.branch_id = $1
           `, [branchId])
-        : await query(`SELECT group_id, job_id FROM site_group_allowed_jobs`);
+        : await query(`SELECT site_id, job_id FROM site_allowed_jobs`);
       allowedJobsRes.rows.forEach(row => {
-        if (!groupAllowedJobs.has(row.group_id)) groupAllowedJobs.set(row.group_id, new Set());
-        groupAllowedJobs.get(row.group_id).add(row.job_id);
+        if (!siteAllowedJobs.has(row.site_id)) siteAllowedJobs.set(row.site_id, new Set());
+        siteAllowedJobs.get(row.site_id).add(row.job_id);
       });
     } catch (e) {
-      console.warn('site_group_allowed_jobs not available:', e.message);
+      console.warn('site_allowed_jobs not available:', e.message);
     }
 
     // Get workers who requested shifts for the date (can or prefer)
@@ -2348,7 +2377,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         `, [date]);
 
     // Build available workers per shift: shift_type -> [{worker_id, name, job_id, preference_type}]
-    const availableByShift = { morning: [], evening: [], night: [] };
+    const availableByShift = { morning: [], evening: [], night: [], oncall: [] };
     shiftsRes.rows.forEach(r => {
       if (availableByShift[r.shift_type]) {
         availableByShift[r.shift_type].push({
@@ -2452,8 +2481,8 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
     openSlotsRes.rows.forEach(r => {
       const site = siteMap.get(r.site_id);
       if (!site) return;
-      const allowedJobs = site.group_id ? groupAllowedJobs.get(site.group_id) : null;
-      const hasRestriction = allowedJobs && allowedJobs.size > 0;
+      const allowedJobs = siteAllowedJobs.get(site.id) ?? null;
+      const hasRestriction = allowedJobs !== null && allowedJobs.size > 0;
       if (!slotsByShift[r.shift_type]) slotsByShift[r.shift_type] = [];
       slotsByShift[r.shift_type].push({ site, shift: r.shift_type, hasRestriction, allowedJobs, activity_type_id: r.activity_type_id });
     });
@@ -2477,7 +2506,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
           .map((w, idx) => {
             const jobOk = !slot.hasRestriction || slot.allowedJobs.has(w.job_id);
             const workerAuths = workerAuthSet.get(w.worker_id);
-            const authOk = !slot.activity_type_id || !workerAuths || workerAuths.has(slot.activity_type_id);
+            const authOk = !slot.activity_type_id || (workerAuths != null && workerAuths.has(slot.activity_type_id));
             return { idx, preferFirst: w.preference_type === 'prefer' ? 0 : 1, eligible: jobOk && authOk };
           })
           .filter(e => e.eligible)
@@ -2532,7 +2561,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
           const ineligible = allForShift.filter(w => {
             const jobOk = !slot.hasRestriction || slot.allowedJobs.has(w.job_id);
             const workerAuths = workerAuthSet.get(w.worker_id);
-            const authOk = !slot.activity_type_id || !workerAuths || workerAuths.has(slot.activity_type_id);
+            const authOk = !slot.activity_type_id || (workerAuths != null && workerAuths.has(slot.activity_type_id));
             return !jobOk || !authOk;
           });
           if (ineligible.length > 0 || slot.hasRestriction || slot.activity_type_id) {
@@ -2547,7 +2576,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
               reason,
               unavailable_workers: ineligible.slice(0, 5).map(w => ({
                 name: `${w.first_name} ${w.family_name}`,
-                reason: !slot.allowedJobs?.has(w.job_id) ? 'תפקיד לא מורשה לקבוצה זו' : 'אין הרשאה לסוג פעילות זה',
+                reason: !slot.allowedJobs?.has(w.job_id) ? 'תפקיד לא מורשה לאתר זה' : 'אין הרשאה לסוג פעילות זה',
               })),
             });
           }
@@ -2601,46 +2630,31 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
     if (activityRes.rows.length > 0) {
       const activityTypeId = activityRes.rows[0].activity_type_id;
       if (activityTypeId) {
-        const totalAuthRes = await query(
-          `SELECT COUNT(*) as count FROM worker_activity_authorizations WHERE worker_id = $1`,
-          [worker_id]
+        const specificAuthRes = await query(
+          `SELECT COUNT(*) as count FROM worker_activity_authorizations WHERE worker_id = $1 AND activity_type_id = $2`,
+          [worker_id, activityTypeId]
         );
-        const hasAnyAuth = parseInt(totalAuthRes.rows[0].count) > 0;
-        if (hasAnyAuth) {
-          const specificAuthRes = await query(
-            `SELECT COUNT(*) as count FROM worker_activity_authorizations WHERE worker_id = $1 AND activity_type_id = $2`,
-            [worker_id, activityTypeId]
-          );
-          if (parseInt(specificAuthRes.rows[0].count) === 0) {
-            return res.status(403).json({ error: 'עובד לא מורשה לסוג פעילות זה' });
-          }
+        if (parseInt(specificAuthRes.rows[0].count) === 0) {
+          return res.status(403).json({ error: 'עובד לא מורשה לסוג פעילות זה' });
         }
       }
     }
 
-    // Check if worker's job matches site group restrictions
-    const siteGroupRes = await query(`
-      SELECT s.group_id FROM sites s WHERE s.id = $1
+    // Check if worker's job matches site-level restrictions
+    const siteAllowedJobsRes = await query(`
+      SELECT job_id FROM site_allowed_jobs WHERE site_id = $1
     `, [site_id]);
 
-    if (siteGroupRes.rows.length > 0 && siteGroupRes.rows[0].group_id) {
-      const groupId = siteGroupRes.rows[0].group_id;
-      const allowedJobsRes = await query(`
-        SELECT job_id FROM site_group_allowed_jobs WHERE group_id = $1
-      `, [groupId]);
+    if (siteAllowedJobsRes.rows.length > 0) {
+      const workerRes = await query(`
+        SELECT job_id FROM workers WHERE id = $1
+      `, [worker_id]);
 
-      if (allowedJobsRes.rows.length > 0) {
-        // Group has restrictions, check if worker's job is allowed
-        const workerRes = await query(`
-          SELECT job_id FROM workers WHERE id = $1
-        `, [worker_id]);
-
-        if (workerRes.rows.length > 0) {
-          const workerJobId = workerRes.rows[0].job_id;
-          const isJobAllowed = allowedJobsRes.rows.some(row => row.job_id === workerJobId);
-          if (!isJobAllowed) {
-            return res.status(403).json({ error: 'תפקיד העובד לא מורשה לקבוצת אתרים זו' });
-          }
+      if (workerRes.rows.length > 0) {
+        const workerJobId = workerRes.rows[0].job_id;
+        const isJobAllowed = siteAllowedJobsRes.rows.some(row => row.job_id === workerJobId);
+        if (!isJobAllowed) {
+          return res.status(403).json({ error: 'תפקיד העובד לא מורשה לאתר זה' });
         }
       }
     }

@@ -6,6 +6,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [assignments, setAssignments] = useState([]);
   const [shiftRequests, setShiftRequests] = useState([]);
   const [siteShiftActivities, setSiteShiftActivities] = useState([]);
+  const [workerAuthorizations, setWorkerAuthorizations] = useState({}); // worker_id -> [activity_type_id]
   const [loading, setLoading] = useState(false);
   const [vacations, setVacations] = useState([]);
 
@@ -134,6 +135,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         setWorkers(d.workers || []);
         setAssignments(d.siteAssignments || []);
         setSiteShiftActivities(d.siteShiftActivities || []);
+        setWorkerAuthorizations(d.workerAuthorizations || {});
       }
       if (shiftRes.ok) {
         const d = await shiftRes.json();
@@ -379,16 +381,31 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     const allowedJobs = groupId ? config.site_group_allowed_jobs?.[groupId] : null;
     const hasJobRestrictions = allowedJobs && allowedJobs.length > 0;
 
+    // Get activity type for this site/shift/date
+    const activity = siteShiftActivities.find(
+      a => a.site_id === siteId && a.shift_type === shiftType && a.date === dateStr
+    );
+    const activityTypeId = activity?.activity_type_id ?? null;
+
     const allWorkers = hasJobRestrictions
       ? workers.filter(w => allowedJobs.some(j => j.job_id === w.job_id))
       : workers;
 
+    // Filter by activity authorization: if slot has an activity type,
+    // only workers with that specific authorization are eligible.
+    const authFiltered = activityTypeId
+      ? allWorkers.filter(w => {
+          const auths = workerAuthorizations[w.id];
+          return auths != null && auths.includes(activityTypeId);
+        })
+      : allWorkers;
+
     if (showAllWorkers) {
-      return allWorkers;
+      return authFiltered;
     }
 
     // Get workers with shift request for today with can/prefer
-    return allWorkers.filter(w => didWorkerRequestShift(w.id, shiftType));
+    return authFiltered.filter(w => didWorkerRequestShift(w.id, shiftType));
   }
 
   function getWorkerOtherAssignments(workerId, shiftType) {
@@ -831,7 +848,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     );
   }
 
-  function ShiftSection({ site, shiftType, label }) {
+  function ShiftSection({ site, shiftType, label, hideActivityType = false }) {
     const siteAssignments = getSiteShiftAssignments(site.id, shiftType);
     const activity = getSiteShiftActivity(site.id, shiftType);
     const shiftTimes = getSiteShiftTimes(site.id, shiftType);
@@ -893,7 +910,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               </>
             )}
           </div>
-          {inlineEditingActivity === editKey ? (
+          {!hideActivityType && (inlineEditingActivity === editKey ? (
             <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
               <select
                 value={inlineActivityTypeId || ''}
@@ -953,7 +970,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 >+ סוג פעילות</button>
               )}
             </>
-          )}
+          ))}
         </div>
         <div className="room-card-content">
           {siteAssignments.length === 0 ? (
@@ -1075,20 +1092,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <div style={{flex: 1}} />
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
           {(() => {
-            const sitesInSelectedGroup = (selectedGroupId === '__all__' || !selectedGroupId)
-              ? config.sites
-              : selectedGroupId === 'ungrouped'
-              ? config.sites.filter(s => !s.group_id || s.group_id === null)
-              : config.sites.filter(s => s.group_id === parseInt(selectedGroupId));
-
             const configuredSlots = siteShiftActivities.filter(
-              a => a.date === dateStr && a.activity_type_id && sitesInSelectedGroup.some(s => s.id === a.site_id)
+              a => a.date === dateStr && a.activity_type_id
             );
             const dayAssignments = assignments.filter(a => a.date === dateStr);
             if (configuredSlots.length === 0 && dayAssignments.length === 0) return null;
 
             const shiftStats = (config.shift_types || [])
-              .filter(st => st.show_in_assignments)
+              .filter(st => st.show_in_assignments || st.key === 'oncall')
               .map(st => {
                 const slotsForShift = configuredSlots.filter(a => a.shift_type === st.key);
                 const shiftAssignments = dayAssignments.filter(a => a.shift_type === st.key);
@@ -1099,7 +1110,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 const total = configuredSlots.length > 0 ? slotsForShift.length : shiftAssignments.length;
                 return { key: st.key, label: st.label_he, total, filled, missing: total - filled };
               })
-              .filter(s => s.total > 0);
+              .filter(s => s.total > 0 || s.key === 'oncall');
 
             const totalSlots   = shiftStats.reduce((s, x) => s + x.total,  0);
             const totalFilled  = shiftStats.reduce((s, x) => s + x.filled, 0);
@@ -1285,11 +1296,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   const eveningTimes = getSiteShiftTimes(site.id, 'evening');
                   const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
                   const fs = v => `${(v * scale).toFixed(3)}rem`;
+                  const noActivity = !morningActivity?.activity_type_id && !eveningActivity?.activity_type_id;
                   return (
                     <div
                       key={site.id}
                       className="site-square"
-                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem` }}
+                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, ...(noActivity && { background: '#e5e7eb', borderColor: '#c4c9d2' }) }}
                       onClick={() => setSelectedSiteId(site.id)}
                     >
                       <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
@@ -1354,11 +1366,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     const duration = calcDurationHours(times.start_time, times.end_time);
                     const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
                     const fs = v => `${(v * scale).toFixed(3)}rem`;
+                    const hasAssignment = shiftAssignments.length > 0;
                     return (
                       <div
                         key={site.id}
                         className="site-square"
-                        style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}` }}
+                        style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}`, ...(!hasAssignment && { background: '#e5e7eb', borderColor: '#c4c9d2', borderTopColor: accentColor }) }}
                         onClick={() => setSelectedSiteId(site.id)}
                       >
                         <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
@@ -1367,7 +1380,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             <span className="site-square-icon" style={{fontSize: fs(0.78)}}>{isNight ? '⭐' : '📞'}</span>
                             {times.start_time ? (
                               <span style={{fontSize: fs(0.6), color: accentColor, fontWeight: 600, whiteSpace: 'nowrap'}}>
-                                {formatTime24(times.start_time)}{duration ? ` + ${duration}` : ''}
+                                {formatTime24(times.start_time)}{times.end_time ? `–${formatTime24(times.end_time)}` : ''}{duration ? ` (${duration})` : ''}
                               </span>
                             ) : (
                               <span style={{fontSize: fs(0.6), color: '#aaa', fontStyle: 'italic'}}>גמיש</span>
@@ -1513,7 +1526,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       <h3 style={{margin: 0, color: ctxAccent, fontSize: '1.1rem', fontWeight: 600}}>{ctxIcon} {ctxLabel}</h3>
                       <button onClick={() => openAddModalInSite(site.id, ctxShift)} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: ctxBorder, color: ctxAccent, border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
                     </div>
-                    <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel}/>
+                    <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideActivityType={true}/>
                   </div>
                 );
               })() : (

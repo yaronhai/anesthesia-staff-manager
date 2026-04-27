@@ -155,7 +155,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                   cursor: 'pointer',
                   background: selectedUserId === contact.id ? '#1e40af' : 'white',
                   color: selectedUserId === contact.id ? 'white' : isSidur ? '#7f1d1d' : '#1e40af',
-                  fontWeight: isSidur ? 800 : 700,
+                  fontWeight: 700,
                   fontSize: '0.7rem', position: 'relative', whiteSpace: 'nowrap',
                   overflow: 'hidden', textOverflow: 'ellipsis',
                 }}
@@ -205,18 +205,22 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                     );
                   }
                   const isOwn = msg.sender_id === currentUser.id;
+                  const isSidur = msg.sender_username === 'system_sidur';
                   const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
                   items.push(
                     <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
                       <div style={{
                         maxWidth: '80%', padding: '0.2rem 0.4rem', borderRadius: '2px',
                         background: isOwn ? '#e0f2fe' : '#ede9fe',
-                        color: isOwn ? '#1f2937' : '#1f2937',
-                        fontSize: '0.7rem', wordBreak: 'break-word', lineHeight: '1.1',
+                        color: '#1f2937',
+                        fontSize: isSidur ? '1rem' : '0.7rem',
+                        fontFamily: isSidur ? 'Arial, sans-serif' : 'inherit',
+                        fontWeight: isSidur ? 700 : 'normal',
+                        wordBreak: 'break-word', lineHeight: '1.1',
                         display: 'flex', alignItems: 'flex-end', gap: '0.3rem',
                       }}>
-                        <span style={{ fontSize: '0.6rem', opacity: 0.6, whiteSpace: 'nowrap' }}>{timeStr}</span>
-                        <span>{msg.content}</span>
+                        <span style={{ fontSize: '0.6rem', opacity: 0.6, whiteSpace: 'nowrap', fontWeight: 'normal', fontFamily: 'inherit' }}>{timeStr}</span>
+                        <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                       </div>
                     </div>
                   );
