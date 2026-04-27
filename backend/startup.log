@@ -1,0 +1,11 @@
+◇ injecting env (9) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+✓ Database schema initialized
+✓ site_group_allowed_jobs table initialized
+✓ Migrations complete
+◇ injecting env (9) from .env // tip: ⌘ suppress logs { quiet: true }
+✓ Database schema initialized
+✓ site_group_allowed_jobs table initialized
+✓ Migrations complete
+✓ Database seeded
+✓ App initialized
+Backend running on port 5001

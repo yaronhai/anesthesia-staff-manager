@@ -1534,6 +1534,23 @@ app.put('/api/config/sites/:id/group', requireAdmin, async (req, res) => {
 
 // ── Fairness Sites Endpoints ────────────────────────────────────────────────
 
+app.put('/api/config/shift-types/:key', requireAdmin, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { default_start, default_end } = req.body;
+    const validKeys = ['morning', 'evening', 'night', 'oncall'];
+    if (!validKeys.includes(key)) return res.status(400).json({ error: 'מפתח משמרת לא תקין' });
+    await query(
+      'UPDATE shift_types SET default_start = $1, default_end = $2 WHERE key = $3',
+      [default_start || null, default_end || null, key]
+    );
+    res.json(await getConfig(getEffectiveBranchId(req)));
+  } catch (e) {
+    console.error('Update shift type error:', e);
+    res.status(500).json({ error: 'שגיאה בעדכון שעות משמרת' });
+  }
+});
+
 app.post('/api/config/fairness-sites/:siteId', requireAdmin, async (req, res) => {
   try {
     const siteId = parseInt(req.params.siteId);

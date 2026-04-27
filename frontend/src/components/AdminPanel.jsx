@@ -21,6 +21,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [newBranchName, setNewBranchName] = useState('');
   const [newBranchDesc, setNewBranchDesc] = useState('');
   const [localBranchId, setLocalBranchId] = useState(branchId);
+  const [shiftTimesEdits, setShiftTimesEdits] = useState({});
 
   function branchParam(bid) {
     const id = bid !== undefined ? bid : localBranchId;
@@ -320,6 +321,24 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     }
   }
 
+  async function saveShiftTimes(key) {
+    const edit = shiftTimesEdits[key];
+    if (!edit) return;
+    try {
+      const res = await fetch(`/api/config/shift-types/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ default_start: edit.default_start, default_end: edit.default_end }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      onConfigChange(updated);
+      setShiftTimesEdits(prev => { const n = {...prev}; delete n[key]; return n; });
+    } catch {
+      alert('שגיאה בשמירת שעות משמרת');
+    }
+  }
+
   async function saveTemplateItems() {
     if (!selectedTemplateId) return;
     const itemsArray = Object.entries(templateItems).map(([key, activityTypeId]) => {
@@ -395,6 +414,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     { key: 'honorifics', label: 'תארים' },
     { key: 'activities', label: 'סוגי פעילות' },
     { key: 'templates', label: 'תבניות' },
+    { key: 'shifts', label: 'שעות משמרות' },
   ];
 
   return (
@@ -979,6 +999,53 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
               </>
             )}
 
+            {activeTab === 'shifts' && (
+              <div style={{padding: '1rem'}}>
+                <h3 style={{marginBottom: '1rem', color: '#1a2e4a', fontSize: '1rem'}}>שעות ברירת מחדל למשמרות</h3>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+                  {(config.shift_types || []).filter(st => ['night', 'oncall'].includes(st.key)).map(st => {
+                    const edit = shiftTimesEdits[st.key] || { default_start: st.default_start || '', default_end: st.default_end || '' };
+                    const isDirty = !!shiftTimesEdits[st.key];
+                    return (
+                      <div key={st.key} style={{background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem'}}>
+                        <div style={{fontWeight: 600, marginBottom: '0.75rem', fontSize: '0.95rem'}}>
+                          {st.icon} {st.label_he}
+                        </div>
+                        <div style={{display: 'flex', gap: '1.5rem', alignItems: 'flex-end', flexWrap: 'wrap'}}>
+                          <div style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
+                            <label style={{fontSize: '0.8rem', color: '#64748b'}}>שעת התחלה</label>
+                            <input
+                              type="time"
+                              value={edit.default_start}
+                              onChange={e => setShiftTimesEdits(prev => ({...prev, [st.key]: {...edit, default_start: e.target.value}}))}
+                              style={{padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.9rem'}}
+                            />
+                          </div>
+                          <div style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
+                            <label style={{fontSize: '0.8rem', color: '#64748b'}}>שעת סיום (לחישוב משך)</label>
+                            <input
+                              type="time"
+                              value={edit.default_end}
+                              onChange={e => setShiftTimesEdits(prev => ({...prev, [st.key]: {...edit, default_end: e.target.value}}))}
+                              style={{padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.9rem'}}
+                            />
+                          </div>
+                          <button
+                            className="btn-primary"
+                            onClick={() => saveShiftTimes(st.key)}
+                            disabled={!isDirty}
+                            style={{opacity: isDirty ? 1 : 0.4}}
+                          >שמור</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(config.shift_types || []).filter(st => ['night', 'oncall'].includes(st.key)).length === 0 && (
+                    <p style={{color: '#64748b', fontSize: '0.9rem'}}>אין משמרות תורנות/כוננות מוגדרות במערכת.</p>
+                  )}
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
