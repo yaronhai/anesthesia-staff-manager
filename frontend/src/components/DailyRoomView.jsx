@@ -1104,13 +1104,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 const slotsForShift = configuredSlots.filter(a => a.shift_type === st.key);
                 const shiftAssignments = dayAssignments.filter(a => a.shift_type === st.key);
                 const assignedSiteIds = new Set(shiftAssignments.map(a => a.site_id));
-                const filled = configuredSlots.length > 0
+                // Use per-shift logic: configured slots define "total" only when they exist for THIS shift
+                const filled = slotsForShift.length > 0
                   ? slotsForShift.filter(a => assignedSiteIds.has(a.site_id)).length
                   : shiftAssignments.length;
-                const total = configuredSlots.length > 0 ? slotsForShift.length : shiftAssignments.length;
+                const total = slotsForShift.length > 0 ? slotsForShift.length : shiftAssignments.length;
                 return { key: st.key, label: st.label_he, total, filled, missing: total - filled };
               })
-              .filter(s => s.total > 0 || s.key === 'oncall');
+              .filter(s => s.total > 0 || s.filled > 0);
 
             const totalSlots   = shiftStats.reduce((s, x) => s + x.total,  0);
             const totalFilled  = shiftStats.reduce((s, x) => s + x.filled, 0);
