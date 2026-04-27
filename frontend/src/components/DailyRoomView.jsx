@@ -1,9 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 
-export default function DailyRoomView({ config, authToken, branchId, viewDate: viewDateProp, setViewDate: setViewDateProp }) {
-  const [viewDateLocal, setViewDateLocal] = useState(new Date());
-  const viewDate = viewDateProp ?? viewDateLocal;
-  const setViewDate = setViewDateProp ?? setViewDateLocal;
+export default function DailyRoomView({ config, authToken, branchId }) {
+  const [viewDate, setViewDateState] = useState(() => {
+    const saved = localStorage.getItem('dailyViewDate');
+    if (saved) { const d = new Date(saved); if (!isNaN(d)) return d; }
+    return new Date();
+  });
+  function setViewDate(arg) {
+    setViewDateState(prev => {
+      const next = typeof arg === 'function' ? arg(prev) : arg;
+      localStorage.setItem('dailyViewDate', next.toISOString());
+      return next;
+    });
+  }
   const [workers, setWorkers] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [shiftRequests, setShiftRequests] = useState([]);
