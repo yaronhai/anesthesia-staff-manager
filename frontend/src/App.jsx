@@ -37,6 +37,7 @@ export default function App() {
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [dailyViewDate, setDailyViewDate] = useState(new Date());
 
   const isSuperAdmin = currentUser?.role === 'superadmin';
   const isAdmin = currentUser?.role === 'admin' || isSuperAdmin;
@@ -482,7 +483,7 @@ export default function App() {
       )}
 
       {activeTab === 'rooms' && isAdmin && selectedBranchId && (
-        <DailyRoomView config={config} authToken={authToken} branchId={selectedBranchId} />
+        <DailyRoomView config={config} authToken={authToken} branchId={selectedBranchId} viewDate={dailyViewDate} setViewDate={setDailyViewDate} />
       )}
 
       {activeTab === 'special-days' && isAdmin && selectedBranchId && (

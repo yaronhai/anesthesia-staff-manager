@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 
-export default function DailyRoomView({ config, authToken, branchId }) {
-  const [viewDate, setViewDate] = useState(new Date());
+export default function DailyRoomView({ config, authToken, branchId, viewDate: viewDateProp, setViewDate: setViewDateProp }) {
+  const [viewDateLocal, setViewDateLocal] = useState(new Date());
+  const viewDate = viewDateProp ?? viewDateLocal;
+  const setViewDate = setViewDateProp ?? setViewDateLocal;
   const [workers, setWorkers] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [shiftRequests, setShiftRequests] = useState([]);
