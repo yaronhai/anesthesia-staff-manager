@@ -481,8 +481,10 @@ export default function App() {
         <VacationRequests currentUser={currentUser} token={authToken} selectedBranchId={selectedBranchId} workers={workers} />
       )}
 
-      {activeTab === 'rooms' && isAdmin && selectedBranchId && (
-        <DailyRoomView config={config} authToken={authToken} branchId={selectedBranchId} />
+      {isAdmin && selectedBranchId && (
+        <div style={{ display: activeTab === 'rooms' ? undefined : 'none' }}>
+          <DailyRoomView config={config} authToken={authToken} branchId={selectedBranchId} />
+        </div>
       )}
 
       {activeTab === 'special-days' && isAdmin && selectedBranchId && (
