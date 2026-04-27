@@ -1344,12 +1344,12 @@ app.delete('/api/config/honorifics/:id', requireAdmin, async (req, res) => {
 
 app.post('/api/config/sites', requireAdmin, async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, group_id } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'שם אתר חובה' });
     const branchId = getEffectiveBranchId(req);
     try {
-      await query('INSERT INTO sites (name, description, branch_id) VALUES ($1, $2, $3)',
-        [name.trim(), description?.trim() || null, branchId]);
+      await query('INSERT INTO sites (name, description, branch_id, group_id) VALUES ($1, $2, $3, $4)',
+        [name.trim(), description?.trim() || null, branchId, group_id || null]);
       const config = await getConfig(branchId);
       res.json(config);
     } catch (err) {
@@ -2501,7 +2501,7 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         .filter(w => !workerAssigned.has(`${w.worker_id}-${shift}`));
 
       // adjacency[slotIdx] = sorted array of eligible workerIdx (prefer first)
-      const adjacency = shiftSlots.map(slot => {
+      let adjacency = shiftSlots.map(slot => {
         return shiftWorkers
           .map((w, idx) => {
             const jobOk = !slot.hasRestriction || slot.allowedJobs.has(w.job_id);
@@ -2518,8 +2518,22 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
           .map(e => e.idx);
       });
 
+      // Sort slots by eligible worker count ascending (most constrained first).
+      // Ties broken by total flexibility of eligible workers (lower = more urgent).
+      const workerSlotCount = new Map(); // workerIdx -> number of slots they're eligible for
+      adjacency.forEach(adj => adj.forEach(wIdx => workerSlotCount.set(wIdx, (workerSlotCount.get(wIdx) ?? 0) + 1)));
+      const slotOrder = shiftSlots.map((_, i) => i).sort((a, b) => {
+        const lenDiff = adjacency[a].length - adjacency[b].length;
+        if (lenDiff !== 0) return lenDiff;
+        const flexA = adjacency[a].reduce((s, wIdx) => s + (workerSlotCount.get(wIdx) ?? 1), 0);
+        const flexB = adjacency[b].reduce((s, wIdx) => s + (workerSlotCount.get(wIdx) ?? 1), 0);
+        return flexA - flexB;
+      });
+      const sortedSlots = slotOrder.map(i => shiftSlots[i]);
+      adjacency = slotOrder.map(i => adjacency[i]);
+
       // Hopcroft-Karp style augmenting path (simple DFS variant)
-      const matchSlot   = new Array(shiftSlots.length).fill(-1);  // slotIdx  → workerIdx
+      const matchSlot   = new Array(sortedSlots.length).fill(-1);  // slotIdx  → workerIdx
       const matchWorker = new Array(shiftWorkers.length).fill(-1); // workerIdx → slotIdx
 
       const augment = (sIdx, visited) => {
@@ -2536,12 +2550,12 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         return false;
       };
 
-      for (let sIdx = 0; sIdx < shiftSlots.length; sIdx++) {
+      for (let sIdx = 0; sIdx < sortedSlots.length; sIdx++) {
         augment(sIdx, new Set());
       }
 
       // Build suggestions and unassignable from matching result
-      shiftSlots.forEach((slot, sIdx) => {
+      sortedSlots.forEach((slot, sIdx) => {
         const wIdx = matchSlot[sIdx];
         if (wIdx !== -1) {
           const worker = shiftWorkers[wIdx];
@@ -2564,20 +2578,32 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             const authOk = !slot.activity_type_id || (workerAuths != null && workerAuths.has(slot.activity_type_id));
             return !jobOk || !authOk;
           });
-          if (ineligible.length > 0 || slot.hasRestriction || slot.activity_type_id) {
-            const reason = ineligible.length > 0
-              ? `${ineligible.length} עובד/ים ביקשו את המשמרת אך חסרה להם הרשאה`
-              : 'אף עובד מורשה לא ביקש משמרת זו';
+          // Eligible workers who got matched to a different slot
+          const eligibleElsewhere = adjacency[sIdx]
+            .filter(wIdx2 => matchWorker[wIdx2] !== -1 && matchWorker[wIdx2] !== sIdx)
+            .map(wIdx2 => shiftWorkers[wIdx2]);
+          if (eligibleElsewhere.length > 0 || ineligible.length > 0 || slot.hasRestriction || slot.activity_type_id) {
+            let reason;
+            if (eligibleElsewhere.length > 0) {
+              reason = `עובדים מורשים הוקצו לאתר אחר: ${eligibleElsewhere.map(w => `${w.first_name} ${w.family_name}`).join(', ')}`;
+            } else if (ineligible.length > 0) {
+              reason = `${ineligible.length} עובד/ים ביקשו את המשמרת אך חסרה להם הרשאה`;
+            } else {
+              reason = 'אף עובד מורשה לא ביקש משמרת זו';
+            }
             unassignable.push({
               site_id: slot.site.id,
               site_name: slot.site.name,
               group_name: slot.site.group_name,
               shift_type: shift,
               reason,
-              unavailable_workers: ineligible.slice(0, 5).map(w => ({
-                name: `${w.first_name} ${w.family_name}`,
-                reason: !slot.allowedJobs?.has(w.job_id) ? 'תפקיד לא מורשה לאתר זה' : 'אין הרשאה לסוג פעילות זה',
-              })),
+              unavailable_workers: [
+                ...eligibleElsewhere.map(w => ({ name: `${w.first_name} ${w.family_name}`, reason: 'הוקצה לאתר אחר' })),
+                ...ineligible.slice(0, 5).map(w => ({
+                  name: `${w.first_name} ${w.family_name}`,
+                  reason: !slot.allowedJobs?.has(w.job_id) ? 'תפקיד לא מורשה לאתר זה' : 'אין הרשאה לסוג פעילות זה',
+                })),
+              ],
             });
           }
         }

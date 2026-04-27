@@ -4,7 +4,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [newJob, setNewJob] = useState('');
   const [newEmpType, setNewEmpType] = useState('');
   const [newHonorific, setNewHonorific] = useState('');
-  const [newSite, setNewSite] = useState('');
+  const [newSiteByGroup, setNewSiteByGroup] = useState({});
   const [newSiteGroup, setNewSiteGroup] = useState('');
   const [newSiteGroupType, setNewSiteGroupType] = useState('regular');
   const [editingGroupType, setEditingGroupType] = useState('regular');
@@ -146,37 +146,17 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     else alert('שגיאה בשמירה');
   }
 
-  async function addSite() {
-    console.log('addSite called, newSite:', newSite);
-    if (!newSite.trim()) {
-      alert('אנא הזן שם אתר');
-      return;
-    }
-    try {
-      const res = await fetch(`/api/config/sites${branchParam()}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ name: newSite.trim() }),
-      });
-      console.log('Add site response:', res.status, res.statusText);
-      if (res.ok) {
-        const data = await res.json();
-        console.log('New config:', data);
-        onConfigChange(data);
-        setNewSite('');
-        alert('אתר נוסף בהצלחה');
-      } else {
-        const error = await res.json();
-        console.error('API error:', error);
-        alert('שגיאה: ' + (error.error || res.statusText));
-      }
-    } catch (err) {
-      console.error('Network error:', err);
-      alert('שגיאת רשת: ' + err.message);
-    }
+  async function addSiteInGroup(groupId) {
+    const key = groupId ?? 'ungrouped';
+    const name = (newSiteByGroup[key] || '').trim();
+    if (!name) return;
+    const res = await fetch(`/api/config/sites${branchParam()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ name, group_id: groupId || null }),
+    });
+    if (res.ok) { onConfigChange(await res.json()); setNewSiteByGroup(prev => ({ ...prev, [key]: '' })); }
+    else { const e = await res.json(); alert('שגיאה: ' + (e.error || 'שגיאה')); }
   }
 
   async function removeSite(id) {
@@ -408,7 +388,6 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const tabs = [
     ...(isSuperAdmin ? [{ key: 'branches', label: 'סניפים' }] : []),
     { key: 'groups', label: 'קבוצות אתרים' },
-    { key: 'sites', label: 'אתרים' },
     { key: 'jobs', label: 'תפקידים' },
     { key: 'empTypes', label: 'סוגי העסקה' },
     { key: 'honorifics', label: 'תארים' },
@@ -503,148 +482,172 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
             {activeTab === 'groups' && (
               <>
                 <TabDescription tabKey="groups" />
-                <ul className="config-list">
-                  {(config.site_groups || []).map(group => {
-                    const typeLabel = { regular: 'רגיל', night: '⭐ תורנות', oncall: '📞 כוננות' };
-                    const typeBadgeColor = { regular: '#e5e7eb', night: '#ede9fe', oncall: '#dbeafe' };
-                    const typeTextColor  = { regular: '#555', night: '#6d28d9', oncall: '#0369a1' };
+                <div style={{display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem'}}>
+                  <button
+                    className="btn-primary"
+                    onClick={fetchFairnessReport}
+                    disabled={fairnessReportLoading}
+                    style={{fontSize: '0.8rem', whiteSpace: 'nowrap'}}
+                  >
+                    {fairnessReportLoading ? 'טוען...' : '⚖️ טבלת צדק'}
+                  </button>
+                </div>
+                {(() => {
+                  const typeLabel = { regular: 'רגיל', night: '⭐ תורנות', oncall: '📞 כוננות' };
+                  const typeBadgeColor = { regular: '#e5e7eb', night: '#ede9fe', oncall: '#dbeafe' };
+                  const typeTextColor  = { regular: '#555', night: '#6d28d9', oncall: '#0369a1' };
+
+                  function renderSiteRow(site) {
+                    const isFairness = (config.fairness_sites || []).includes(site.id);
                     return (
-                      <li key={group.id}>
-                        {editingKey === `group-${group.id}` ? (
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: 1 }}>
-                            <input
-                              className="config-inline-edit"
-                              value={editingValue}
-                              onChange={e => setEditingValue(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter') saveSiteGroupEdit(group.id); if (e.key === 'Escape') setEditingKey(null); }}
-                              autoFocus
-                              style={{ flex: 1 }}
-                            />
-                            <select value={editingGroupType} onChange={e => setEditingGroupType(e.target.value)} style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', padding: '0.2rem 0.4rem' }}>
-                              <option value="regular">רגיל</option>
-                              <option value="night">⭐ תורנות</option>
-                              <option value="oncall">📞 כוננות</option>
-                            </select>
-                          </div>
+                      <li key={site.id} style={{display: 'flex', gap: '0.2rem', alignItems: 'center', flexWrap: 'wrap', paddingRight: '1.5rem', background: '#f8fafc', borderRadius: '5px', marginBottom: '0.2rem'}}>
+                        {editingKey === `site-${site.id}` ? (
+                          <input
+                            className="config-inline-edit"
+                            value={editingValue}
+                            onChange={e => setEditingValue(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveEdit('/api/config/sites', site.id);
+                              if (e.key === 'Escape') setEditingKey(null);
+                            }}
+                            autoFocus
+                            style={{flex: 1, minWidth: '100px'}}
+                          />
                         ) : (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            {group.name}
-                            {group.group_type && group.group_type !== 'regular' && (
-                              <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderRadius: '10px', background: typeBadgeColor[group.group_type], color: typeTextColor[group.group_type], fontWeight: 600 }}>
-                                {typeLabel[group.group_type]}
-                              </span>
-                            )}
-                          </span>
+                          <span style={{flex: 1, minWidth: '100px', fontSize: '0.85rem'}}>{site.name}</span>
                         )}
-                        <div className="config-item-actions">
-                          {editingKey === `group-${group.id}` ? (
+                        <label title="כלול באיזון עומס (צדק)" style={{display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.78rem', cursor: 'pointer', flexShrink: 0}}>
+                          <input type="checkbox" checked={isFairness} onChange={e => toggleFairnessSite(site.id, e.target.checked)} />
+                          ⚖️
+                        </label>
+                        <div className="config-item-actions" style={{display: 'flex', gap: '0.15rem', flexShrink: 0}}>
+                          {editingKey === `site-${site.id}` ? (
                             <>
-                              <button className="btn-save-inline" onClick={() => saveSiteGroupEdit(group.id)}>שמור</button>
+                              <button className="btn-save-inline" onClick={() => saveEdit('/api/config/sites', site.id)}>שמור</button>
                               <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
                             </>
                           ) : (
                             <>
-                              <button className="btn-edit-inline" onClick={() => { setEditingKey(`group-${group.id}`); setEditingValue(group.name); setEditingGroupType(group.group_type || 'regular'); }}>עריכה</button>
-                              <button className="btn-remove" onClick={() => removeItem('/api/config/site-groups', group.id)}>✕</button>
+                              <button className="btn-edit-inline" onClick={() => setSiteAllowedJobsModal(site)} title="הגדר תפקידים מורשים">תפקידים</button>
+                              <button className="btn-edit-inline" onClick={() => { setEditingKey(`site-${site.id}`); setEditingValue(site.name); }}>עריכה</button>
+                              <button className="btn-remove" onClick={() => removeSite(site.id)}>✕</button>
                             </>
                           )}
                         </div>
                       </li>
                     );
-                  })}
-                </ul>
-                <div className="config-add">
-                  <input
-                    value={newSiteGroup}
-                    onChange={e => setNewSiteGroup(e.target.value)}
-                    placeholder="קבוצה חדשה..."
-                    onKeyDown={e => e.key === 'Enter' && addSiteGroup()}
-                  />
-                  <select value={newSiteGroupType} onChange={e => setNewSiteGroupType(e.target.value)} style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', padding: '0.25rem 0.5rem' }}>
-                    <option value="regular">רגיל</option>
-                    <option value="night">⭐ תורנות</option>
-                    <option value="oncall">📞 כוננות</option>
-                  </select>
-                  <button className="btn-primary" onClick={addSiteGroup}>הוסף</button>
-                </div>
-              </>
-            )}
+                  }
 
-            {activeTab === 'sites' && (
-              <>
-                <TabDescription tabKey="sites" />
-                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem'}}>
-                  <div style={{width: 0}} />
-                  <button
-                    className="btn-primary"
-                    onClick={fetchFairnessReport}
-                    disabled={fairnessReportLoading}
-                    style={{fontSize: '0.8rem', whiteSpace: 'nowrap', marginRight: '0.75rem', flexShrink: 0}}
-                  >
-                    {fairnessReportLoading ? 'טוען...' : '⚖️ טבלת צדק'}
-                  </button>
-                </div>
-                <ul className="config-list">
-                  {(config.sites || []).map(site => {
-                    const isFairness = (config.fairness_sites || []).includes(site.id);
+                  function renderAddSiteRow(groupId) {
+                    const key = groupId ?? 'ungrouped';
                     return (
-                    <li key={site.id} style={{display: 'flex', gap: '0.2rem', alignItems: 'center', flexWrap: 'wrap'}}>
-                      {editingKey === `site-${site.id}` ? (
+                      <div style={{display: 'flex', gap: '0.4rem', paddingRight: '1.5rem', marginTop: '0.4rem'}}>
                         <input
                           className="config-inline-edit"
-                          value={editingValue}
-                          onChange={e => setEditingValue(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') saveEdit('/api/config/sites', site.id);
-                            if (e.key === 'Escape') setEditingKey(null);
-                          }}
-                          autoFocus
-                          style={{flex: 1, minWidth: '100px'}}
+                          style={{flex: 1, fontSize: '0.82rem'}}
+                          value={newSiteByGroup[key] || ''}
+                          onChange={e => setNewSiteByGroup(prev => ({ ...prev, [key]: e.target.value }))}
+                          placeholder="אתר חדש..."
+                          onKeyDown={e => e.key === 'Enter' && addSiteInGroup(groupId)}
                         />
-                      ) : (
-                        <span style={{flex: 1, minWidth: '100px'}}>{site.name}</span>
-                      )}
-                      <select
-                        value={site.group_id || ''}
-                        onChange={e => updateSiteGroup(site.id, e.target.value ? parseInt(e.target.value) : null)}
-                        style={{fontSize: '0.7rem', padding: '0.15rem 0.25rem', borderRadius: '3px', minWidth: '120px'}}
-                      >
-                        <option value="">ללא קבוצה</option>
-                        {(config.site_groups || []).map(g => (
-                          <option key={g.id} value={g.id}>{g.name}</option>
-                        ))}
-                      </select>
-                      <label title="כלול באיזון עומס (צדק)" style={{display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem', cursor: 'pointer', flexShrink: 0}}>
-                        <input type="checkbox" checked={isFairness} onChange={e => toggleFairnessSite(site.id, e.target.checked)} />
-                        ⚖️ צדק
-                      </label>
-                      <div className="config-item-actions" style={{display: 'flex', gap: '0.15rem', flexShrink: 0}}>
-                        {editingKey === `site-${site.id}` ? (
-                          <>
-                            <button className="btn-save-inline" onClick={() => saveEdit('/api/config/sites', site.id)}>שמור</button>
-                            <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
-                          </>
-                        ) : (
-                          <>
-                            <button className="btn-edit-inline" onClick={() => setSiteAllowedJobsModal(site)} title="הגדר תפקידים מורשים">תפקידים</button>
-                            <button className="btn-edit-inline" onClick={() => { setEditingKey(`site-${site.id}`); setEditingValue(site.name); }}>עריכה</button>
-                            <button className="btn-remove" onClick={() => removeSite(site.id)}>✕</button>
-                          </>
-                        )}
+                        <button className="btn-add-config" style={{fontSize: '0.78rem'}} onClick={() => addSiteInGroup(groupId)}>הוסף</button>
                       </div>
-                    </li>
                     );
-                  })}
-                </ul>
-                <div className="config-add">
-                  <input
-                    value={newSite}
-                    onChange={e => setNewSite(e.target.value)}
-                    placeholder="אתר חדש..."
-                    onKeyDown={e => e.key === 'Enter' && addSite()}
-                  />
-                  <button className="btn-primary" onClick={addSite}>הוסף</button>
-                </div>
+                  }
+
+                  const groups = config.site_groups || [];
+                  const ungroupedSites = (config.sites || []).filter(s => !s.group_id);
+
+                  return (
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+                      {groups.map(group => {
+                        const groupSites = (config.sites || []).filter(s => s.group_id === group.id);
+                        return (
+                          <div key={group.id} style={{border: '1px solid #e2e8f0', borderRadius: '7px', overflow: 'hidden'}}>
+                            <div style={{display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '0.5rem 0.75rem', gap: '0.5rem'}}>
+                              {editingKey === `group-${group.id}` ? (
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: 1 }}>
+                                  <input
+                                    className="config-inline-edit"
+                                    value={editingValue}
+                                    onChange={e => setEditingValue(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') saveSiteGroupEdit(group.id); if (e.key === 'Escape') setEditingKey(null); }}
+                                    autoFocus
+                                    style={{ flex: 1 }}
+                                  />
+                                  <select value={editingGroupType} onChange={e => setEditingGroupType(e.target.value)} style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', padding: '0.2rem 0.4rem' }}>
+                                    <option value="regular">רגיל</option>
+                                    <option value="night">⭐ תורנות</option>
+                                    <option value="oncall">📞 כוננות</option>
+                                  </select>
+                                </div>
+                              ) : (
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1, fontWeight: 600, fontSize: '0.9rem' }}>
+                                  {group.name}
+                                  {group.group_type && group.group_type !== 'regular' && (
+                                    <span style={{ fontSize: '0.72rem', padding: '0.1rem 0.4rem', borderRadius: '10px', background: typeBadgeColor[group.group_type], color: typeTextColor[group.group_type], fontWeight: 600 }}>
+                                      {typeLabel[group.group_type]}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                              <div className="config-item-actions">
+                                {editingKey === `group-${group.id}` ? (
+                                  <>
+                                    <button className="btn-save-inline" onClick={() => saveSiteGroupEdit(group.id)}>שמור</button>
+                                    <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button className="btn-edit-inline" onClick={() => { setEditingKey(`group-${group.id}`); setEditingValue(group.name); setEditingGroupType(group.group_type || 'regular'); }}>עריכה</button>
+                                    <button className="btn-remove" onClick={() => removeItem('/api/config/site-groups', group.id)}>✕</button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{padding: '0.5rem 0.75rem 0.75rem'}}>
+                              {groupSites.length > 0 && (
+                                <ul className="config-list" style={{margin: '0 0 0.4rem', padding: 0}}>
+                                  {groupSites.map(renderSiteRow)}
+                                </ul>
+                              )}
+                              {renderAddSiteRow(group.id)}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {ungroupedSites.length > 0 && (
+                        <div style={{border: '1px solid #e2e8f0', borderRadius: '7px', overflow: 'hidden'}}>
+                          <div style={{background: '#f1f5f9', padding: '0.5rem 0.75rem', fontWeight: 600, fontSize: '0.9rem', color: '#64748b'}}>ללא קבוצה</div>
+                          <div style={{padding: '0.5rem 0.75rem 0.75rem'}}>
+                            <ul className="config-list" style={{margin: '0 0 0.4rem', padding: 0}}>
+                              {ungroupedSites.map(renderSiteRow)}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{border: '1px dashed #cbd5e1', borderRadius: '7px', padding: '0.75rem'}}>
+                        <div style={{fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', fontWeight: 500}}>הוספת קבוצה חדשה</div>
+                        <div className="config-add" style={{margin: 0}}>
+                          <input
+                            value={newSiteGroup}
+                            onChange={e => setNewSiteGroup(e.target.value)}
+                            placeholder="שם קבוצה..."
+                            onKeyDown={e => e.key === 'Enter' && addSiteGroup()}
+                          />
+                          <select value={newSiteGroupType} onChange={e => setNewSiteGroupType(e.target.value)} style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', padding: '0.25rem 0.5rem' }}>
+                            <option value="regular">רגיל</option>
+                            <option value="night">⭐ תורנות</option>
+                            <option value="oncall">📞 כוננות</option>
+                          </select>
+                          <button className="btn-primary" onClick={addSiteGroup}>הוסף</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 {siteAllowedJobsModal && (
                   <SiteAllowedJobsModal
                     site={siteAllowedJobsModal}
