@@ -270,8 +270,8 @@ async function syncUserForWorker(worker_id, id_number, classification, email) {
 async function getConfig(branchId = null) {
   try {
     const siteGroupsQuery = branchId
-      ? query('SELECT id, name, color, branch_id FROM site_groups WHERE branch_id = $1 ORDER BY id', [branchId])
-      : query('SELECT id, name, color, branch_id FROM site_groups ORDER BY id');
+      ? query('SELECT id, name, color, group_type, branch_id FROM site_groups WHERE branch_id = $1 ORDER BY id', [branchId])
+      : query('SELECT id, name, color, group_type, branch_id FROM site_groups ORDER BY id');
     const activityTypesQuery = branchId
       ? query('SELECT id, name FROM activity_types WHERE branch_id = $1 ORDER BY name', [branchId])
       : query('SELECT id, name FROM activity_types ORDER BY name');
@@ -1397,11 +1397,13 @@ app.delete('/api/config/sites/:id', requireAdmin, async (req, res) => {
 
 app.post('/api/config/site-groups', requireAdmin, async (req, res) => {
   try {
-    const { value, color } = req.body;
+    const { value, color, group_type } = req.body;
     if (!value?.trim()) return res.status(400).json({ error: 'שם קבוצה חובה' });
     const branchId = getEffectiveBranchId(req);
+    const validTypes = ['regular', 'night', 'oncall'];
+    const gtype = validTypes.includes(group_type) ? group_type : 'regular';
     try {
-      await query('INSERT INTO site_groups (name, color, branch_id) VALUES ($1, $2, $3)', [value.trim(), color || '#667eea', branchId]);
+      await query('INSERT INTO site_groups (name, color, group_type, branch_id) VALUES ($1, $2, $3, $4)', [value.trim(), color || '#667eea', gtype, branchId]);
       const config = await getConfig(branchId);
       res.json(config);
     } catch {
@@ -1415,12 +1417,14 @@ app.post('/api/config/site-groups', requireAdmin, async (req, res) => {
 
 app.put('/api/config/site-groups/:id', requireAdmin, async (req, res) => {
   try {
-    const { value, color } = req.body;
+    const { value, color, group_type } = req.body;
     if (!value?.trim()) return res.status(400).json({ error: 'שם קבוצה חובה' });
     const branchId = getEffectiveBranchId(req);
+    const validTypes = ['regular', 'night', 'oncall'];
+    const gtype = validTypes.includes(group_type) ? group_type : 'regular';
     try {
-      const r = await query('UPDATE site_groups SET name=$1, color=$2 WHERE id=$3 AND branch_id=$4',
-        [value.trim(), color || '#667eea', req.params.id, branchId]);
+      const r = await query('UPDATE site_groups SET name=$1, color=$2, group_type=$3 WHERE id=$4 AND branch_id=$5',
+        [value.trim(), color || '#667eea', gtype, req.params.id, branchId]);
       if (r.rowCount === 0) return res.status(403).json({ error: 'קבוצה לא נמצאת בסניף זה' });
       const config = await getConfig(branchId);
       res.json(config);
@@ -2567,7 +2571,7 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
     if (!worker_id || !date || !site_id) {
       return res.status(400).json({ error: 'שדות חסרים' });
     }
-    if (!['morning', 'evening', 'night'].includes(shiftType)) {
+    if (!['morning', 'evening', 'night', 'oncall'].includes(shiftType)) {
       return res.status(400).json({ error: 'סוג משמרת לא תקין' });
     }
 
@@ -2645,7 +2649,22 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
         notes      = excluded.notes
     `, [worker_id, date, site_id, shiftType, start_time || null, end_time || null, notes || null]);
 
-    res.json({ ok: true });
+    let warning = null;
+    if (shiftType === 'morning') {
+      const prevDate = new Date(date);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().split('T')[0];
+      const nightCheck = await query(`
+        SELECT id FROM worker_site_assignments
+        WHERE worker_id = $1 AND date = $2 AND shift_type = 'night'
+        LIMIT 1
+      `, [worker_id, prevDateStr]);
+      if (nightCheck.rows.length > 0) {
+        warning = 'שימו לב: העובד שובץ לתורנות לילה אמש — ייתכן שלא עברו 8 שעות מנוחה';
+      }
+    }
+
+    res.json({ ok: true, warning });
   } catch (err) {
     console.error('Error saving assignment:', err);
     res.status(400).json({ error: 'שגיאה בשמירת השיבוץ' });

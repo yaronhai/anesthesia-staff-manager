@@ -89,6 +89,7 @@ async function initializeSchema() {
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         color TEXT DEFAULT '#667eea',
+        group_type TEXT NOT NULL DEFAULT 'regular' CHECK(group_type IN ('regular', 'night', 'oncall')),
         branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(name, branch_id)
@@ -109,7 +110,7 @@ async function initializeSchema() {
         worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
         date TEXT NOT NULL,
         site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-        shift_type TEXT NOT NULL DEFAULT 'morning' CHECK(shift_type IN ('morning', 'evening', 'night')),
+        shift_type TEXT NOT NULL DEFAULT 'morning' CHECK(shift_type IN ('morning', 'evening', 'night', 'oncall')),
         start_time TEXT,
         end_time TEXT,
         notes TEXT,
@@ -129,7 +130,7 @@ async function initializeSchema() {
         id SERIAL PRIMARY KEY,
         site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
         date TEXT NOT NULL,
-        shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night')),
+        shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night', 'oncall')),
         activity_type_id INTEGER REFERENCES activity_types(id) ON DELETE SET NULL,
         UNIQUE(site_id, date, shift_type)
       );
@@ -153,7 +154,7 @@ async function initializeSchema() {
         id SERIAL PRIMARY KEY,
         template_id INTEGER NOT NULL REFERENCES activity_templates(id) ON DELETE CASCADE,
         site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-        shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night')),
+        shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night', 'oncall')),
         activity_type_id INTEGER NOT NULL REFERENCES activity_types(id) ON DELETE CASCADE,
         UNIQUE(template_id, site_id, shift_type)
       );
@@ -451,6 +452,18 @@ async function runMigrations() {
       END $$;
     `);
 
+    await query(`ALTER TABLE site_groups ADD COLUMN IF NOT EXISTS group_type TEXT NOT NULL DEFAULT 'regular'`);
+    await query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'site_groups_group_type_check'
+        ) THEN
+          ALTER TABLE site_groups ADD CONSTRAINT site_groups_group_type_check CHECK(group_type IN ('regular','night','oncall'));
+        END IF;
+      END $$
+    `);
+
     await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS can_submit_requests BOOLEAN NOT NULL DEFAULT TRUE;`);
 
     await query(`ALTER TABLE special_days ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'holiday';`);
@@ -468,7 +481,90 @@ async function runMigrations() {
         END LOOP;
       END $$
     `);
-    await query(`ALTER TABLE special_days ADD CONSTRAINT special_days_type_check CHECK(type IN ('holiday','eve','other'))`);
+    await query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'special_days_type_check') THEN
+          ALTER TABLE special_days ADD CONSTRAINT special_days_type_check CHECK(type IN ('holiday','eve','other'));
+        END IF;
+      END $$
+    `);
+
+    // Expand shift_type CHECK constraints to include 'oncall'
+    await query(`
+      DO $$
+      DECLARE r RECORD; needs_update BOOLEAN;
+      BEGIN
+        SELECT NOT (pg_get_constraintdef(c.oid) LIKE '%oncall%') INTO needs_update
+          FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+          WHERE t.relname = 'worker_site_assignments' AND c.contype = 'c'
+            AND pg_get_constraintdef(c.oid) LIKE '%shift_type%'
+          LIMIT 1;
+        IF needs_update IS NULL OR needs_update THEN
+          FOR r IN
+            SELECT c.conname FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+            WHERE t.relname = 'worker_site_assignments' AND c.contype = 'c'
+              AND pg_get_constraintdef(c.oid) LIKE '%shift_type%'
+          LOOP
+            EXECUTE format('ALTER TABLE worker_site_assignments DROP CONSTRAINT IF EXISTS %I', r.conname);
+          END LOOP;
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+              WHERE t.relname = 'worker_site_assignments' AND c.conname = 'worker_site_assignments_shift_type_check') THEN
+            ALTER TABLE worker_site_assignments ADD CONSTRAINT worker_site_assignments_shift_type_check CHECK(shift_type IN ('morning','evening','night','oncall'));
+          END IF;
+        END IF;
+      END $$
+    `);
+
+    await query(`
+      DO $$
+      DECLARE r RECORD; needs_update BOOLEAN;
+      BEGIN
+        SELECT NOT (pg_get_constraintdef(c.oid) LIKE '%oncall%') INTO needs_update
+          FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+          WHERE t.relname = 'site_shift_activities' AND c.contype = 'c'
+            AND pg_get_constraintdef(c.oid) LIKE '%shift_type%'
+          LIMIT 1;
+        IF needs_update IS NULL OR needs_update THEN
+          FOR r IN
+            SELECT c.conname FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+            WHERE t.relname = 'site_shift_activities' AND c.contype = 'c'
+              AND pg_get_constraintdef(c.oid) LIKE '%shift_type%'
+          LOOP
+            EXECUTE format('ALTER TABLE site_shift_activities DROP CONSTRAINT IF EXISTS %I', r.conname);
+          END LOOP;
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+              WHERE t.relname = 'site_shift_activities' AND c.conname = 'site_shift_activities_shift_type_check') THEN
+            ALTER TABLE site_shift_activities ADD CONSTRAINT site_shift_activities_shift_type_check CHECK(shift_type IN ('morning','evening','night','oncall'));
+          END IF;
+        END IF;
+      END $$
+    `);
+
+    await query(`
+      DO $$
+      DECLARE r RECORD; needs_update BOOLEAN;
+      BEGIN
+        SELECT NOT (pg_get_constraintdef(c.oid) LIKE '%oncall%') INTO needs_update
+          FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+          WHERE t.relname = 'activity_template_items' AND c.contype = 'c'
+            AND pg_get_constraintdef(c.oid) LIKE '%shift_type%'
+          LIMIT 1;
+        IF needs_update IS NULL OR needs_update THEN
+          FOR r IN
+            SELECT c.conname FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+            WHERE t.relname = 'activity_template_items' AND c.contype = 'c'
+              AND pg_get_constraintdef(c.oid) LIKE '%shift_type%'
+          LOOP
+            EXECUTE format('ALTER TABLE activity_template_items DROP CONSTRAINT IF EXISTS %I', r.conname);
+          END LOOP;
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+              WHERE t.relname = 'activity_template_items' AND c.conname = 'activity_template_items_shift_type_check') THEN
+            ALTER TABLE activity_template_items ADD CONSTRAINT activity_template_items_shift_type_check CHECK(shift_type IN ('morning','evening','night','oncall'));
+          END IF;
+        END IF;
+      END $$
+    `);
 
     console.log('✓ Migrations complete');
   } catch (error) {
