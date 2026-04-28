@@ -273,8 +273,11 @@ async function getConfig(branchId = null) {
       ? query('SELECT id, name, color, group_type, branch_id FROM site_groups WHERE branch_id = $1 ORDER BY id', [branchId])
       : query('SELECT id, name, color, group_type, branch_id FROM site_groups ORDER BY id');
     const activityTypesQuery = branchId
-      ? query('SELECT id, name FROM activity_types WHERE branch_id = $1 ORDER BY name', [branchId])
-      : query('SELECT id, name FROM activity_types ORDER BY name');
+      ? query('SELECT id, name, group_id FROM activity_types WHERE branch_id = $1 ORDER BY name', [branchId])
+      : query('SELECT id, name, group_id FROM activity_types ORDER BY name');
+    const activityTypeGroupsQuery = branchId
+      ? query('SELECT id, name, branch_id FROM activity_type_groups WHERE branch_id = $1 ORDER BY id', [branchId])
+      : query('SELECT id, name, branch_id FROM activity_type_groups ORDER BY id');
     const sitesQuery = branchId
       ? query('SELECT id, name, description, group_id FROM sites WHERE branch_id = $1 ORDER BY name', [branchId])
       : query('SELECT id, name, description, group_id FROM sites ORDER BY name');
@@ -288,6 +291,7 @@ async function getConfig(branchId = null) {
       activityTypesQuery,
       query('SELECT key, label_he, label_short, icon, color, bg_color, show_in_assignments, show_in_availability_bar, default_start, default_end, sort_order FROM shift_types ORDER BY sort_order'),
       query('SELECT key, label_he, label_group_he, color, sort_order FROM preference_types ORDER BY sort_order'),
+      activityTypeGroupsQuery,
     ]);
 
     // Try to get allowed jobs per site, but don't fail if table doesn't exist
@@ -351,6 +355,7 @@ async function getConfig(branchId = null) {
       preference_types: res[7].rows,
       fairness_sites: fairnessSiteIds,
       special_days: specialDays,
+      activity_type_groups: res[8].rows,
     };
   } catch (error) {
     console.error('Error in getConfig:', error);
@@ -2163,11 +2168,11 @@ app.get('/api/fairness-report', requireAdmin, async (req, res) => {
 
 app.post('/api/config/activity-types', requireAdmin, async (req, res) => {
   try {
-    const { value } = req.body;
+    const { value, group_id } = req.body;
     if (!value?.trim()) return res.status(400).json({ error: 'שם סוג פעילות חובה' });
     const branchId = getEffectiveBranchId(req);
     try {
-      await query('INSERT INTO activity_types (name, branch_id) VALUES ($1, $2)', [value.trim(), branchId]);
+      await query('INSERT INTO activity_types (name, branch_id, group_id) VALUES ($1, $2, $3)', [value.trim(), branchId, group_id || null]);
       const config = await getConfig(branchId);
       res.json(config);
     } catch {
@@ -2208,6 +2213,72 @@ app.delete('/api/config/activity-types/:id', requireAdmin, async (req, res) => {
     res.json(config);
   } catch (error) {
     console.error('Delete activity type error:', error);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// Assign activity type to group
+app.put('/api/config/activity-types/:id/group', requireAdmin, async (req, res) => {
+  try {
+    const { group_id } = req.body;
+    const branchId = getEffectiveBranchId(req);
+    const r = await query('UPDATE activity_types SET group_id=$1 WHERE id=$2 AND branch_id=$3',
+      [group_id || null, req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'סוג פעילות לא נמצא בסניף זה' });
+    const config = await getConfig(branchId);
+    res.json(config);
+  } catch (error) {
+    console.error('Update activity type group error:', error);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── Activity Type Group Endpoints ─────────────────────────────────────────────
+
+app.post('/api/config/activity-type-groups', requireAdmin, async (req, res) => {
+  try {
+    const { value } = req.body;
+    if (!value?.trim()) return res.status(400).json({ error: 'שם קבוצה חובה' });
+    const branchId = getEffectiveBranchId(req);
+    try {
+      await query('INSERT INTO activity_type_groups (name, branch_id) VALUES ($1, $2)', [value.trim(), branchId]);
+      const config = await getConfig(branchId);
+      res.json(config);
+    } catch {
+      res.status(400).json({ error: 'קבוצה כפולה' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.put('/api/config/activity-type-groups/:id', requireAdmin, async (req, res) => {
+  try {
+    const { value } = req.body;
+    if (!value?.trim()) return res.status(400).json({ error: 'שם קבוצה חובה' });
+    const branchId = getEffectiveBranchId(req);
+    try {
+      const r = await query('UPDATE activity_type_groups SET name=$1 WHERE id=$2 AND branch_id=$3',
+        [value.trim(), req.params.id, branchId]);
+      if (r.rowCount === 0) return res.status(403).json({ error: 'קבוצה לא נמצאת' });
+      const config = await getConfig(branchId);
+      res.json(config);
+    } catch {
+      res.status(400).json({ error: 'קבוצה כפולה' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.delete('/api/config/activity-type-groups/:id', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const r = await query('DELETE FROM activity_type_groups WHERE id=$1 AND branch_id=$2', [req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'קבוצה לא נמצאת' });
+    const config = await getConfig(branchId);
+    res.json(config);
+  } catch (error) {
     res.status(500).json({ error: 'שגיאה' });
   }
 });

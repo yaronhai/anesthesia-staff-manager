@@ -118,9 +118,18 @@ async function initializeSchema() {
         UNIQUE(worker_id, date, site_id, shift_type)
       );
 
+      CREATE TABLE IF NOT EXISTS activity_type_groups (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(name, branch_id)
+      );
+
       CREATE TABLE IF NOT EXISTS activity_types (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
+        group_id INTEGER REFERENCES activity_type_groups(id) ON DELETE SET NULL,
         branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(name, branch_id)
@@ -320,6 +329,7 @@ async function runMigrations() {
     // 1b. Add branch_id columns to existing tables that may not have them
     await query(`ALTER TABLE site_groups ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE;`);
     await query(`ALTER TABLE activity_types ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE;`);
+    await query(`ALTER TABLE activity_types ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES activity_type_groups(id) ON DELETE SET NULL;`);
     await query(`ALTER TABLE activity_templates ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE;`);
     await query(`ALTER TABLE shift_requests ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE;`);
     await query(`ALTER TABLE sites ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL;`);

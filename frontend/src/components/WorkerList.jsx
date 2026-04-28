@@ -80,8 +80,70 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
   }
 
   const authorizedIds = new Set(authorizations.map(a => a.activity_type_id));
-  const unavailableActivities = (config.activity_types || []).filter(at => authorizedIds.has(at.id));
   const availableActivities = (config.activity_types || []).filter(at => !authorizedIds.has(at.id));
+  const actGroups = config.activity_type_groups || [];
+
+  function renderActivityButton(at) {
+    return (
+      <button
+        key={at.id}
+        onClick={() => addAuthorization(at.id)}
+        style={{
+          padding: '0.2rem 0.5rem',
+          background: '#f3f4f6',
+          border: '1px solid #d1d5db',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          textAlign: 'right',
+          fontSize: '0.82rem',
+        }}
+      >
+        {at.name}
+      </button>
+    );
+  }
+
+  function renderAvailableGrouped() {
+    if (availableActivities.length === 0) {
+      return <p style={{ color: '#666', margin: 0 }}>כל סוגי הפעילות מורשים כבר</p>;
+    }
+    if (actGroups.length === 0) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          {availableActivities.map(renderActivityButton)}
+        </div>
+      );
+    }
+    const sections = [];
+    actGroups.forEach(group => {
+      const items = availableActivities.filter(at => at.group_id === group.id);
+      if (items.length === 0) return;
+      sections.push(
+        <div key={group.id}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem', marginTop: '0.4rem' }}>
+            {group.name}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+            {items.map(renderActivityButton)}
+          </div>
+        </div>
+      );
+    });
+    const ungrouped = availableActivities.filter(at => !at.group_id);
+    if (ungrouped.length > 0) {
+      sections.push(
+        <div key="ungrouped">
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.2rem', marginTop: '0.4rem' }}>
+            ללא קבוצה
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+            {ungrouped.map(renderActivityButton)}
+          </div>
+        </div>
+      );
+    }
+    return sections.length > 0 ? <div>{sections}</div> : <p style={{ color: '#666', margin: 0 }}>כל סוגי הפעילות מורשים כבר</p>;
+  }
 
   return (
     <div className="form-overlay" onClick={onClose}>
@@ -96,7 +158,7 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
             <p>טוען...</p>
           ) : (
             <>
-              <div style={{ marginBottom: '0.5rem' }}>
+              <div style={{ marginBottom: '0.75rem' }}>
                 <h4 style={{ marginBottom: '0.25rem', color: '#1a2e4a', fontSize: '0.8rem' }}>מורשה עבור:</h4>
                 {authorizations.length === 0 ? (
                   <p style={{ color: '#666', margin: 0 }}>—</p>
@@ -126,29 +188,7 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
 
               <div>
                 <h4 style={{ marginBottom: '0.25rem', color: '#1a2e4a', fontSize: '0.8rem' }}>הוסף הרשאה:</h4>
-                {availableActivities.length === 0 ? (
-                  <p style={{ color: '#666', margin: 0 }}>כל סוגי הפעילות מורשים כבר</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                    {availableActivities.map(at => (
-                      <button
-                        key={at.id}
-                        onClick={() => addAuthorization(at.id)}
-                        style={{
-                          padding: '0.2rem 0.4rem',
-                          background: '#f3f4f6',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          textAlign: 'right',
-                          fontSize: '0.85rem'
-                        }}
-                      >
-                        {at.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {renderAvailableGrouped()}
               </div>
             </>
           )}

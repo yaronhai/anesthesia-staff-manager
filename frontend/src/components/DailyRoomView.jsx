@@ -38,6 +38,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [inlineEditTimes, setInlineEditTimes] = useState({ start_time: '', end_time: '' });
   const [inlineEditingActivity, setInlineEditingActivity] = useState(null); // "site_id-shift_type" for inline activity editing
   const [inlineActivityTypeId, setInlineActivityTypeId] = useState(null);
+  const [inlineActivityGroupFilter, setInlineActivityGroupFilter] = useState('');
   const [shiftNotes, setShiftNotes] = useState({}); // Map of "site_id-shift_type" -> notes
   const [inlineEditingNotes, setInlineEditingNotes] = useState(null); // "site_id-shift_type" for inline notes editing
   const [inlineNotes, setInlineNotes] = useState('');
@@ -911,30 +912,47 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             )}
           </div>
           {!hideActivityType && (inlineEditingActivity === editKey ? (
-            <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
-              <select
-                value={inlineActivityTypeId || ''}
-                onChange={e => setInlineActivityTypeId(e.target.value ? parseInt(e.target.value) : null)}
-                style={{fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #d1d5db'}}
-              >
-                <option value="">— אין —</option>
-                {(config.activity_types || []).map(at => (
-                  <option key={at.id} value={at.id}>{at.name}</option>
-                ))}
-              </select>
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  updateSiteShiftActivity(site.id, shiftType, inlineActivityTypeId);
-                  setInlineEditingActivity(null);
-                }}
-                style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
-              >✓</button>
-              <button
-                className="btn-secondary"
-                onClick={() => setInlineEditingActivity(null)}
-                style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
-              >✕</button>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
+              <div style={{display: 'flex', gap: '0.3rem', alignItems: 'center'}}>
+                {(config.activity_type_groups || []).length > 0 && (
+                  <select
+                    value={inlineActivityGroupFilter}
+                    onChange={e => setInlineActivityGroupFilter(e.target.value)}
+                    style={{fontSize: '0.75rem', borderRadius: '4px', border: '1px solid #d1d5db', color: '#475569', maxWidth: '90px'}}
+                  >
+                    <option value="">הכל</option>
+                    {(config.activity_type_groups || []).map(g => (
+                      <option key={g.id} value={String(g.id)}>{g.name}</option>
+                    ))}
+                  </select>
+                )}
+                <select
+                  value={inlineActivityTypeId || ''}
+                  onChange={e => setInlineActivityTypeId(e.target.value ? parseInt(e.target.value) : null)}
+                  style={{fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #d1d5db', flex: 1}}
+                >
+                  <option value="">— אין —</option>
+                  {(config.activity_types || [])
+                    .filter(at => !inlineActivityGroupFilter || String(at.group_id) === inlineActivityGroupFilter)
+                    .map(at => (
+                      <option key={at.id} value={at.id}>{at.name}</option>
+                    ))}
+                </select>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    updateSiteShiftActivity(site.id, shiftType, inlineActivityTypeId);
+                    setInlineEditingActivity(null);
+                    setInlineActivityGroupFilter('');
+                  }}
+                  style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
+                >✓</button>
+                <button
+                  className="btn-secondary"
+                  onClick={() => { setInlineEditingActivity(null); setInlineActivityGroupFilter(''); }}
+                  style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
+                >✕</button>
+              </div>
             </div>
           ) : (
             <>
@@ -952,6 +970,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 onClick={() => {
                   setInlineEditingActivity(editKey);
                   setInlineActivityTypeId(activity.activity_type_id);
+                  setInlineActivityGroupFilter('');
                 }}
                 title="לחץ לעריכה"
                 >
@@ -964,6 +983,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   onClick={() => {
                     setInlineEditingActivity(editKey);
                     setInlineActivityTypeId(null);
+                    setInlineActivityGroupFilter('');
                   }}
                   style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
                   title="הוסף סוג פעילות"
