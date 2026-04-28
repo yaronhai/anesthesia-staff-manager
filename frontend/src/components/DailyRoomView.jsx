@@ -849,7 +849,41 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     );
   }
 
-  function ShiftSection({ site, shiftType, label, hideActivityType = false }) {
+  function ShiftHeaderTimes({ site, shiftType, accentColor }) {
+    const editKey = `${site.id}-${shiftType}`;
+    const shiftTimes = getSiteShiftTimes(site.id, shiftType);
+    const isEditing = inlineEditingShift === editKey;
+    if (isEditing) {
+      return (
+        <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
+          <input type="time" value={inlineEditTimes.start_time}
+            onChange={e => setInlineEditTimes({...inlineEditTimes, start_time: e.target.value})}
+            style={{width: '80px', fontSize: '0.85rem'}} />
+          <span>–</span>
+          <input type="time" value={inlineEditTimes.end_time}
+            onChange={e => setInlineEditTimes({...inlineEditTimes, end_time: e.target.value})}
+            style={{width: '80px', fontSize: '0.85rem'}} />
+          <button className="btn-primary"
+            onClick={() => { saveSiteShiftTimes(site.id, shiftType, inlineEditTimes.start_time, inlineEditTimes.end_time); setInlineEditingShift(null); }}
+            style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}>✓</button>
+          <button className="btn-secondary" onClick={() => setInlineEditingShift(null)}
+            style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}>✕</button>
+        </div>
+      );
+    }
+    return (
+      <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
+        <span style={{fontSize: '1rem', color: accentColor, fontWeight: 700}}>
+          {formatTime24(shiftTimes.start_time)}–{formatTime24(shiftTimes.end_time)}
+        </span>
+        <button className="btn-edit-small"
+          onClick={() => { setInlineEditingShift(editKey); setInlineEditTimes({start_time: shiftTimes.start_time, end_time: shiftTimes.end_time}); }}
+          title="ערוך שעות" style={{padding: '0.15rem 0.35rem', fontSize: '0.75rem'}}>✏️</button>
+      </div>
+    );
+  }
+
+  function ShiftSection({ site, shiftType, label, hideActivityType = false, hideHeader = false }) {
     const siteAssignments = getSiteShiftAssignments(site.id, shiftType);
     const activity = getSiteShiftActivity(site.id, shiftType);
     const shiftTimes = getSiteShiftTimes(site.id, shiftType);
@@ -868,51 +902,40 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
     return (
       <div className={`room-shift-section room-shift-${shiftType}`}>
-        <div className="room-shift-header">
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1}}>
-            <span className="room-shift-label">{label}</span>
-            {isEditing ? (
-              <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
-                <input
-                  type="time"
-                  value={inlineEditTimes.start_time}
-                  onChange={e => setInlineEditTimes({...inlineEditTimes, start_time: e.target.value})}
-                  style={{width: '80px', fontSize: '0.85rem'}}
-                />
-                <span>–</span>
-                <input
-                  type="time"
-                  value={inlineEditTimes.end_time}
-                  onChange={e => setInlineEditTimes({...inlineEditTimes, end_time: e.target.value})}
-                  style={{width: '80px', fontSize: '0.85rem'}}
-                />
-                <button
-                  className="btn-primary"
-                  onClick={handleSaveEdit}
-                  style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
-                >✓</button>
-                <button
-                  className="btn-secondary"
-                  onClick={() => setInlineEditingShift(null)}
-                  style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
-                >✕</button>
-              </div>
-            ) : (
-              <>
-                <span className="room-shift-time">
-                  {formatTime24(shiftTimes.start_time)}–{formatTime24(shiftTimes.end_time)}
-                </span>
-                <button
-                  className="btn-edit-small"
-                  onClick={handleStartEdit}
-                  title="ערוך שעות"
-                  style={{padding: '0.2rem 0.4rem', fontSize: '0.8rem', marginLeft: '0.5rem'}}
-                >✏️</button>
-              </>
-            )}
+        {!hideHeader && (
+          <div className="room-shift-header">
+            <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1}}>
+              <span className="room-shift-label">{label}</span>
+              {isEditing ? (
+                <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
+                  <input
+                    type="time"
+                    value={inlineEditTimes.start_time}
+                    onChange={e => setInlineEditTimes({...inlineEditTimes, start_time: e.target.value})}
+                    style={{width: '80px', fontSize: '0.85rem'}}
+                  />
+                  <span>–</span>
+                  <input
+                    type="time"
+                    value={inlineEditTimes.end_time}
+                    onChange={e => setInlineEditTimes({...inlineEditTimes, end_time: e.target.value})}
+                    style={{width: '80px', fontSize: '0.85rem'}}
+                  />
+                  <button className="btn-primary" onClick={handleSaveEdit} style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}>✓</button>
+                  <button className="btn-secondary" onClick={() => setInlineEditingShift(null)} style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}>✕</button>
+                </div>
+              ) : (
+                <>
+                  <span className="room-shift-time">{formatTime24(shiftTimes.start_time)}–{formatTime24(shiftTimes.end_time)}</span>
+                  <button className="btn-edit-small" onClick={handleStartEdit} title="ערוך שעות" style={{padding: '0.2rem 0.4rem', fontSize: '0.8rem', marginLeft: '0.5rem'}}>✏️</button>
+                </>
+              )}
+            </div>
           </div>
-          {!hideActivityType && (inlineEditingActivity === editKey ? (
-            <div style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
+        )}
+        {!hideActivityType && (
+          <div style={{padding: '0.25rem 0.6rem', borderBottom: '1px solid #e5e7eb', background: '#f8fafc'}}>
+            {inlineEditingActivity === editKey ? (
               <div style={{display: 'flex', gap: '0.3rem', alignItems: 'center'}}>
                 {(config.activity_type_groups || []).length > 0 && (
                   <select
@@ -953,45 +976,25 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
                 >✕</button>
               </div>
-            </div>
-          ) : (
-            <>
-              {activity && activity.activity_name && (
-                <span style={{
-                  padding: '0.2rem 0.6rem',
-                  background: '#dbeafe',
-                  color: '#0369a1',
-                  borderRadius: '12px',
-                  fontSize: '0.75rem',
-                  fontWeight: 500,
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer'
-                }}
-                onClick={() => {
-                  setInlineEditingActivity(editKey);
-                  setInlineActivityTypeId(activity.activity_type_id);
-                  setInlineActivityGroupFilter('');
-                }}
-                title="לחץ לעריכה"
-                >
-                  {activity.activity_name}
-                </span>
-              )}
-              {!activity && (
-                <button
-                  className="btn-secondary"
-                  onClick={() => {
-                    setInlineEditingActivity(editKey);
-                    setInlineActivityTypeId(null);
-                    setInlineActivityGroupFilter('');
-                  }}
-                  style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}
-                  title="הוסף סוג פעילות"
-                >+ סוג פעילות</button>
-              )}
-            </>
-          ))}
-        </div>
+            ) : (
+              <div style={{display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '1.4rem'}}>
+                {activity && activity.activity_name ? (
+                  <span
+                    style={{padding: '0.15rem 0.55rem', background: '#dbeafe', color: '#0369a1', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer'}}
+                    onClick={() => { setInlineEditingActivity(editKey); setInlineActivityTypeId(activity.activity_type_id); setInlineActivityGroupFilter(''); }}
+                    title="לחץ לעריכה"
+                  >{activity.activity_name}</span>
+                ) : (
+                  <button
+                    className="btn-secondary"
+                    onClick={() => { setInlineEditingActivity(editKey); setInlineActivityTypeId(null); setInlineActivityGroupFilter(''); }}
+                    style={{padding: '0.1rem 0.35rem', fontSize: '0.72rem'}}
+                  >+ סוג פעילות</button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <div className="room-card-content">
           {siteAssignments.length === 0 ? (
             <div className="room-empty">אין שיבוצים</div>
@@ -1103,12 +1106,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
           <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋</button>
           <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾</button>
-          <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
-          <button onClick={fetchSuggestions} disabled={suggestLoading} className="btn-primary btn-sm" title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות">🤖</button>
-          <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
-          <button onClick={openSendModal} className="btn-primary btn-sm" title="שלח תוכנית יומית בהודעה">💬</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️</button>
+          <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
+          <button onClick={openSendModal} title="שלח תוכנית יומית בהודעה" style={{background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(14,165,233,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>💬 שלח תוכנית יומית</button>
+          <button onClick={fetchSuggestions} disabled={suggestLoading} title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות" style={{background: 'linear-gradient(135deg, #7c3aed, #a855f7)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: suggestLoading ? 'not-allowed' : 'pointer', opacity: suggestLoading ? 0.6 : 1, boxShadow: '0 2px 8px rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>🤖 הצע שיבוצים</button>
           <div style={{flex: 1}} />
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
           {(() => {
@@ -1545,9 +1547,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   <div style={{ background: ctxBg, padding: '1.5rem', borderRadius: '12px', border: `2px solid ${ctxBorder}`, boxShadow: `0 4px 12px rgba(0,0,0,0.08)` }}>
                     <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: `2px solid ${ctxBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                       <h3 style={{margin: 0, color: ctxAccent, fontSize: '1.1rem', fontWeight: 600}}>{ctxIcon} {ctxLabel}</h3>
+                      <ShiftHeaderTimes site={site} shiftType={ctxShift} accentColor={ctxAccent} />
                       <button onClick={() => openAddModalInSite(site.id, ctxShift)} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: ctxBorder, color: ctxAccent, border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
                     </div>
-                    <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideActivityType={true}/>
+                    <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideActivityType={true} hideHeader={true}/>
                   </div>
                 );
               })() : (
@@ -1562,9 +1565,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   }}>
                     <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                       <h3 style={{margin: 0, color: '#b45309', fontSize: '1.1rem', fontWeight: 600}}>☀️ {shiftDefaults.morning?.label_he}</h3>
+                      <ShiftHeaderTimes site={site} shiftType="morning" accentColor="#92400e" />
                       <button onClick={() => openAddModalInSite(site.id, 'morning')} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: '#fbbf24', color: '#92400e', border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
                     </div>
-                    <ShiftSection site={site} shiftType="morning" label={shiftDefaults.morning?.label_he}/>
+                    <ShiftSection site={site} shiftType="morning" label={shiftDefaults.morning?.label_he} hideHeader={true}/>
                   </div>
 
                   <div style={{
@@ -1577,9 +1581,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   }}>
                     <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #7dd3fc', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                       <h3 style={{margin: 0, color: '#0369a1', fontSize: '1.1rem', fontWeight: 600}}>🌙 {shiftDefaults.evening?.label_he}</h3>
+                      <ShiftHeaderTimes site={site} shiftType="evening" accentColor="#0369a1" />
                       <button onClick={() => openAddModalInSite(site.id, 'evening')} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: '#7dd3fc', color: '#0369a1', border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
                     </div>
-                    <ShiftSection site={site} shiftType="evening" label={shiftDefaults.evening?.label_he}/>
+                    <ShiftSection site={site} shiftType="evening" label={shiftDefaults.evening?.label_he} hideHeader={true}/>
                   </div>
                 </div>
               )}

@@ -2207,8 +2207,16 @@ app.put('/api/config/activity-types/:id', requireAdmin, async (req, res) => {
 app.delete('/api/config/activity-types/:id', requireAdmin, async (req, res) => {
   try {
     const branchId = getEffectiveBranchId(req);
-    const r = await query('DELETE FROM activity_types WHERE id=$1 AND branch_id=$2', [req.params.id, branchId]);
-    if (r.rowCount === 0) return res.status(403).json({ error: 'סוג פעילות לא נמצא בסניף זה' });
+    const { id } = req.params;
+    const check = await query('SELECT id FROM activity_types WHERE id=$1 AND branch_id=$2', [id, branchId]);
+    if (check.rowCount === 0) return res.status(403).json({ error: 'סוג פעילות לא נמצא בסניף זה' });
+    // Keep site_shift_activities records — just null out the reference
+    await query('UPDATE site_shift_activities SET activity_type_id=NULL WHERE activity_type_id=$1', [id]);
+    // Remove worker authorizations for this activity type
+    await query('DELETE FROM worker_activity_authorizations WHERE activity_type_id=$1', [id]);
+    // Remove template items that reference this type (NOT NULL column — can't keep them)
+    await query('DELETE FROM activity_template_items WHERE activity_type_id=$1', [id]);
+    await query('DELETE FROM activity_types WHERE id=$1', [id]);
     const config = await getConfig(branchId);
     res.json(config);
   } catch (error) {

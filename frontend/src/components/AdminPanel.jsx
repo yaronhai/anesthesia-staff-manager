@@ -107,6 +107,16 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     }
   }
 
+  async function removeActivityType(id, name) {
+    if (!window.confirm(`למחוק את סוג הפעילות "${name}"?\n\nשיבוצי אתרים קיימים ישמרו ללא סוג פעילות.\nהרשאות עובדים לפעילות זו יימחקו.`)) return;
+    const res = await fetch(`/api/config/activity-types/${id}${branchParam()}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (res.ok) onConfigChange(await res.json());
+    else alert('שגיאה במחיקה');
+  }
+
   async function saveEdit(endpoint, id) {
     if (!editingValue.trim()) return;
     const res = await fetch(`${endpoint}/${id}${branchParam()}`, {
@@ -464,13 +474,13 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
         <div style={{display: 'flex', flexDirection: 'column', flex: 1}}>
           {/* Tabs */}
-          <div style={{display: 'flex', gap: '0.2rem', borderBottom: '2px solid #e2e8f0', flexWrap: 'wrap', padding: '0.6rem 1rem 0', background: '#f1f5f9'}}>
+          <div style={{display: 'flex', gap: '0.15rem', borderBottom: '2px solid #e2e8f0', padding: '0.5rem 0.75rem 0', background: '#f1f5f9', overflowX: 'auto'}}>
             {tabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 style={{
-                  padding: '0.5rem 0.9rem',
+                  padding: '0.25rem 0.55rem',
                   border: '1px solid',
                   borderColor: activeTab === tab.key ? '#cbd5e1' : 'transparent',
                   borderBottom: activeTab === tab.key ? '2px solid white' : '2px solid transparent',
@@ -491,7 +501,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
           </div>
 
           {/* Content */}
-          <div style={{flex: 1, overflow: 'auto', padding: '1rem 1.25rem 1.25rem'}}>
+          <div style={{flex: 1, overflow: 'auto', padding: '0.6rem 0.85rem 0.85rem'}}>
             {activeTab === 'branches' && isSuperAdmin && (
               <>
                 <TabDescription tabKey="branches" />
@@ -546,7 +556,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   function renderSiteRow(site) {
                     const isFairness = (config.fairness_sites || []).includes(site.id);
                     return (
-                      <li key={site.id} style={{display: 'flex', gap: '0.2rem', alignItems: 'center', flexWrap: 'wrap', paddingRight: '1.5rem', background: '#f8fafc', borderRadius: '5px', marginBottom: '0.2rem'}}>
+                      <li key={site.id} style={{display: 'flex', gap: '0.15rem', alignItems: 'center', flexWrap: 'wrap', paddingRight: '1rem', background: '#f8fafc', borderRadius: '4px', marginBottom: '0.1rem'}}>
                         {editingKey === `site-${site.id}` ? (
                           <input
                             className="config-inline-edit"
@@ -587,7 +597,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   function renderAddSiteRow(groupId) {
                     const key = groupId ?? 'ungrouped';
                     return (
-                      <div style={{display: 'flex', gap: '0.4rem', paddingRight: '1.5rem', marginTop: '0.4rem'}}>
+                      <div style={{display: 'flex', gap: '0.2rem', paddingRight: '0.5rem', marginTop: '1px'}}>
                         <input
                           className="config-inline-edit"
                           style={{flex: 1, fontSize: '0.82rem'}}
@@ -605,12 +615,12 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   const ungroupedSites = (config.sites || []).filter(s => !s.group_id);
 
                   return (
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '2px'}}>
                       {groups.map(group => {
                         const groupSites = (config.sites || []).filter(s => s.group_id === group.id);
                         return (
-                          <div key={group.id} style={{border: '1px solid #e2e8f0', borderRadius: '7px', overflow: 'hidden'}}>
-                            <div style={{display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '0.5rem 0.75rem', gap: '0.5rem'}}>
+                          <div key={group.id} style={{border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden'}}>
+                            <div style={{display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '0.1rem 0.5rem', gap: '0.3rem'}}>
                               {editingKey === `group-${group.id}` ? (
                                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: 1 }}>
                                   <input
@@ -628,7 +638,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                                   </select>
                                 </div>
                               ) : (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1, fontWeight: 600, fontSize: '0.9rem' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flex: 1, fontWeight: 600, fontSize: '0.8rem', color: '#7f1d1d' }}>
                                   {group.name}
                                   {group.group_type && group.group_type !== 'regular' && (
                                     <span style={{ fontSize: '0.72rem', padding: '0.1rem 0.4rem', borderRadius: '10px', background: typeBadgeColor[group.group_type], color: typeTextColor[group.group_type], fontWeight: 600 }}>
@@ -651,9 +661,9 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                                 )}
                               </div>
                             </div>
-                            <div style={{padding: '0.5rem 0.75rem 0.75rem'}}>
+                            <div style={{padding: '0.1rem 0.5rem 0.15rem'}}>
                               {groupSites.length > 0 && (
-                                <ul className="config-list" style={{margin: '0 0 0.4rem', padding: 0}}>
+                                <ul className="config-list" style={{margin: '0 0 0.1rem', padding: 0}}>
                                   {groupSites.map(renderSiteRow)}
                                 </ul>
                               )}
@@ -664,18 +674,18 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                       })}
 
                       {ungroupedSites.length > 0 && (
-                        <div style={{border: '1px solid #e2e8f0', borderRadius: '7px', overflow: 'hidden'}}>
-                          <div style={{background: '#f1f5f9', padding: '0.5rem 0.75rem', fontWeight: 600, fontSize: '0.9rem', color: '#64748b'}}>ללא קבוצה</div>
-                          <div style={{padding: '0.5rem 0.75rem 0.75rem'}}>
-                            <ul className="config-list" style={{margin: '0 0 0.4rem', padding: 0}}>
+                        <div style={{border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden'}}>
+                          <div style={{background: '#f1f5f9', padding: '0.1rem 0.5rem', fontWeight: 600, fontSize: '0.78rem', color: '#64748b'}}>ללא קבוצה</div>
+                          <div style={{padding: '0.1rem 0.5rem 0.15rem'}}>
+                            <ul className="config-list" style={{margin: '0 0 0.1rem', padding: 0}}>
                               {ungroupedSites.map(renderSiteRow)}
                             </ul>
                           </div>
                         </div>
                       )}
 
-                      <div style={{border: '1px dashed #cbd5e1', borderRadius: '7px', padding: '0.75rem'}}>
-                        <div style={{fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', fontWeight: 500}}>הוספת קבוצה חדשה</div>
+                      <div style={{border: '1px dashed #cbd5e1', borderRadius: '4px', padding: '0.2rem 0.5rem'}}>
+                        <div style={{fontSize: '0.75rem', color: '#64748b', marginBottom: '2px', fontWeight: 500}}>הוספת קבוצה חדשה</div>
                         <div className="config-add" style={{margin: 0}}>
                           <input
                             value={newSiteGroup}
@@ -898,7 +908,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                 {(() => {
                   function renderActivityTypeRow(actType) {
                     return (
-                      <li key={actType.id} style={{display:'flex',gap:'0.2rem',alignItems:'center',paddingRight:'1.5rem',background:'#f8fafc',borderRadius:'5px',marginBottom:'0.2rem'}}>
+                      <li key={actType.id} style={{display:'flex',gap:'0.15rem',alignItems:'center',paddingRight:'1rem',background:'#f8fafc',borderRadius:'4px',marginBottom:'1px'}}>
                         {editingKey === `activity-${actType.id}` ? (
                           <input className="config-inline-edit" value={editingValue}
                             onChange={e => setEditingValue(e.target.value)}
@@ -924,7 +934,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                               <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button></>
                           ) : (
                             <><button className="btn-edit-inline" onClick={() => { setEditingKey(`activity-${actType.id}`); setEditingValue(actType.name); }}>עריכה</button>
-                              <button className="btn-remove" onClick={() => removeItem('/api/config/activity-types', actType.id)}>✕</button></>
+                              <button className="btn-remove" onClick={() => removeActivityType(actType.id, actType.name)}>✕</button></>
                           )}
                         </div>
                       </li>
@@ -934,7 +944,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   function renderAddRow(groupId) {
                     const key = groupId ?? 'ungrouped';
                     return (
-                      <div style={{display:'flex',gap:'0.4rem',paddingRight:'1.5rem',marginTop:'0.4rem'}}>
+                      <div style={{display:'flex',gap:'0.2rem',paddingRight:'0.5rem',marginTop:'1px'}}>
                         <input className="config-inline-edit" style={{flex:1,fontSize:'0.82rem'}}
                           value={newActivityTypeByGroup[key] || ''}
                           onChange={e => setNewActivityTypeByGroup(prev => ({...prev,[key]:e.target.value}))}
@@ -949,19 +959,19 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   const ungrouped = (config.activity_types || []).filter(at => !at.group_id);
 
                   return (
-                    <div style={{display:'flex',flexDirection:'column',gap:'0.75rem'}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:'2px'}}>
                       {actGroups.map(group => {
                         const members = (config.activity_types || []).filter(at => at.group_id === group.id);
                         return (
-                          <div key={group.id} style={{border:'1px solid #e2e8f0',borderRadius:'7px',overflow:'hidden'}}>
-                            <div style={{display:'flex',alignItems:'center',background:'#f1f5f9',padding:'0.5rem 0.75rem',gap:'0.5rem'}}>
+                          <div key={group.id} style={{border:'1px solid #e2e8f0',borderRadius:'4px',overflow:'hidden'}}>
+                            <div style={{display:'flex',alignItems:'center',background:'#f1f5f9',padding:'0.1rem 0.5rem',gap:'0.3rem'}}>
                               {editingKey === `actgroup-${group.id}` ? (
                                 <input className="config-inline-edit" value={editingValue}
                                   onChange={e => setEditingValue(e.target.value)}
                                   onKeyDown={e => { if (e.key==='Enter') saveActivityTypeGroupEdit(group.id); if (e.key==='Escape') setEditingKey(null); }}
                                   autoFocus style={{flex:1}} />
                               ) : (
-                                <span style={{flex:1,fontWeight:600,fontSize:'0.9rem'}}>{group.name}</span>
+                                <span style={{flex:1,fontWeight:600,fontSize:'0.8rem',color:'#7f1d1d'}}>{group.name}</span>
                               )}
                               <div className="config-item-actions">
                                 {editingKey === `actgroup-${group.id}` ? (
@@ -973,9 +983,9 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                                 )}
                               </div>
                             </div>
-                            <div style={{padding:'0.5rem 0.75rem 0.75rem'}}>
+                            <div style={{padding:'0.1rem 0.5rem 0.15rem'}}>
                               {members.length > 0 && (
-                                <ul className="config-list" style={{margin:'0 0 0.4rem',padding:0}}>{members.map(renderActivityTypeRow)}</ul>
+                                <ul className="config-list" style={{margin:'0 0 0.1rem',padding:0}}>{members.map(renderActivityTypeRow)}</ul>
                               )}
                               {renderAddRow(group.id)}
                             </div>
@@ -984,17 +994,17 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                       })}
 
                       {ungrouped.length > 0 && (
-                        <div style={{border:'1px solid #e2e8f0',borderRadius:'7px',overflow:'hidden'}}>
-                          <div style={{background:'#f1f5f9',padding:'0.5rem 0.75rem',fontWeight:600,fontSize:'0.9rem',color:'#64748b'}}>ללא קבוצה</div>
-                          <div style={{padding:'0.5rem 0.75rem 0.75rem'}}>
-                            <ul className="config-list" style={{margin:'0 0 0.4rem',padding:0}}>{ungrouped.map(renderActivityTypeRow)}</ul>
+                        <div style={{border:'1px solid #e2e8f0',borderRadius:'4px',overflow:'hidden'}}>
+                          <div style={{background:'#f1f5f9',padding:'0.1rem 0.5rem',fontWeight:600,fontSize:'0.78rem',color:'#7f1d1d'}}>ללא קבוצה</div>
+                          <div style={{padding:'0.1rem 0.5rem 0.15rem'}}>
+                            <ul className="config-list" style={{margin:'0 0 0.1rem',padding:0}}>{ungrouped.map(renderActivityTypeRow)}</ul>
                             {renderAddRow(null)}
                           </div>
                         </div>
                       )}
 
-                      <div style={{border:'1px dashed #cbd5e1',borderRadius:'7px',padding:'0.75rem'}}>
-                        <div style={{fontSize:'0.8rem',color:'#64748b',marginBottom:'0.5rem',fontWeight:500}}>הוספת קבוצה חדשה</div>
+                      <div style={{border:'1px dashed #cbd5e1',borderRadius:'4px',padding:'0.2rem 0.5rem'}}>
+                        <div style={{fontSize:'0.75rem',color:'#7f1d1d',marginBottom:'2px',fontWeight:600}}>הוספת קבוצה חדשה</div>
                         <div className="config-add" style={{margin:0}}>
                           <input value={newActivityTypeGroup} onChange={e => setNewActivityTypeGroup(e.target.value)}
                             placeholder="שם קבוצה..." onKeyDown={e => e.key==='Enter' && addActivityTypeGroup()} />
