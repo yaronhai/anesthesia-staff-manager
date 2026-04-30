@@ -2835,17 +2835,14 @@ app.delete('/api/assignments-by-day/:date', requireAdmin, async (req, res) => {
   try {
     const branchId = getEffectiveBranchId(req);
     const { date } = req.params;
-    console.log('DELETE assignments-by-day:', { date, branchId });
-    let result;
     if (branchId) {
-      result = await query(
-        'DELETE FROM worker_site_assignments WHERE date = $1 AND site_id IN (SELECT id FROM sites WHERE branch_id = $2)',
-        [date, branchId]
-      );
+      const siteFilter = 'site_id IN (SELECT id FROM sites WHERE branch_id = $2)';
+      await query(`DELETE FROM worker_site_assignments WHERE date = $1 AND ${siteFilter}`, [date, branchId]);
+      await query(`DELETE FROM site_shift_activities WHERE date = $1 AND ${siteFilter}`, [date, branchId]);
     } else {
-      result = await query('DELETE FROM worker_site_assignments WHERE date = $1', [date]);
+      await query('DELETE FROM worker_site_assignments WHERE date = $1', [date]);
+      await query('DELETE FROM site_shift_activities WHERE date = $1', [date]);
     }
-    console.log('Deleted rows:', result.rowCount);
     res.status(204).send();
   } catch (error) {
     console.error('Delete day assignments error:', error);
