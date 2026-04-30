@@ -88,6 +88,10 @@ async function seedDatabase() {
       );
     }
 
+    // One-time migration: update night/oncall defaults to 15:00/07:00 if still at old values
+    await query(`UPDATE shift_types SET default_start = '15:00', default_end = '07:00' WHERE key = 'night' AND default_start = '23:00'`);
+    await query(`UPDATE shift_types SET default_start = '15:00', default_end = '07:00' WHERE key = 'oncall' AND (default_start IS NULL OR default_start = '23:00')`);
+
     // Seed preference types
     for (const pt of preferenceTypes) {
       await query(
