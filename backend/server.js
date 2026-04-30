@@ -2831,16 +2831,6 @@ app.put('/api/worker-site-assignments/:id', requireAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/worker-site-assignments/:id', requireAdmin, async (req, res) => {
-  try {
-    await query('DELETE FROM worker_site_assignments WHERE id=$1', [req.params.id]);
-    res.status(204).send();
-  } catch (error) {
-    console.error('Delete assignment error:', error);
-    res.status(500).json({ error: 'שגיאה במחיקת שיבוץ' });
-  }
-});
-
 app.delete('/api/worker-site-assignments/day/:date', requireAdmin, async (req, res) => {
   try {
     const branchId = getEffectiveBranchId(req);
@@ -2853,6 +2843,16 @@ app.delete('/api/worker-site-assignments/day/:date', requireAdmin, async (req, r
   } catch (error) {
     console.error('Delete day assignments error:', error);
     res.status(500).json({ error: 'שגיאה במחיקת שיבוצי היום' });
+  }
+});
+
+app.delete('/api/worker-site-assignments/:id', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM worker_site_assignments WHERE id=$1', [req.params.id]);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete assignment error:', error);
+    res.status(500).json({ error: 'שגיאה במחיקת שיבוץ' });
   }
 });
 
