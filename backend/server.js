@@ -2835,10 +2835,14 @@ app.delete('/api/worker-site-assignments/day/:date', requireAdmin, async (req, r
   try {
     const branchId = getEffectiveBranchId(req);
     const { date } = req.params;
-    await query(
-      'DELETE FROM worker_site_assignments WHERE date = $1 AND (branch_id = $2 OR ($2 IS NULL AND branch_id IS NULL))',
-      [date, branchId]
-    );
+    if (branchId) {
+      await query(
+        'DELETE FROM worker_site_assignments WHERE date = $1 AND site_id IN (SELECT id FROM sites WHERE branch_id = $2)',
+        [date, branchId]
+      );
+    } else {
+      await query('DELETE FROM worker_site_assignments WHERE date = $1', [date]);
+    }
     res.status(204).send();
   } catch (error) {
     console.error('Delete day assignments error:', error);
