@@ -910,6 +910,20 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     }
   }
 
+  async function clearDayAssignments() {
+    if (!confirm(`⚠️ האם למחוק את כל השיבוצים של ${dateLabel}?\n\nכל נתוני השיבוץ ליום זה יימחקו לצמיתות ולא ניתן יהיה לשחזרם.`)) return;
+    try {
+      const res = await fetch(`/api/worker-site-assignments/day/${dateStr}${branchQS}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!res.ok) throw new Error();
+      await fetchAssignments();
+    } catch {
+      alert('שגיאה במחיקת שיבוצי היום');
+    }
+  }
+
   async function applyTemplate(templateId) {
     try {
       const res = await fetch(`/api/config/activity-templates/${templateId}/apply${branchQS}`, {
@@ -1481,7 +1495,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="שמור את הפעילויות הנוכחיות כתבנית">💾</button>
             <button onClick={loadTemplates} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="טען תבנית על היום הנוכחי">📋</button>
             <button onClick={openTemplateManager} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="ערוך תוכן תבניות קיימות">✏️</button>
-            <button onClick={openCreateTemplate} className="btn-secondary btn-sm" style={{ borderRadius: 0 }} title="צור תבנית חדשה מאפס">➕</button>
+            <button onClick={openCreateTemplate} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="צור תבנית חדשה מאפס">➕</button>
+            <button onClick={clearDayAssignments} className="btn-secondary btn-sm" style={{ borderRadius: 0, color: '#b91c1c' }} title="הסר את כל שיבוצי העובדים ליום זה">🗑️</button>
           </div>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️</button>

@@ -2841,6 +2841,21 @@ app.delete('/api/worker-site-assignments/:id', requireAdmin, async (req, res) =>
   }
 });
 
+app.delete('/api/worker-site-assignments/day/:date', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const { date } = req.params;
+    await query(
+      'DELETE FROM worker_site_assignments WHERE date = $1 AND (branch_id = $2 OR ($2 IS NULL AND branch_id IS NULL))',
+      [date, branchId]
+    );
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete day assignments error:', error);
+    res.status(500).json({ error: 'שגיאה במחיקת שיבוצי היום' });
+  }
+});
+
 // ── Site Shift Activities ──────────────────────────────────────────────────
 
 app.post('/api/site-shift-activities', requireAdmin, async (req, res) => {
