@@ -2831,7 +2831,7 @@ app.put('/api/worker-site-assignments/:id', requireAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/worker-site-assignments/day/:date', requireAdmin, async (req, res) => {
+app.delete('/api/assignments-by-day/:date', requireAdmin, async (req, res) => {
   try {
     const branchId = getEffectiveBranchId(req);
     const { date } = req.params;

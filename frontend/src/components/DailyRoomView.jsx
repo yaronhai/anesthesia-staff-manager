@@ -913,7 +913,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   async function clearDayAssignments() {
     if (!confirm(`⚠️ האם למחוק את כל השיבוצים של ${dateLabel}?\n\nכל נתוני השיבוץ ליום זה יימחקו לצמיתות ולא ניתן יהיה לשחזרם.`)) return;
     try {
-      const res = await fetch(`/api/worker-site-assignments/day/${dateStr}${branchQS}`, {
+      const res = await fetch(`/api/assignments-by-day/${dateStr}${branchQS}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${authToken}` },
       });
