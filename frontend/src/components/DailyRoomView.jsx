@@ -918,7 +918,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       if (!res.ok) throw new Error();
-      await fetchAssignments();
+      await fetchAll();
     } catch {
       alert('שגיאה במחיקת שיבוצי היום');
     }
