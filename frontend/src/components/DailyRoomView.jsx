@@ -1587,61 +1587,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         <div className="loading">טוען...</div>
       ) : (
         <>
-          <div className="room-requests-bar">
-            <span className="room-requests-label">עובדים זמינים:</span>
-            <div className="room-requests-content">
-              {availabilityShifts.map(st => {
-                const requests = requestsByShift[st.key] || [];
-                const { icon, label_he: label, color, bg_color: bg, key: shiftKey } = st;
-                return ({ icon, label, requests, color, bg, shiftKey });
-              }).map(({ icon, label, requests, color, bg, shiftKey }) => (
-                <div key={label} className="room-requests-shift">
-                  <span className="room-requests-icon" style={{color, background: bg, padding: '0.05rem 0.35rem', borderRadius: '3px', fontWeight: 700}}>{icon} {label}:</span>
-                  {requests.length === 0 ? (
-                    <span className="room-requests-empty">אין</span>
-                  ) : (
-                    Object.entries(groupRequestsByJob(requests)).map(([job, reqs]) => (
-                      <span key={job} style={{display:'inline-flex', alignItems:'center', gap:'0.15rem', marginRight:'0.4rem'}}>
-                        <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
-                        {reqs.map(r => (
-                          <span
-                            key={r.id}
-                            className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
-                            title={prefLabel[r.preference_type]}
-                            style={assignedWorkerIdsByShift[shiftKey]?.has(r.worker_id) ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}
-                          >
-                            {r.first_name} {r.family_name}
-                          </span>
-                        ))}
-                      </span>
-                    ))
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="room-unassigned-bar">
-            <span className="room-unassigned-label">עובדים שלא משובצים:</span>
-            <div className="room-unassigned-content">
-              {getUnassignedWorkers().length === 0 ? (
-                <span className="room-unassigned-empty">כל העובדים משובצים ✓</span>
-              ) : (
-                Object.entries(groupWorkersByJob(getUnassignedWorkers())).map(([job, wList]) => (
-                  <span key={job} style={{display:'inline-flex', alignItems:'center', gap:'0.15rem', marginRight:'0.4rem'}}>
-                    <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
-                    {wList.map(w => (
-                      <span key={w.id} className="room-unassigned-worker">
-                        {w.first_name} {w.family_name}
-                      </span>
-                    ))}
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-
           <div className="room-view-body">
+            <div className="room-view-main">
             {/* Group tabs + תורנות/כוננות tabs */}
             {(() => {
               const regularGroups = (config.site_groups || []).filter(g => !g.group_type || g.group_type === 'regular');
@@ -1654,7 +1601,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               });
               const regularGroupedSites = groupSitesByGroup(regularSites);
               return (
-                <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', borderBottom: '2px solid #e5e7eb', flexWrap: 'wrap', padding: '0.5rem 0.5rem 0 0.5rem', marginBottom: '1rem', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', borderBottom: '2px solid #e5e7eb', flexWrap: 'wrap', padding: '0.2rem 0.5rem 0 0.5rem', marginBottom: '0.25rem', flexShrink: 0 }}>
                   <button onClick={() => setCardSize(s => Math.max(MIN_CARD, s - STEP))} className="btn-secondary btn-sm" title="הקטן כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding:'0.1rem 0.5rem'}}>−</button>
                   <button onClick={() => setCardSize(s => Math.min(MAX_CARD, s + STEP))} className="btn-secondary btn-sm" title="הגדל כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding:'0.1rem 0.5rem'}}>+</button>
                   <button onClick={() => setSelectedGroupId('__all__')} style={{ padding: '0.75rem 1rem', border: 'none', background: selectedGroupId === '__all__' ? '#1a2e4a' : '#f3f4f6', color: selectedGroupId === '__all__' ? 'white' : '#666', fontWeight: selectedGroupId === '__all__' ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' }}>הכל</button>
@@ -1803,6 +1750,61 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 </div>
               );
             })()}
+            </div>
+            <div className="room-view-sidebar">
+              <div className="room-requests-bar">
+                <span className="room-requests-label">עובדים זמינים:</span>
+                <div className="room-requests-content">
+                  {availabilityShifts.map(st => {
+                    const requests = requestsByShift[st.key] || [];
+                    const { icon, label_he: label, color, bg_color: bg, key: shiftKey } = st;
+                    return ({ icon, label, requests, color, bg, shiftKey });
+                  }).map(({ icon, label, requests, color, bg, shiftKey }) => (
+                    <div key={label} className="room-requests-shift">
+                      <span className="room-requests-icon" style={{color, background: bg, padding: '0.05rem 0.35rem', borderRadius: '3px', fontWeight: 700}}>{icon} {label}:</span>
+                      {requests.length === 0 ? (
+                        <span className="room-requests-empty">אין</span>
+                      ) : (
+                        Object.entries(groupRequestsByJob(requests)).map(([job, reqs]) => (
+                          <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'wrap'}}>
+                            <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
+                            {reqs.map(r => (
+                              <span
+                                key={r.id}
+                                className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
+                                title={prefLabel[r.preference_type]}
+                                style={assignedWorkerIdsByShift[shiftKey]?.has(r.worker_id) ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}
+                              >
+                                {r.first_name} {r.family_name}
+                              </span>
+                            ))}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="room-unassigned-bar">
+                <span className="room-unassigned-label">עובדים שלא משובצים:</span>
+                <div className="room-unassigned-content">
+                  {getUnassignedWorkers().length === 0 ? (
+                    <span className="room-unassigned-empty">כל העובדים משובצים ✓</span>
+                  ) : (
+                    Object.entries(groupWorkersByJob(getUnassignedWorkers())).map(([job, wList]) => (
+                      <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'wrap'}}>
+                        <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
+                        {wList.map(w => (
+                          <span key={w.id} className="room-unassigned-worker">
+                            {w.first_name} {w.family_name}
+                          </span>
+                        ))}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </>
       )}

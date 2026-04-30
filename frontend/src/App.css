@@ -2457,13 +2457,30 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 }
 
 .room-view-body {
-  margin-top: 0.5rem;
+  margin-top: 0.1rem;
   position: relative;
   z-index: 1;
   flex: 1;
   overflow: hidden;
   display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+.room-view-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
   flex-direction: column;
+}
+
+.room-view-sidebar {
+  width: 190px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-y: auto;
 }
 
 .room-groups-grid {
@@ -2838,10 +2855,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 3px;
-  padding: 0.1rem 0.5rem;
-  margin-bottom: 0.2rem;
+  padding: 0.25rem 0.5rem;
   font-size: 0.68rem;
-  min-height: 0;
   flex-shrink: 0;
 }
 
@@ -2861,9 +2876,9 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 
 .room-requests-shift {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.2rem;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .room-requests-icon {
@@ -2893,17 +2908,14 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 /* Unassigned workers bar */
 .room-unassigned-bar {
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 3px;
-  padding: 0.1rem 0.5rem;
-  margin-bottom: 0.2rem;
+  padding: 0.25rem 0.5rem;
   font-size: 0.68rem;
-  overflow: hidden;
-  white-space: nowrap;
-  min-height: 0;
   flex-shrink: 0;
 }
 
@@ -2915,10 +2927,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 
 .room-unassigned-content {
   display: flex;
-  gap: 0.3rem;
-  flex-wrap: nowrap;
-  overflow: hidden;
-  flex: 1;
+  gap: 0.2rem;
+  flex-wrap: wrap;
 }
 
 .room-unassigned-worker {
