@@ -1,5 +1,170 @@
 import { useState, useEffect, useRef } from 'react';
 
+const GROUP_PALETTE = ['#7c3aed', '#0369a1', '#0e7490', '#b45309', '#15803d', '#be185d', '#6d28d9', '#b45309'];
+const PALETTE_BG    = ['#f5f3ff', '#eff6ff', '#f0fdfa', '#fffbeb', '#f0fdf4', '#fdf2f8', '#f5f3ff', '#fffbeb'];
+
+function TemplateItemsEditor({ config, items, onChange }) {
+  const siteGroups = config.site_groups || [];
+  const sites = config.sites || [];
+  const activityTypes = config.activity_types || [];
+  const shiftTypes = (config.shift_types || []).filter(st => ['morning', 'evening'].includes(st.key));
+
+  // Assign a stable color to each group by its position in siteGroups
+  const groupColorMap = Object.fromEntries(
+    siteGroups.map((g, i) => [g.id, { color: GROUP_PALETTE[i % GROUP_PALETTE.length], bg: PALETTE_BG[i % PALETTE_BG.length] }])
+  );
+  const ungroupedColor = { color: '#6b7280', bg: '#f9fafb' };
+
+  function getGroupColor(groupId) {
+    return groupId && groupColorMap[groupId] ? groupColorMap[groupId] : ungroupedColor;
+  }
+
+  const [shownSiteIds, setShownSiteIds] = useState(() =>
+    new Set(Object.keys(items).map(k => parseInt(k.split('-')[0])))
+  );
+  const [groupFilter, setGroupFilter] = useState(null); // null = הכל
+
+  const shownSites = sites.filter(s => shownSiteIds.has(s.id));
+  const availableSites = sites.filter(s => !shownSiteIds.has(s.id));
+
+  // Groups that have at least one available site
+  const availableGroups = siteGroups.filter(g => availableSites.some(s => s.group_id === g.id));
+  const hasUngroupedAvailable = availableSites.some(s => !s.group_id && !siteGroups.some(g => g.id === s.group_id));
+
+  const filteredAvailable = groupFilter === null
+    ? availableSites
+    : groupFilter === '__none__'
+      ? availableSites.filter(s => !siteGroups.some(g => g.id === s.group_id))
+      : availableSites.filter(s => s.group_id === groupFilter);
+
+  function groupSites(list) {
+    const result = [];
+    const used = new Set();
+    siteGroups.forEach(g => {
+      const gs = list.filter(s => s.group_id === g.id);
+      if (gs.length) { result.push({ label: g.name, groupId: g.id, sites: gs }); gs.forEach(s => used.add(s.id)); }
+    });
+    const rest = list.filter(s => !used.has(s.id));
+    if (rest.length) result.push({ label: 'כללי', groupId: null, sites: rest });
+    return result;
+  }
+
+  function addSite(siteId) {
+    setShownSiteIds(prev => new Set([...prev, siteId]));
+  }
+
+  function removeSite(siteId) {
+    setShownSiteIds(prev => { const n = new Set(prev); n.delete(siteId); return n; });
+    const next = { ...items };
+    Object.keys(next).forEach(k => { if (parseInt(k.split('-')[0]) === siteId) delete next[k]; });
+    onChange(next);
+  }
+
+  function handleShiftChange(siteId, shiftKey, value) {
+    const key = `${siteId}-${shiftKey}`;
+    if (value) {
+      onChange({ ...items, [key]: parseInt(value) });
+    } else {
+      const next = { ...items };
+      delete next[key];
+      onChange(next);
+    }
+  }
+
+  return (
+    <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
+      {shownSites.length === 0 ? (
+        <p style={{ color: '#9ca3af', textAlign: 'center', margin: '1.5rem 0', fontSize: '0.85rem' }}>
+          אין חדרים בתבנית — הוסף חדרים מהרשימה למטה
+        </p>
+      ) : (
+        groupSites(shownSites).map(group => {
+          const { color, bg } = getGroupColor(group.groupId);
+          return (
+          <div key={group.label} style={{ marginBottom: '0.5rem' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.7rem', color, background: bg, borderRight: `3px solid ${color}`, paddingRight: '0.35rem', paddingBottom: '0.1rem', paddingTop: '0.1rem', marginBottom: '0.25rem', borderRadius: '0 3px 3px 0' }}>
+              {group.label}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.25rem' }}>
+              {group.sites.map(site => (
+                <div key={site.id} style={{ background: '#fff', border: `1.5px solid ${color}`, borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ background: color, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.15rem 0.35rem' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.7rem', color: '#fff' }}>{site.name}</span>
+                    <button onClick={() => removeSite(site.id)} title="הסר חדר מהתבנית"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.85)', fontSize: '0.7rem', lineHeight: 1, padding: 0 }}>✕</button>
+                  </div>
+                  <div style={{ padding: '0.2rem 0.35rem' }}>
+                  {shiftTypes.map(st => (
+                    <div key={st.key} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', marginBottom: '0.1rem', fontSize: '0.68rem' }}>
+                      <label style={{ flex: '0 0 28px', color: '#6b7280' }}>{st.label_he}</label>
+                      <select
+                        value={items[`${site.id}-${st.key}`] || ''}
+                        onChange={e => handleShiftChange(site.id, st.key, e.target.value)}
+                        style={{ flex: 1, fontSize: '0.68rem', padding: '0.1rem' }}
+                      >
+                        <option value="">ללא</option>
+                        {activityTypes.map(at => <option key={at.id} value={at.id}>{at.name}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );})
+      )}
+
+      {availableSites.length > 0 && (
+        <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: '0.4rem', marginTop: '0.4rem' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.72rem', color: '#1a2e4a', background: '#f1f5f9', borderRight: '3px solid #1a2e4a', paddingRight: '0.4rem', paddingTop: '0.1rem', paddingBottom: '0.1rem', borderRadius: '0 3px 3px 0', marginBottom: '0.25rem' }}>הוסף חדר לתבנית</div>
+          {(availableGroups.length > 0 || hasUngroupedAvailable) && (
+            <div style={{ display: 'flex', gap: '0.2rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+              {(() => {
+                const active = groupFilter === null;
+                return (
+                  <button onClick={() => setGroupFilter(null)}
+                    style={{ padding: '0.1rem 0.4rem', fontSize: '0.66rem', borderRadius: '999px', border: '1.5px solid #374151', background: active ? '#374151' : '#f3f4f6', color: active ? '#fff' : '#374151', cursor: 'pointer', fontWeight: 600, boxShadow: active ? '0 0 0 2px #37415133' : 'none' }}>
+                    הכל
+                  </button>
+                );
+              })()}
+              {availableGroups.map(g => {
+                const { color, bg } = getGroupColor(g.id);
+                const active = groupFilter === g.id;
+                return (
+                  <button key={g.id} onClick={() => setGroupFilter(g.id)}
+                    style={{ padding: '0.1rem 0.4rem', fontSize: '0.66rem', borderRadius: '999px', border: `1.5px solid ${color}`, background: active ? color : bg, color: active ? '#fff' : color, cursor: 'pointer', fontWeight: 600, boxShadow: active ? `0 0 0 2px ${color}33` : 'none' }}>
+                    {g.name}
+                  </button>
+                );
+              })}
+              {hasUngroupedAvailable && (() => {
+                const { color, bg } = ungroupedColor;
+                const active = groupFilter === '__none__';
+                return (
+                  <button onClick={() => setGroupFilter('__none__')}
+                    style={{ padding: '0.1rem 0.4rem', fontSize: '0.66rem', borderRadius: '999px', border: `1.5px solid ${color}`, background: active ? color : bg, color: active ? '#fff' : color, cursor: 'pointer', fontWeight: 600, boxShadow: active ? `0 0 0 2px ${color}33` : 'none' }}>
+                    כללי
+                  </button>
+                );
+              })()}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+            {filteredAvailable.map(site => (
+              <button key={site.id} onClick={() => addSite(site.id)}
+                style={{ padding: '0.1rem 0.4rem', fontSize: '0.66rem', background: '#f3f4f6', border: '1px dashed #9ca3af', borderRadius: '4px', cursor: 'pointer', color: '#374151' }}>
+                + {site.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DailyRoomView({ config, authToken, branchId }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [workers, setWorkers] = useState([]);
@@ -85,6 +250,27 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   // Save as template modal
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [saveAsTemplateName, setSaveAsTemplateName] = useState('');
+
+  // Template manager modal (list)
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [managerEditingId, setManagerEditingId] = useState(null);
+  const [managerEditingName, setManagerEditingName] = useState('');
+  const [templateGroups, setTemplateGroups] = useState([]);
+  const [groupEditingId, setGroupEditingId] = useState(null);
+  const [groupEditingName, setGroupEditingName] = useState('');
+  const [newGroupName, setNewGroupName] = useState('');
+
+  // Template edit modal (full editor)
+  const [editTemplateId, setEditTemplateId] = useState(null);
+  const [editTemplateItems, setEditTemplateItems] = useState({});
+  const [editTemplateName, setEditTemplateName] = useState('');
+  const [editTemplateGroupId, setEditTemplateGroupId] = useState(null);
+
+  // Create new template modal
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplateItems, setNewTemplateItems] = useState({});
+  const [newTemplateGroupId, setNewTemplateGroupId] = useState(null);
 
   // Suggestions modal
   const [suggestionModal, setSuggestionModal] = useState(null);
@@ -628,11 +814,13 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
   async function loadTemplates() {
     try {
-      const res = await fetch(`/api/config/activity-templates${branchQS}`, {
-        headers: { 'Authorization': `Bearer ${authToken}` },
-      });
+      const [res, grpRes] = await Promise.all([
+        fetch(`/api/config/activity-templates${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
+        fetch(`/api/config/activity-template-groups${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
+      ]);
       if (res.ok) {
         setTemplates(await res.json());
+        if (grpRes.ok) setTemplateGroups(await grpRes.json());
         setShowTemplateSelector(true);
       } else {
         const err = await res.json().catch(() => ({}));
@@ -743,6 +931,191 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       console.error('Error applying template:', error);
       alert('שגיאה בהחלת התבנית');
     }
+  }
+
+  async function openTemplateManager() {
+    try {
+      const [tmplRes, grpRes] = await Promise.all([
+        fetch(`/api/config/activity-templates${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
+        fetch(`/api/config/activity-template-groups${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
+      ]);
+      if (tmplRes.ok && grpRes.ok) {
+        setTemplates(await tmplRes.json());
+        setTemplateGroups(await grpRes.json());
+        setManagerEditingId(null);
+        setNewGroupName('');
+        setShowTemplateManager(true);
+      } else {
+        alert('שגיאה בטעינת תבניות');
+      }
+    } catch {
+      alert('שגיאה בטעינת תבניות');
+    }
+  }
+
+  async function createTemplateGroup(name) {
+    if (!name.trim()) return;
+    const res = await fetch(`/api/config/activity-template-groups${branchQS}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (res.ok) {
+      const grpRes = await fetch(`/api/config/activity-template-groups${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (grpRes.ok) setTemplateGroups(await grpRes.json());
+      setNewGroupName('');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert('שגיאה: ' + (err.error || res.status));
+    }
+  }
+
+  async function renameTemplateGroup(id, name) {
+    if (!name.trim()) return;
+    const res = await fetch(`/api/config/activity-template-groups/${id}${branchQS}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (res.ok) {
+      setGroupEditingId(null);
+      const grpRes = await fetch(`/api/config/activity-template-groups${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (grpRes.ok) setTemplateGroups(await grpRes.json());
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert('שגיאה: ' + (err.error || res.status));
+    }
+  }
+
+  async function deleteTemplateGroup(id) {
+    if (!confirm('למחוק קבוצה זו? התבניות בה יעברו לקטגוריה "ללא קבוצה"')) return;
+    const res = await fetch(`/api/config/activity-template-groups/${id}${branchQS}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    });
+    if (res.ok) {
+      const [tmplRes, grpRes] = await Promise.all([
+        fetch(`/api/config/activity-templates${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
+        fetch(`/api/config/activity-template-groups${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
+      ]);
+      if (tmplRes.ok) setTemplates(await tmplRes.json());
+      if (grpRes.ok) setTemplateGroups(await grpRes.json());
+    } else {
+      alert('שגיאה במחיקה');
+    }
+  }
+
+  function openEditTemplate(id) {
+    const tmpl = templates.find(t => t.id === id);
+    if (!tmpl) return;
+    const items = {};
+    tmpl.items.forEach(item => { items[`${item.site_id}-${item.shift_type}`] = item.activity_type_id; });
+    setEditTemplateId(id);
+    setEditTemplateName(tmpl.name);
+    setEditTemplateItems(items);
+    setEditTemplateGroupId(tmpl.group_id || null);
+  }
+
+  async function saveEditTemplate() {
+    if (!editTemplateId) return;
+    const name = editTemplateName.trim();
+    if (!name) return;
+    const tmpl = templates.find(t => t.id === editTemplateId);
+    const nameChanged = name !== tmpl?.name;
+    const groupChanged = (editTemplateGroupId || null) !== (tmpl?.group_id || null);
+    if (nameChanged || groupChanged) {
+      const renameRes = await fetch(`/api/config/activity-templates/${editTemplateId}${branchQS}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ name, group_id: editTemplateGroupId || null }),
+      });
+      if (!renameRes.ok) {
+        const err = await renameRes.json().catch(() => ({}));
+        alert('שגיאה בשמירה: ' + (err.error || renameRes.status));
+        return;
+      }
+    }
+    const itemsArray = Object.entries(editTemplateItems).map(([key, actId]) => {
+      const [siteId, shiftType] = key.split('-');
+      return { site_id: parseInt(siteId), shift_type: shiftType, activity_type_id: actId };
+    });
+    const res = await fetch(`/api/config/activity-templates/${editTemplateId}/items${branchQS}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ items: itemsArray }),
+    });
+    if (res.ok) {
+      const updated = await fetch(`/api/config/activity-templates${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (updated.ok) setTemplates(await updated.json());
+      setEditTemplateId(null);
+    } else {
+      alert('שגיאה בשמירת התבנית');
+    }
+  }
+
+  async function renameManagerTemplate(id, name) {
+    if (!name.trim()) return;
+    const res = await fetch(`/api/config/activity-templates/${id}${branchQS}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (res.ok) {
+      setManagerEditingId(null);
+      const updated = await fetch(`/api/config/activity-templates${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (updated.ok) setTemplates(await updated.json());
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert('שגיאה: ' + (err.error || res.status));
+    }
+  }
+
+  async function deleteManagerTemplate(id) {
+    if (!confirm('למחוק תבנית זו?')) return;
+    const res = await fetch(`/api/config/activity-templates/${id}${branchQS}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    });
+    if (res.ok) {
+      const updated = await fetch(`/api/config/activity-templates${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (updated.ok) setTemplates(await updated.json());
+    } else {
+      alert('שגיאה במחיקה');
+    }
+  }
+
+  function openCreateTemplate() {
+    setNewTemplateName('');
+    setNewTemplateItems({});
+    setNewTemplateGroupId(null);
+    setShowCreateTemplate(true);
+  }
+
+  async function saveNewTemplate() {
+    const name = newTemplateName.trim();
+    if (!name) return;
+    const createRes = await fetch(`/api/config/activity-templates${branchQS}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ name, group_id: newTemplateGroupId || null }),
+    });
+    if (!createRes.ok) {
+      const err = await createRes.json().catch(() => ({}));
+      alert('שגיאה: ' + (err.error || createRes.status));
+      return;
+    }
+    const created = await createRes.json();
+    const itemsArray = Object.entries(newTemplateItems).map(([key, actId]) => {
+      const [siteId, shiftType] = key.split('-');
+      return { site_id: parseInt(siteId), shift_type: shiftType, activity_type_id: actId };
+    });
+    await fetch(`/api/config/activity-templates/${created.id}/items${branchQS}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ items: itemsArray }),
+    });
+    setShowCreateTemplate(false);
+    alert(`תבנית "${name}" נוצרה בהצלחה`);
   }
 
   function ReportPreview() {
@@ -1104,8 +1477,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button className="btn-secondary btn-sm" onClick={prevMonth} title="חודש אחורה">‹‹</button>
           <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">‹‹‹</button>
           <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
-          <button onClick={loadTemplates} className="btn-primary btn-sm" title="החל תבנית">📋</button>
-          <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" title="שמור תצורה נוכחית כתבנית">💾</button>
+          <div style={{ display: 'flex', border: '1px solid #d1d5db', borderRadius: '8px', overflow: 'hidden' }}>
+            <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="שמור את הפעילויות הנוכחיות כתבנית">💾</button>
+            <button onClick={loadTemplates} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="טען תבנית על היום הנוכחי">📋</button>
+            <button onClick={openTemplateManager} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="ערוך תוכן תבניות קיימות">✏️</button>
+            <button onClick={openCreateTemplate} className="btn-secondary btn-sm" style={{ borderRadius: 0 }} title="צור תבנית חדשה מאפס">➕</button>
+          </div>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️</button>
           <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
@@ -1732,51 +2109,239 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     )}
 
     {/* Template selector modal */}
-    {showTemplateSelector && (
-      <div className="form-overlay" onClick={() => setShowTemplateSelector(false)}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <h3>בחר תבנית</h3>
-            <button className="btn-close" onClick={() => setShowTemplateSelector(false)}>✕</button>
-          </div>
-          <div className="modal-body">
-            {templates.length === 0 ? (
-              <p style={{color: '#666', textAlign: 'center'}}>אין תבניות זמינות</p>
+    {showTemplateSelector && (() => {
+      const renderSelectorTemplates = (groupId) =>
+        templates.filter(t => (t.group_id || null) === (groupId || null)).map(template => (
+          <div key={template.id} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+            {editingTemplateId === template.id ? (
+              <>
+                <input
+                  value={editingTemplateName}
+                  onChange={e => setEditingTemplateName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') renameTemplate(template.id, editingTemplateName);
+                    if (e.key === 'Escape') setEditingTemplateId(null);
+                  }}
+                  autoFocus
+                  style={{ flex: 1, padding: '0.4rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.9rem', direction: 'rtl' }}
+                />
+                <button className="btn-save-inline" onClick={() => renameTemplate(template.id, editingTemplateName)}>שמור</button>
+                <button className="btn-remove" onClick={() => setEditingTemplateId(null)}>✕</button>
+              </>
             ) : (
-              <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
-                {templates.map(template => (
-                  <div key={template.id} style={{display: 'flex', gap: '0.25rem', alignItems: 'center'}}>
-                    {editingTemplateId === template.id ? (
-                      <>
-                        <input
-                          value={editingTemplateName}
-                          onChange={e => setEditingTemplateName(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') renameTemplate(template.id, editingTemplateName);
-                            if (e.key === 'Escape') setEditingTemplateId(null);
-                          }}
-                          autoFocus
-                          style={{flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '1rem', direction: 'rtl'}}
-                        />
-                        <button className="btn-save-inline" onClick={() => renameTemplate(template.id, editingTemplateName)}>שמור</button>
-                        <button className="btn-remove" onClick={() => setEditingTemplateId(null)}>✕</button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => applyTemplate(template.id)}
-                          style={{flex: 1, padding: '0.75rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', textAlign: 'right', fontSize: '1rem', fontWeight: 500}}
-                        >
-                          {template.name}
-                        </button>
-                        <button className="btn-edit-inline" onClick={() => { setEditingTemplateId(template.id); setEditingTemplateName(template.name); }}>עריכה</button>
-                        <button className="btn-remove" onClick={() => deleteTemplate(template.id)}>✕</button>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <>
+                <button
+                  onClick={() => applyTemplate(template.id)}
+                  style={{ flex: 1, padding: '0.5rem 0.75rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', textAlign: 'right', fontSize: '0.9rem', fontWeight: 500 }}
+                >
+                  {template.name}
+                </button>
+                <button className="btn-remove" onClick={() => deleteTemplate(template.id)}>✕</button>
+              </>
             )}
+          </div>
+        ));
+      const hasUngrouped = templates.some(t => !t.group_id);
+      return (
+        <div className="form-overlay" onClick={() => setShowTemplateSelector(false)}>
+          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>בחר תבנית</h3>
+              <button className="btn-close" onClick={() => setShowTemplateSelector(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              {templates.length === 0 ? (
+                <p style={{ color: '#666', textAlign: 'center' }}>אין תבניות זמינות</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {templateGroups.map((g, gi) => {
+                    const grpTemplates = templates.filter(t => t.group_id === g.id);
+                    if (grpTemplates.length === 0) return null;
+                    const color = GROUP_PALETTE[gi % GROUP_PALETTE.length];
+                    return (
+                      <div key={g.id}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color, borderBottom: `2px solid ${color}`, paddingBottom: '0.1rem', marginBottom: '0.3rem' }}>{g.name}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>{renderSelectorTemplates(g.id)}</div>
+                      </div>
+                    );
+                  })}
+                  {hasUngrouped && (
+                    <div>
+                      {templateGroups.length > 0 && (
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6b7280', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.1rem', marginBottom: '0.3rem' }}>ללא קבוצה</div>
+                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>{renderSelectorTemplates(null)}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+
+    {/* Template Manager modal */}
+    {showTemplateManager && (() => {
+      const allGroups = [...templateGroups];
+      const renderTemplatesForGroup = (groupId) => {
+        const groupTemplates = templates.filter(t => (t.group_id || null) === (groupId || null));
+        if (groupTemplates.length === 0) return <p style={{ color: '#9ca3af', fontSize: '0.72rem', margin: '0.1rem 0.3rem' }}>אין תבניות</p>;
+        return groupTemplates.map(t => (
+          <div key={t.id} style={{ display: 'flex', gap: '0.2rem', alignItems: 'center', padding: '0.15rem 0.3rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '4px', marginBottom: '0.15rem' }}>
+            <span style={{ flex: 1, fontWeight: 500, fontSize: '0.78rem' }}>{t.name}</span>
+            <button className="btn-primary btn-sm" style={{ fontSize: '0.68rem', padding: '0.1rem 0.4rem' }} onClick={() => openEditTemplate(t.id)}>עריכה</button>
+            <button className="btn-remove" style={{ fontSize: '0.68rem', padding: '0.1rem 0.25rem' }} onClick={() => deleteManagerTemplate(t.id)}>✕</button>
+          </div>
+        ));
+      };
+      return (
+        <div className="form-overlay" onClick={() => setShowTemplateManager(false)}>
+          <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px', width: '95vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header" style={{ padding: '0.4rem 0.75rem' }}>
+              <h3 style={{ fontSize: '0.9rem', margin: 0 }}>ערוך תבניות</h3>
+              <button className="btn-close" onClick={() => setShowTemplateManager(false)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', gap: '0.75rem', flex: 1, minHeight: 0, overflow: 'hidden', padding: '0.5rem 0.75rem' }}>
+              {/* Left: group management */}
+              <div style={{ width: '170px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.3rem', borderLeft: '1px solid #e5e7eb', paddingLeft: '0.6rem' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151' }}>קבוצות</div>
+                <div style={{ display: 'flex', gap: '0.2rem' }}>
+                  <input
+                    value={newGroupName}
+                    onChange={e => setNewGroupName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') createTemplateGroup(newGroupName); }}
+                    placeholder="קבוצה חדשה"
+                    style={{ flex: 1, padding: '0.15rem 0.3rem', borderRadius: '3px', border: '1px solid #d1d5db', fontSize: '0.72rem', direction: 'rtl' }}
+                  />
+                  <button className="btn-primary btn-sm" style={{ fontSize: '0.68rem', padding: '0.1rem 0.3rem' }} onClick={() => createTemplateGroup(newGroupName)}>+</button>
+                </div>
+                <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                  {allGroups.map((g, gi) => {
+                    const color = GROUP_PALETTE[gi % GROUP_PALETTE.length];
+                    return (
+                      <div key={g.id} style={{ borderRadius: '3px', border: `1px solid ${color}33`, background: PALETTE_BG[gi % PALETTE_BG.length], padding: '0.1rem 0.25rem' }}>
+                        {groupEditingId === g.id ? (
+                          <div style={{ display: 'flex', gap: '0.15rem', alignItems: 'center' }}>
+                            <input
+                              value={groupEditingName}
+                              onChange={e => setGroupEditingName(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') renameTemplateGroup(g.id, groupEditingName);
+                                if (e.key === 'Escape') setGroupEditingId(null);
+                              }}
+                              autoFocus
+                              style={{ flex: 1, padding: '0.1rem 0.25rem', borderRadius: '3px', border: `1px solid ${color}`, fontSize: '0.72rem', direction: 'rtl' }}
+                            />
+                            <button className="btn-save-inline" style={{ fontSize: '0.65rem', padding: '0.05rem 0.25rem' }} onClick={() => renameTemplateGroup(g.id, groupEditingName)}>✓</button>
+                            <button className="btn-remove" style={{ fontSize: '0.65rem', padding: '0.05rem 0.2rem' }} onClick={() => setGroupEditingId(null)}>✕</button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                            <span style={{ flex: 1, fontSize: '0.75rem', fontWeight: 600, color }}>{g.name}</span>
+                            <button onClick={() => { setGroupEditingId(g.id); setGroupEditingName(g.name); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.65rem', color: '#6b7280', padding: '0' }}>✏️</button>
+                            <button className="btn-remove" style={{ fontSize: '0.65rem', padding: '0.05rem 0.2rem' }} onClick={() => deleteTemplateGroup(g.id)}>✕</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Right: templates by group */}
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {allGroups.map((g, gi) => {
+                  const color = GROUP_PALETTE[gi % GROUP_PALETTE.length];
+                  return (
+                    <div key={g.id}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color, borderBottom: `2px solid ${color}`, paddingBottom: '0.1rem', marginBottom: '0.2rem' }}>{g.name}</div>
+                      {renderTemplatesForGroup(g.id)}
+                    </div>
+                  );
+                })}
+                <div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6b7280', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.1rem', marginBottom: '0.2rem' }}>ללא קבוצה</div>
+                  {renderTemplatesForGroup(null)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+
+    {/* Edit Template modal */}
+    {editTemplateId && (
+      <div className="form-overlay" onClick={() => setEditTemplateId(null)}>
+        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '750px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+          <div className="modal-header" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+            <input
+              value={editTemplateName}
+              onChange={e => setEditTemplateName(e.target.value)}
+              style={{ flex: 1, minWidth: '120px', fontSize: '1rem', fontWeight: 700, border: '1px solid #d1d5db', borderRadius: '6px', padding: '0.3rem 0.6rem', direction: 'rtl', color: '#1a2e4a' }}
+            />
+            <select
+              value={editTemplateGroupId || ''}
+              onChange={e => setEditTemplateGroupId(e.target.value ? Number(e.target.value) : null)}
+              style={{ fontSize: '0.82rem', padding: '0.25rem 0.4rem', borderRadius: '5px', border: '1px solid #d1d5db', direction: 'rtl', color: '#374151', background: '#f9fafb' }}
+            >
+              <option value="">ללא קבוצה</option>
+              {templateGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+            <button className="btn-close" onClick={() => setEditTemplateId(null)}>✕</button>
+          </div>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <TemplateItemsEditor key={editTemplateId} config={config} items={editTemplateItems} onChange={setEditTemplateItems} />
+          </div>
+          <div className="modal-footer">
+            <div>
+              <button className="btn-secondary" onClick={() => setEditTemplateId(null)}>ביטול</button>
+              <button className="btn-primary" onClick={saveEditTemplate}>שמור</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Create New Template modal */}
+    {showCreateTemplate && (
+      <div className="form-overlay" onClick={() => setShowCreateTemplate(false)}>
+        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '750px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+          <div className="modal-header">
+            <h3>צור תבנית חדשה</h3>
+            <button className="btn-close" onClick={() => setShowCreateTemplate(false)}>✕</button>
+          </div>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div className="form-group" style={{ flex: 1, minWidth: '150px', margin: 0 }}>
+                <label style={{ fontSize: '0.8rem' }}>שם התבנית:</label>
+                <input
+                  type="text"
+                  value={newTemplateName}
+                  onChange={e => setNewTemplateName(e.target.value)}
+                  placeholder="לדוגמה: תבנית יום ראשון"
+                  autoFocus
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ fontSize: '0.8rem' }}>קבוצה:</label>
+                <select
+                  value={newTemplateGroupId || ''}
+                  onChange={e => setNewTemplateGroupId(e.target.value ? Number(e.target.value) : null)}
+                  style={{ padding: '0.4rem 0.5rem', borderRadius: '5px', border: '1px solid #d1d5db', direction: 'rtl', fontSize: '0.85rem' }}
+                >
+                  <option value="">ללא קבוצה</option>
+                  {templateGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <TemplateItemsEditor key="new" config={config} items={newTemplateItems} onChange={setNewTemplateItems} />
+          </div>
+          <div className="modal-footer">
+            <div>
+              <button className="btn-secondary" onClick={() => setShowCreateTemplate(false)}>ביטול</button>
+              <button className="btn-primary" onClick={saveNewTemplate} disabled={!newTemplateName.trim()}>צור תבנית</button>
+            </div>
           </div>
         </div>
       </div>

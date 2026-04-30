@@ -278,6 +278,9 @@ async function getConfig(branchId = null) {
     const activityTypeGroupsQuery = branchId
       ? query('SELECT id, name, branch_id FROM activity_type_groups WHERE branch_id = $1 ORDER BY id', [branchId])
       : query('SELECT id, name, branch_id FROM activity_type_groups ORDER BY id');
+    const templateGroupsQuery = branchId
+      ? query('SELECT id, name FROM activity_template_groups WHERE branch_id = $1 ORDER BY name', [branchId])
+      : query('SELECT id, name FROM activity_template_groups ORDER BY name');
     const sitesQuery = branchId
       ? query('SELECT id, name, description, group_id FROM sites WHERE branch_id = $1 ORDER BY name', [branchId])
       : query('SELECT id, name, description, group_id FROM sites ORDER BY name');
@@ -292,6 +295,7 @@ async function getConfig(branchId = null) {
       query('SELECT key, label_he, label_short, icon, color, bg_color, show_in_assignments, show_in_availability_bar, default_start, default_end, sort_order FROM shift_types ORDER BY sort_order'),
       query('SELECT key, label_he, label_group_he, color, sort_order FROM preference_types ORDER BY sort_order'),
       activityTypeGroupsQuery,
+      templateGroupsQuery,
     ]);
 
     // Try to get allowed jobs per site, but don't fail if table doesn't exist
@@ -356,6 +360,7 @@ async function getConfig(branchId = null) {
       fairness_sites: fairnessSiteIds,
       special_days: specialDays,
       activity_type_groups: res[8].rows,
+      template_groups: res[9].rows,
     };
   } catch (error) {
     console.error('Error in getConfig:', error);
@@ -2880,13 +2885,61 @@ app.delete('/api/site-shift-activities/:id', requireAdmin, async (req, res) => {
 
 // ── Activity Templates Endpoints ─────────────────────────────────────────
 
+// ── Template Groups ─────────────────────────────────────────────────────────
+app.get('/api/config/activity-template-groups', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const r = branchId
+      ? await query('SELECT id, name FROM activity_template_groups WHERE branch_id=$1 ORDER BY name', [branchId])
+      : await query('SELECT id, name FROM activity_template_groups ORDER BY name');
+    res.json(r.rows);
+  } catch (e) { res.status(500).json({ error: 'שגיאה' }); }
+});
+
+app.post('/api/config/activity-template-groups', requireAdmin, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'שם חובה' });
+    const branchId = getEffectiveBranchId(req);
+    const r = await query('INSERT INTO activity_template_groups (name, branch_id) VALUES ($1, $2) RETURNING id, name', [name.trim(), branchId]);
+    res.json(r.rows[0]);
+  } catch (e) {
+    if (e.message.includes('unique')) return res.status(409).json({ error: 'קבוצה בשם זה כבר קיימת' });
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.put('/api/config/activity-template-groups/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'שם חובה' });
+    const branchId = getEffectiveBranchId(req);
+    const r = await query('UPDATE activity_template_groups SET name=$1 WHERE id=$2 AND branch_id IS NOT DISTINCT FROM $3', [name.trim(), req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'לא נמצאה' });
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.message.includes('unique')) return res.status(409).json({ error: 'קבוצה בשם זה כבר קיימת' });
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.delete('/api/config/activity-template-groups/:id', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    await query('UPDATE activity_templates SET group_id=NULL WHERE group_id=$1', [req.params.id]);
+    const r = await query('DELETE FROM activity_template_groups WHERE id=$1 AND branch_id IS NOT DISTINCT FROM $2', [req.params.id, branchId]);
+    if (r.rowCount === 0) return res.status(403).json({ error: 'לא נמצאה' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: 'שגיאה' }); }
+});
+
 // Get all templates with their items
 app.get('/api/config/activity-templates', requireAdmin, async (req, res) => {
   try {
     const branchId = getEffectiveBranchId(req);
     const templatesRes = branchId
-      ? await query(`SELECT id, name, created_at FROM activity_templates WHERE branch_id=$1 ORDER BY name`, [branchId])
-      : await query(`SELECT id, name, created_at FROM activity_templates ORDER BY name`);
+      ? await query(`SELECT id, name, group_id, created_at FROM activity_templates WHERE branch_id=$1 ORDER BY name`, [branchId])
+      : await query(`SELECT id, name, group_id, created_at FROM activity_templates ORDER BY name`);
 
     const templates = [];
     for (const template of templatesRes.rows) {
@@ -2916,15 +2969,15 @@ app.get('/api/config/activity-templates', requireAdmin, async (req, res) => {
 // Create template
 app.post('/api/config/activity-templates', requireAdmin, async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, group_id } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'שם התבנית חובה' });
     }
 
     const branchId = getEffectiveBranchId(req);
     const result = await query(
-      'INSERT INTO activity_templates (name, branch_id) VALUES ($1, $2) RETURNING id, name, created_at',
-      [name.trim(), branchId]
+      'INSERT INTO activity_templates (name, branch_id, group_id) VALUES ($1, $2, $3) RETURNING id, name, group_id, created_at',
+      [name.trim(), branchId, group_id || null]
     );
 
     res.json(result.rows[0]);
@@ -2941,13 +2994,13 @@ app.post('/api/config/activity-templates', requireAdmin, async (req, res) => {
 // Rename template
 app.put('/api/config/activity-templates/:id', requireAdmin, async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, group_id } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'שם התבנית חובה' });
     }
     const branchId = getEffectiveBranchId(req);
-    const r = await query('UPDATE activity_templates SET name = $1 WHERE id = $2 AND branch_id IS NOT DISTINCT FROM $3',
-      [name.trim(), req.params.id, branchId]);
+    const r = await query('UPDATE activity_templates SET name=$1, group_id=$2 WHERE id=$3 AND branch_id IS NOT DISTINCT FROM $4',
+      [name.trim(), group_id ?? null, req.params.id, branchId]);
     if (r.rowCount === 0) return res.status(403).json({ error: 'תבנית לא נמצאת בסניף זה' });
     res.json({ ok: true });
   } catch (error) {

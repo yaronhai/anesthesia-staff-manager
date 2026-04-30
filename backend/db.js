@@ -151,9 +151,18 @@ async function initializeSchema() {
         UNIQUE(worker_id, activity_type_id)
       );
 
+      CREATE TABLE IF NOT EXISTS activity_template_groups (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(name, branch_id)
+      );
+
       CREATE TABLE IF NOT EXISTS activity_templates (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
+        group_id INTEGER REFERENCES activity_template_groups(id) ON DELETE SET NULL,
         branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(name, branch_id)
@@ -585,6 +594,8 @@ async function runMigrations() {
         END IF;
       END $$
     `);
+
+    await query(`ALTER TABLE activity_templates ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES activity_template_groups(id) ON DELETE SET NULL`);
 
     console.log('✓ Migrations complete');
   } catch (error) {
