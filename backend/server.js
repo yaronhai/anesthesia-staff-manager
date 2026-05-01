@@ -3335,6 +3335,13 @@ app.post('/api/branches', requireSuperAdmin, async (req, res) => {
         'INSERT INTO branches (name, description) VALUES ($1, $2) RETURNING id, name, description, created_at',
         [name.trim(), description?.trim() || null]
       );
+      const newBranchId = result.rows[0].id;
+      await query(
+        `INSERT INTO site_groups (name, color, group_type, branch_id) VALUES
+         ('תורנים', '#f59e0b', 'night', $1),
+         ('כוננים', '#8b5cf6', 'oncall', $1)`,
+        [newBranchId]
+      );
       res.status(201).json(result.rows[0]);
     } catch {
       res.status(400).json({ error: 'שם סניף כפול' });

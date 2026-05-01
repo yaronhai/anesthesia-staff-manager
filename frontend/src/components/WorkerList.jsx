@@ -278,6 +278,16 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
   const [viewing, setViewing] = useState(null);
   const [sortField, setSortField] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
+  const checkMobile = () => window.innerWidth < 640;
+  const checkLandscape = () => window.innerWidth < 900 && window.innerHeight < 500;
+  const [isMobile, setIsMobile] = useState(checkMobile);
+  const [isLandscape, setIsLandscape] = useState(checkLandscape);
+
+  useEffect(() => {
+    const handler = () => { setIsMobile(checkMobile()); setIsLandscape(checkLandscape()); };
+    window.addEventListener('resize', handler, { passive: true });
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   const independentTypeIds = new Set(
     (config.employment_types || []).filter(t => t.is_independent).map(t => t.id)
@@ -324,18 +334,117 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
     return <p className="empty">אין עובדים להצגה.</p>;
   }
 
+  const detailModal = viewing && (
+    <WorkerDetail
+      worker={viewing}
+      onClose={() => setViewing(null)}
+      onEdit={onEdit}
+      authToken={authToken}
+      config={config}
+      isSuperAdmin={isSuperAdmin}
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        {detailModal}
+        <div className="worker-card-list">
+          {sorted.map(w => (
+            <div key={w.id} className={`worker-card${w.is_active === false ? ' worker-card-inactive' : ''}`}>
+              <div className="worker-card-info">
+                <span className="worker-card-name">
+                  {w.title} {w.first_name} {w.family_name}
+                </span>
+                <span className="worker-card-id">{w.id_number || '—'}</span>
+                {w.phone && <span className="worker-card-id">{w.phone}</span>}
+                {w.email && <span className="worker-card-id">{w.email}</span>}
+                <span className="worker-card-badges">
+                  {w.is_active === false && <span className="badge badge-inactive">לא פעיל</span>}
+                  {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
+                    <span className="badge badge-normal" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>מושאל</span>
+                  )}
+                </span>
+              </div>
+              <div className="worker-card-actions">
+                <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
+                {(isSuperAdmin || w.is_primary_branch !== false) && (
+                  <>
+                    <WorkerAuthButton worker={w} authToken={authToken} config={config} />
+                    <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
+                    <button onClick={() => {
+                      if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
+                        onResetPassword(w.id);
+                      }
+                    }} className="btn-reset" title="איפוס סיסמא">🔄</button>
+                    <button onClick={() => onDelete(w.id)} className="btn-delete" title="מחיקה">🗑️</button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  if (isLandscape) {
+    return (
+      <>
+        {detailModal}
+        <div className="worker-table-wrap">
+        <table className="worker-table">
+          <thead>
+            <tr>
+              <SortTh field="title">תואר</SortTh>
+              <SortTh field="first_name">שם פרטי</SortTh>
+              <SortTh field="family_name">שם משפחה</SortTh>
+              <th>טלפון</th>
+              <SortTh field="email">אימייל</SortTh>
+              <th>פעולות</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(w => (
+              <tr key={w.id} className={w.is_active === false ? 'worker-row-inactive' : ''}>
+                <td>{w.title}</td>
+                <td>
+                  <strong>{w.first_name}</strong>
+                  {w.is_active === false && <span className="badge badge-inactive" style={{ marginRight: '0.3rem' }}>לא פעיל</span>}
+                  {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
+                    <span className="badge badge-normal" title={`סניף ראשי: ${w.primary_branch_name}`} style={{ marginRight: '0.3rem', background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>מושאל</span>
+                  )}
+                </td>
+                <td><strong>{w.family_name}</strong></td>
+                <td>{w.phone || '—'}</td>
+                <td>{w.email || '—'}</td>
+                <td>
+                  <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
+                  {(isSuperAdmin || w.is_primary_branch !== false) && (
+                    <>
+                      <WorkerAuthButton worker={w} authToken={authToken} config={config} />
+                      <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
+                      <button onClick={() => {
+                        if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
+                          onResetPassword(w.id);
+                        }
+                      }} className="btn-reset" title="איפוס סיסמא">🔄</button>
+                      <button onClick={() => onDelete(w.id)} className="btn-delete" title="מחיקה">🗑️</button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      {viewing && (
-        <WorkerDetail
-          worker={viewing}
-          onClose={() => setViewing(null)}
-          onEdit={onEdit}
-          authToken={authToken}
-          config={config}
-          isSuperAdmin={isSuperAdmin}
-        />
-      )}
+      {detailModal}
       <div className="worker-table-wrap">
       <table className="worker-table">
         <thead>

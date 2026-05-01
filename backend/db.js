@@ -656,6 +656,20 @@ async function runMigrations() {
       ON CONFLICT (name) DO NOTHING
     `);
 
+    // Seed תורנים/כוננים site groups for every branch
+    await query(`
+      INSERT INTO site_groups (name, color, group_type, branch_id)
+      SELECT bp.name, bp.color, bp.gtype, b.id
+      FROM branches b
+      CROSS JOIN (VALUES
+        ('תורנים', '#f59e0b', 'night'),
+        ('כוננים', '#8b5cf6', 'oncall')
+      ) AS bp(name, color, gtype)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM site_groups sg WHERE sg.name = bp.name AND sg.branch_id = b.id
+      )
+    `);
+
     console.log('✓ Migrations complete');
   } catch (error) {
     console.error('Error running migrations:', error);

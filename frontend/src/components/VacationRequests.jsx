@@ -1,5 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return isMobile;
+}
+
 const STATUS_LABEL = {
   pending:   { label: 'ממתין',       color: '#d97706' },
   approved:  { label: 'אושר',        color: '#16a34a' },
@@ -375,6 +385,7 @@ function AdminDecisionModal({ request, onClose, onSuccess, token }) {
 }
 
 function WorkerView({ requests, onCancel, onNewRequest, token }) {
+  const isMobile = useIsMobile();
   return (
     <div>
       <button
@@ -388,59 +399,83 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
         הגשת בקשת חופשה חדשה
       </button>
 
-      <div className="vacation-table-wrap">
-      <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
-        <thead>
-          <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
-          </tr>
-        </thead>
-        <tbody>
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {requests.length === 0 && <p style={{ color: '#666' }}>אין בקשות חופשה</p>}
           {requests.map((r) => (
-            <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-              <td style={{ padding: '3px 8px' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
-              <td style={{ padding: '3px 8px' }}>{formatDateHe(r.start_date)}</td>
-              <td style={{ padding: '3px 8px' }}>{formatDateHe(r.end_date)}</td>
-              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
-              <td style={{ padding: '3px 8px' }}><StatusBadge status={r.status} /></td>
-              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>
-                {r.approved_start && r.approved_end
-                  ? `${formatDateHe(r.approved_start)} – ${formatDateHe(r.approved_end)}`
-                  : '—'}
-              </td>
-              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
-              <td style={{ padding: '3px 8px' }}>
-                {r.status === 'pending' && (
-                  <button
-                    onClick={() => onCancel(r.id)}
-                    style={{
-                      background: '#dc2626', color: 'white',
-                      padding: '4px 8px', borderRadius: '4px', border: 'none',
-                      cursor: 'pointer', fontSize: '0.85rem'
-                    }}
-                  >
-                    ביטול
-                  </button>
-                )}
-              </td>
-            </tr>
+            <div key={r.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <StatusBadge status={r.status} />
+                <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{formatDateHe(r.created_at?.split('T')[0])}</span>
+              </div>
+              <div style={{ fontWeight: 600 }}>{formatDateHe(r.start_date)} – {formatDateHe(r.end_date)}</div>
+              {r.reason && <div style={{ fontSize: '0.88rem', color: '#374151' }}>סיבה: {r.reason}</div>}
+              {r.approved_start && r.approved_end && (
+                <div style={{ fontSize: '0.85rem', color: '#2563eb' }}>מאושר: {formatDateHe(r.approved_start)} – {formatDateHe(r.approved_end)}</div>
+              )}
+              {r.admin_notes && <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>הערות: {r.admin_notes}</div>}
+              {r.status === 'pending' && (
+                <button onClick={() => onCancel(r.id)} style={{ background: '#dc2626', color: 'white', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', alignSelf: 'flex-start' }}>
+                  ביטול
+                </button>
+              )}
+            </div>
           ))}
-        </tbody>
-      </table>
-      </div>
-      {requests.length === 0 && <p style={{ color: '#666' }}>אין בקשות חופשה</p>}
+        </div>
+      ) : (
+        <>
+        <div className="vacation-table-wrap">
+        <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
+          <thead>
+            <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requests.map((r) => (
+              <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <td style={{ padding: '3px 8px' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
+                <td style={{ padding: '3px 8px' }}>{formatDateHe(r.start_date)}</td>
+                <td style={{ padding: '3px 8px' }}>{formatDateHe(r.end_date)}</td>
+                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
+                <td style={{ padding: '3px 8px' }}><StatusBadge status={r.status} /></td>
+                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>
+                  {r.approved_start && r.approved_end
+                    ? `${formatDateHe(r.approved_start)} – ${formatDateHe(r.approved_end)}`
+                    : '—'}
+                </td>
+                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
+                <td style={{ padding: '3px 8px' }}>
+                  {r.status === 'pending' && (
+                    <button
+                      onClick={() => onCancel(r.id)}
+                      style={{ background: '#dc2626', color: 'white', padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
+                    >
+                      ביטול
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+        {requests.length === 0 && <p style={{ color: '#666' }}>אין בקשות חופשה</p>}
+        </>
+      )}
     </div>
   );
 }
 
 function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatusFilterChange, onNewRequest, nameFilter, onNameFilterChange }) {
+  const isMobile = useIsMobile();
   const statuses = ['', 'pending', 'approved', 'partial', 'rejected', 'cancelled'];
   const statusLabels = {
     '': 'כל הסטטוסים',
@@ -457,18 +492,13 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
 
   return (
     <div>
-      <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
         <button
           onClick={onNewRequest}
-          style={{
-            background: '#2563eb', color: 'white',
-            padding: '8px 16px', borderRadius: '4px', border: 'none',
-            cursor: 'pointer'
-          }}
+          style={{ background: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
         >
           הגש בקשה עבור עובד
         </button>
-        <label style={{ marginRight: '4px' }}>פילטר:</label>
         <select
           value={statusFilter}
           onChange={(e) => onStatusFilterChange(e.target.value)}
@@ -483,68 +513,97 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
           placeholder="חיפוש לפי שם..."
           value={nameFilter}
           onChange={(e) => onNameFilterChange(e.target.value)}
-          style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc', minWidth: '160px' }}
+          style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc', flex: '1 1 120px' }}
         />
       </div>
 
-      <div className="vacation-table-wrap">
-      <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
-        <thead>
-          <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>שם עובד</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
-            <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
-          </tr>
-        </thead>
-        <tbody>
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {filtered.length === 0 && <p style={{ color: '#666' }}>אין בקשות</p>}
           {filtered.map((r) => (
-            <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-              <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{r.first_name} {r.family_name}</td>
-              <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
-              <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{formatDateHe(r.start_date)}</td>
-              <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{formatDateHe(r.end_date)}</td>
-              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
-              <td style={{ padding: '3px 8px' }}><StatusBadge status={r.status} /></td>
-              <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
-                {r.approved_start && r.approved_end
-                  ? `${formatDateHe(r.approved_start)} – ${formatDateHe(r.approved_end)}`
-                  : '—'}
-              </td>
-              <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
-              <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>
+            <div key={r.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700 }}>{r.first_name} {r.family_name}</span>
+                <StatusBadge status={r.status} />
+              </div>
+              <div style={{ fontSize: '0.88rem', color: '#374151' }}>{formatDateHe(r.start_date)} – {formatDateHe(r.end_date)}</div>
+              <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>הוגש: {formatDateHe(r.created_at?.split('T')[0])}</div>
+              {r.reason && <div style={{ fontSize: '0.85rem' }}>סיבה: {r.reason}</div>}
+              {r.approved_start && r.approved_end && (
+                <div style={{ fontSize: '0.85rem', color: '#2563eb' }}>מאושר: {formatDateHe(r.approved_start)} – {formatDateHe(r.approved_end)}</div>
+              )}
+              {r.admin_notes && <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>הערות: {r.admin_notes}</div>}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                 <button
                   onClick={() => onDecide(r)}
-                  style={{
-                    background: r.status === 'pending' ? '#2563eb' : '#6b7280',
-                    color: 'white', padding: '4px 8px', borderRadius: '4px',
-                    border: 'none', cursor: 'pointer', fontSize: '0.85rem', marginLeft: '4px'
-                  }}
+                  style={{ background: r.status === 'pending' ? '#2563eb' : '#6b7280', color: 'white', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', flex: 1 }}
                 >
                   {r.status === 'pending' ? 'קבל החלטה' : 'ערוך החלטה'}
                 </button>
                 <button
                   onClick={() => onDelete(r.id)}
-                  style={{
-                    background: '#dc2626', color: 'white',
-                    padding: '4px 8px', borderRadius: '4px',
-                    border: 'none', cursor: 'pointer', fontSize: '0.85rem'
-                  }}
+                  style={{ background: '#dc2626', color: 'white', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
                 >
                   מחק
                 </button>
-              </td>
-            </tr>
+              </div>
+            </div>
           ))}
-        </tbody>
-      </table>
-      </div>
-      {filtered.length === 0 && <p style={{ color: '#666' }}>אין בקשות</p>}
+        </div>
+      ) : (
+        <>
+        <div className="vacation-table-wrap">
+        <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
+          <thead>
+            <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>שם עובד</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
+              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r) => (
+              <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{r.first_name} {r.family_name}</td>
+                <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
+                <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{formatDateHe(r.start_date)}</td>
+                <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{formatDateHe(r.end_date)}</td>
+                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
+                <td style={{ padding: '3px 8px' }}><StatusBadge status={r.status} /></td>
+                <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                  {r.approved_start && r.approved_end
+                    ? `${formatDateHe(r.approved_start)} – ${formatDateHe(r.approved_end)}`
+                    : '—'}
+                </td>
+                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
+                <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>
+                  <button
+                    onClick={() => onDecide(r)}
+                    style={{ background: r.status === 'pending' ? '#2563eb' : '#6b7280', color: 'white', padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', marginLeft: '4px' }}
+                  >
+                    {r.status === 'pending' ? 'קבל החלטה' : 'ערוך החלטה'}
+                  </button>
+                  <button
+                    onClick={() => onDelete(r.id)}
+                    style={{ background: '#dc2626', color: 'white', padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
+                  >
+                    מחק
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+        {filtered.length === 0 && <p style={{ color: '#666' }}>אין בקשות</p>}
+        </>
+      )}
     </div>
   );
 }

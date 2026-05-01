@@ -327,12 +327,16 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   days.forEach(d => {
     summaryMap[d] = {};
     shifts.forEach(s => {
-      summaryMap[d][s.key] = rows.filter(row => requestMap[row.userId]?.[d]?.[s.key]).length;
+      summaryMap[d][s.key] = rows.filter(row => {
+        const entry = requestMap[row.userId]?.[d]?.[s.key];
+        return entry && entry.pref !== 'cannot';
+      }).length;
     });
   });
 
   return (
     <>
+      <div className="admin-grid-scroll-wrap">
       <div className="admin-grid-header-wrap">
         <table className="admin-grid">
           <colgroup>
@@ -483,6 +487,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
           </tbody>
         </table>
       </div>
+      </div>{/* admin-grid-scroll-wrap */}
 
       {blockedWorkerMsg && (
         <div className="admin-editor-overlay" onClick={() => setBlockedWorkerMsg(null)}>

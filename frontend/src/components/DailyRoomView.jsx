@@ -289,6 +289,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const STEP = 20;
 
   const [restWarning, setRestWarning] = useState(null);
+  const checkMobile = () => window.innerWidth < 768 || (window.innerWidth < 900 && window.innerHeight < 500);
+  const [isMobile, setIsMobile] = useState(checkMobile);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
@@ -296,6 +299,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
   useEffect(() => { fetchAll(); }, [month, year, authToken, branchId]);
+
+  useEffect(() => {
+    const handler = () => setIsMobile(checkMobile());
+    window.addEventListener('resize', handler, { passive: true });
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   // Auto-select first group on mount
   useEffect(() => {
@@ -1471,6 +1480,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     <div className="room-view-container">
       <div className="room-view-header">
         <div className="room-nav">
+          <div className="room-nav-row1">
           <button className="btn-secondary btn-sm" onClick={nextYear} title="שנה קדימה">›››</button>
           <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">››</button>
           <button className="btn-secondary btn-sm" onClick={nextDay} title="יום קדימה">›</button>
@@ -1490,7 +1500,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button className="btn-secondary btn-sm" onClick={prevDay} title="יום אחורה">‹</button>
           <button className="btn-secondary btn-sm" onClick={prevMonth} title="חודש אחורה">‹‹</button>
           <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">‹‹‹</button>
-          <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
+          </div>{/* room-nav-row1 */}
+          <div className="room-nav-row2">
           <div style={{ display: 'flex', border: '1px solid #d1d5db', borderRadius: '8px', overflow: 'hidden' }}>
             <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="שמור את הפעילויות הנוכחיות כתבנית">💾</button>
             <button onClick={loadTemplates} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="טען תבנית על היום הנוכחי">📋</button>
@@ -1501,8 +1512,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️</button>
           <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
-          <button onClick={openSendModal} title="שלח תוכנית יומית בהודעה" style={{background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(14,165,233,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>💬 שלח תוכנית יומית</button>
-          <button onClick={fetchSuggestions} disabled={suggestLoading} title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות" style={{background: 'linear-gradient(135deg, #7c3aed, #a855f7)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: suggestLoading ? 'not-allowed' : 'pointer', opacity: suggestLoading ? 0.6 : 1, boxShadow: '0 2px 8px rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>🤖 הצע שיבוצים</button>
+          <button onClick={openSendModal} title="שלח תוכנית יומית בהודעה" style={{background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(14,165,233,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>{isMobile ? '💬' : '💬 שלח תוכנית יומית'}</button>
+          <button onClick={fetchSuggestions} disabled={suggestLoading} title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות" style={{background: 'linear-gradient(135deg, #7c3aed, #a855f7)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: suggestLoading ? 'not-allowed' : 'pointer', opacity: suggestLoading ? 0.6 : 1, boxShadow: '0 2px 8px rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>{isMobile ? '🤖' : '🤖 הצע שיבוצים'}</button>
           <div style={{flex: 1}} />
           {/* ── Daily staffing summary (inline) ───────────────────────── */}
           {(() => {
@@ -1574,6 +1585,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               </div>
             );
           })()}
+          </div>{/* room-nav-row2 */}
         </div>
         <div className="room-shift-times-bar">
           {(config.shift_types || []).filter(st => st.default_start).map(st => (
@@ -1616,29 +1628,24 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               });
               const regularGroupedSites = groupSitesByGroup(regularSites);
               return (
-                <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', borderBottom: '2px solid #e5e7eb', flexWrap: 'wrap', padding: '0.2rem 0.5rem 0 0.5rem', marginBottom: '0.25rem', flexShrink: 0 }}>
-                  <button onClick={() => setCardSize(s => Math.max(MIN_CARD, s - STEP))} className="btn-secondary btn-sm" title="הקטן כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding:'0.1rem 0.5rem'}}>−</button>
-                  <button onClick={() => setCardSize(s => Math.min(MAX_CARD, s + STEP))} className="btn-secondary btn-sm" title="הגדל כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding:'0.1rem 0.5rem'}}>+</button>
-                  <button onClick={() => setSelectedGroupId('__all__')} style={{ padding: '0.75rem 1rem', border: 'none', background: selectedGroupId === '__all__' ? '#1a2e4a' : '#f3f4f6', color: selectedGroupId === '__all__' ? 'white' : '#666', fontWeight: selectedGroupId === '__all__' ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' }}>הכל</button>
-                  {Object.entries(regularGroupedSites).map(([groupId, _]) => {
-                    const group = getGroup(groupId);
-                    return (
-                      <button key={groupId} onClick={() => setSelectedGroupId(groupId)} style={{ padding: '0.75rem 1rem', border: 'none', background: selectedGroupId === groupId ? '#1a2e4a' : '#f3f4f6', color: selectedGroupId === groupId ? 'white' : '#666', fontWeight: selectedGroupId === groupId ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' }}>
-                        {group.name}
-                      </button>
-                    );
-                  })}
-                  {(hasNightGroups || hasOncallGroups) && <span style={{ width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem' }} />}
-                  {hasNightGroups && (
-                    <button onClick={() => setSelectedGroupId('__night__')} style={{ padding: '0.75rem 1rem', border: 'none', background: selectedGroupId === '__night__' ? '#4b3085' : '#f3f4f6', color: selectedGroupId === '__night__' ? 'white' : '#555', fontWeight: selectedGroupId === '__night__' ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' }}>
-                      {shiftDefaults.night?.icon || '⭐'} {shiftDefaults.night?.label_he || 'תורנות'}
-                    </button>
-                  )}
-                  {hasOncallGroups && (
-                    <button onClick={() => setSelectedGroupId('__oncall__')} style={{ padding: '0.75rem 1rem', border: 'none', background: selectedGroupId === '__oncall__' ? '#0369a1' : '#f3f4f6', color: selectedGroupId === '__oncall__' ? 'white' : '#555', fontWeight: selectedGroupId === '__oncall__' ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' }}>
-                      {shiftDefaults.oncall?.icon || '📞'} {shiftDefaults.oncall?.label_he || 'כוננות'}
-                    </button>
-                  )}
+                <div style={{ display: 'flex', gap: isMobile ? '0.1rem' : '0.25rem', alignItems: 'center', borderBottom: '2px solid #e5e7eb', flexWrap: 'wrap', padding: isMobile ? '0.1rem 0.25rem 0' : '0.2rem 0.5rem 0 0.5rem', marginBottom: '0.25rem', flexShrink: 0, rowGap: isMobile ? '0.1rem' : '0.25rem', maxHeight: isMobile ? 'calc(2 * 2rem)' : undefined, overflow: isMobile ? 'hidden' : undefined }}>
+                  <button onClick={() => setCardSize(s => Math.max(MIN_CARD, s - STEP))} className="btn-secondary btn-sm" title="הקטן כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding: isMobile ? '0.05rem 0.3rem' : '0.1rem 0.5rem'}}>−</button>
+                  <button onClick={() => setCardSize(s => Math.min(MAX_CARD, s + STEP))} className="btn-secondary btn-sm" title="הגדל כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding: isMobile ? '0.05rem 0.3rem' : '0.1rem 0.5rem'}}>+</button>
+                  {(() => {
+                    const tabPad = isMobile ? '0.2rem 0.45rem' : '0.75rem 1rem';
+                    const tabFont = isMobile ? '0.72rem' : undefined;
+                    const tabStyle = (active, color = '#1a2e4a') => ({ padding: tabPad, fontSize: tabFont, border: 'none', background: active ? color : '#f3f4f6', color: active ? 'white' : '#666', fontWeight: active ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' });
+                    return (<>
+                      <button onClick={() => setSelectedGroupId('__all__')} style={tabStyle(selectedGroupId === '__all__')}>הכל</button>
+                      {Object.entries(regularGroupedSites).map(([groupId]) => {
+                        const group = getGroup(groupId);
+                        return <button key={groupId} onClick={() => setSelectedGroupId(groupId)} style={tabStyle(selectedGroupId === groupId)}>{group.name}</button>;
+                      })}
+                      {(hasNightGroups || hasOncallGroups) && <span style={{ width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.1rem' }} />}
+                      {hasNightGroups && <button onClick={() => setSelectedGroupId('__night__')} style={tabStyle(selectedGroupId === '__night__', '#4b3085')}>{shiftDefaults.night?.icon || '⭐'} {shiftDefaults.night?.label_he || 'תורנות'}</button>}
+                      {hasOncallGroups && <button onClick={() => setSelectedGroupId('__oncall__')} style={tabStyle(selectedGroupId === '__oncall__', '#0369a1')}>{shiftDefaults.oncall?.icon || '📞'} {shiftDefaults.oncall?.label_he || 'כוננות'}</button>}
+                    </>);
+                  })()}
                 </div>
               );
             })()}
@@ -1767,58 +1774,77 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             })()}
             </div>
             <div className="room-view-sidebar">
-              <div className="room-requests-bar">
-                <span className="room-requests-label">עובדים זמינים:</span>
-                <div className="room-requests-content">
-                  {availabilityShifts.map(st => {
-                    const requests = requestsByShift[st.key] || [];
-                    const { icon, label_he: label, color, bg_color: bg, key: shiftKey } = st;
-                    return ({ icon, label, requests, color, bg, shiftKey });
-                  }).map(({ icon, label, requests, color, bg, shiftKey }) => (
-                    <div key={label} className="room-requests-shift">
-                      <span className="room-requests-icon" style={{color, background: bg, padding: '0.05rem 0.35rem', borderRadius: '3px', fontWeight: 700}}>{icon} {label}:</span>
-                      {requests.length === 0 ? (
-                        <span className="room-requests-empty">אין</span>
+              {isMobile && (
+                <button className="room-sidebar-mobile-toggle" onClick={() => setSidebarOpen(o => !o)}>
+                  <span style={{fontSize:'0.78rem', fontWeight:600, color:'#1a2e4a'}}>
+                    עובדים זמינים{' '}
+                    <span style={{background:'#dbeafe', color:'#1e40af', borderRadius:'8px', padding:'0 0.3rem', fontSize:'0.65rem', fontWeight:700}}>
+                      {availabilityShifts.reduce((s, st) => s + (requestsByShift[st.key] || []).length, 0)}
+                    </span>
+                    {' | '}לא משובצים{' '}
+                    <span style={{background: getUnassignedWorkers().length ? '#fee2e2' : '#d1fae5', color: getUnassignedWorkers().length ? '#991b1b' : '#065f46', borderRadius:'8px', padding:'0 0.3rem', fontSize:'0.65rem', fontWeight:700}}>
+                      {getUnassignedWorkers().length}
+                    </span>
+                  </span>
+                  <span style={{fontSize:'0.7rem', color:'#6b7280'}}>{sidebarOpen ? '▲' : '▼'}</span>
+                </button>
+              )}
+              {(!isMobile || sidebarOpen) && (
+                <div className={isMobile ? 'room-sidebar-mobile-content' : undefined}>
+                  <div className="room-requests-bar">
+                    <span className="room-requests-label">עובדים זמינים:</span>
+                    <div className="room-requests-content">
+                      {availabilityShifts.map(st => {
+                        const requests = requestsByShift[st.key] || [];
+                        const { icon, label_he: label, color, bg_color: bg, key: shiftKey } = st;
+                        return ({ icon, label, requests, color, bg, shiftKey });
+                      }).map(({ icon, label, requests, color, bg, shiftKey }) => (
+                        <div key={label} className="room-requests-shift">
+                          <span className="room-requests-icon" style={{color, background: bg, padding: '0.05rem 0.35rem', borderRadius: '3px', fontWeight: 700}}>{icon} {label}:</span>
+                          {requests.length === 0 ? (
+                            <span className="room-requests-empty">אין</span>
+                          ) : (
+                            Object.entries(groupRequestsByJob(requests)).map(([job, reqs]) => (
+                              <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'wrap'}}>
+                                <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
+                                {reqs.map(r => (
+                                  <span
+                                    key={r.id}
+                                    className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
+                                    title={prefLabel[r.preference_type]}
+                                    style={assignedWorkerIdsByShift[shiftKey]?.has(r.worker_id) ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}
+                                  >
+                                    {r.first_name} {r.family_name}
+                                  </span>
+                                ))}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="room-unassigned-bar">
+                    <span className="room-unassigned-label">עובדים שלא משובצים:</span>
+                    <div className="room-unassigned-content">
+                      {getUnassignedWorkers().length === 0 ? (
+                        <span className="room-unassigned-empty">כל העובדים משובצים ✓</span>
                       ) : (
-                        Object.entries(groupRequestsByJob(requests)).map(([job, reqs]) => (
+                        Object.entries(groupWorkersByJob(getUnassignedWorkers())).map(([job, wList]) => (
                           <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'wrap'}}>
                             <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
-                            {reqs.map(r => (
-                              <span
-                                key={r.id}
-                                className={`room-requests-worker pref-${r.preference_type}${isSaturday(r.date) && r.preference_type === 'cannot' ? ' saturday' : ''}`}
-                                title={prefLabel[r.preference_type]}
-                                style={assignedWorkerIdsByShift[shiftKey]?.has(r.worker_id) ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}
-                              >
-                                {r.first_name} {r.family_name}
+                            {wList.map(w => (
+                              <span key={w.id} className="room-unassigned-worker">
+                                {w.first_name} {w.family_name}
                               </span>
                             ))}
                           </span>
                         ))
                       )}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-              <div className="room-unassigned-bar">
-                <span className="room-unassigned-label">עובדים שלא משובצים:</span>
-                <div className="room-unassigned-content">
-                  {getUnassignedWorkers().length === 0 ? (
-                    <span className="room-unassigned-empty">כל העובדים משובצים ✓</span>
-                  ) : (
-                    Object.entries(groupWorkersByJob(getUnassignedWorkers())).map(([job, wList]) => (
-                      <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'wrap'}}>
-                        <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
-                        {wList.map(w => (
-                          <span key={w.id} className="room-unassigned-worker">
-                            {w.first_name} {w.family_name}
-                          </span>
-                        ))}
-                      </span>
-                    ))
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </>

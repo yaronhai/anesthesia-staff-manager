@@ -7,7 +7,17 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
+  const checkMobile = () => window.innerWidth < 640;
+  const checkLandscape = () => window.innerWidth < 900 && window.innerHeight < 500;
+  const [isMobile, setIsMobile] = useState(checkMobile);
+  const [isLandscape, setIsLandscape] = useState(checkLandscape);
   const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => { setIsMobile(checkMobile()); setIsLandscape(checkLandscape()); };
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const isWorker = currentUser?.role === 'user';
@@ -102,12 +112,12 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     });
   })();
 
-  // Auto-select first contact for workers
+  // Auto-select first contact for workers (desktop only)
   useEffect(() => {
-    if (isWorker && mergedContacts.length > 0 && !selectedUserId) {
+    if (!isMobile && isWorker && mergedContacts.length > 0 && !selectedUserId) {
       setSelectedUserId(mergedContacts[0].id);
     }
-  }, [mergedContacts.length, isWorker, selectedUserId]);
+  }, [mergedContacts.length, isWorker, selectedUserId, isMobile]);
 
   // Polling for messages
   useEffect(() => {
@@ -133,51 +143,64 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
 
   const selectedConversation = conversations.find(c => c.partner_id === selectedUserId);
 
-  return (
-    <div style={{ direction: 'rtl', display: 'flex', height: 'calc(100vh - 200px)', gap: '1rem', padding: '1rem', maxWidth: '60%', margin: '0 auto' }}>
-      {/* Contacts/Conversations list */}
-      <div style={{ width: '140px', display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        <div style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb', fontWeight: 700, color: '#991b1b', fontSize: '0.8rem', textAlign: 'center' }}>
-          {isAdmin ? 'עובדים' : 'אנשי קשר'}
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.125rem', padding: '0.25rem' }}>
-          {mergedContacts.length === 0 ? (
-            <p style={{ fontSize: '0.7rem', color: '#9ca3af', padding: '0.5rem', textAlign: 'center' }}>אין אנשי קשר</p>
-          ) : mergedContacts.map(contact => {
-            const conversation = conversations.find(c => c.partner_id === contact.id);
-            const isSidur = contact.display_name === 'סידור עבודה';
-            return (
-              <button
-                key={contact.id}
-                onClick={() => setSelectedUserId(contact.id)}
-                style={{
-                  padding: '0.3rem 0.4rem', borderRadius: '3px', border: 'none', textAlign: 'right',
-                  cursor: 'pointer',
-                  background: selectedUserId === contact.id ? '#1e40af' : 'white',
-                  color: selectedUserId === contact.id ? 'white' : isSidur ? '#7f1d1d' : '#1e40af',
-                  fontWeight: 700,
-                  fontSize: '0.7rem', position: 'relative', whiteSpace: 'nowrap',
-                  overflow: 'hidden', textOverflow: 'ellipsis',
-                }}
-              >
-                {contact.display_name}
-                {conversation?.unread_count > 0 && (
-                  <span style={{ position: 'absolute', left: '0.3rem', top: '-5px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '15px', height: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700 }}>
-                    {conversation.unread_count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+  const showContacts = !isMobile || !selectedUserId;
+  const showChat = !isMobile || !!selectedUserId;
+
+  const contactsList = (
+    <div style={{ width: isMobile ? '100%' : isLandscape ? '110px' : '130px', minWidth: isMobile ? undefined : '80px', flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+      <div style={{ padding: isLandscape ? '0.25rem' : '0.5rem', borderBottom: '1px solid #e5e7eb', fontWeight: 700, color: '#991b1b', fontSize: isLandscape ? '0.7rem' : '0.8rem', textAlign: 'center' }}>
+        {isAdmin ? 'עובדים' : 'אנשי קשר'}
       </div>
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.125rem', padding: '0.25rem' }}>
+        {mergedContacts.length === 0 ? (
+          <p style={{ fontSize: '0.7rem', color: '#9ca3af', padding: '0.5rem', textAlign: 'center' }}>אין אנשי קשר</p>
+        ) : mergedContacts.map(contact => {
+          const conversation = conversations.find(c => c.partner_id === contact.id);
+          const isSidur = contact.display_name === 'סידור עבודה';
+          return (
+            <button
+              key={contact.id}
+              onClick={() => setSelectedUserId(contact.id)}
+              style={{
+                padding: isMobile ? '0.6rem 0.75rem' : isLandscape ? '0.2rem 0.3rem' : '0.3rem 0.4rem',
+                borderRadius: '3px', border: 'none', textAlign: 'right',
+                cursor: 'pointer',
+                background: selectedUserId === contact.id ? '#1e40af' : 'white',
+                color: selectedUserId === contact.id ? 'white' : isSidur ? '#7f1d1d' : '#1e40af',
+                fontWeight: 700,
+                fontSize: isMobile ? '0.9rem' : isLandscape ? '0.65rem' : '0.7rem',
+                position: 'relative', whiteSpace: 'nowrap',
+                overflow: 'hidden', textOverflow: 'ellipsis',
+              }}
+            >
+              {contact.display_name}
+              {conversation?.unread_count > 0 && (
+                <span style={{ position: 'absolute', left: '0.3rem', top: isMobile ? '0.3rem' : '-5px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700 }}>
+                  {conversation.unread_count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ direction: 'rtl', display: 'flex', height: isLandscape ? 'calc(100vh - 72px)' : 'calc(100vh - 200px)', gap: isLandscape ? '0.25rem' : '0.5rem', padding: isLandscape ? '0.25rem 0.5rem' : '0.75rem', maxWidth: '800px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+      {showContacts && contactsList}
 
       {/* Chat area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+      {showChat && <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
         {selectedUserId ? (
           <>
             {/* Chat header */}
-            <div style={{ padding: '0.75rem', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#1f2937', fontSize: '0.95rem' }}>
+            <div style={{ padding: isLandscape ? '0.25rem 0.5rem' : '0.75rem', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#1f2937', fontSize: isLandscape ? '0.8rem' : '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {isMobile && (
+                <button onClick={() => setSelectedUserId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: '1rem', fontWeight: 700, padding: '0 0.25rem' }}>
+                  ←
+                </button>
+              )}
               {selectedConversation?.partner_name || (() => {
                 const worker = workers.find(w => w.user_id === selectedUserId);
                 return worker ? `${worker.first_name} ${worker.family_name}` : selectedConversation?.partner_username || 'שיחה';
@@ -249,7 +272,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
             {isAdmin ? 'בחר שיחה להתחלה' : 'לא הוקמה שיחה עדיין'}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

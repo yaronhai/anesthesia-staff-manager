@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
                    'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -22,6 +22,19 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
   const [activeDay, setActiveDay] = useState(null);
   const [addForm, setAddForm] = useState(null);
   const [editingSD, setEditingSD] = useState(null);
+  const [showHolidays, setShowHolidays] = useState(false);
+  const [holidays, setHolidays] = useState([]);
+  const [holidaysLoading, setHolidaysLoading] = useState(false);
+
+  const checkLandscape = () => window.innerWidth < 900 && window.innerHeight < 500;
+  const checkMobile = () => window.innerWidth < 640;
+  const [isLandscape, setIsLandscape] = useState(checkLandscape);
+  const [isMobile, setIsMobile] = useState(checkMobile);
+  useEffect(() => {
+    const h = () => { setIsLandscape(checkLandscape()); setIsMobile(checkMobile()); };
+    window.addEventListener('resize', h, { passive: true });
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
   const specialDays = config.special_days || [];
   const branchQ = branchId ? `?branch_id=${branchId}` : '';
@@ -59,6 +72,40 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
     } else {
       setAddForm(null);
     }
+  }
+
+  async function fetchHolidays() {
+    setHolidaysLoading(true);
+    try {
+      const res = await fetch(`https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&i=on&year=${year}&month=x&ss=off&mf=on&c=off&s=off&nx=off`);
+      const data = await res.json();
+      const items = (data.items || [])
+        .filter(item => item.category === 'holiday' && item.date && item.hebrew)
+        .map(item => ({
+          date: item.date.substring(0, 10),
+          name: item.hebrew,
+          subcat: item.subcat || '',
+        }));
+      setHolidays(items);
+      setShowHolidays(true);
+    } catch {
+      alert('שגיאה בטעינת חגים מהאינטרנט');
+    } finally {
+      setHolidaysLoading(false);
+    }
+  }
+
+  async function addHolidayDirect(h) {
+    const dow = new Date(h.date + 'T12:00:00').getDay();
+    const type = h.subcat === 'eve' || dow === 5 ? 'eve' : 'holiday';
+    const color = type === 'eve' ? '#6ee7b7' : '#059669';
+    const res = await fetch(`/api/config/special-days${branchQ}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ date: h.date, name: h.name, type, color }),
+    });
+    if (res.ok) onConfigChange(await res.json());
+    else alert('שגיאה בהוספה');
   }
 
   async function removeSD(id) {
@@ -119,11 +166,13 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
   }).filter(Boolean).length;
   const monthTotal = monthHolidays + monthEves + monthSaturdays + monthFridays;
 
+  const L = isLandscape || isMobile;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginLeft: 'auto', marginRight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: L ? '0.2rem' : '0.75rem', marginLeft: 'auto', marginRight: 0 }}>
 
       {/* Month summary */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', fontSize: '0.7rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: L ? '0.3rem' : '0.6rem', flexWrap: 'wrap', fontSize: L ? '0.6rem' : '0.7rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: L ? '2px 6px' : '3px 12px' }}>
         <span style={{ color: '#374151', fontWeight: 700 }}>סה"כ חודש זה: {monthTotal}</span>
         <span style={{ color: '#9ca3af' }}>|</span>
         <span style={{ color: '#374151' }}>חג: <span style={{ fontWeight: 700, color: '#7f1d1d' }}>{monthHolidays}</span></span>
@@ -136,23 +185,52 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
       </div>
 
       {/* Navigation */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-        <button className="btn-secondary" onClick={() => { setYear(y => y-1); setActiveDay(null); setAddForm(null); }}>◀</button>
-        <strong style={{ fontSize: '0.85rem', minWidth: 40, textAlign: 'center' }}>{year}</strong>
-        <button className="btn-secondary" onClick={() => { setYear(y => y+1); setActiveDay(null); setAddForm(null); }}>▶</button>
-        <span style={{ width: 10 }} />
-        <button className="btn-secondary" onClick={prevMonth}>◀</button>
-        <strong style={{ minWidth: 64, textAlign: 'center' }}>{MONTHS_HE[month]}</strong>
-        <button className="btn-secondary" onClick={nextMonth}>▶</button>
+      <div className="month-year-nav">
+        <button className="btn-secondary btn-sm" onClick={() => { setYear(y => y+1); setActiveDay(null); setAddForm(null); }} title="שנה קדימה">»</button>
+        <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">›</button>
+        <span className="month-year-label">{MONTHS_HE[month]} {year}</span>
+        <button className="btn-secondary btn-sm" onClick={prevMonth} title="חודש אחורה">‹</button>
+        <button className="btn-secondary btn-sm" onClick={() => { setYear(y => y-1); setActiveDay(null); setAddForm(null); }} title="שנה אחורה">«</button>
+        <button className="btn-secondary btn-sm" onClick={fetchHolidays} disabled={holidaysLoading} style={{ marginRight: '0.5rem', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontWeight: 600 }}>
+          {holidaysLoading ? '...' : '📅 חגים'}
+        </button>
       </div>
 
+      {/* Holidays list panel */}
+      {showHolidays && (
+        <div style={{ border: '1px solid #bfdbfe', borderRadius: 8, background: '#f0f9ff', padding: '0.5rem 0.75rem', maxHeight: 260, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+            <strong style={{ fontSize: '0.8rem', color: '#1d4ed8' }}>חגים {year} — לחץ להוספה</strong>
+            <button onClick={() => setShowHolidays(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', color: '#64748b' }}>✕</button>
+          </div>
+          {holidays.length === 0 ? (
+            <div style={{ fontSize: '0.78rem', color: '#6b7280' }}>לא נמצאו חגים</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              {holidays.map((h, i) => {
+                const alreadyAdded = specialDays.some(s => s.date === h.date);
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.18rem 0.3rem', borderRadius: 5, background: alreadyAdded ? '#f0fdf4' : 'white', border: '1px solid #e2e8f0' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#374151', flex: 1 }}><span style={{ fontWeight: 700 }}>{h.date}</span> — {h.name}</span>
+                    {alreadyAdded
+                      ? <span style={{ fontSize: '0.65rem', color: '#16a34a', fontWeight: 600 }}>✓ קיים</span>
+                      : <button onClick={() => addHolidayDirect(h)} className="btn-primary" style={{ padding: '0.1rem 0.45rem', fontSize: '0.68rem' }}>הוסף</button>
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Calendar grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: L ? 1 : 3 }}>
         {DAY_INITIALS.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: '0.6rem', fontWeight: 700, color: '#9ca3af', paddingBottom: 2 }}>{d}</div>
+          <div key={d} style={{ textAlign: 'center', fontSize: '0.6rem', fontWeight: 700, color: '#9ca3af', paddingBottom: L ? 0 : 2 }}>{d}</div>
         ))}
         {cells.map((d, i) => {
-          if (!d) return <div key={`e${i}`} style={{ minHeight: 58 }} />;
+          if (!d) return <div key={`e${i}`} style={{ minHeight: L ? 32 : 58 }} />;
           const dateStr = toStr(year, month, d);
           const dow = new Date(year, month, d).getDay();
           const isSat = dow === 6;
@@ -165,32 +243,32 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
               onClick={() => handleDayClick(dateStr)}
               title={sd ? `${sd.name} — לחץ לאפשרויות` : 'לחץ להוספת יום מיוחד'}
               style={{
-                minHeight: 48, borderRadius: 6, padding: '3px 2px', textAlign: 'center',
+                minHeight: L ? 32 : 48, borderRadius: L ? 3 : 6, padding: L ? '1px 1px' : '3px 2px', textAlign: 'center',
                 cursor: 'pointer',
                 border: isActive ? '2px solid #2563eb' : sd ? `2px solid ${sd.color}` : '2px solid transparent',
                 background: sd ? sd.color + '28' : isSat ? '#fecaca' : isFri ? '#bfdbfe' : '#f9fafb',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
                 boxShadow: isActive ? '0 0 0 2px #bfdbfe' : sd ? `0 0 0 1px ${sd.color}55` : 'none',
                 transition: 'box-shadow 0.1s',
               }}
             >
               <span style={{
-                fontSize: '0.75rem', fontWeight: sd ? 700 : 400,
+                fontSize: L ? '0.62rem' : '0.75rem', fontWeight: sd ? 700 : 400,
                 color: sd ? sd.color : isSat ? '#dc2626' : isFri ? '#b45309' : '#374151',
               }}>{d}</span>
               {sd && (
                 <>
-                  <span style={{ fontSize: '0.55rem', color: sd.color, fontWeight: 700, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                  <span style={{ fontSize: L ? '0.45rem' : '0.55rem', color: sd.color, fontWeight: 700, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.1 }}>
                     {sd.name}
                   </span>
-                  {sd.type !== 'other' && (
+                  {sd.type !== 'other' && !L && (
                     <span style={{ fontSize: '0.48rem', background: sd.color, borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>
                       {sd.type === 'holiday' ? 'חג' : 'ערב חג'}
                     </span>
                   )}
                 </>
               )}
-              {!sd && !isSat && !isFri && (
+              {!sd && !isSat && !isFri && !L && (
                 <span style={{ fontSize: '0.42rem', color: '#d1d5db', lineHeight: 1.5 }}>+</span>
               )}
             </div>

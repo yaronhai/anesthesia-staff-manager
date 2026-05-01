@@ -1,4 +1,5 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
+button, a, select, input, textarea { touch-action: manipulation; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -653,8 +654,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  margin-bottom: 0.6rem;
-  margin-top: 0.4rem;
+  margin-bottom: 0.3rem;
+  margin-top: 0.2rem;
 }
 
 .filters select {
@@ -859,10 +860,16 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   border-top: 1px solid #e5e7eb;
   margin: 0.5rem 0 0;
 }
+.admin-grid-scroll-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: hidden;
+}
 .admin-grid-header-wrap {
   padding: 1rem 1.5rem 0;
   flex-shrink: 0;
-  overflow-y: auto;
   scrollbar-gutter: stable;
 }
 .admin-grid-wrap {
@@ -2437,6 +2444,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   gap: 0.3rem;
   flex-wrap: wrap;
 }
+.room-nav-row1, .room-nav-row2 { display: contents; }
 
 .room-nav button {
   padding: 0.3rem 0.6rem;
@@ -3053,13 +3061,13 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   }
 
   .room-view-body {
-    flex-direction: column-reverse;
+    flex-direction: column;
   }
 
-  .room-sidebar {
+  .room-view-sidebar {
     width: 100%;
-    position: static;
-    max-height: 300px;
+    overflow: visible;
+    flex-shrink: 0;
   }
 }
 
@@ -3088,18 +3096,24 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .btn-logout { padding: 0.22rem 0.5rem; font-size: 0.7rem; }
   .btn-settings { padding: 0.22rem 0.5rem; font-size: 0.85rem; }
 
-  /* Tabs */
+  /* Tabs – wrap to two rows */
   .tabs {
     top: 50px;
+    left: 0;
+    right: 0;
+    width: 100vw;
+    max-width: 100vw;
+    margin: 0;
     padding: 0.2rem 0.3rem;
     flex-wrap: wrap;
     gap: 2px;
-    width: 100%;
   }
   .tab-btn {
     padding: 0.28rem 0.6rem;
     font-size: 0.72rem;
   }
+  /* enough room for header (~50px) + two rows of tabs (~54px) */
+  .app { padding-top: 112px; }
 
   /* Shift view */
   .shift-view { max-height: none; }
@@ -3149,11 +3163,157 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
     max-height: 100dvh;
     padding: 0.85rem 1rem;
   }
-  .form-row { flex-direction: column; gap: 0.5rem; }
+  .form-row { grid-template-columns: 1fr; }
+  .form-row-3 { grid-template-columns: 1fr; }
+
+  /* Filters */
+  .filters { flex-wrap: wrap; row-gap: 0.4rem; }
+  .filters input { min-width: 120px !important; flex: 1; }
+  .filters select { flex: 1; min-width: 90px; }
+
+  /* Tables */
+  .worker-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Admin shift grid – single shared horizontal scroll, sticky name col */
+  .admin-grid-scroll-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; overflow-y: visible; }
+  .admin-grid-wrap { overflow-x: visible; overflow-y: visible; padding-left: 0; padding-right: 0; }
+  .admin-grid-header-wrap { padding-left: 0; padding-right: 0; }
+  .admin-grid { min-width: 480px; }
+  /* RTL table: name col is visually on the right, must stick to right */
+  .admin-grid-name-col { right: 0; left: auto; }
+
+  /* Settings modal */
+  .settings-modal { width: 100vw; max-width: 100vw; max-height: 95dvh; border-radius: 0; }
+  .settings-header { border-radius: 0; }
+
+  /* Cell editor */
+  .admin-cell-editor { min-width: min(300px, 92vw); max-width: 92vw; }
+
+  /* Room view */
+  .room-view-container { height: calc(100svh - 95px); }
+  .room-nav { flex-direction: column; align-items: flex-start; gap: 0.2rem; }
+  .room-nav-row1, .room-nav-row2 { display: flex; align-items: center; gap: 0.2rem; flex-wrap: nowrap; width: 100%; }
+  .room-nav button, .room-nav .btn-sm { padding: 0.22rem 0.38rem !important; font-size: 0.75rem !important; }
+  .room-nav button[style] { padding: 0.22rem 0.38rem !important; font-size: 0.85rem !important; font-weight: 600 !important; box-shadow: none !important; }
 
   /* Login */
   .login-box { padding: 1.5rem 1rem; margin: 0.75rem auto; }
 
-  /* Vacation table scroll */
-  .vacation-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Special days */
+  .special-days-wrap { padding: 0.5rem 0.75rem; max-width: 700px; margin-left: auto; margin-right: 0; }
+  .special-days-title { margin-bottom: 0.3rem; color: #1a2e4a; font-size: 1rem; }
+}
+
+/* Vacation table – always scrollable horizontally */
+.vacation-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ── Worker card list (mobile) ─────────────────────────────────────────────── */
+.worker-card-list {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.worker-card {
+  display: flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-bottom: 1px solid #f1f5f9;
+  gap: 0.4rem;
+}
+.worker-card:last-child { border-bottom: none; }
+.worker-card-inactive { opacity: 0.6; }
+
+.worker-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.worker-card-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1a2e4a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+}
+
+.worker-card-id {
+  font-size: 0.68rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.worker-card-badges {
+  display: flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.worker-card-actions {
+  display: flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+/* ── Mobile sidebar toggle (room view) ────────────────────────────────────── */
+.room-sidebar-mobile-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .room-sidebar-mobile-toggle {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    background: #f1f5f9;
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .room-sidebar-mobile-content {
+    max-height: 210px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #f8fafc;
+  }
+  .room-sidebar-mobile-content .room-requests-bar,
+  .room-sidebar-mobile-content .room-unassigned-bar {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+  }
+}
+
+/* ── Phone landscape (short viewport) ─────────────────────────────────────── */
+@media (max-height: 500px) and (max-width: 900px) {
+  header { padding: 0.25rem 0.65rem; gap: 0.3rem; }
+  .logo-assuta { height: 20px; }
+  header h1 { font-size: 0.8rem; }
+  header .subtitle { display: none; }
+  .tabs { top: 40px; padding: 0.1rem 0.3rem; }
+  .tab-btn { padding: 0.18rem 0.45rem; font-size: 0.68rem; }
+  .app { padding-top: 68px; }
+  .shift-view { max-height: calc(100vh - 70px); }
+  .room-view-container { height: calc(100vh - 70px); }
+  .worker-table-wrap { max-height: calc(100vh - 90px); }
+
+  /* Vacation table – fit in landscape without horizontal scroll */
+  .vacation-table-wrap * { font-size: 0.62rem !important; padding: 2px 4px !important; border-radius: 6px !important; }
+  .vacation-table-wrap th,
+  .vacation-table-wrap td { white-space: normal !important; }
 }
