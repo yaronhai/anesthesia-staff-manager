@@ -21,7 +21,7 @@ if (require('fs').existsSync(FRONTEND_DIST)) {
   });
 }
 
-const { jobTitles, empTypes, honorifics, groupColors, sites, shiftTypes, preferenceTypes } = require('./seed-data');
+const { jobTitles, empTypes, honorifics, groupColors, shiftTypes, preferenceTypes } = require('./seed-data');
 
 // ── Database Initialization ─────────────────────────────────────────────────
 
@@ -60,17 +60,6 @@ async function seedDatabase() {
           [name, color, defaultBranchId]
         );
       }
-    }
-
-    // Seed sites (resolve group name → id at runtime)
-    const groupIdCache = {};
-    for (const site of sites) {
-      if (!groupIdCache[site.groupName]) {
-        const res = await query('SELECT id FROM site_groups WHERE name = $1 AND branch_id = $2', [site.groupName, defaultBranchId]);
-        groupIdCache[site.groupName] = res.rows[0]?.id;
-      }
-      await query('INSERT INTO sites (name, group_id, branch_id) VALUES ($1, $2, $3) ON CONFLICT (name, branch_id) DO NOTHING',
-        [site.name, groupIdCache[site.groupName], defaultBranchId]);
     }
 
     // Seed shift types

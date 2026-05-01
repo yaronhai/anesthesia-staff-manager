@@ -18,30 +18,6 @@ module.exports = {
     'אתרים אחרים':     '#10b981',
   },
 
-  // groupName is resolved to a DB id at seed time
-  sites: [
-    { name: 'חדר ניתוח 1',  groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 2',  groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 3',  groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 4',  groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 5',  groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 6',  groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 7',  groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 8',  groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 9',  groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 10', groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 11', groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 12', groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 13', groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 14', groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 15', groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 16', groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 17', groupName: 'חדרי ניתוח' },
-    { name: 'חדר ניתוח 18', groupName: 'חדרי ניתוח' },
-    { name: 'IVF',           groupName: 'אתרים אחרים' },
-    { name: 'גסטרו',         groupName: 'אתרים אחרים' },
-  ],
-
   shiftTypes: [
     { key: 'morning', label_he: 'בוקר',   label_short: 'ב', icon: '☀',  color: '#b45309', bg_color: '#fef3c7', show_in_assignments: true,  show_in_availability_bar: true,  sort_order: 1, default_start: '07:00', default_end: '15:00' },
     { key: 'evening', label_he: 'ערב',    label_short: 'ע', icon: '🌙', color: '#1e40af', bg_color: '#dbeafe', show_in_assignments: true,  show_in_availability_bar: true,  sort_order: 2, default_start: '15:00', default_end: '23:00' },
