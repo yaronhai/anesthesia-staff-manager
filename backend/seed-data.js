@@ -1,5 +1,5 @@
 module.exports = {
-  jobTitles: ['רופא', 'עוזר רופא', 'טכנאי הרדמה', 'אחות', 'אחר'],
+  jobTitles: ['רופא מרדים', 'עוזר מרדים', 'מנהל מחלקה'],
 
   empTypes: [
     { name: 'שכיר',      is_independent: false },

@@ -27,9 +27,13 @@ const { jobTitles, empTypes, honorifics, groupColors, sites, shiftTypes, prefere
 
 async function seedDatabase() {
   try {
-    // Seed job titles
-    for (const name of jobTitles) {
-      await query('INSERT INTO job_titles (name) VALUES ($1) ON CONFLICT DO NOTHING', [name]);
+    // Seed job titles (branch-scoped)
+    const defaultBranchForJobs = await query("SELECT id FROM branches WHERE name = 'ברירת מחדל'");
+    const defaultBranchIdForJobs = defaultBranchForJobs.rows[0]?.id;
+    if (defaultBranchIdForJobs) {
+      for (const name of jobTitles) {
+        await query('INSERT INTO job_titles (name, branch_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [name, defaultBranchIdForJobs]);
+      }
     }
 
     // Seed employment types
@@ -288,9 +292,12 @@ async function getConfig(branchId = null) {
     const sitesQuery = branchId
       ? query('SELECT id, name, description, group_id FROM sites WHERE branch_id = $1 ORDER BY name', [branchId])
       : query('SELECT id, name, description, group_id FROM sites ORDER BY name');
+    const jobTitlesQuery = branchId
+      ? query('SELECT id, name FROM job_titles WHERE branch_id = $1 ORDER BY id', [branchId])
+      : query('SELECT MIN(id) AS id, name FROM job_titles GROUP BY name ORDER BY name');
 
     const res = await Promise.all([
-      query('SELECT id, name FROM job_titles ORDER BY id'),
+      jobTitlesQuery,
       query('SELECT id, name, is_independent FROM employment_types ORDER BY id'),
       query('SELECT id, name FROM honorifics ORDER BY id'),
       siteGroupsQuery,
@@ -1222,49 +1229,31 @@ app.get('/api/config', requireAuth, async (req, res) => {
 });
 
 app.post('/api/config/jobs', requireAdmin, async (req, res) => {
+  const { value } = req.body;
+  if (!value?.trim()) return res.status(400).json({ error: 'ערך לא תקין' });
+  const branchId = getEffectiveBranchId(req);
   try {
-    const { value } = req.body;
-    if (!value?.trim()) return res.status(400).json({ error: 'ערך לא תקין' });
-    try {
-      await query('INSERT INTO job_titles (name) VALUES ($1)', [value.trim()]);
-      const config = await getConfig(getEffectiveBranchId(req));
-      res.json(config);
-    } catch {
-      res.status(400).json({ error: 'ערך כפול' });
-    }
-  } catch (error) {
-    console.error('Add job title error:', error);
-    res.status(500).json({ error: 'שגיאה' });
-  }
+    await query('INSERT INTO job_titles (name, branch_id) VALUES ($1, $2)', [value.trim(), branchId]);
+    res.json(await getConfig(branchId));
+  } catch { res.status(400).json({ error: 'ערך כפול' }); }
 });
 
 app.put('/api/config/jobs/:id', requireAdmin, async (req, res) => {
+  const { value } = req.body;
+  if (!value?.trim()) return res.status(400).json({ error: 'ערך לא תקין' });
+  const branchId = getEffectiveBranchId(req);
   try {
-    const { value } = req.body;
-    if (!value?.trim()) return res.status(400).json({ error: 'ערך לא תקין' });
-    try {
-      await query('UPDATE job_titles SET name=$1 WHERE id=$2', [value.trim(), req.params.id]);
-      const config = await getConfig(getEffectiveBranchId(req));
-      res.json(config);
-    } catch {
-      res.status(400).json({ error: 'ערך כפול' });
-    }
-  } catch (error) {
-    console.error('Update job title error:', error);
-    res.status(500).json({ error: 'שגיאה' });
-  }
+    await query('UPDATE job_titles SET name=$1 WHERE id=$2 AND branch_id=$3', [value.trim(), req.params.id, branchId]);
+    res.json(await getConfig(branchId));
+  } catch { res.status(400).json({ error: 'ערך כפול' }); }
 });
 
 app.delete('/api/config/jobs/:id', requireAdmin, async (req, res) => {
-  try {
-    await query('DELETE FROM job_titles WHERE id=$1', [req.params.id]);
-    const config = await getConfig(getEffectiveBranchId(req));
-    res.json(config);
-  } catch (error) {
-    console.error('Delete job title error:', error);
-    res.status(500).json({ error: 'שגיאה' });
-  }
+  const branchId = getEffectiveBranchId(req);
+  await query('DELETE FROM job_titles WHERE id=$1 AND branch_id=$2', [req.params.id, branchId]);
+  res.json(await getConfig(branchId));
 });
+
 
 app.post('/api/config/employment-types', requireAdmin, async (req, res) => {
   try {

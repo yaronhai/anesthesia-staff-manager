@@ -16,7 +16,9 @@ async function initializeSchema() {
     await query(`
       CREATE TABLE IF NOT EXISTS job_titles (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL UNIQUE
+        name TEXT NOT NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        UNIQUE(name, branch_id)
       );
 
       CREATE TABLE IF NOT EXISTS employment_types (
@@ -596,6 +598,43 @@ async function runMigrations() {
     `);
 
     await query(`ALTER TABLE activity_templates ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES activity_template_groups(id) ON DELETE SET NULL`);
+
+    // Migrate job_titles to be branch-scoped
+    await query(`ALTER TABLE job_titles ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE`);
+    await query(`UPDATE job_titles SET branch_id = (SELECT id FROM branches ORDER BY id LIMIT 1) WHERE branch_id IS NULL`);
+    await query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+          WHERE t.relname = 'job_titles' AND c.conname = 'job_titles_name_key'
+        ) THEN
+          ALTER TABLE job_titles DROP CONSTRAINT job_titles_name_key;
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid
+          WHERE t.relname = 'job_titles' AND c.conname = 'job_titles_name_branch_id_key'
+        ) THEN
+          ALTER TABLE job_titles ADD CONSTRAINT job_titles_name_branch_id_key UNIQUE(name, branch_id);
+        END IF;
+      END $$
+    `);
+    // Deduplicate job_titles: keep lowest id per (name, branch_id)
+    await query(`
+      DELETE FROM job_titles a
+      USING job_titles b
+      WHERE a.id > b.id
+      AND a.name = b.name
+      AND a.branch_id IS NOT DISTINCT FROM b.branch_id
+    `);
+
+    // Seed default job titles for every branch
+    await query(`
+      INSERT INTO job_titles (name, branch_id)
+      SELECT bp.name, b.id
+      FROM branches b
+      CROSS JOIN (VALUES ('רופא מרדים'), ('עוזר מרדים'), ('מנהל מחלקה')) AS bp(name)
+      ON CONFLICT DO NOTHING
+    `);
 
     console.log('✓ Migrations complete');
   } catch (error) {
