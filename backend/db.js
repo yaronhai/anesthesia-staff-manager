@@ -214,6 +214,16 @@ async function initializeSchema() {
         branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS roles (
+        id SERIAL PRIMARY KEY,
+        name TEXT UNIQUE NOT NULL,
+        display_name TEXT NOT NULL,
+        level INTEGER UNIQUE NOT NULL,
+        tier TEXT NOT NULL DEFAULT 'user',
+        is_protected BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS sent_emails (
         id SERIAL PRIMARY KEY,
         schedule_date TEXT NOT NULL,
@@ -634,6 +644,16 @@ async function runMigrations() {
       FROM branches b
       CROSS JOIN (VALUES ('רופא מרדים'), ('עוזר מרדים'), ('מנהל מחלקה')) AS bp(name)
       ON CONFLICT DO NOTHING
+    `);
+
+    // Seed role hierarchy levels
+    await query(`
+      INSERT INTO roles (name, display_name, level, tier, is_protected)
+      VALUES
+        ('superadmin', 'מנהל ראשי', 100, 'superadmin', TRUE),
+        ('admin',      'מנהל סניף', 200, 'admin',      TRUE),
+        ('user',       'משתמש',     300, 'user',       TRUE)
+      ON CONFLICT (name) DO NOTHING
     `);
 
     console.log('✓ Migrations complete');

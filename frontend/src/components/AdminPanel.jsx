@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import RolesManagement from './RolesManagement';
 
-export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, branches = [], onConfigChange, onBranchesChange, onClose }) {
+export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, branches = [], onConfigChange, onBranchesChange, onClose, roles = [], onRolesChange }) {
   const [newJob, setNewJob] = useState('');
   const [newEmpType, setNewEmpType] = useState('');
   const [newHonorific, setNewHonorific] = useState('');
@@ -312,6 +313,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
   const tabs = [
     ...(isSuperAdmin ? [{ key: 'branches', label: 'סניפים' }] : []),
+    ...(isSuperAdmin ? [{ key: 'hierarchy', label: 'היררכיה' }] : []),
     { key: 'groups', label: 'קבוצות אתרים' },
     { key: 'jobs', label: 'תפקידים' },
     { key: 'empTypes', label: 'סוגי העסקה' },
@@ -370,6 +372,10 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
           {/* Content */}
           <div style={{flex: 1, overflow: 'auto', padding: '0.6rem 0.85rem 0.85rem'}}>
+            {activeTab === 'hierarchy' && isSuperAdmin && (
+              <RolesManagement roles={roles} authToken={authToken} onRolesChange={onRolesChange} />
+            )}
+
             {activeTab === 'branches' && isSuperAdmin && (
               <>
                 <TabDescription tabKey="branches" />

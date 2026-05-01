@@ -274,7 +274,7 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
   );
 }
 
-export default function WorkerList({ workers, onEdit, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin }) {
+export default function WorkerList({ workers, onEdit, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin, roles = [] }) {
   const [viewing, setViewing] = useState(null);
   const [sortField, setSortField] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
@@ -282,6 +282,16 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
   const independentTypeIds = new Set(
     (config.employment_types || []).filter(t => t.is_independent).map(t => t.id)
   );
+
+  const roleDisplayMap = roles.reduce((acc, r) => { acc[r.name] = r.display_name; return acc; }, {});
+  function getRoleLabel(classification) {
+    return roleDisplayMap[classification] ||
+      (classification === 'superadmin' ? 'מנהל ראשי' : classification === 'admin' ? 'מנהל סניף' : 'משתמש');
+  }
+  function isAdminRole(classification) {
+    const role = roles.find(r => r.name === classification);
+    return role ? role.tier !== 'user' : classification === 'admin' || classification === 'superadmin';
+  }
 
   function handleSort(field) {
     if (sortField === field) {
@@ -362,8 +372,8 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
               <td><strong>{w.family_name}</strong></td>
               <td>{w.id_number || '—'}</td>
               <td>
-                <span className={`badge ${w.classification === 'superadmin' ? 'badge-admin' : w.classification === 'admin' ? 'badge-admin' : 'badge-normal'}`}>
-                  {w.classification === 'superadmin' ? 'מנהל כללי' : w.classification === 'admin' ? 'מנהל סניף' : 'משתמש'}
+                <span className={`badge ${isAdminRole(w.classification) ? 'badge-admin' : 'badge-normal'}`}>
+                  {getRoleLabel(w.classification)}
                 </span>
               </td>
               <td>{w.job}</td>

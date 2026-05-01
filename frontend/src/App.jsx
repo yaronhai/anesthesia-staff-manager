@@ -37,9 +37,10 @@ export default function App() {
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [roles, setRoles] = useState([]);
 
-  const isSuperAdmin = currentUser?.role === 'superadmin';
-  const isAdmin = currentUser?.role === 'admin' || isSuperAdmin;
+  const isSuperAdmin = (currentUser?.role_tier ?? currentUser?.role) === 'superadmin';
+  const isAdmin = ['admin', 'superadmin'].includes(currentUser?.role_tier ?? currentUser?.role);
 
   // Build query string for branch-scoped API calls
   function branchParam() {
@@ -53,6 +54,7 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) return;
+    fetchRoles();
     if (isSuperAdmin) {
       fetchBranches();
       setActiveTab('overview');
@@ -104,6 +106,11 @@ export default function App() {
       const data = await res.json();
       setBranches(data);
     }
+  }
+
+  async function fetchRoles() {
+    const res = await fetch('/api/roles', { headers: authHeaders() });
+    if (res.ok) setRoles(await res.json());
   }
 
   async function fetchConfig() {
@@ -402,6 +409,8 @@ export default function App() {
           onConfigChange={setConfig}
           onBranchesChange={handleBranchesChange}
           onClose={() => setShowSettings(false)}
+          roles={roles}
+          onRolesChange={setRoles}
         />
       )}
 
@@ -458,6 +467,8 @@ export default function App() {
               isSuperAdmin={isSuperAdmin}
               authToken={authToken}
               branches={branches}
+              roles={roles}
+              currentUser={currentUser}
             />
           )}
           <WorkerList
@@ -469,6 +480,7 @@ export default function App() {
             config={config}
             isSuperAdmin={isSuperAdmin}
             currentBranchId={selectedBranchId}
+            roles={roles}
           />
         </>
       )}

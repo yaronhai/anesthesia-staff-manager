@@ -201,7 +201,8 @@ function requireAuth(req, res, next) {
 
 function requireAdmin(req, res, next) {
   requireAuth(req, res, () => {
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    const tier = req.user.role_tier ?? req.user.role;
+    if (!['admin', 'superadmin'].includes(tier)) {
       return res.status(403).json({ error: 'אין הרשאה' });
     }
     next();
@@ -210,7 +211,8 @@ function requireAdmin(req, res, next) {
 
 function requireSuperAdmin(req, res, next) {
   requireAuth(req, res, () => {
-    if (req.user.role !== 'superadmin') {
+    const tier = req.user.role_tier ?? req.user.role;
+    if (tier !== 'superadmin') {
       return res.status(403).json({ error: 'נדרשת הרשאת מנהל-על' });
     }
     next();
@@ -218,15 +220,24 @@ function requireSuperAdmin(req, res, next) {
 }
 
 function getEffectiveBranchId(req) {
-  if (req.user.role === 'superadmin') {
+  const tier = req.user.role_tier ?? req.user.role;
+  if (tier === 'superadmin') {
     return req.query.branch_id ? parseInt(req.query.branch_id) : null;
   }
-  if (req.user.role === 'admin') {
+  if (tier === 'admin') {
     return req.user.branch_id ?? null;
   }
   // regular user
   const b = req.query.branch_id || req.body?.branch_id;
   return b ? parseInt(b) : null;
+}
+
+async function getWorkerRoleLevel(workerId) {
+  const r = await query(
+    'SELECT r.level FROM users u JOIN roles r ON r.name = u.role WHERE u.worker_id = $1',
+    [workerId]
+  );
+  return r.rows[0]?.level ?? 999;
 }
 
 // ── Worker ↔ User sync helpers ───────────────────────────────────────────────
@@ -435,7 +446,11 @@ app.post('/api/auth/login', async (req, res) => {
       branchName = branchRes.rows[0]?.name ?? null;
     }
 
-    const payload = { id: user.id, username: user.username, role: user.role, worker_id: user.worker_id, branch_id: effectiveBranchId };
+    const roleRow = await query('SELECT level, tier FROM roles WHERE name = $1', [user.role]);
+    const roleLevel = roleRow.rows[0]?.level ?? 999;
+    const roleTier  = roleRow.rows[0]?.tier  ?? 'user';
+
+    const payload = { id: user.id, username: user.username, role: user.role, worker_id: user.worker_id, branch_id: effectiveBranchId, role_level: roleLevel, role_tier: roleTier };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { ...payload, email, displayName, branch_name: branchName, must_change_password: user.must_change_password, can_submit_requests: canSubmitRequests } });
   } catch (error) {
@@ -562,7 +577,8 @@ app.post('/api/auth/reset-worker-password/:workerId', requireAdmin, async (req, 
 
 app.get('/api/workers', requireAuth, async (req, res) => {
   try {
-    const allBranches = req.query.all_branches === 'true' && (req.user.role === 'admin' || req.user.role === 'superadmin');
+    const tier = req.user.role_tier ?? req.user.role;
+    const allBranches = req.query.all_branches === 'true' && ['admin', 'superadmin'].includes(tier);
     const branchId = allBranches ? null : getEffectiveBranchId(req);
     let sql, params;
     if (allBranches) {
@@ -584,7 +600,7 @@ app.get('/api/workers', requireAuth, async (req, res) => {
              LEFT JOIN branches pb ON pb.id = w.primary_branch_id
              ORDER BY w.family_name`;
       params = [];
-    } else if (branchId && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
+    } else if (branchId && ['admin', 'superadmin'].includes(tier)) {
       sql = `
         SELECT w.id,
                w.honorific_id, h.name AS title,
@@ -625,12 +641,21 @@ app.post('/api/workers', requireAdmin, async (req, res) => {
     if (!email?.trim()) return res.status(400).json({ error: 'אימייל הוא שדה חובה' });
 
     const cls = classification || 'user';
+
+    if (req.user.role_level !== undefined) {
+      const newRoleRow = await query('SELECT level FROM roles WHERE name = $1', [cls]);
+      const newRoleLevel = newRoleRow.rows[0]?.level ?? 999;
+      if (req.user.role_level >= newRoleLevel) {
+        return res.status(403).json({ error: 'אין הרשאה ליצור משתמש ברמה שווה או גבוהה' });
+      }
+    }
+
     const idNum = id_number?.trim() || null;
     const adminBranchId = req.user.branch_id ?? null;
     const canSubmit = can_submit_requests !== undefined ? Boolean(can_submit_requests) : true;
 
     // For superadmin: branch_ids array; first entry is primary. For admin: their own branch.
-    const selectedBranchIds = (req.user.role === 'superadmin' && Array.isArray(branch_ids) && branch_ids.length > 0)
+    const selectedBranchIds = ((req.user.role_tier ?? req.user.role) === 'superadmin' && Array.isArray(branch_ids) && branch_ids.length > 0)
       ? branch_ids.map(Number)
       : (adminBranchId ? [adminBranchId] : []);
     const primaryBranchId = selectedBranchIds[0] || null;
@@ -670,6 +695,13 @@ app.post('/api/workers', requireAdmin, async (req, res) => {
 
 app.put('/api/workers/:id', requireAdmin, async (req, res) => {
   try {
+    if (req.user.role_level !== undefined) {
+      const targetLevel = await getWorkerRoleLevel(req.params.id);
+      if (req.user.role_level >= targetLevel) {
+        return res.status(403).json({ error: 'אין הרשאה לערוך משתמש ברמה שווה או גבוהה' });
+      }
+    }
+
     const { honorific_id, first_name, family_name, job_id, employment_type_id,
             phone, email, notes, id_number, classification, primary_branch_id, can_submit_requests } = req.body;
     if (!email?.trim()) return res.status(400).json({ error: 'אימייל הוא שדה חובה' });
@@ -709,6 +741,12 @@ app.put('/api/workers/:id', requireAdmin, async (req, res) => {
 
 app.delete('/api/workers/:id', requireAdmin, async (req, res) => {
   try {
+    if (req.user.role_level !== undefined) {
+      const targetLevel = await getWorkerRoleLevel(req.params.id);
+      if (req.user.role_level >= targetLevel) {
+        return res.status(403).json({ error: 'אין הרשאה למחוק משתמש ברמה שווה או גבוהה' });
+      }
+    }
     const deleteRes = await query('DELETE FROM workers WHERE id=$1', [req.params.id]);
     if (deleteRes.rowCount === 0) return res.status(404).json({ error: 'עובד לא נמצא' });
     res.status(204).send();
@@ -720,10 +758,76 @@ app.delete('/api/workers/:id', requireAdmin, async (req, res) => {
 
 // ── Worker Activity Authorizations ──────────────────────────────────────────
 
+// ── Roles ────────────────────────────────────────────────────────────────────
+
+app.get('/api/roles', requireAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT id, name, display_name, level, tier, is_protected FROM roles ORDER BY level');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'שגיאה בטעינת תפקידים' });
+  }
+});
+
+app.post('/api/roles', requireSuperAdmin, async (req, res) => {
+  try {
+    const { name, display_name, level, tier } = req.body;
+    if (!name?.trim() || !display_name?.trim() || !level || !tier) return res.status(400).json({ error: 'שדות חסרים' });
+    if (!['superadmin', 'admin', 'user'].includes(tier)) return res.status(400).json({ error: 'רמת הרשאה לא תקינה' });
+    const result = await query(
+      'INSERT INTO roles (name, display_name, level, tier) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name.trim(), display_name.trim(), parseInt(level), tier]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (e) {
+    if (e.message?.includes('unique')) return res.status(400).json({ error: 'שם תפקיד או רמה כבר קיימים' });
+    res.status(500).json({ error: 'שגיאה ביצירת תפקיד' });
+  }
+});
+
+app.put('/api/roles/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const roleRes = await query('SELECT * FROM roles WHERE id = $1', [req.params.id]);
+    const role = roleRes.rows[0];
+    if (!role) return res.status(404).json({ error: 'תפקיד לא נמצא' });
+
+    const { display_name, level, tier } = req.body;
+    const newDisplayName = display_name ?? role.display_name;
+    const newLevel = role.is_protected ? role.level : (level != null ? parseInt(level) : role.level);
+    const newTier  = role.is_protected ? role.tier  : (tier ?? role.tier);
+
+    if (!['superadmin', 'admin', 'user'].includes(newTier)) return res.status(400).json({ error: 'רמת הרשאה לא תקינה' });
+    const result = await query(
+      'UPDATE roles SET display_name=$1, level=$2, tier=$3 WHERE id=$4 RETURNING *',
+      [newDisplayName, newLevel, newTier, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (e) {
+    if (e.message?.includes('unique')) return res.status(400).json({ error: 'רמה כבר קיימת' });
+    res.status(500).json({ error: 'שגיאה בעדכון תפקיד' });
+  }
+});
+
+app.delete('/api/roles/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const roleRes = await query('SELECT * FROM roles WHERE id = $1', [req.params.id]);
+    const role = roleRes.rows[0];
+    if (!role) return res.status(404).json({ error: 'תפקיד לא נמצא' });
+    if (role.is_protected) return res.status(400).json({ error: 'לא ניתן למחוק תפקיד מוגן' });
+    const usersCount = await query('SELECT COUNT(*) FROM users WHERE role = $1', [role.name]);
+    if (parseInt(usersCount.rows[0].count) > 0) return res.status(400).json({ error: 'לא ניתן למחוק תפקיד עם משתמשים מוקצים' });
+    await query('DELETE FROM roles WHERE id = $1', [req.params.id]);
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: 'שגיאה במחיקת תפקיד' });
+  }
+});
+
 app.get('/api/workers/:id', requireAuth, async (req, res) => {
   try {
     const workerId = parseInt(req.params.id);
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && req.user.worker_id !== workerId) {
+    const tier = req.user.role_tier ?? req.user.role;
+    if (!['admin', 'superadmin'].includes(tier) && req.user.worker_id !== workerId) {
       return res.status(403).json({ error: 'אין הרשאה' });
     }
     const result = await query(WORKER_SELECT + ' WHERE w.id = $1', [workerId]);
@@ -810,7 +914,7 @@ app.get('/api/shift-requests', requireAuth, async (req, res) => {
     const branchId = getEffectiveBranchId(req);
     const datePrefix = month && year ? `${year}-${String(month).padStart(2, '0')}-` : null;
 
-    if (req.user.role === 'admin' || req.user.role === 'superadmin') {
+    if (['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role)) {
       let conditions = [];
       const params = [];
       let p = 1;
@@ -908,7 +1012,7 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'שדות לא תקינים' });
     }
 
-    const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role);
     const targetUserId = isAdmin && user_id ? user_id : req.user.id;
     const branchId = getEffectiveBranchId(req) || bodyBranchId || null;
 
@@ -949,7 +1053,7 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
 
 app.delete('/api/shift-requests/:id', requireAuth, async (req, res) => {
   try {
-    const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role);
 
     // Check can_submit_requests for the owner of this request
     const ownerCheck = await query(
@@ -986,7 +1090,7 @@ app.get('/api/vacation-requests', requireAuth, async (req, res) => {
     const { status, all_branches } = req.query;
     const branchId = all_branches === 'true' ? null : getEffectiveBranchId(req);
 
-    if (req.user.role === 'admin' || req.user.role === 'superadmin') {
+    if (['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role)) {
       const params = [];
       const conditions = [];
       let p = 1;
@@ -1038,7 +1142,7 @@ app.post('/api/vacation-requests', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'תאריך ההתחלה חייב להיות לפני תאריך הסיום' });
     }
 
-    const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role);
     let targetUserId = req.user.id;
     let targetWorkerId = req.user.worker_id ?? null;
     let branchId = getEffectiveBranchId(req);
@@ -1100,7 +1204,7 @@ app.delete('/api/vacation-requests/:id', requireAuth, async (req, res) => {
     }
     const vr = existing.rows[0];
 
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    if (!['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role)) {
       if (vr.user_id !== req.user.id) {
         return res.status(403).json({ error: 'אין הרשאה' });
       }
@@ -3140,7 +3244,7 @@ app.post('/api/admin/init-table', requireAdmin, async (req, res) => {
 
 app.get('/api/branches', requireAdmin, async (req, res) => {
   try {
-    if (req.user.role === 'superadmin') {
+    if ((req.user.role_tier ?? req.user.role) === 'superadmin') {
       const result = await query('SELECT id, name, description, created_at FROM branches ORDER BY id');
       res.json(result.rows);
     } else {
@@ -3282,7 +3386,7 @@ app.get('/api/workers/:id/branches', requireAuth, async (req, res) => {
   try {
     const workerId = req.params.id;
     // Workers can see their own branches; admins/superadmin can see any
-    if (req.user.role === 'user' && req.user.worker_id != workerId) {
+    if ((req.user.role_tier ?? req.user.role) === 'user' && req.user.worker_id != workerId) {
       return res.status(403).json({ error: 'אין הרשאה' });
     }
     const result = await query(`

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function WorkerForm({ initial, config, onSave, onCancel, isSuperAdmin, authToken, branches = [] }) {
+export default function WorkerForm({ initial, config, onSave, onCancel, isSuperAdmin, authToken, branches = [], roles = [], currentUser = null }) {
   const jobs = config?.jobs || [];
   const empTypes = config?.employment_types || [];
   const honorifics = config?.honorifics || [];
@@ -124,9 +124,16 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           <label>
             סיווג
             <select name="classification" value={form.classification} onChange={handleChange}>
-              <option value="user">משתמש</option>
-              <option value="admin">מנהל סניף</option>
-              <option value="superadmin">מנהל כללי</option>
+              {roles.length > 0
+                ? roles
+                    .filter(r => currentUser?.role_level == null || r.level > currentUser.role_level)
+                    .map(r => <option key={r.name} value={r.name}>{r.display_name}</option>)
+                : <>
+                    <option value="user">משתמש</option>
+                    <option value="admin">מנהל סניף</option>
+                    <option value="superadmin">מנהל ראשי</option>
+                  </>
+              }
             </select>
           </label>
         </div>
