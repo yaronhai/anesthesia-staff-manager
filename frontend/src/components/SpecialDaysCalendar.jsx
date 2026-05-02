@@ -75,6 +75,7 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
   }
 
   async function fetchHolidays() {
+    if (showHolidays) { setShowHolidays(false); return; }
     setHolidaysLoading(true);
     try {
       const res = await fetch(`https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&i=on&year=${year}&month=x&ss=off&mf=on&c=off&s=off&nx=off`);
@@ -143,28 +144,34 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
   const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
   const monthSDs = specialDays.filter(s => s.date.startsWith(monthStr));
 
-  const specialDayDates = new Set(monthSDs.map(s => s.date));
-  const monthHolidays = monthSDs.filter(s => s.type === 'holiday').length;
-  // Eves not on Saturday (eve on Sat counts as Saturday instead)
-  const monthEves = monthSDs.filter(s => {
-    if (s.type !== 'eve') return false;
-    return new Date(s.date + 'T12:00:00').getDay() !== 6;
-  }).length;
-  // Saturdays: count if no special day, "אחר", or eve on Saturday
-  const monthSaturdays = Array.from({ length: daysInMonth }, (_, i) => {
+  // Each day gets exactly one category — no double-counting
+  const categorized = Array.from({ length: daysInMonth }, (_, i) => {
     const dateStr = toStr(year, month, i + 1);
-    if (new Date(year, month, i + 1).getDay() !== 6) return false;
+    const dow = new Date(year, month, i + 1).getDay(); // 5=Fri, 6=Sat
     const sd = monthSDs.find(s => s.date === dateStr);
-    return !sd || sd.type === 'other' || sd.type === 'eve';
-  }).filter(Boolean).length;
-  // Fridays: count if no special day or "אחר" (holiday/eve override)
-  const monthFridays = Array.from({ length: daysInMonth }, (_, i) => {
-    const dateStr = toStr(year, month, i + 1);
-    if (new Date(year, month, i + 1).getDay() !== 5) return false;
-    const sd = monthSDs.find(s => s.date === dateStr);
-    return !sd || sd.type === 'other';
-  }).filter(Boolean).length;
+    const type = sd?.type;
+    if (type === 'holiday')            return 'holiday';
+    if (type === 'eve' && dow === 6)   return 'saturday'; // eve on Sat → Sat
+    if (type === 'eve')                return 'eve';
+    if (dow === 6)                     return 'saturday';
+    if (dow === 5)                     return 'friday';
+    return null;
+  });
+  const monthHolidays  = categorized.filter(c => c === 'holiday').length;
+  const monthEves      = categorized.filter(c => c === 'eve').length;
+  const monthSaturdays = categorized.filter(c => c === 'saturday').length;
+  const monthFridays   = categorized.filter(c => c === 'friday').length;
   const monthTotal = monthHolidays + monthEves + monthSaturdays + monthFridays;
+
+  const categoryMap = new Map(
+    Array.from({ length: daysInMonth }, (_, i) => [toStr(year, month, i + 1), categorized[i]])
+  );
+  const CAT_BADGE = {
+    holiday:  { label: 'חג',    bg: '#059669', text: '#fff' },
+    eve:      { label: 'ערב',   bg: '#0ea5e9', text: '#fff' },
+    saturday: { label: 'שבת',   bg: '#dc2626', text: '#fff' },
+    friday:   { label: 'שישי',  bg: '#b45309', text: '#fff' },
+  };
 
   const L = isLandscape || isMobile;
 
@@ -237,6 +244,8 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
           const isFri = dow === 5;
           const sd = sdForDate(dateStr);
           const isActive = activeDay === dateStr;
+          const cat = categoryMap.get(dateStr);
+          const badge = cat ? CAT_BADGE[cat] : null;
           return (
             <div
               key={d}
@@ -257,18 +266,21 @@ export default function SpecialDaysCalendar({ config, authToken, branchId, onCon
                 color: sd ? sd.color : isSat ? '#dc2626' : isFri ? '#b45309' : '#374151',
               }}>{d}</span>
               {sd && (
-                <>
-                  <span style={{ fontSize: L ? '0.45rem' : '0.55rem', color: sd.color, fontWeight: 700, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.1 }}>
-                    {sd.name}
-                  </span>
-                  {sd.type !== 'other' && !L && (
-                    <span style={{ fontSize: '0.48rem', background: sd.color, borderRadius: 3, padding: '0 3px', color: 'white', fontWeight: 600, lineHeight: 1.4 }}>
-                      {sd.type === 'holiday' ? 'חג' : 'ערב חג'}
-                    </span>
-                  )}
-                </>
+                <span style={{ fontSize: L ? '0.45rem' : '0.55rem', color: sd.color, fontWeight: 700, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.1 }}>
+                  {sd.name}
+                </span>
               )}
-              {!sd && !isSat && !isFri && !L && (
+              {badge && (
+                <span style={{
+                  fontSize: L ? '0.42rem' : '0.48rem',
+                  background: badge.bg, color: badge.text,
+                  borderRadius: 3, padding: L ? '0 2px' : '0 3px',
+                  fontWeight: 700, lineHeight: 1.4, whiteSpace: 'nowrap',
+                }}>
+                  {badge.label}
+                </span>
+              )}
+              {!sd && !badge && !L && (
                 <span style={{ fontSize: '0.42rem', color: '#d1d5db', lineHeight: 1.5 }}>+</span>
               )}
             </div>
