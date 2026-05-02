@@ -3333,8 +3333,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   header h1 { font-size: 0.8rem; }
   header .subtitle { display: none; }
   .header-branch-select { display: none !important; }
-  .tabs { top: 40px; padding: 0.1rem 0.3rem; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .tab-btn { padding: 0.18rem 0.45rem; font-size: 0.68rem; white-space: nowrap; flex-shrink: 0; }
+  .tabs { top: 40px; padding: 0.1rem 0.3rem; flex-wrap: wrap; gap: 2px; overflow-x: hidden; }
+  .tab-btn { padding: 0.18rem 0.45rem; font-size: 0.68rem; white-space: nowrap; }
   .app { padding-top: 68px; }
   .shift-admin-title { display: none; }
   .shift-admin-legend { display: none; }
