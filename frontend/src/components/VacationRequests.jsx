@@ -35,8 +35,8 @@ function StatusBadge({ status }) {
   return (
     <span style={{
       background: s.color, color: 'white',
-      padding: '2px 10px', borderRadius: '12px',
-      fontSize: '0.78rem', fontWeight: 600
+      padding: '1px 6px', borderRadius: '12px',
+      fontSize: '0.72rem', fontWeight: 600
     }}>
       {s.label}
     </span>

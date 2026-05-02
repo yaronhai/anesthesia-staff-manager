@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function ChangePasswordModal({ token, onSuccess, onSkip }) {
+export default function ChangePasswordModal({ token, onSuccess, onClose }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -31,7 +31,6 @@ export default function ChangePasswordModal({ token, onSuccess, onSkip }) {
   return (
     <div className="login-box">
       <h2>שינוי סיסמא</h2>
-      <p className="change-pw-notice">כניסה ראשונה — יש לבחור סיסמא חדשה</p>
       <form onSubmit={handleSubmit} className="login-form">
         <div className="form-group">
           <label>סיסמא חדשה</label>
@@ -56,9 +55,9 @@ export default function ChangePasswordModal({ token, onSuccess, onSkip }) {
         <button type="submit" className="btn-primary" disabled={loading}>
           {loading ? 'שומר...' : 'שמור סיסמא'}
         </button>
-        {onSkip && (
-          <button type="button" className="btn-link" onClick={onSkip} disabled={loading}>
-            דלג
+        {onClose && (
+          <button type="button" className="btn-link" onClick={onClose} disabled={loading}>
+            ביטול
           </button>
         )}
       </form>

@@ -38,6 +38,7 @@ export default function App() {
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [roles, setRoles] = useState([]);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const isSuperAdmin = (currentUser?.role_tier ?? currentUser?.role) === 'superadmin';
   const isAdmin = ['admin', 'superadmin'].includes(currentUser?.role_tier ?? currentUser?.role);
@@ -265,24 +266,6 @@ export default function App() {
     );
   }
 
-  // ── Must change password ───────────────────────────────────────────────────
-  if (currentUser.must_change_password) {
-    return (
-      <div className="app">
-        <header>
-          <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
-            <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '60px', height: 'auto'}} />
-            <div>
-              <h1>מחלקת הרדמה</h1>
-              <p className="subtitle">ניהול צוות</p>
-            </div>
-          </div>
-        </header>
-        <ChangePasswordModal token={authToken} onSuccess={handlePasswordChanged} onSkip={handlePasswordChanged} />
-      </div>
-    );
-  }
-
   // ── Main app ───────────────────────────────────────────────────────────────
   return (
     <div className="app">
@@ -299,7 +282,7 @@ export default function App() {
         </div>
         <div className="header-right">
           {isSuperAdmin && (
-            <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+            <div className="header-branch-select" style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
               <span style={{fontSize: '0.78rem', opacity: 0.7}}>סניף:</span>
               <select
                 value={selectedBranchId ?? ''}
@@ -329,6 +312,7 @@ export default function App() {
                 </span>
               )}
             </div>
+            <button onClick={() => setShowChangePassword(true)} className="btn-link" style={{fontSize:'0.75rem',marginLeft:'0.25rem'}}>שינוי סיסמא</button>
             <button onClick={handleLogout} className="btn-logout">יציאה</button>
           </div>
         </div>
@@ -398,6 +382,16 @@ export default function App() {
           </button>
         )}
       </div>
+
+      {showChangePassword && (
+        <div className="modal-overlay">
+          <ChangePasswordModal
+            token={authToken}
+            onSuccess={() => setShowChangePassword(false)}
+            onClose={() => setShowChangePassword(false)}
+          />
+        </div>
+      )}
 
       {showSettings && isAdmin && (
         <AdminPanel

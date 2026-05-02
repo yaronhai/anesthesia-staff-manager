@@ -1399,7 +1399,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               {siteAssignments.map(a => (
                 <div key={a.id} className="room-assignment-row" onClick={() => openEditModal(a)}>
                   <span className="room-assignment-text">
-                    {a.job_name} · {a.first_name} {a.family_name}
+                    {a.job_name} · <strong>{a.first_name} {a.family_name}</strong>
                     <span className="room-assignment-time">
                       {formatTime24(resolveTime(a, shiftType, 'start_time'))}–{formatTime24(resolveTime(a, shiftType, 'end_time'))}
                     </span>
@@ -1475,6 +1475,80 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   }
 
 
+  const statsBarContent = (() => {
+    const configuredSlots = siteShiftActivities.filter(
+      a => a.date === dateStr && a.activity_type_id
+    );
+    const dayAssignments = assignments.filter(a => a.date === dateStr);
+    if (configuredSlots.length === 0 && dayAssignments.length === 0) return null;
+
+    const shiftStats = (config.shift_types || [])
+      .filter(st => st.show_in_assignments || st.key === 'oncall')
+      .map(st => {
+        const slotsForShift = configuredSlots.filter(a => a.shift_type === st.key);
+        const shiftAssignments = dayAssignments.filter(a => a.shift_type === st.key);
+        const assignedSiteIds = new Set(shiftAssignments.map(a => a.site_id));
+        const filled = slotsForShift.length > 0
+          ? slotsForShift.filter(a => assignedSiteIds.has(a.site_id)).length
+          : shiftAssignments.length;
+        const total = slotsForShift.length > 0 ? slotsForShift.length : shiftAssignments.length;
+        return { key: st.key, label: st.label_he, total, filled, missing: total - filled };
+      })
+      .filter(s => s.total > 0 || s.filled > 0);
+
+    const totalSlots   = shiftStats.reduce((s, x) => s + x.total,  0);
+    const totalFilled  = shiftStats.reduce((s, x) => s + x.filled, 0);
+    const totalMissing = totalSlots - totalFilled;
+    const pct = totalSlots > 0 ? Math.round((totalFilled / totalSlots) * 100) : 0;
+    const barColor = totalMissing === 0 ? '#16a34a' : totalFilled === 0 ? '#ef4444' : '#f59e0b';
+
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: isMobile ? '0.2rem' : '0.4rem',
+        background: 'white', border: '1.5px solid #e2e8f0',
+        borderRadius: '8px', padding: isMobile ? '0.2rem 0.4rem' : '0.3rem 0.75rem',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        ...(isMobile ? { width: '100%', boxSizing: 'border-box' } : {}),
+      }}>
+        {!isMobile && (
+          <div style={{ width: '80px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', flexShrink: 0 }}>
+            <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width 0.3s' }} />
+          </div>
+        )}
+        {!isMobile && (
+          <span style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+            {totalFilled}/{totalSlots}
+          </span>
+        )}
+        <span style={{
+          padding: isMobile ? '0.1rem 0.3rem' : '0.1rem 0.4rem', borderRadius: '10px',
+          fontSize: isMobile ? '0.68rem' : '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
+          background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
+          color:      totalMissing === 0 ? '#166534' : '#991b1b',
+        }}>
+          {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
+        </span>
+        {shiftStats.map(s => {
+          const chipBg     = s.missing === 0 ? '#dcfce7' : s.filled === 0 ? '#fef2f2' : '#fef9e7';
+          const chipColor  = s.missing === 0 ? '#166534' : s.filled === 0 ? '#991b1b' : '#92400e';
+          const chipBorder = s.missing === 0 ? '#86efac' : s.filled === 0 ? '#fca5a5' : '#fde68a';
+          return (
+            <div key={s.key} style={{
+              display: 'flex', alignItems: 'center', gap: '0.15rem',
+              background: chipBg, border: `1px solid ${chipBorder}`,
+              borderRadius: '6px', padding: isMobile ? '0.1rem 0.25rem' : '0.15rem 0.45rem',
+              fontSize: isMobile ? '0.65rem' : '0.78rem', fontWeight: 600, color: chipColor,
+              whiteSpace: 'nowrap',
+            }}>
+              <span>{s.label}</span>
+              <span>{s.filled}/{s.total}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  })();
+
   return (
     <>
     <div className="room-view-container">
@@ -1515,89 +1589,24 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button onClick={openSendModal} title="שלח תוכנית יומית בהודעה" style={{background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(14,165,233,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>{isMobile ? '💬' : '💬 שלח תוכנית יומית'}</button>
           <button onClick={fetchSuggestions} disabled={suggestLoading} title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות" style={{background: 'linear-gradient(135deg, #7c3aed, #a855f7)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: suggestLoading ? 'not-allowed' : 'pointer', opacity: suggestLoading ? 0.6 : 1, boxShadow: '0 2px 8px rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>{isMobile ? '🤖' : '🤖 הצע שיבוצים'}</button>
           <div style={{flex: 1}} />
-          {/* ── Daily staffing summary (inline) ───────────────────────── */}
-          {(() => {
-            const configuredSlots = siteShiftActivities.filter(
-              a => a.date === dateStr && a.activity_type_id
-            );
-            const dayAssignments = assignments.filter(a => a.date === dateStr);
-            if (configuredSlots.length === 0 && dayAssignments.length === 0) return null;
-
-            const shiftStats = (config.shift_types || [])
-              .filter(st => st.show_in_assignments || st.key === 'oncall')
-              .map(st => {
-                const slotsForShift = configuredSlots.filter(a => a.shift_type === st.key);
-                const shiftAssignments = dayAssignments.filter(a => a.shift_type === st.key);
-                const assignedSiteIds = new Set(shiftAssignments.map(a => a.site_id));
-                // Use per-shift logic: configured slots define "total" only when they exist for THIS shift
-                const filled = slotsForShift.length > 0
-                  ? slotsForShift.filter(a => assignedSiteIds.has(a.site_id)).length
-                  : shiftAssignments.length;
-                const total = slotsForShift.length > 0 ? slotsForShift.length : shiftAssignments.length;
-                return { key: st.key, label: st.label_he, total, filled, missing: total - filled };
-              })
-              .filter(s => s.total > 0 || s.filled > 0);
-
-            const totalSlots   = shiftStats.reduce((s, x) => s + x.total,  0);
-            const totalFilled  = shiftStats.reduce((s, x) => s + x.filled, 0);
-            const totalMissing = totalSlots - totalFilled;
-            const pct = totalSlots > 0 ? Math.round((totalFilled / totalSlots) * 100) : 0;
-            const barColor = totalMissing === 0 ? '#16a34a' : totalFilled === 0 ? '#ef4444' : '#f59e0b';
-
-
-            return (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                background: 'white', border: '1.5px solid #e2e8f0',
-                borderRadius: '8px', padding: '0.3rem 0.75rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-              }}>
-                  <div style={{ width: '80px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width 0.3s' }} />
-                  </div>
-                  <span style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                    {totalFilled}/{totalSlots}
-                  </span>
-                  <span style={{
-                    padding: '0.1rem 0.45rem', borderRadius: '10px',
-                    fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
-                    background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
-                    color:      totalMissing === 0 ? '#166534' : '#991b1b',
-                  }}>
-                    {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
-                  </span>
-                  {shiftStats.map(s => {
-                    const chipBg     = s.missing === 0 ? '#dcfce7' : s.filled === 0 ? '#fef2f2' : '#fef9e7';
-                    const chipColor  = s.missing === 0 ? '#166534' : s.filled === 0 ? '#991b1b' : '#92400e';
-                    const chipBorder = s.missing === 0 ? '#86efac' : s.filled === 0 ? '#fca5a5' : '#fde68a';
-                    return (
-                      <div key={s.key} style={{
-                        display: 'flex', alignItems: 'center', gap: '0.25rem',
-                        background: chipBg, border: `1px solid ${chipBorder}`,
-                        borderRadius: '6px', padding: '0.15rem 0.45rem',
-                        fontSize: '0.78rem', fontWeight: 600, color: chipColor,
-                      }}>
-                        <span>{s.label}</span>
-                        <span>{s.filled}/{s.total}</span>
-                      </div>
-                    );
-                  })}
-              </div>
-            );
-          })()}
+          {!isMobile && statsBarContent}
           </div>{/* room-nav-row2 */}
         </div>
-        <div className="room-shift-times-bar">
-          {(config.shift_types || []).filter(st => st.default_start).map(st => (
-            <span key={st.key} style={{display: 'contents'}}>
-              <span>{st.label_he}:</span>
-              <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>
-                {formatTime24(shiftDefaults[st.key]?.default_start)}–{formatTime24(shiftDefaults[st.key]?.default_end)}
+        {isMobile ? (
+          statsBarContent && <div style={{padding: '0.25rem 0.5rem'}}>{statsBarContent}</div>
+        ) : (
+          <div className="room-shift-times-bar">
+            {(config.shift_types || []).filter(st => st.default_start).map(st => (
+              <span key={st.key} style={{display: 'contents'}}>
+                <span>{st.label_he}:</span>
+                <span style={{fontWeight: 500, color: '#1a2e4a', minWidth: '100px'}}>
+                  {formatTime24(shiftDefaults[st.key]?.default_start)}–{formatTime24(shiftDefaults[st.key]?.default_end)}
+                </span>
+                <span className="room-shift-times-sep" />
               </span>
-              <span className="room-shift-times-sep" />
-            </span>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {restWarning && (
@@ -1687,7 +1696,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           </div>
                         )}
                         <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
-                          {morningAssignments.length > 0 ? morningAssignments.map((a, idx) => (<div key={idx}>{a.first_name} {a.family_name} ({a.job_name})</div>)) : <div>—</div>}
+                          {morningAssignments.length > 0 ? morningAssignments.map((a, idx) => (<div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>)) : <div>—</div>}
                         </div>
                       </div>
                       <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`}}>
@@ -1703,7 +1712,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           </div>
                         )}
                         <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
-                          {eveningAssignments.length > 0 ? eveningAssignments.map((a, idx) => (<div key={idx}>{a.first_name} {a.family_name} ({a.job_name})</div>)) : <div>—</div>}
+                          {eveningAssignments.length > 0 ? eveningAssignments.map((a, idx) => (<div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>)) : <div>—</div>}
                         </div>
                       </div>
                     </div>
@@ -1763,7 +1772,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             </div>
                           )}
                           <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
-                            {shiftAssignments.length > 0 ? shiftAssignments.map((a, idx) => (<div key={idx}>{a.first_name} {a.family_name} ({a.job_name})</div>)) : <div>—</div>}
+                            {shiftAssignments.length > 0 ? shiftAssignments.map((a, idx) => (<div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>)) : <div>—</div>}
                           </div>
                         </div>
                       </div>

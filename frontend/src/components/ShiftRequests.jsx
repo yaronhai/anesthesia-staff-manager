@@ -337,7 +337,6 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   return (
     <>
       <div className="admin-grid-scroll-wrap">
-      <div className="admin-grid-header-wrap">
         <table className="admin-grid">
           <colgroup>
             <col style={{ width: '90px' }} />
@@ -388,14 +387,6 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               })}
             </tr>
           </thead>
-        </table>
-      </div>
-      <div className="admin-grid-wrap">
-        <table className="admin-grid">
-          <colgroup>
-            <col style={{ width: '90px' }} />
-            {days.map(d => <col key={d} />)}
-          </colgroup>
           <tbody>
             {primaryJobGroups.map(job => ([
               ...primaryJobMap[job].map(row => (
@@ -487,7 +478,6 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
           </tbody>
         </table>
       </div>
-      </div>{/* admin-grid-scroll-wrap */}
 
       {blockedWorkerMsg && (
         <div className="admin-editor-overlay" onClick={() => setBlockedWorkerMsg(null)}>
@@ -679,8 +669,8 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
     return (
       <div className="shift-view">
         <div className="shift-admin-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0 }}>ניהול בקשות משמרות</h2>
+          <div className="shift-admin-filters" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <h2 className="shift-admin-title" style={{ margin: 0 }}>ניהול בקשות משמרות</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <label style={{ fontSize: '0.85rem' }}>הרשאה:</label>
               <select
@@ -706,7 +696,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
                 ))}
               </select>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: '#374151', borderRight: '1px solid #d1d5db', paddingRight: '0.6rem' }}>
+            <div className="shift-admin-legend" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: '#374151', borderRight: '1px solid #d1d5db', paddingRight: '0.6rem' }}>
               {prefs.map(p => (
                 <span key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                   <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: p.color, flexShrink: 0 }}></span>{p.label_he}

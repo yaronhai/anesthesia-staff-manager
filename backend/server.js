@@ -1288,6 +1288,20 @@ app.put('/api/vacation-requests/:id/decision', requireAdmin, async (req, res) =>
       }
     }
 
+    const fmtD = d => { if (!d) return ''; const s = typeof d === 'string' ? d : d.toISOString().split('T')[0]; const [y,m,dd] = s.split('-'); return `${dd}/${m}/${y}`; };
+    const decisionLabels = { approved: 'אושרה', rejected: 'נדחתה', partial: 'אושרה חלקית' };
+    let msgContent = `בקשת החופשה שלך מ-${fmtD(vr.start_date)} עד ${fmtD(vr.end_date)} ${decisionLabels[decision]}.`;
+    if (decision === 'partial') msgContent += ` תאריכים מאושרים: ${fmtD(finalStart)} עד ${fmtD(finalEnd)}.`;
+    if (admin_notes) msgContent += `\nהערות: ${admin_notes}`;
+    try {
+      await query(
+        'INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1, $2, $3, $4)',
+        [req.user.id, vr.user_id, msgContent, vr.branch_id || null]
+      );
+    } catch (msgErr) {
+      console.error('Vacation decision message error:', msgErr.message);
+    }
+
     res.json(updated.rows[0]);
   } catch (err) {
     console.error('Vacation decision error:', err);
