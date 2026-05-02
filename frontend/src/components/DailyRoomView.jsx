@@ -779,6 +779,21 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   }
 
 
+  function getVacationWorkersForDate() {
+    return vacations
+      .filter(v => v.approved_start <= dateStr && v.approved_end >= dateStr)
+      .map(v => {
+        const worker = workers.find(w => w.id === v.worker_id);
+        return {
+          id: v.worker_id ?? `vac-${v.id}`,
+          first_name: v.first_name ?? worker?.first_name ?? '',
+          family_name: v.family_name ?? worker?.family_name ?? '',
+          job: worker?.job ?? null,
+        };
+      })
+      .sort((a, b) => a.first_name.localeCompare(b.first_name, 'he'));
+  }
+
   function formatTime24(timeStr) {
     if (!timeStr) return '';
     // Handle various time formats and ensure HH:MM format (24-hour)
@@ -1586,7 +1601,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️</button>
           <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
-          <button onClick={openSendModal} title="שלח תוכנית יומית בהודעה" style={{background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(14,165,233,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>{isMobile ? '💬' : '💬 שלח תוכנית יומית'}</button>
+          <button onClick={openSendModal} title="שלח תוכנית יומית בהודעה" style={{background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(14,165,233,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>{isMobile ? '💬' : '💬 שלח תוכנית'}</button>
           <button onClick={fetchSuggestions} disabled={suggestLoading} title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות" style={{background: 'linear-gradient(135deg, #7c3aed, #a855f7)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: suggestLoading ? 'not-allowed' : 'pointer', opacity: suggestLoading ? 0.6 : 1, boxShadow: '0 2px 8px rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>{isMobile ? '🤖' : '🤖 הצע שיבוצים'}</button>
           <div style={{flex: 1}} />
           {!isMobile && statsBarContent}
@@ -1852,6 +1867,30 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       )}
                     </div>
                   </div>
+                  {(() => {
+                    const vacWorkers = getVacationWorkersForDate();
+                    return (
+                      <div className="room-unassigned-bar room-vacation-bar">
+                        <span className="room-unassigned-label">עובדים בחופשה מאושרת:</span>
+                        <div className="room-unassigned-content">
+                          {vacWorkers.length === 0 ? (
+                            <span className="room-unassigned-empty">אין עובדים בחופשה ביום זה</span>
+                          ) : (
+                            Object.entries(groupWorkersByJob(vacWorkers)).map(([job, wList]) => (
+                              <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'wrap'}}>
+                                <span style={{fontSize:'0.6rem', color:'#1e3a5f', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
+                                {wList.map(w => (
+                                  <span key={w.id} className="room-unassigned-worker room-vacation-worker">
+                                    {w.first_name} {w.family_name}
+                                  </span>
+                                ))}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

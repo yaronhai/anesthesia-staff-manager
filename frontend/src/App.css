@@ -865,19 +865,32 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 1rem 1.5rem 1rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 1rem 1.5rem 0;
   scrollbar-gutter: stable;
 }
+.admin-grid-header-wrap {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.admin-grid-body-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 1rem;
+}
 .admin-grid {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   width: 100%;
   font-size: 0.7rem;
   table-layout: fixed;
 }
 .admin-grid th, .admin-grid td {
-  border: 1px solid #6b7280;
+  border-left: 1px solid #6b7280;
+  border-bottom: 1px solid #6b7280;
   text-align: center;
   padding: 0.1rem 0.08rem;
   height: 22px;
@@ -885,7 +898,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   overflow: hidden;
   vertical-align: middle;
 }
-.admin-grid thead { position: sticky; top: 0; z-index: 3; }
+.admin-grid tr > *:first-child { border-right: 1px solid #6b7280; }
+.admin-grid thead tr:first-child > * { border-top: 1px solid #6b7280; }
 .admin-grid thead th { background: #e5e7eb; color: #1a2e4a; font-weight: 600; }
 .admin-grid-name-col { text-align: right !important; padding: 0.1rem 0.2rem !important; white-space: nowrap; font-size: 0.6rem; font-weight: 700; color: #1a2e4a; line-height: 1; position: sticky; left: 0; z-index: 2; background: white; width: 90px; min-width: 90px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 .admin-grid thead .admin-grid-name-col { background: #e5e7eb; color: #1a2e4a; z-index: 4; }
@@ -2943,6 +2957,16 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   font-style: italic;
 }
 
+.room-vacation-bar {
+  background: #eff6ff;
+  border-top: 1px solid #bfdbfe;
+}
+
+.room-vacation-worker {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 /* Sidebar */
 .room-sidebar {
   width: 220px;
@@ -3174,6 +3198,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 
   /* Admin shift grid – single shared horizontal scroll, sticky name col */
   .admin-grid-scroll-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0; }
+  .admin-grid-body-wrap { overflow-x: hidden; }
   .admin-grid { min-width: 480px; }
   /* RTL table: name col is visually on the right, must stick to right */
   .admin-grid-name-col { right: 0; left: auto; }

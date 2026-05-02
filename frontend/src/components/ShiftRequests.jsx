@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 
 const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
                 'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -239,6 +239,20 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   const [cellError, setCellError] = useState(null);
   const [vacationWarning, setVacationWarning] = useState(null);
   const [blockedWorkerMsg, setBlockedWorkerMsg] = useState(null);
+  const bodyWrapRef = useRef(null);
+  const headerWrapRef = useRef(null);
+
+  useLayoutEffect(() => {
+    function syncGutter() {
+      if (!bodyWrapRef.current || !headerWrapRef.current) return;
+      const sw = bodyWrapRef.current.offsetWidth - bodyWrapRef.current.clientWidth;
+      headerWrapRef.current.style.paddingLeft = sw + 'px';
+    }
+    syncGutter();
+    const ro = new ResizeObserver(syncGutter);
+    if (bodyWrapRef.current) ro.observe(bodyWrapRef.current);
+    return () => ro.disconnect();
+  }, [workers, requests]);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -334,60 +348,72 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
     });
   });
 
+  const colgroup = (
+    <colgroup>
+      <col style={{ width: '90px' }} />
+      {days.map(d => <col key={d} />)}
+    </colgroup>
+  );
+
   return (
     <>
       <div className="admin-grid-scroll-wrap">
-        <table className="admin-grid">
-          <colgroup>
-            <col style={{ width: '90px' }} />
-            {days.map(d => <col key={d} />)}
-          </colgroup>
-          <thead>
-            <tr>
-              <td className="admin-grid-name-col" style={{ background: '#e0f2fe', color: '#0c4a6e', fontWeight: 700, fontSize: '0.68rem', padding: '0.25rem 0.4rem', borderBottom: '2px solid #7dd3fc' }}>סיכום</td>
-              {days.map(d => {
-                const dow = new Date(year, month, d).getDay();
-                const isSaturday = dow === 6;
-                return (
-                  <td key={d} style={{ background: isSaturday ? '#9ca3af' : '#e5e7eb', border: '1px solid #7dd3fc', borderBottom: '2px solid #7dd3fc', textAlign: 'center', padding: '0.15rem 0.05rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', alignItems: 'center' }}>
-                      {shifts.map(s => {
-                        const count = summaryMap[d][s.key];
-                        return count > 0 ? (
-                          <span key={s.key} style={{ color: '#991b1b', padding: '0 2px', display: 'inline-block', fontWeight: 700 }}>
-                            {s.label_short}{count}
-                          </span>
-                        ) : null;
-                      })}
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-            <tr>
-              <th className="admin-grid-name-col">עובד</th>
-              {days.map(d => {
-                const dow = new Date(year, month, d).getDay();
-                const isSaturday = dow === 6;
-                const isFriday = dow === 5;
-                const dateStr = toDateStr(year, month, d);
-                const sd = (specialDays || []).find(s => s.date === dateStr);
-                const isWeekend = isSaturday || isFriday;
-                return (
-                  <th
-                    key={d}
-                    className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}`}
-                    style={sd && !isWeekend ? { background: sd.color + '44' } : undefined}
-                  >
-                    <div>{d}</div>
-                    <div className="admin-grid-day-letter">{DAYS_HE[dow]}</div>
-                    {sd && <div className="special-day-label" title={sd.name}>{sd.name}</div>}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
+        {/* Fixed header — never scrolls vertically */}
+        <div className="admin-grid-header-wrap" ref={headerWrapRef}>
+          <table className="admin-grid">
+            {colgroup}
+            <thead>
+              <tr>
+                <td className="admin-grid-name-col" style={{ background: '#e0f2fe', color: '#0c4a6e', fontWeight: 700, fontSize: '0.68rem', padding: '0.25rem 0.4rem', borderBottom: '2px solid #7dd3fc' }}>סיכום</td>
+                {days.map(d => {
+                  const dow = new Date(year, month, d).getDay();
+                  const isSaturday = dow === 6;
+                  return (
+                    <td key={d} style={{ background: isSaturday ? '#9ca3af' : '#e5e7eb', borderBottom: '2px solid #7dd3fc', textAlign: 'center', padding: '0.15rem 0.05rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', alignItems: 'center' }}>
+                        {shifts.map(s => {
+                          const count = summaryMap[d][s.key];
+                          return count > 0 ? (
+                            <span key={s.key} style={{ color: '#991b1b', padding: '0 2px', display: 'inline-block', fontWeight: 700 }}>
+                              {s.label_short}{count}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <th className="admin-grid-name-col">עובד</th>
+                {days.map(d => {
+                  const dow = new Date(year, month, d).getDay();
+                  const isSaturday = dow === 6;
+                  const isFriday = dow === 5;
+                  const dateStr = toDateStr(year, month, d);
+                  const sd = (specialDays || []).find(s => s.date === dateStr);
+                  const isWeekend = isSaturday || isFriday;
+                  return (
+                    <th
+                      key={d}
+                      className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}`}
+                      style={sd && !isWeekend ? { background: sd.color + '44' } : undefined}
+                    >
+                      <div>{d}</div>
+                      <div className="admin-grid-day-letter">{DAYS_HE[dow]}</div>
+                      {sd && <div className="special-day-label" title={sd.name}>{sd.name}</div>}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+          </table>
+        </div>
+        {/* Scrollable body — only worker rows scroll */}
+        <div className="admin-grid-body-wrap" ref={bodyWrapRef}>
+          <table className="admin-grid">
+            {colgroup}
+            <tbody>
             {primaryJobGroups.map(job => ([
               ...primaryJobMap[job].map(row => (
                 <tr key={row.userId}>
@@ -475,8 +501,9 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                 ))
               ])).flat()
             ]}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {blockedWorkerMsg && (
