@@ -44,6 +44,34 @@ function StatusBadge({ status }) {
 }
 
 
+function SortableHeader({ label, sortKey, sort, onSort, style }) {
+  const active = sort.key === sortKey;
+  return (
+    <th
+      onClick={() => onSort(sortKey)}
+      style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none', ...style }}
+    >
+      {label}
+      <span style={{ marginRight: '3px', fontSize: '0.65rem', color: active ? '#2563eb' : '#9ca3af' }}>
+        {active ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
+      </span>
+    </th>
+  );
+}
+
+function sortRows(rows, { key, dir }) {
+  if (!key) return rows;
+  return [...rows].sort((a, b) => {
+    let va = a[key] ?? '';
+    let vb = b[key] ?? '';
+    if (key === 'created_at') { va = va.split('T')[0]; vb = vb.split('T')[0]; }
+    if (key === 'worker_name') { va = `${a.first_name} ${a.family_name}`; vb = `${b.first_name} ${b.family_name}`; }
+    if (key === 'status') { va = STATUS_LABEL[va]?.label ?? va; vb = STATUS_LABEL[vb]?.label ?? vb; }
+    const cmp = String(va).localeCompare(String(vb), 'he');
+    return dir === 'asc' ? cmp : -cmp;
+  });
+}
+
 function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -386,6 +414,9 @@ function AdminDecisionModal({ request, onClose, onSuccess, token }) {
 
 function WorkerView({ requests, onCancel, onNewRequest, token }) {
   const isMobile = useIsMobile();
+  const [sort, setSort] = useState({ key: 'created_at', dir: 'desc' });
+  function onSort(key) { setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' })); }
+  const sorted = sortRows(requests, sort);
   return (
     <div>
       <button
@@ -428,18 +459,18 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
           <thead>
             <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
+              <SortableHeader label="תאריך הגשה"       sortKey="created_at"     sort={sort} onSort={onSort} />
+              <SortableHeader label="מתאריך"            sortKey="start_date"     sort={sort} onSort={onSort} />
+              <SortableHeader label="עד תאריך"          sortKey="end_date"       sort={sort} onSort={onSort} />
+              <SortableHeader label="סיבה"              sortKey="reason"         sort={sort} onSort={onSort} />
+              <SortableHeader label="סטטוס"             sortKey="status"         sort={sort} onSort={onSort} />
+              <SortableHeader label="תאריכים מאושרים"  sortKey="approved_start" sort={sort} onSort={onSort} />
+              <SortableHeader label="הערות"             sortKey="admin_notes"    sort={sort} onSort={onSort} />
               <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
             </tr>
           </thead>
           <tbody>
-            {requests.map((r) => (
+            {sorted.map((r) => (
               <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                 <td style={{ padding: '3px 8px' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
                 <td style={{ padding: '3px 8px' }}>{formatDateHe(r.start_date)}</td>
@@ -476,6 +507,9 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
 
 function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatusFilterChange, onNewRequest, nameFilter, onNameFilterChange }) {
   const isMobile = useIsMobile();
+  const [sort, setSort] = useState({ key: 'created_at', dir: 'desc' });
+  function onSort(key) { setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' })); }
+
   const statuses = ['', 'pending', 'approved', 'partial', 'rejected', 'cancelled'];
   const statusLabels = {
     '': 'כל הסטטוסים',
@@ -489,6 +523,7 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
   const filtered = nameFilter.trim()
     ? requests.filter(r => `${r.first_name} ${r.family_name}`.includes(nameFilter.trim()))
     : requests;
+  const sorted = sortRows(filtered, sort);
 
   return (
     <div>
@@ -556,19 +591,19 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
         <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
           <thead>
             <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>שם עובד</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריך הגשה</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>מתאריך</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>עד תאריך</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סיבה</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>סטטוס</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>תאריכים מאושרים</th>
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>הערות</th>
+              <SortableHeader label="שם עובד"           sortKey="worker_name"    sort={sort} onSort={onSort} />
+              <SortableHeader label="תאריך הגשה"        sortKey="created_at"     sort={sort} onSort={onSort} />
+              <SortableHeader label="מתאריך"            sortKey="start_date"     sort={sort} onSort={onSort} />
+              <SortableHeader label="עד תאריך"          sortKey="end_date"       sort={sort} onSort={onSort} />
+              <SortableHeader label="סיבה"              sortKey="reason"         sort={sort} onSort={onSort} />
+              <SortableHeader label="סטטוס"             sortKey="status"         sort={sort} onSort={onSort} />
+              <SortableHeader label="תאריכים מאושרים"  sortKey="approved_start" sort={sort} onSort={onSort} />
+              <SortableHeader label="הערות"             sortKey="admin_notes"    sort={sort} onSort={onSort} />
               <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r) => (
+            {sorted.map((r) => (
               <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                 <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{r.first_name} {r.family_name}</td>
                 <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
