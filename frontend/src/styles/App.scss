@@ -3112,7 +3112,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 
   /* Tabs – wrap to two rows */
   .tabs {
-    top: 50px;
+    top: 56px;
     left: 0;
     right: 0;
     width: 100vw;
@@ -3126,8 +3126,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
     padding: 0.28rem 0.6rem;
     font-size: 0.72rem;
   }
-  /* enough room for header (~50px) + two rows of tabs (~54px) */
-  .app { padding-top: 112px; }
+  /* enough room for header (~56px) + two rows of tabs (~54px) */
+  .app { padding-top: 118px; }
 
   /* Shift view */
   .shift-view { max-height: none; }
@@ -3333,9 +3333,9 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   header h1 { font-size: 0.8rem; }
   header .subtitle { display: none; }
   .header-branch-select { display: none !important; }
-  .tabs { top: 40px; padding: 0.1rem 0.3rem; flex-wrap: wrap; gap: 2px; overflow-x: hidden; }
+  .tabs { top: 46px; padding: 0.1rem 0.3rem; flex-wrap: wrap; gap: 2px; overflow-x: hidden; }
   .tab-btn { padding: 0.18rem 0.45rem; font-size: 0.68rem; white-space: nowrap; }
-  .app { padding-top: 68px; }
+  .app { padding-top: 74px; }
   .shift-admin-title { display: none; }
   .shift-admin-legend { display: none; }
   .shift-admin-filters { gap: 0.4rem !important; }
