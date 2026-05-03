@@ -1,0 +1,76 @@
+// SortTh
+.sortTh {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.sortIcon {
+  margin-right: 4px;
+  font-size: 0.7rem;
+  opacity: var(--sort-opacity, 0.3);
+}
+
+// Borrowed worker badge (overrides badge-normal colors)
+.borrowedBadge {
+  margin-right: 0.3rem;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+.badgeMargin { margin-right: 0.3rem; }
+
+// WorkerActivityAuthorizations modal
+.authModalContent {
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+}
+.authSection { margin-bottom: 0.75rem; }
+.authSectionTitle {
+  margin-bottom: 0.25rem;
+  color: #1a2e4a;
+  font-size: 0.8rem;
+}
+.authList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.authItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.2rem 0.4rem;
+  background: #dbeafe;
+  border-radius: 4px;
+  border: 1px solid #0369a1;
+}
+.authRemoveBtn {
+  padding: 0.1rem 0.35rem;
+  font-size: 0.75rem;
+}
+.authEmpty { color: #666; margin: 0; }
+
+// Add activity buttons
+.activityBtn {
+  padding: 0.2rem 0.5rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: right;
+  font-size: 0.82rem;
+}
+.actGroupLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--group-label-color, #475569);
+  margin-bottom: 0.2rem;
+  margin-top: 0.4rem;
+}
+.actGroupItems {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.actAllAuthorized { color: #666; margin: 0; }
+.actUngroupedLabel { --group-label-color: #94a3b8; }

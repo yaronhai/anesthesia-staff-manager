@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+﻿import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import styles from '../styles/ShiftRequests.module.scss';
 
 const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
                 'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -32,13 +33,13 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
   const sd = (specialDays || []).find(s => s.date === dateStr);
   return (
     <div
-      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : isFriday ? ' cal-friday' : ''}${dayRequests.length ? ' cal-has-data' : ''}${isVacation ? ' cal-vacation-day' : ''}${sd ? ' cal-special-day' : ''}`}
-      style={sd ? { borderColor: sd.color } : undefined}
+      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : isFriday ? ' cal-friday' : ''}${dayRequests.length ? ' cal-has-data' : ''}${isVacation ? ' cal-vacation-day' : ''}${sd ? ` cal-special-day ${styles.sdCell}` : ''}`}
+      style={sd ? { '--sd-color': sd.color, '--sd-badge-bg': sd.color + '33' } : undefined}
       onClick={() => onClick(day, dateStr)}
     >
-      <span className={`cal-day-num${sd ? ' cal-special-day-num' : ''}`} style={sd ? { color: sd.color } : undefined}>{day}</span>
+      <span className={`cal-day-num${sd ? ` cal-special-day-num ${styles.sdDayNum}` : ''}`}>{day}</span>
       <div className="cal-day-name">{DAYS_HE[dayOfWeek]}</div>
-      {sd && <div className="cal-special-day-badge" style={{ background: sd.color + '33', color: sd.color }}>{sd.name}</div>}
+      {sd && <div className={`cal-special-day-badge ${styles.sdBadge}`}>{sd.name}</div>}
       {isVacation && <div className="vac-indicator">חופש ✓</div>}
       <div className="cal-indicators">
         {shifts.map(s => {
@@ -159,16 +160,16 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
   return (
     <>
       {canSubmit === false && (
-        <div style={{padding: '0.75rem 1rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '0.75rem'}}>
+        <div className={styles.blockedBanner}>
           <strong>⛔ אין לך הרשאה להגיש או לערוך בקשות משמרת.</strong> לפרטים פנה למנהל.
         </div>
       )}
       {blockedMsg && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={() => setBlockedMsg(false)}>
-          <div style={{background:'#fff',borderRadius:'10px',padding:'2rem',maxWidth:'320px',textAlign:'center',boxShadow:'0 8px 32px rgba(0,0,0,0.2)'}}>
-            <div style={{fontSize:'2rem',marginBottom:'0.5rem'}}>⛔</div>
-            <strong style={{color:'#991b1b'}}>אין לך הרשאה להגיש או לערוך בקשות משמרת.</strong>
-            <div style={{color:'#7f1d1d',fontSize:'0.9rem',marginTop:'0.4rem',marginBottom:'1rem'}}>לפרטים פנה למנהל.</div>
+        <div className={styles.blockedOverlay} onClick={() => setBlockedMsg(false)}>
+          <div className={styles.blockedModal}>
+            <div className={styles.blockedIcon}>⛔</div>
+            <strong className={styles.blockedText}>אין לך הרשאה להגיש או לערוך בקשות משמרת.</strong>
+            <div className={styles.blockedSub}>לפרטים פנה למנהל.</div>
             <button className="btn-primary" onClick={() => setBlockedMsg(false)}>סגור</button>
           </div>
         </div>
@@ -364,17 +365,17 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
             {colgroup}
             <thead>
               <tr>
-                <td className="admin-grid-name-col" style={{ background: '#e0f2fe', color: '#0c4a6e', fontWeight: 700, fontSize: '0.68rem', padding: '0.25rem 0.4rem', borderBottom: '2px solid #7dd3fc' }}>סיכום</td>
+                <td className={`admin-grid-name-col ${styles.summaryLabelCell}`}>סיכום</td>
                 {days.map(d => {
                   const dow = new Date(year, month, d).getDay();
                   const isSaturday = dow === 6;
                   return (
-                    <td key={d} style={{ background: isSaturday ? '#9ca3af' : '#e5e7eb', borderBottom: '2px solid #7dd3fc', textAlign: 'center', padding: '0.15rem 0.05rem' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', alignItems: 'center' }}>
+                    <td key={d} className={styles.summaryDayCell} style={{ '--summary-day-bg': isSaturday ? '#9ca3af' : '#e5e7eb' }}>
+                      <div className={styles.summaryCountsCol}>
                         {shifts.map(s => {
                           const count = summaryMap[d][s.key];
                           return count > 0 ? (
-                            <span key={s.key} style={{ color: '#991b1b', padding: '0 2px', display: 'inline-block', fontWeight: 700 }}>
+                            <span key={s.key} className={styles.summaryCount}>
                               {s.label_short}{count}
                             </span>
                           ) : null;
@@ -397,7 +398,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                     <th
                       key={d}
                       className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}`}
-                      style={sd && !isWeekend ? { background: sd.color + '44' } : undefined}
+                      style={sd && !isWeekend ? { '--sd-header-bg': sd.color + '44', background: 'var(--sd-header-bg)' } : undefined}
                     >
                       <div>{d}</div>
                       <div className="admin-grid-day-letter">{DAYS_HE[dow]}</div>
@@ -462,7 +463,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                   <tr key={row.userId}>
                     <td className="admin-grid-name-col">
                       {row.name}
-                      <span style={{fontSize: '0.5rem', color: '#991b1b', fontWeight: 600, display: 'block', lineHeight: 1}}> מושאל</span>
+                      <span className={styles.borrowedTag}> מושאל</span>
                     </td>
                     {days.map(d => {
                       const dayData = requestMap[row.userId]?.[d] || {};
@@ -508,14 +509,14 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
 
       {blockedWorkerMsg && (
         <div className="admin-editor-overlay" onClick={() => setBlockedWorkerMsg(null)}>
-          <div className="admin-editor-modal" onClick={e => e.stopPropagation()} style={{textAlign: 'center'}}>
+          <div className={`admin-editor-modal ${styles.alertModalCenter}`} onClick={e => e.stopPropagation()}>
             <div className="admin-editor-header">
               <h3>עובד חסום</h3>
               <button className="btn-close" onClick={() => setBlockedWorkerMsg(null)}>✕</button>
             </div>
-            <div style={{padding: '1rem 0', fontSize: '1.5rem'}}>⛔</div>
-            <div style={{color: '#991b1b', fontWeight: 600}}>{blockedWorkerMsg} אינו/ה מורשה/ת להגיש בקשות משמרת.</div>
-            <div style={{marginTop: '1rem'}}>
+            <div className={styles.alertPadIcon}>⛔</div>
+            <div className={styles.alertRedText}>{blockedWorkerMsg} אינו/ה מורשה/ת להגיש בקשות משמרת.</div>
+            <div className={styles.alertMarginTop}>
               <button className="btn-secondary" onClick={() => setBlockedWorkerMsg(null)}>סגור</button>
             </div>
           </div>
@@ -524,13 +525,13 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
 
       {vacationWarning && (
         <div className="admin-editor-overlay" onClick={() => setVacationWarning(null)}>
-          <div className="admin-editor-modal" onClick={e => e.stopPropagation()} style={{textAlign: 'center'}}>
+          <div className={`admin-editor-modal ${styles.alertModalCenter}`} onClick={e => e.stopPropagation()}>
             <div className="admin-editor-header">
               <h3>חופש מאושר</h3>
               <button className="btn-close" onClick={() => setVacationWarning(null)}>✕</button>
             </div>
-            <div style={{padding: '1rem 0', color: '#374151', fontSize: '0.95rem'}}>{vacationWarning.message}</div>
-            <div style={{marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'center'}}>
+            <div className={styles.alertGrayText}>{vacationWarning.message}</div>
+            <div className={styles.alertRow}>
               <button className="btn-secondary" onClick={() => setVacationWarning(null)}>סגור</button>
               <button className="btn-primary" onClick={() => { setCellError(null); setEditingCell({ userId: vacationWarning.userId, day: vacationWarning.day, overrideVacation: true }); setVacationWarning(null); }}>הגש בקשה בכל זאת</button>
             </div>
@@ -577,7 +578,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                 );
               })}
             {cellError && (
-              <div className="vacation-conflict-msg" style={{margin: '0.75rem 0 0'}}>{cellError}</div>
+              <div className={`vacation-conflict-msg ${styles.cellErrorMargin}`}>{cellError}</div>
             )}
           </div>
         </div>
@@ -668,10 +669,10 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   if (!isAdmin && canSubmit === false) {
     return (
       <div className="shift-view">
-        <div style={{ padding: '2rem', textAlign: 'center', color: '#b91c1c', background: '#fee2e2', borderRadius: '8px', border: '1px solid #fca5a5', margin: '1rem' }}>
-          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⛔</div>
+        <div className={styles.noPermView}>
+          <div className={styles.noPermIcon}>⛔</div>
           <strong>אין לך הרשאה להגיש בקשות משמרת.</strong>
-          <div style={{ fontSize: '0.9rem', color: '#7f1d1d', marginTop: '0.4rem' }}>לפרטים פנה למנהל.</div>
+          <div className={styles.noPermSub}>לפרטים פנה למנהל.</div>
         </div>
       </div>
     );
@@ -696,44 +697,36 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
     return (
       <div className="shift-view">
         <div className="shift-admin-header">
-          <div className="shift-admin-filters" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <h2 className="shift-admin-title" style={{ margin: 0 }}>ניהול בקשות משמרות</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <label style={{ fontSize: '0.85rem' }}>הרשאה:</label>
-              <select
-                value={workerFilter}
-                onChange={e => setWorkerFilter(e.target.value)}
-                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}
-              >
+          <div className={`shift-admin-filters ${styles.adminFilters}`}>
+            <h2 className={`shift-admin-title ${styles.adminTitle}`}>ניהול בקשות משמרות</h2>
+            <div className={styles.filterGroup}>
+              <label className={styles.filterLabel}>הרשאה:</label>
+              <select className={styles.filterSelect} value={workerFilter} onChange={e => setWorkerFilter(e.target.value)}>
                 {filterOptions.map(opt => (
                   <option key={opt.key} value={opt.key}>{opt.label}</option>
                 ))}
               </select>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <label style={{ fontSize: '0.85rem' }}>תפקיד:</label>
-              <select
-                value={jobFilter}
-                onChange={e => setJobFilter(e.target.value)}
-                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}
-              >
+            <div className={styles.filterGroup}>
+              <label className={styles.filterLabel}>תפקיד:</label>
+              <select className={styles.filterSelect} value={jobFilter} onChange={e => setJobFilter(e.target.value)}>
                 <option value=''>כל התפקידים</option>
                 {jobOptions.map(job => (
                   <option key={job} value={job}>{job}</option>
                 ))}
               </select>
             </div>
-            <div className="shift-admin-legend" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: '#374151', borderRight: '1px solid #d1d5db', paddingRight: '0.6rem' }}>
+            <div className={`shift-admin-legend ${styles.legendRow}`}>
               {prefs.map(p => (
-                <span key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: p.color, flexShrink: 0 }}></span>{p.label_he}
+                <span key={p.key} className={styles.legendItem}>
+                  <span className={styles.legendSwatch} style={{ '--swatch-bg': p.color }}></span>{p.label_he}
                 </span>
               ))}
-              <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#9ca3af', flexShrink: 0 }}></span>שבת
+              <span className={styles.legendItem}>
+                <span className={styles.legendSwatch} style={{ '--swatch-bg': '#9ca3af' }}></span>שבת
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#e5e7eb', border: '1px solid #9ca3af', flexShrink: 0 }}></span>שישי
+              <span className={styles.legendItem}>
+                <span className={styles.legendSwatch} style={{ '--swatch-bg': '#e5e7eb', '--swatch-border': '1px solid #9ca3af' }}></span>שישי
               </span>
             </div>
           </div>
@@ -752,7 +745,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
 
   return (
     <div className="shift-view">
-      <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap'}}>
+      <div className={styles.userNavRow}>
         <div className="month-year-nav">
           <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
           <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
@@ -762,9 +755,9 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
         </div>
         {workerBranches.length > 1 && (
           <select
+            className={styles.branchSelect}
             value={activeBranchId ?? ''}
             onChange={e => setActiveBranchId(parseInt(e.target.value))}
-            style={{fontSize: '0.9rem', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db'}}
           >
             {workerBranches.map(wb => (
               <option key={wb.branch_id} value={wb.branch_id}>{wb.branch_name}</option>
@@ -772,7 +765,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           </select>
         )}
         {workerBranches.length === 1 && (
-          <span style={{fontSize: '0.85rem', color: '#6b7280'}}>{workerBranches[0]?.branch_name}</span>
+          <span className={styles.branchLabel}>{workerBranches[0]?.branch_name}</span>
         )}
       </div>
       <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} vacations={vacations} canSubmit={canSubmit} specialDays={config.special_days || []} />

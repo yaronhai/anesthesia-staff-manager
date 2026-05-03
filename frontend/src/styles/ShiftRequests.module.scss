@@ -1,0 +1,199 @@
+// Blocked-access banner (user view)
+.blockedBanner {
+  padding: 0.75rem 1rem;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+// Blocked-access full-screen overlay
+.blockedOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.blockedModal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 2rem;
+  max-width: 320px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+.blockedIcon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+.blockedText { color: #991b1b; }
+.blockedSub {
+  color: #7f1d1d;
+  font-size: 0.9rem;
+  margin-top: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+// No-permission view (whole component)
+.noPermView {
+  padding: 2rem;
+  text-align: center;
+  color: #b91c1c;
+  background: #fee2e2;
+  border-radius: 8px;
+  border: 1px solid #fca5a5;
+  margin: 1rem;
+}
+.noPermIcon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.noPermSub {
+  font-size: 0.9rem;
+  color: #7f1d1d;
+  margin-top: 0.4rem;
+}
+
+// Admin: summary row header cell
+.summaryLabelCell {
+  background: #e0f2fe;
+  color: #0c4a6e;
+  font-weight: 700;
+  font-size: 0.68rem;
+  padding: 0.25rem 0.4rem;
+  border-bottom: 2px solid #7dd3fc;
+}
+.summaryDayCell {
+  background: var(--summary-day-bg, #e5e7eb);
+  border-bottom: 2px solid #7dd3fc;
+  text-align: center;
+  padding: 0.15rem 0.05rem;
+}
+.summaryCountsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: center;
+}
+.summaryCount {
+  color: #991b1b;
+  padding: 0 2px;
+  display: inline-block;
+  font-weight: 700;
+}
+
+// Admin: borrowed worker label
+.borrowedTag {
+  font-size: 0.5rem;
+  color: #991b1b;
+  font-weight: 600;
+  display: block;
+  line-height: 1;
+}
+
+// Admin: blocked-worker modal
+.alertModalCenter {
+  text-align: center;
+}
+.alertPadIcon {
+  padding: 1rem 0;
+  font-size: 1.5rem;
+}
+.alertRedText {
+  color: #991b1b;
+  font-weight: 600;
+}
+.alertMarginTop { margin-top: 1rem; }
+.alertRow {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+// Vacation warning modal
+.alertGrayText {
+  padding: 1rem 0;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+// Cell error in editing panel
+.cellErrorMargin { margin: 0.75rem 0 0; }
+
+// Admin filters header
+.adminFilters {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.adminTitle { margin: 0; }
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.filterLabel { font-size: 0.85rem; }
+.filterSelect {
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+// Admin legend
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: #374151;
+  border-right: 1px solid #d1d5db;
+  padding-right: 0.6rem;
+}
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.legendSwatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--swatch-bg, #9ca3af);
+  border: var(--swatch-border, none);
+  flex-shrink: 0;
+}
+
+// User view: nav + branch selector
+.userNavRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+.branchSelect {
+  font-size: 0.9rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+.branchLabel {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+// Special day cell border/color (CSS var-driven)
+.sdCell { border-color: var(--sd-color) !important; }
+.sdDayNum { color: var(--sd-color); }
+.sdBadge {
+  background: var(--sd-badge-bg);
+  color: var(--sd-color);
+}

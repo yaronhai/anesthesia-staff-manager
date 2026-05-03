@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
+import styles from '../styles/WorkerList.module.scss';
 
 function WorkerAuthButton({ worker, authToken, config }) {
   const [showModal, setShowModal] = useState(false);
@@ -87,16 +88,8 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
     return (
       <button
         key={at.id}
+        className={styles.activityBtn}
         onClick={() => addAuthorization(at.id)}
-        style={{
-          padding: '0.2rem 0.5rem',
-          background: '#f3f4f6',
-          border: '1px solid #d1d5db',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          textAlign: 'right',
-          fontSize: '0.82rem',
-        }}
       >
         {at.name}
       </button>
@@ -105,11 +98,11 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
 
   function renderAvailableGrouped() {
     if (availableActivities.length === 0) {
-      return <p style={{ color: '#666', margin: 0 }}>כל סוגי הפעילות מורשים כבר</p>;
+      return <p className={styles.actAllAuthorized}>כל סוגי הפעילות מורשים כבר</p>;
     }
     if (actGroups.length === 0) {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+        <div className={styles.actGroupItems}>
           {availableActivities.map(renderActivityButton)}
         </div>
       );
@@ -120,10 +113,8 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
       if (items.length === 0) return;
       sections.push(
         <div key={group.id}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem', marginTop: '0.4rem' }}>
-            {group.name}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+          <div className={styles.actGroupLabel}>{group.name}</div>
+          <div className={styles.actGroupItems}>
             {items.map(renderActivityButton)}
           </div>
         </div>
@@ -133,16 +124,14 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
     if (ungrouped.length > 0) {
       sections.push(
         <div key="ungrouped">
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.2rem', marginTop: '0.4rem' }}>
-            ללא קבוצה
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+          <div className={`${styles.actGroupLabel} ${styles.actUngroupedLabel}`}>ללא קבוצה</div>
+          <div className={styles.actGroupItems}>
             {ungrouped.map(renderActivityButton)}
           </div>
         </div>
       );
     }
-    return sections.length > 0 ? <div>{sections}</div> : <p style={{ color: '#666', margin: 0 }}>כל סוגי הפעילות מורשים כבר</p>;
+    return sections.length > 0 ? <div>{sections}</div> : <p className={styles.actAllAuthorized}>כל סוגי הפעילות מורשים כבר</p>;
   }
 
   return (
@@ -153,32 +142,23 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
-        <div style={{ padding: '0.6rem 1rem', fontSize: '0.85rem' }}>
+        <div className={styles.authModalContent}>
           {loading ? (
             <p>טוען...</p>
           ) : (
             <>
-              <div style={{ marginBottom: '0.75rem' }}>
-                <h4 style={{ marginBottom: '0.25rem', color: '#1a2e4a', fontSize: '0.8rem' }}>מורשה עבור:</h4>
+              <div className={styles.authSection}>
+                <h4 className={styles.authSectionTitle}>מורשה עבור:</h4>
                 {authorizations.length === 0 ? (
-                  <p style={{ color: '#666', margin: 0 }}>—</p>
+                  <p className={styles.authEmpty}>—</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                  <div className={styles.authList}>
                     {authorizations.map(auth => (
-                      <div key={auth.activity_type_id} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '0.2rem 0.4rem',
-                        background: '#dbeafe',
-                        borderRadius: '4px',
-                        border: '1px solid #0369a1'
-                      }}>
+                      <div key={auth.activity_type_id} className={styles.authItem}>
                         <span>{auth.name}</span>
                         <button
-                          className="btn-remove"
+                          className={`btn-remove ${styles.authRemoveBtn}`}
                           onClick={() => removeAuthorization(auth.activity_type_id)}
-                          style={{ padding: '0.1rem 0.35rem', fontSize: '0.75rem' }}
                         >✕</button>
                       </div>
                     ))}
@@ -187,7 +167,7 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
               </div>
 
               <div>
-                <h4 style={{ marginBottom: '0.25rem', color: '#1a2e4a', fontSize: '0.8rem' }}>הוסף הרשאה:</h4>
+                <h4 className={styles.authSectionTitle}>הוסף הרשאה:</h4>
                 {renderAvailableGrouped()}
               </div>
             </>
@@ -321,9 +301,9 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
   function SortTh({ field, children }) {
     const active = sortField === field;
     return (
-      <th onClick={() => handleSort(field)} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+      <th className={styles.sortTh} onClick={() => handleSort(field)}>
         {children}
-        <span style={{ marginRight: '4px', opacity: active ? 1 : 0.3, fontSize: '0.7rem' }}>
+        <span className={styles.sortIcon} style={{ '--sort-opacity': active ? 1 : 0.3 }}>
           {active ? (sortDir === 'asc' ? '▲' : '▼') : '▲'}
         </span>
       </th>
@@ -362,7 +342,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
                 <span className="worker-card-badges">
                   {w.is_active === false && <span className="badge badge-inactive">לא פעיל</span>}
                   {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
-                    <span className="badge badge-normal" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>מושאל</span>
+                    <span className={`badge badge-normal ${styles.borrowedBadge}`}>מושאל</span>
                   )}
                 </span>
               </div>
@@ -410,9 +390,9 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
                 <td>{w.title}</td>
                 <td>
                   <strong>{w.first_name}</strong>
-                  {w.is_active === false && <span className="badge badge-inactive" style={{ marginRight: '0.3rem' }}>לא פעיל</span>}
+                  {w.is_active === false && <span className={`badge badge-inactive ${styles.badgeMargin}`}>לא פעיל</span>}
                   {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
-                    <span className="badge badge-normal" title={`סניף ראשי: ${w.primary_branch_name}`} style={{ marginRight: '0.3rem', background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>מושאל</span>
+                    <span className={`badge badge-normal ${styles.borrowedBadge}`} title={`סניף ראשי: ${w.primary_branch_name}`}>מושאל</span>
                   )}
                 </td>
                 <td><strong>{w.family_name}</strong></td>
@@ -467,12 +447,11 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
               <td>{w.title}</td>
               <td>
                 <strong>{w.first_name}</strong>
-                {w.is_active === false && <span className="badge badge-inactive" style={{ marginRight: '0.3rem' }}>לא פעיל</span>}
+                {w.is_active === false && <span className={`badge badge-inactive ${styles.badgeMargin}`}>לא פעיל</span>}
                 {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
                   <span
-                    className="badge badge-normal"
+                    className={`badge badge-normal ${styles.borrowedBadge}`}
                     title={`סניף ראשי: ${w.primary_branch_name}`}
-                    style={{ marginRight: '0.3rem', background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}
                   >
                     מושאל
                   </span>

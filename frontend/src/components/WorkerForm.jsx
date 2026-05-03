@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
+import styles from '../styles/WorkerForm.module.scss';
 
 export default function WorkerForm({ initial, config, onSave, onCancel, isSuperAdmin, authToken, branches = [], roles = [], currentUser = null }) {
   const jobs = config?.jobs || [];
@@ -188,7 +189,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
         </label>
 
         {isSuperAdmin && !initial?.id && branches.length > 0 && (
-          <div style={{marginTop: '0.5rem'}}>
+          <div className={styles.branchSection}>
             <label>
               סניף ראשי
               <select value={primaryBranchId} onChange={e => setPrimaryBranchId(e.target.value)}>
@@ -200,7 +201,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
         )}
 
         {initial?.id && branches.length > 0 && (
-          <div style={{marginTop: '0.5rem'}}>
+          <div className={styles.branchSection}>
             <label>
               סניף ראשי
               <select name="primary_branch_id" value={form.primary_branch_id || ''} onChange={handleChange}>
@@ -212,13 +213,13 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
         )}
 
         {isSuperAdmin && initial?.id && (
-          <div style={{marginTop: '1rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem'}}>
-            <div style={{fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem'}}>שיוך לסניפים</div>
-            {workerBranches.length === 0 && <div style={{color: '#9ca3af', fontSize: '0.85rem'}}>לא משויך לסניפים</div>}
+          <div className={styles.branchAssignSection}>
+            <div className={styles.branchAssignTitle}>שיוך לסניפים</div>
+            {workerBranches.length === 0 && <div className={styles.branchAssignEmpty}>לא משויך לסניפים</div>}
             {workerBranches.map(wb => (
-              <div key={wb.branch_id} style={{display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem'}}>
-                <span style={{flex: 1, fontSize: '0.88rem'}}>{wb.branch_name}</span>
-                <label style={{fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer'}}>
+              <div key={wb.branch_id} className={styles.branchRow}>
+                <span className={styles.branchName}>{wb.branch_name}</span>
+                <label className={styles.activeLabel}>
                   <input
                     type="checkbox"
                     checked={wb.is_active}
@@ -226,15 +227,15 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
                   />
                   פעיל
                 </label>
-                <button type="button" onClick={() => removeBranch(wb.branch_id)} style={{padding: '2px 7px', fontSize: '0.78rem', background: '#fee2e2', border: 'none', borderRadius: '4px', cursor: 'pointer', color: '#b91c1c'}}>הסר</button>
+                <button type="button" onClick={() => removeBranch(wb.branch_id)} className={styles.removeBtn}>הסר</button>
               </div>
             ))}
             {unassignedBranches.length > 0 && (
-              <div style={{display: 'flex', gap: '0.5rem', marginTop: '0.5rem'}}>
+              <div className={styles.addBranchRow}>
                 <select
                   defaultValue=""
                   onChange={e => { if (e.target.value) { addBranch(e.target.value); e.target.value = ''; } }}
-                  style={{fontSize: '0.85rem', flex: 1, padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db'}}
+                  className={styles.addBranchSelect}
                 >
                   <option value="">+ הוסף לסניף...</option>
                   {unassignedBranches.map(b => (
@@ -246,8 +247,8 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           </div>
         )}
 
-        <div style={{marginTop: '0.75rem'}}>
-          <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none'}}>
+        <div className={styles.canSubmitRow}>
+          <label className={styles.canSubmitLabel}>
             <input
               type="checkbox"
               name="can_submit_requests"

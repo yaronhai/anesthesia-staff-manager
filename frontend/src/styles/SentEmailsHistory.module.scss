@@ -1,0 +1,81 @@
+.root {
+  direction: rtl;
+  padding: 1rem;
+}
+
+// Filter row
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.filterLabel { font-size: 0.9rem; color: #6b7280; }
+.filterSelect {
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  margin-right: 0.5rem;
+}
+.refreshBtn {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+}
+.summary {
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+.summaryTotal { font-weight: 600; color: #1a2e4a; }
+.summarySent { color: #059669; font-weight: 600; margin-right: 0.5rem; }
+.summaryFailed { color: #dc2626; font-weight: 600; margin-right: 0.5rem; }
+
+// Empty state
+.emptyState {
+  text-align: center;
+  padding: 2rem;
+  color: #9ca3af;
+}
+
+// Table
+.tableWrap { overflow-x: auto; }
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.thead tr {
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+.th {
+  padding: 0.75rem;
+  text-align: right;
+  font-weight: 600;
+}
+.tr { border-bottom: 1px solid #f1f5f9; background: var(--row-bg, white); }
+.tdDate { padding: 0.75rem; color: #6b7280; font-size: 0.85rem; }
+.tdText { padding: 0.75rem; color: #374151; }
+.tdEmail {
+  padding: 0.75rem;
+  color: #6b7280;
+  font-size: 0.85rem;
+  direction: ltr;
+  text-align: left;
+}
+.tdSmall { padding: 0.75rem; color: #374151; font-size: 0.85rem; }
+.tdStatus { padding: 0.75rem; }
+.statusBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+}
+.tdError { padding: 0.75rem; color: #dc2626; font-size: 0.8rem; }

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import RolesManagement from './RolesManagement';
+import styles from '../styles/AdminPanel.module.scss';
 
 export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, branches = [], onConfigChange, onBranchesChange, onClose, roles = [], onRolesChange }) {
   const [newJob, setNewJob] = useState('');
@@ -295,19 +296,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     const text = tabDescriptions[tabKey];
     if (!text) return null;
     return (
-      <div style={{
-        background: '#f0f7ff',
-        border: '1px solid #bfdbfe',
-        borderRadius: '8px',
-        padding: '0.6rem 0.85rem',
-        marginBottom: '0.85rem',
-        fontSize: '0.8rem',
-        color: '#1e3a5f',
-        lineHeight: 1.6,
-        direction: 'rtl',
-      }}>
-        ℹ️ {text}
-      </div>
+      <div className={styles.tabDesc}>ℹ️ {text}</div>
     );
   }
 
@@ -331,7 +320,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
             <select
               value={localBranchId || ''}
               onChange={(e) => setLocalBranchId(e.target.value ? Number(e.target.value) : null)}
-              style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', marginRight: 'auto', marginLeft: '12px' }}
+              className={styles.branchSelect}
             >
               <option value="">— בחר אתר —</option>
               {branches.map(b => (
@@ -342,36 +331,32 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
-        <div style={{display: 'flex', flexDirection: 'column', flex: 1}}>
+        <div className={styles.modalFlex}>
           {/* Tabs */}
-          <div style={{display: 'flex', gap: '0.15rem', borderBottom: '2px solid #e2e8f0', padding: '0.5rem 0.75rem 0', background: '#f1f5f9', overflowX: 'auto'}}>
-            {tabs.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                style={{
-                  padding: '0.25rem 0.55rem',
-                  border: '1px solid',
-                  borderColor: activeTab === tab.key ? '#cbd5e1' : 'transparent',
-                  borderBottom: activeTab === tab.key ? '2px solid white' : '2px solid transparent',
-                  background: activeTab === tab.key ? 'white' : 'transparent',
-                  color: activeTab === tab.key ? '#1a2e4a' : '#64748b',
-                  fontWeight: activeTab === tab.key ? 700 : 400,
-                  cursor: 'pointer',
-                  borderRadius: '7px 7px 0 0',
-                  whiteSpace: 'nowrap',
-                  fontSize: '0.82rem',
-                  marginBottom: '-2px',
-                  transition: 'all 0.12s',
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className={styles.tabBar}>
+            {tabs.map(tab => {
+              const active = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  className={styles.tabBtn}
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    '--tab-border-color': active ? '#cbd5e1' : 'transparent',
+                    '--tab-border-bottom': active ? '2px solid white' : '2px solid transparent',
+                    '--tab-bg': active ? 'white' : 'transparent',
+                    '--tab-color': active ? '#1a2e4a' : '#64748b',
+                    '--tab-weight': active ? 700 : 400,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Content */}
-          <div style={{flex: 1, overflow: 'auto', padding: '0.6rem 0.85rem 0.85rem'}}>
+          <div className={styles.tabContent}>
             {activeTab === 'hierarchy' && isSuperAdmin && (
               <RolesManagement roles={roles} authToken={authToken} onRolesChange={onRolesChange} />
             )}
@@ -383,14 +368,14 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   {branches.map(b => (
                     <li key={b.id}>
                       <div>
-                        <div style={{fontWeight: 500}}>{b.name}</div>
-                        {b.description && <div style={{fontSize: '0.8rem', color: '#6b7280'}}>{b.description}</div>}
+                        <div className={styles.branchName}>{b.name}</div>
+                        {b.description && <div className={styles.branchDesc}>{b.description}</div>}
                       </div>
                       <button className="btn-remove" onClick={() => deleteBranch(b.id)}>✕</button>
                     </li>
                   ))}
                 </ul>
-                <div className="add-item-row" style={{flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch'}}>
+                <div className={`add-item-row ${styles.addItemColFlex}`}>
                   <input
                     className="config-input"
                     placeholder="שם סניף חדש"
@@ -412,12 +397,11 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
             {activeTab === 'groups' && (
               <>
                 <TabDescription tabKey="groups" />
-                <div style={{display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem'}}>
+                <div className={styles.fairnessRow}>
                   <button
-                    className="btn-primary"
+                    className={`btn-primary ${styles.fairnessBtnSm}`}
                     onClick={fetchFairnessReport}
                     disabled={fairnessReportLoading}
-                    style={{fontSize: '0.8rem', whiteSpace: 'nowrap'}}
                   >
                     {fairnessReportLoading ? 'טוען...' : '⚖️ טבלת צדק'}
                   </button>
@@ -430,7 +414,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   function renderSiteRow(site) {
                     const isFairness = (config.fairness_sites || []).includes(site.id);
                     return (
-                      <li key={site.id} style={{display: 'flex', gap: '0.15rem', alignItems: 'center', flexWrap: 'wrap', paddingRight: '1rem', background: '#f8fafc', borderRadius: '4px', marginBottom: '0.1rem'}}>
+                      <li key={site.id} className={styles.itemRow}>
                         {editingKey === `site-${site.id}` ? (
                           <input
                             className="config-inline-edit"
@@ -444,13 +428,13 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                             style={{flex: 1, minWidth: '100px'}}
                           />
                         ) : (
-                          <span style={{flex: 1, minWidth: '100px', fontSize: '0.85rem'}}>{site.name}</span>
+                          <span className={styles.itemName}>{site.name}</span>
                         )}
-                        <label title="כלול באיזון עומס (צדק)" style={{display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.78rem', cursor: 'pointer', flexShrink: 0}}>
+                        <label title="כלול באיזון עומס (צדק)" className={styles.fairnessLabel}>
                           <input type="checkbox" checked={isFairness} onChange={e => toggleFairnessSite(site.id, e.target.checked)} />
                           ⚖️
                         </label>
-                        <div className="config-item-actions" style={{display: 'flex', gap: '0.15rem', flexShrink: 0}}>
+                        <div className={`config-item-actions ${styles.itemActions}`}>
                           {editingKey === `site-${site.id}` ? (
                             <>
                               <button className="btn-save-inline" onClick={() => saveEdit('/api/config/sites', site.id)}>שמור</button>
@@ -471,7 +455,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   function renderAddSiteRow(groupId) {
                     const key = groupId ?? 'ungrouped';
                     return (
-                      <div style={{display: 'flex', gap: '0.2rem', paddingRight: '0.5rem', marginTop: '1px'}}>
+                      <div className={styles.addRow}>
                         <input
                           className="config-inline-edit"
                           style={{flex: 1, fontSize: '0.82rem'}}
@@ -480,7 +464,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                           placeholder="אתר חדש..."
                           onKeyDown={e => e.key === 'Enter' && addSiteInGroup(groupId)}
                         />
-                        <button className="btn-add-config" style={{fontSize: '0.78rem'}} onClick={() => addSiteInGroup(groupId)}>הוסף</button>
+                        <button className={`btn-add-config ${styles.addRowBtn}`} onClick={() => addSiteInGroup(groupId)}>הוסף</button>
                       </div>
                     );
                   }
@@ -489,14 +473,14 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   const ungroupedSites = (config.sites || []).filter(s => !s.group_id);
 
                   return (
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '2px'}}>
+                    <div className={styles.columnGap2}>
                       {groups.map(group => {
                         const groupSites = (config.sites || []).filter(s => s.group_id === group.id);
                         return (
-                          <div key={group.id} style={{border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden'}}>
-                            <div style={{display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '0.1rem 0.5rem', gap: '0.3rem'}}>
+                          <div key={group.id} className={styles.groupCard}>
+                            <div className={styles.groupHeader}>
                               {editingKey === `group-${group.id}` ? (
-                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: 1 }}>
+                                <div className={styles.groupHeaderEditRow}>
                                   <input
                                     className="config-inline-edit"
                                     value={editingValue}
@@ -505,17 +489,20 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                                     autoFocus
                                     style={{ flex: 1 }}
                                   />
-                                  <select value={editingGroupType} onChange={e => setEditingGroupType(e.target.value)} style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', padding: '0.2rem 0.4rem' }}>
+                                  <select className={styles.groupTypeSelect} value={editingGroupType} onChange={e => setEditingGroupType(e.target.value)}>
                                     <option value="regular">רגיל</option>
                                     <option value="night">⭐ תורנות</option>
                                     <option value="oncall">📞 כוננות</option>
                                   </select>
                                 </div>
                               ) : (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flex: 1, fontWeight: 600, fontSize: '0.8rem', color: '#7f1d1d' }}>
+                                <span className={styles.groupNameDisplay}>
                                   {group.name}
                                   {group.group_type && group.group_type !== 'regular' && (
-                                    <span style={{ fontSize: '0.72rem', padding: '0.1rem 0.4rem', borderRadius: '10px', background: typeBadgeColor[group.group_type], color: typeTextColor[group.group_type], fontWeight: 600 }}>
+                                    <span
+                                      className={styles.groupTypeBadge}
+                                      style={{ '--badge-bg': typeBadgeColor[group.group_type], '--badge-color': typeTextColor[group.group_type] }}
+                                    >
                                       {typeLabel[group.group_type]}
                                     </span>
                                   )}
@@ -535,9 +522,9 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                                 )}
                               </div>
                             </div>
-                            <div style={{padding: '0.1rem 0.5rem 0.15rem'}}>
+                            <div className={styles.groupContent}>
                               {groupSites.length > 0 && (
-                                <ul className="config-list" style={{margin: '0 0 0.1rem', padding: 0}}>
+                                <ul className={`config-list ${styles.configListReset}`}>
                                   {groupSites.map(renderSiteRow)}
                                 </ul>
                               )}
@@ -548,26 +535,26 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                       })}
 
                       {ungroupedSites.length > 0 && (
-                        <div style={{border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden'}}>
-                          <div style={{background: '#f1f5f9', padding: '0.1rem 0.5rem', fontWeight: 600, fontSize: '0.78rem', color: '#64748b'}}>ללא קבוצה</div>
-                          <div style={{padding: '0.1rem 0.5rem 0.15rem'}}>
-                            <ul className="config-list" style={{margin: '0 0 0.1rem', padding: 0}}>
+                        <div className={styles.groupCard}>
+                          <div className={styles.ungroupedHeader}>ללא קבוצה</div>
+                          <div className={styles.groupContent}>
+                            <ul className={`config-list ${styles.configListReset}`}>
                               {ungroupedSites.map(renderSiteRow)}
                             </ul>
                           </div>
                         </div>
                       )}
 
-                      <div style={{border: '1px dashed #cbd5e1', borderRadius: '4px', padding: '0.2rem 0.5rem'}}>
-                        <div style={{fontSize: '0.75rem', color: '#64748b', marginBottom: '2px', fontWeight: 500}}>הוספת קבוצה חדשה</div>
-                        <div className="config-add" style={{margin: 0}}>
+                      <div className={styles.addGroupBox}>
+                        <div className={styles.addGroupLabel}>הוספת קבוצה חדשה</div>
+                        <div className={`config-add ${styles.configAddReset}`}>
                           <input
                             value={newSiteGroup}
                             onChange={e => setNewSiteGroup(e.target.value)}
                             placeholder="שם קבוצה..."
                             onKeyDown={e => e.key === 'Enter' && addSiteGroup()}
                           />
-                          <select value={newSiteGroupType} onChange={e => setNewSiteGroupType(e.target.value)} style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', padding: '0.25rem 0.5rem' }}>
+                          <select className={styles.newGroupTypeSelect} value={newSiteGroupType} onChange={e => setNewSiteGroupType(e.target.value)}>
                             <option value="regular">רגיל</option>
                             <option value="night">⭐ תורנות</option>
                             <option value="oncall">📞 כוננות</option>
@@ -591,36 +578,36 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
             {fairnessReport && (
               <div className="form-overlay" onClick={() => setFairnessReport(null)}>
-                <div className="settings-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '700px', direction: 'rtl'}}>
+                <div className={`settings-modal ${styles.fairnessModal}`} onClick={e => e.stopPropagation()}>
                   <div className="settings-header">
                     <h2>⚖️ טבלת צדק</h2>
                     <button className="btn-close" onClick={() => setFairnessReport(null)}>✕</button>
                   </div>
-                  <div style={{padding: '1rem 1.25rem', overflow: 'auto'}}>
+                  <div className={styles.fairnessContent}>
                     {fairnessReport.sites.length === 0 ? (
-                      <p style={{fontSize: '0.85rem', color: '#666'}}>לא הוגדרו אתרי צדק.</p>
+                      <p className={styles.fairnessEmpty}>לא הוגדרו אתרי צדק.</p>
                     ) : (
-                      <div style={{overflowX: 'auto'}}>
-                        <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', direction: 'rtl'}}>
-                          <thead>
-                            <tr style={{background: '#f8fafc'}}>
-                              <th style={thStyle}>עובד</th>
+                      <div className={styles.fairnessTableWrap}>
+                        <table className={styles.fairnessTable}>
+                          <thead className={styles.fairnessThead}>
+                            <tr>
+                              <th className={styles.fairnessTh}>עובד</th>
                               {fairnessReport.sites.map(s => (
-                                <th key={s.site_id} style={thStyle}>{s.site_name}</th>
+                                <th key={s.site_id} className={styles.fairnessTh}>{s.site_name}</th>
                               ))}
-                              <th style={{...thStyle, fontWeight: 700}}>סה"כ</th>
+                              <th className={`${styles.fairnessTh} ${styles.fairnessThBold}`}>סה"כ</th>
                             </tr>
                           </thead>
                           <tbody>
                             {fairnessReport.workers.map(w => (
-                              <tr key={w.worker_id} style={{borderBottom: '1px solid #f1f5f9'}}>
-                                <td style={tdStyle}>{w.name}</td>
+                              <tr key={w.worker_id} className={styles.fairnessTr}>
+                                <td className={styles.fairnessTd}>{w.name}</td>
                                 {fairnessReport.sites.map(s => (
-                                  <td key={s.site_id} style={{...tdStyle, textAlign: 'center'}}>
+                                  <td key={s.site_id} className={styles.fairnessTdCenter}>
                                     {w.counts[s.site_id] || 0}
                                   </td>
                                 ))}
-                                <td style={{...tdStyle, textAlign: 'center', fontWeight: 700}}>{w.total}</td>
+                                <td className={styles.fairnessTdTotal}>{w.total}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -782,20 +769,20 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                 {(() => {
                   function renderActivityTypeRow(actType) {
                     return (
-                      <li key={actType.id} style={{display:'flex',gap:'0.15rem',alignItems:'center',paddingRight:'1rem',background:'#f8fafc',borderRadius:'4px',marginBottom:'1px'}}>
+                      <li key={actType.id} className={styles.itemRow}>
                         {editingKey === `activity-${actType.id}` ? (
                           <input className="config-inline-edit" value={editingValue}
                             onChange={e => setEditingValue(e.target.value)}
                             onKeyDown={e => { if (e.key==='Enter') saveEdit('/api/config/activity-types', actType.id); if (e.key==='Escape') setEditingKey(null); }}
                             autoFocus style={{flex:1}} />
                         ) : (
-                          <span style={{flex:1,fontSize:'0.85rem'}}>{actType.name}</span>
+                          <span className={styles.itemName}>{actType.name}</span>
                         )}
                         {actGroups.length > 0 && editingKey !== `activity-${actType.id}` && (
                           <select
+                            className={styles.groupMoveSelect}
                             value={actType.group_id || ''}
                             onChange={e => moveActivityTypeToGroup(actType.id, e.target.value ? parseInt(e.target.value) : null)}
-                            style={{fontSize:'0.75rem',padding:'0.1rem 0.25rem',border:'1px solid #d1d5db',borderRadius:'4px',background:'#fff',maxWidth:'100px'}}
                             title="העבר לקבוצה"
                           >
                             <option value="">ללא קבוצה</option>
@@ -818,13 +805,13 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   function renderAddRow(groupId) {
                     const key = groupId ?? 'ungrouped';
                     return (
-                      <div style={{display:'flex',gap:'0.2rem',paddingRight:'0.5rem',marginTop:'1px'}}>
+                      <div className={styles.addRow}>
                         <input className="config-inline-edit" style={{flex:1,fontSize:'0.82rem'}}
                           value={newActivityTypeByGroup[key] || ''}
                           onChange={e => setNewActivityTypeByGroup(prev => ({...prev,[key]:e.target.value}))}
                           placeholder="סוג פעילות חדש..."
                           onKeyDown={e => e.key==='Enter' && addActivityTypeInGroup(groupId)} />
-                        <button className="btn-add-config" style={{fontSize:'0.78rem'}} onClick={() => addActivityTypeInGroup(groupId)}>הוסף</button>
+                        <button className={`btn-add-config ${styles.addRowBtn}`} onClick={() => addActivityTypeInGroup(groupId)}>הוסף</button>
                       </div>
                     );
                   }
@@ -833,19 +820,19 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                   const ungrouped = (config.activity_types || []).filter(at => !at.group_id);
 
                   return (
-                    <div style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                    <div className={styles.columnGap2}>
                       {actGroups.map(group => {
                         const members = (config.activity_types || []).filter(at => at.group_id === group.id);
                         return (
-                          <div key={group.id} style={{border:'1px solid #e2e8f0',borderRadius:'4px',overflow:'hidden'}}>
-                            <div style={{display:'flex',alignItems:'center',background:'#f1f5f9',padding:'0.1rem 0.5rem',gap:'0.3rem'}}>
+                          <div key={group.id} className={styles.groupCard}>
+                            <div className={styles.groupHeader}>
                               {editingKey === `actgroup-${group.id}` ? (
                                 <input className="config-inline-edit" value={editingValue}
                                   onChange={e => setEditingValue(e.target.value)}
                                   onKeyDown={e => { if (e.key==='Enter') saveActivityTypeGroupEdit(group.id); if (e.key==='Escape') setEditingKey(null); }}
                                   autoFocus style={{flex:1}} />
                               ) : (
-                                <span style={{flex:1,fontWeight:600,fontSize:'0.8rem',color:'#7f1d1d'}}>{group.name}</span>
+                                <span className={styles.actGroupNameDisplay}>{group.name}</span>
                               )}
                               <div className="config-item-actions">
                                 {editingKey === `actgroup-${group.id}` ? (
@@ -857,9 +844,9 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                                 )}
                               </div>
                             </div>
-                            <div style={{padding:'0.1rem 0.5rem 0.15rem'}}>
+                            <div className={styles.groupContent}>
                               {members.length > 0 && (
-                                <ul className="config-list" style={{margin:'0 0 0.1rem',padding:0}}>{members.map(renderActivityTypeRow)}</ul>
+                                <ul className={`config-list ${styles.configListReset}`}>{members.map(renderActivityTypeRow)}</ul>
                               )}
                               {renderAddRow(group.id)}
                             </div>
@@ -868,18 +855,20 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                       })}
 
                       {ungrouped.length > 0 && (
-                        <div style={{border:'1px solid #e2e8f0',borderRadius:'4px',overflow:'hidden'}}>
-                          <div style={{background:'#f1f5f9',padding:'0.1rem 0.5rem',fontWeight:600,fontSize:'0.78rem',color:'#7f1d1d'}}>ללא קבוצה</div>
-                          <div style={{padding:'0.1rem 0.5rem 0.15rem'}}>
-                            <ul className="config-list" style={{margin:'0 0 0.1rem',padding:0}}>{ungrouped.map(renderActivityTypeRow)}</ul>
+                        <div className={styles.groupCard}>
+                          <div className={styles.groupHeader}>
+                            <span className={styles.actGroupNameUngrouped}>ללא קבוצה</span>
+                          </div>
+                          <div className={styles.groupContent}>
+                            <ul className={`config-list ${styles.configListReset}`}>{ungrouped.map(renderActivityTypeRow)}</ul>
                             {renderAddRow(null)}
                           </div>
                         </div>
                       )}
 
-                      <div style={{border:'1px dashed #cbd5e1',borderRadius:'4px',padding:'0.2rem 0.5rem'}}>
-                        <div style={{fontSize:'0.75rem',color:'#7f1d1d',marginBottom:'2px',fontWeight:600}}>הוספת קבוצה חדשה</div>
-                        <div className="config-add" style={{margin:0}}>
+                      <div className={styles.addGroupBox}>
+                        <div className={styles.addActGroupLabel}>הוספת קבוצה חדשה</div>
+                        <div className={`config-add ${styles.configAddReset}`}>
                           <input value={newActivityTypeGroup} onChange={e => setNewActivityTypeGroup(e.target.value)}
                             placeholder="שם קבוצה..." onKeyDown={e => e.key==='Enter' && addActivityTypeGroup()} />
                           <button className="btn-primary" onClick={addActivityTypeGroup}>הוסף קבוצה</button>
@@ -887,7 +876,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                       </div>
 
                       {actGroups.length === 0 && ungrouped.length === 0 && (
-                        <div style={{color:'#64748b',fontSize:'0.85rem',padding:'0.5rem'}}>אין סוגי פעילות עדיין.</div>
+                        <div className={styles.noActivities}>אין סוגי פעילות עדיין.</div>
                       )}
                     </div>
                   );
@@ -896,48 +885,46 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
             )}
 
             {activeTab === 'shifts' && (
-              <div style={{padding: '1rem'}}>
-                <h3 style={{marginBottom: '1rem', color: '#1a2e4a', fontSize: '1rem'}}>שעות ברירת מחדל למשמרות</h3>
-                <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+              <div className={styles.shiftsTab}>
+                <h3 className={styles.shiftsTitle}>שעות ברירת מחדל למשמרות</h3>
+                <div className={styles.shiftsList}>
                   {(config.shift_types || []).filter(st => ['night', 'oncall'].includes(st.key)).map(st => {
                     const edit = shiftTimesEdits[st.key] || { default_start: st.default_start || '', default_end: st.default_end || '' };
                     const isDirty = !!shiftTimesEdits[st.key];
                     return (
-                      <div key={st.key} style={{background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem'}}>
-                        <div style={{fontWeight: 600, marginBottom: '0.75rem', fontSize: '0.95rem'}}>
-                          {st.icon} {st.label_he}
-                        </div>
-                        <div style={{display: 'flex', gap: '1.5rem', alignItems: 'flex-end', flexWrap: 'wrap'}}>
-                          <div style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
-                            <label style={{fontSize: '0.8rem', color: '#64748b'}}>שעת התחלה</label>
+                      <div key={st.key} className={styles.shiftCard}>
+                        <div className={styles.shiftCardTitle}>{st.icon} {st.label_he}</div>
+                        <div className={styles.shiftFields}>
+                          <div className={styles.shiftField}>
+                            <label className={styles.shiftLabel}>שעת התחלה</label>
                             <input
                               type="time"
+                              className={styles.shiftInput}
                               value={edit.default_start}
                               onChange={e => setShiftTimesEdits(prev => ({...prev, [st.key]: {...edit, default_start: e.target.value}}))}
-                              style={{padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.9rem'}}
                             />
                           </div>
-                          <div style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
-                            <label style={{fontSize: '0.8rem', color: '#64748b'}}>שעת סיום (לחישוב משך)</label>
+                          <div className={styles.shiftField}>
+                            <label className={styles.shiftLabel}>שעת סיום (לחישוב משך)</label>
                             <input
                               type="time"
+                              className={styles.shiftInput}
                               value={edit.default_end}
                               onChange={e => setShiftTimesEdits(prev => ({...prev, [st.key]: {...edit, default_end: e.target.value}}))}
-                              style={{padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.9rem'}}
                             />
                           </div>
                           <button
                             className="btn-primary"
                             onClick={() => saveShiftTimes(st.key)}
                             disabled={!isDirty}
-                            style={{opacity: isDirty ? 1 : 0.4}}
+                            style={{ '--btn-opacity': isDirty ? 1 : 0.4, opacity: 'var(--btn-opacity)' }}
                           >שמור</button>
                         </div>
                       </div>
                     );
                   })}
                   {(config.shift_types || []).filter(st => ['night', 'oncall'].includes(st.key)).length === 0 && (
-                    <p style={{color: '#64748b', fontSize: '0.9rem'}}>אין משמרות תורנות/כוננות מוגדרות במערכת.</p>
+                    <p className={styles.noShifts}>אין משמרות תורנות/כוננות מוגדרות במערכת.</p>
                   )}
                 </div>
               </div>
@@ -993,48 +980,38 @@ function SiteAllowedJobsModal({ site, authToken, config, onClose }) {
 
   return (
     <div className="form-overlay" onClick={onClose}>
-      <div className="detail-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+      <div className={`detail-modal ${styles.allowedJobsModal}`} onClick={e => e.stopPropagation()}>
         <div className="settings-header">
           <h2>תפקידים מורשים — {site.name}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
-        <div style={{ padding: '1rem', fontSize: '0.9rem' }}>
+        <div className={styles.allowedJobsContent}>
           {loading ? <p>טוען...</p> : (
             <>
-              <div style={{ marginBottom: '1rem' }}>
-                <h4 style={{ marginBottom: '0.5rem', color: '#1a2e4a' }}>תפקידים מורשים:</h4>
+              <div className={styles.allowedSection}>
+                <h4 className={styles.allowedSectionTitle}>תפקידים מורשים:</h4>
                 {allowedJobs.length === 0 ? (
-                  <p style={{ color: '#666' }}>ללא הגבלה — כל התפקידים מורשים לאתר זה</p>
+                  <p className={styles.allowedEmpty}>ללא הגבלה — כל התפקידים מורשים לאתר זה</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div className={styles.allowedList}>
                     {allowedJobs.map(j => (
-                      <div key={j.job_id} style={{
-                        display: 'flex', alignItems: 'center',
-                        justifyContent: 'space-between', padding: '0.5rem',
-                        background: '#dbeafe', borderRadius: '4px', border: '1px solid #0369a1'
-                      }}>
+                      <div key={j.job_id} className={styles.allowedItem}>
                         <span>{j.name}</span>
-                        <button className="btn-remove"
-                          onClick={() => removeAllowedJob(j.job_id)}
-                          style={{ padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}>✕</button>
+                        <button className={`btn-remove ${styles.allowedRemoveBtn}`}
+                          onClick={() => removeAllowedJob(j.job_id)}>✕</button>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
               <div>
-                <h4 style={{ marginBottom: '0.5rem', color: '#1a2e4a' }}>הוסף תפקיד:</h4>
+                <h4 className={styles.allowedSectionTitle}>הוסף תפקיד:</h4>
                 {availableJobs.length === 0 ? (
-                  <p style={{ color: '#666' }}>כל התפקידים כבר מורשים</p>
+                  <p className={styles.allowedEmpty}>כל התפקידים כבר מורשים</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div className={styles.allowedList}>
                     {availableJobs.map(j => (
-                      <button key={j.id} onClick={() => addAllowedJob(j.id)}
-                        style={{
-                          padding: '0.5rem', background: '#f3f4f6',
-                          border: '1px solid #d1d5db', borderRadius: '4px',
-                          cursor: 'pointer', textAlign: 'right'
-                        }}>
+                      <button key={j.id} className={styles.allowedAddBtn} onClick={() => addAllowedJob(j.id)}>
                         {j.name}
                       </button>
                     ))}

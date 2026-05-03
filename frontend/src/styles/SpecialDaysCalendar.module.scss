@@ -1,0 +1,320 @@
+// Root container – defines CSS vars; .compact overrides them
+.root {
+  display: flex;
+  flex-direction: column;
+  margin-left: auto;
+  margin-right: 0;
+  gap: var(--container-gap);
+
+  --container-gap: 0.75rem;
+  --summary-gap: 0.6rem;
+  --summary-font: 0.7rem;
+  --summary-padding: 3px 12px;
+  --grid-gap: 3px;
+  --header-pb: 2px;
+  --cell-min-h: 48px;
+  --cell-radius: 6px;
+  --cell-padding: 3px 2px;
+  --day-num-size: 0.75rem;
+  --sd-name-size: 0.55rem;
+  --badge-font: 0.48rem;
+  --badge-padding: 0 3px;
+}
+.root.compact {
+  --container-gap: 0.2rem;
+  --summary-gap: 0.3rem;
+  --summary-font: 0.6rem;
+  --summary-padding: 2px 6px;
+  --grid-gap: 1px;
+  --header-pb: 0px;
+  --cell-min-h: 32px;
+  --cell-radius: 3px;
+  --cell-padding: 1px 1px;
+  --day-num-size: 0.62rem;
+  --sd-name-size: 0.45rem;
+  --badge-font: 0.42rem;
+  --badge-padding: 0 2px;
+}
+
+// Month summary bar
+.monthlySummary {
+  display: flex;
+  align-items: center;
+  gap: var(--summary-gap);
+  flex-wrap: wrap;
+  font-size: var(--summary-font);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: var(--summary-padding);
+}
+.summaryLabel { color: #374151; font-weight: 700; }
+.summarySep   { color: #9ca3af; }
+.summaryItem  { color: #374151; }
+.summaryCount { font-weight: 700; color: #7f1d1d; }
+
+// Holidays fetch button (extends btn-secondary btn-sm)
+.holidaysBtn {
+  margin-right: 0.5rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+// Holidays panel
+.holidaysPanel {
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #f0f9ff;
+  padding: 0.5rem 0.75rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.holidaysPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+.holidaysPanelTitle {
+  font-size: 0.8rem;
+  color: #1d4ed8;
+}
+.holidaysPanelClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+.holidaysEmpty {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+.holidaysList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.holidayItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.18rem 0.3rem;
+  border-radius: 5px;
+  background: var(--item-bg, white);
+  border: 1px solid #e2e8f0;
+}
+.holidayItemText {
+  font-size: 0.72rem;
+  color: #374151;
+  flex: 1;
+}
+.holidayItemDate { font-weight: 700; }
+.holidayAdded {
+  font-size: 0.65rem;
+  color: #16a34a;
+  font-weight: 600;
+}
+.holidayAddBtn {
+  padding: 0.1rem 0.45rem;
+  font-size: 0.68rem;
+}
+
+// Calendar grid
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--grid-gap);
+}
+.dayHeader {
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #9ca3af;
+  padding-bottom: var(--header-pb);
+}
+.emptyCell { min-height: var(--cell-min-h); }
+.cell {
+  min-height: var(--cell-min-h);
+  border-radius: var(--cell-radius);
+  padding: var(--cell-padding);
+  text-align: center;
+  cursor: pointer;
+  border: var(--cell-border, 2px solid transparent);
+  background: var(--cell-bg, #f9fafb);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  box-shadow: var(--cell-shadow, none);
+  transition: box-shadow 0.1s;
+}
+.dayNum {
+  font-size: var(--day-num-size);
+  font-weight: var(--day-num-weight, 400);
+  color: var(--day-num-color, #374151);
+}
+.sdName {
+  font-size: var(--sd-name-size);
+  color: var(--sd-name-color);
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+.catBadge {
+  font-size: var(--badge-font);
+  background: var(--badge-bg);
+  color: var(--badge-color);
+  border-radius: 3px;
+  padding: var(--badge-padding);
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.addHint {
+  font-size: 0.42rem;
+  color: #d1d5db;
+  line-height: 1.5;
+}
+
+// Active day panel (view + edit mode)
+.activeDayPanel {
+  background: var(--panel-bg);
+  border: 2px solid var(--panel-border-color);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.colorSwatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--swatch-color);
+  flex-shrink: 0;
+}
+.activeDayDate { font-size: 0.78rem; }
+.activeDayName { font-size: 0.78rem; }
+.activeDayType {
+  font-size: 0.68rem;
+  color: #6b7280;
+  background: #fff;
+  border-radius: 4px;
+  padding: 1px 6px;
+  border: 1px solid #e5e7eb;
+}
+.activeDayEditBtn { margin-right: auto; }
+.activeDayCloseBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+// Edit form (inside active panel)
+.editInput {
+  flex: 1;
+  min-width: 120px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #93c5fd;
+  outline: none;
+  font-size: 0.78rem;
+}
+.editSelect {
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid #93c5fd;
+  font-size: 0.78rem;
+}
+.colorPalette { display: flex; gap: 3px; }
+.paletteBtn {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--swatch-bg);
+  border: var(--swatch-border, 1px solid #d1d5db);
+  cursor: pointer;
+  padding: 0;
+}
+.editSaveBtn {
+  background: #059669;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 3px 10px;
+  font-size: 0.85rem;
+}
+.editCancelBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+// Add form panel
+.addFormPanel {
+  background: #eff6ff;
+  border: 2px solid #3b82f6;
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.addFormTitle {
+  font-size: 0.75rem;
+  color: #1d4ed8;
+}
+.addFormRow {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.addNameInput {
+  flex: 1;
+  min-width: 130px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #93c5fd;
+  outline: none;
+}
+.addTypeSelect {
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #93c5fd;
+}
+.addColorPalette { display: flex; gap: 4px; align-items: center; }
+.addPaletteBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--swatch-bg);
+  border: var(--swatch-border, 1px solid #d1d5db);
+  cursor: pointer;
+  padding: 0;
+}
+.addCancelBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+// Instructions footer
+.instructions {
+  font-size: 0.68rem;
+  color: #6b7280;
+}

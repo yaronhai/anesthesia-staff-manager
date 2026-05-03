@@ -1,6 +1,12 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
+import styles from '../styles/RolesManagement.module.scss';
 
 const TIER_LABELS = { superadmin: 'מנהל ראשי', admin: 'מנהל סניף', user: 'משתמש' };
+const TIER_COLORS = {
+  superadmin: { bg: '#fee2e2', color: '#991b1b' },
+  admin:      { bg: '#dbeafe', color: '#1e40af' },
+  user:       { bg: '#f0fdf4', color: '#166534' },
+};
 
 export default function RolesManagement({ roles, authToken, onRolesChange }) {
   const [editingId, setEditingId] = useState(null);
@@ -63,54 +69,54 @@ export default function RolesManagement({ roles, authToken, onRolesChange }) {
   }
 
   return (
-    <div style={{ direction: 'rtl' }}>
-      <p style={{ color: '#4b5563', fontSize: '0.85rem', marginBottom: '1rem' }}>
+    <div className={styles.root}>
+      <p className={styles.desc}>
         רמות ההיררכיה קובעות מי יכול לערוך את מי. מספר רמה נמוך יותר = הרשאה גבוהה יותר. כל משתמש יכול לערוך רק משתמשים ברמה גבוהה ממנו.
       </p>
 
-      {error && <p style={{ color: '#dc2626', marginBottom: '0.5rem', fontSize: '0.85rem' }}>{error}</p>}
+      {error && <p className={styles.error}>{error}</p>}
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-        <thead>
-          <tr style={{ background: '#f1f5f9', textAlign: 'right' }}>
-            <th style={thStyle}>שם תצוגה</th>
-            <th style={thStyle}>מזהה פנימי</th>
-            <th style={thStyle}>רמה</th>
-            <th style={thStyle}>יכולות</th>
-            <th style={thStyle}>פעולות</th>
+      <table className={styles.table}>
+        <thead className={styles.thead}>
+          <tr>
+            <th className={styles.th}>שם תצוגה</th>
+            <th className={styles.th}>מזהה פנימי</th>
+            <th className={styles.th}>רמה</th>
+            <th className={styles.th}>יכולות</th>
+            <th className={styles.th}>פעולות</th>
           </tr>
         </thead>
         <tbody>
           {roles.map(role => (
-            <tr key={role.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+            <tr key={role.id} className={styles.tr}>
               {editingId === role.id ? (
                 <>
-                  <td style={tdStyle}>
+                  <td className={styles.td}>
                     <input
                       value={editForm.display_name}
                       onChange={e => setEditForm({ ...editForm, display_name: e.target.value })}
-                      style={inputStyle}
+                      className={styles.input}
                     />
                   </td>
-                  <td style={tdStyle}><span style={{ color: '#9ca3af' }}>{role.name}</span></td>
-                  <td style={tdStyle}>
+                  <td className={styles.td}><span className={styles.muted}>{role.name}</span></td>
+                  <td className={styles.td}>
                     {role.is_protected
-                      ? <span style={{ color: '#9ca3af' }}>{role.level}</span>
+                      ? <span className={styles.muted}>{role.level}</span>
                       : <input
                           type="number"
                           value={editForm.level}
                           onChange={e => setEditForm({ ...editForm, level: e.target.value })}
-                          style={{ ...inputStyle, width: '70px' }}
+                          className={styles.inputNarrow}
                         />
                     }
                   </td>
-                  <td style={tdStyle}>
+                  <td className={styles.td}>
                     {role.is_protected
-                      ? <span style={{ color: '#9ca3af' }}>{TIER_LABELS[role.tier]}</span>
+                      ? <span className={styles.muted}>{TIER_LABELS[role.tier]}</span>
                       : <select
                           value={editForm.tier}
                           onChange={e => setEditForm({ ...editForm, tier: e.target.value })}
-                          style={inputStyle}
+                          className={styles.input}
                         >
                           <option value="superadmin">מנהל ראשי</option>
                           <option value="admin">מנהל סניף</option>
@@ -118,27 +124,34 @@ export default function RolesManagement({ roles, authToken, onRolesChange }) {
                         </select>
                     }
                   </td>
-                  <td style={tdStyle}>
-                    <button onClick={() => saveEdit(role.id)} style={btnPrimary}>שמור</button>
-                    <button onClick={() => setEditingId(null)} style={{ ...btnSecondary, marginRight: '0.3rem' }}>ביטול</button>
+                  <td className={styles.td}>
+                    <button onClick={() => saveEdit(role.id)} className={styles.btnPrimary}>שמור</button>
+                    <button onClick={() => setEditingId(null)} className={styles.btnSecondaryMargin}>ביטול</button>
                   </td>
                 </>
               ) : (
                 <>
-                  <td style={tdStyle}>
+                  <td className={styles.td}>
                     {role.display_name}
-                    {role.is_protected && <span style={{ fontSize: '0.75rem', color: '#9ca3af', marginRight: '0.4rem' }}>🔒</span>}
+                    {role.is_protected && <span className={styles.lockBadge}>🔒</span>}
                   </td>
-                  <td style={{ ...tdStyle, color: '#6b7280' }}>{role.name}</td>
-                  <td style={tdStyle}>{role.level}</td>
-                  <td style={tdStyle}><span style={tierBadge(role.tier)}>{TIER_LABELS[role.tier]}</span></td>
-                  <td style={tdStyle}>
+                  <td className={styles.tdMuted}>{role.name}</td>
+                  <td className={styles.td}>{role.level}</td>
+                  <td className={styles.td}>
+                    <span
+                      className={styles.tierBadge}
+                      style={{ '--badge-bg': TIER_COLORS[role.tier]?.bg, '--badge-color': TIER_COLORS[role.tier]?.color }}
+                    >
+                      {TIER_LABELS[role.tier]}
+                    </span>
+                  </td>
+                  <td className={styles.td}>
                     <button
                       onClick={() => { setEditingId(role.id); setEditForm({ display_name: role.display_name, level: role.level, tier: role.tier }); setError(''); }}
-                      style={btnSecondary}
+                      className={styles.btnSecondary}
                     >✏️ ערוך</button>
                     {!role.is_protected && (
-                      <button onClick={() => deleteRole(role)} style={{ ...btnDelete, marginRight: '0.3rem' }}>🗑️</button>
+                      <button onClick={() => deleteRole(role)} className={styles.btnDelete}>🗑️</button>
                     )}
                   </td>
                 </>
@@ -148,50 +161,33 @@ export default function RolesManagement({ roles, authToken, onRolesChange }) {
         </tbody>
       </table>
 
-      <div style={{ marginTop: '1.5rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
-        <div style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '0.9rem' }}>הוספת סיווג חדש</div>
-        {newError && <p style={{ color: '#dc2626', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{newError}</p>}
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <label style={labelStyle}>
+      <div className={styles.addSection}>
+        <div className={styles.addTitle}>הוספת סיווג חדש</div>
+        {newError && <p className={styles.error}>{newError}</p>}
+        <div className={styles.addRow}>
+          <label className={styles.label}>
             שם תצוגה
-            <input value={newForm.display_name} onChange={e => setNewForm({ ...newForm, display_name: e.target.value })} style={inputStyle} placeholder="לדוגמה: מנהל אזור" />
+            <input value={newForm.display_name} onChange={e => setNewForm({ ...newForm, display_name: e.target.value })} className={styles.input} placeholder="לדוגמה: מנהל אזור" />
           </label>
-          <label style={labelStyle}>
+          <label className={styles.label}>
             מזהה פנימי
-            <input value={newForm.name} onChange={e => setNewForm({ ...newForm, name: e.target.value })} style={inputStyle} placeholder="e.g. area_manager" />
+            <input value={newForm.name} onChange={e => setNewForm({ ...newForm, name: e.target.value })} className={styles.input} placeholder="e.g. area_manager" />
           </label>
-          <label style={labelStyle}>
+          <label className={styles.label}>
             רמה (מספר)
-            <input type="number" value={newForm.level} onChange={e => setNewForm({ ...newForm, level: e.target.value })} style={{ ...inputStyle, width: '80px' }} placeholder="150" />
+            <input type="number" value={newForm.level} onChange={e => setNewForm({ ...newForm, level: e.target.value })} className={styles.inputNarrow} placeholder="150" />
           </label>
-          <label style={labelStyle}>
+          <label className={styles.label}>
             יכולות
-            <select value={newForm.tier} onChange={e => setNewForm({ ...newForm, tier: e.target.value })} style={inputStyle}>
+            <select value={newForm.tier} onChange={e => setNewForm({ ...newForm, tier: e.target.value })} className={styles.input}>
               <option value="superadmin">מנהל ראשי</option>
               <option value="admin">מנהל סניף</option>
               <option value="user">משתמש</option>
             </select>
           </label>
-          <button onClick={addRole} style={{ ...btnPrimary, alignSelf: 'flex-end' }}>+ הוסף</button>
+          <button onClick={addRole} className={`${styles.btnPrimary} ${styles.btnAddAlign}`}>+ הוסף</button>
         </div>
       </div>
     </div>
   );
 }
-
-function tierBadge(tier) {
-  const colors = {
-    superadmin: { background: '#fee2e2', color: '#991b1b' },
-    admin:      { background: '#dbeafe', color: '#1e40af' },
-    user:       { background: '#f0fdf4', color: '#166534' },
-  };
-  return { ...colors[tier], padding: '2px 8px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: 600 };
-}
-
-const thStyle = { padding: '0.4rem 0.6rem', fontWeight: 600, fontSize: '0.8rem', color: '#374151' };
-const tdStyle = { padding: '0.45rem 0.6rem', verticalAlign: 'middle' };
-const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' };
-const btnPrimary = { padding: '4px 12px', borderRadius: '6px', border: 'none', background: '#2563eb', color: 'white', cursor: 'pointer', fontSize: '0.82rem' };
-const btnSecondary = { padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer', fontSize: '0.82rem' };
-const btnDelete = { padding: '4px 8px', borderRadius: '6px', border: 'none', background: '#fee2e2', color: '#b91c1c', cursor: 'pointer', fontSize: '0.82rem' };
-const labelStyle = { display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.82rem', fontWeight: 500, color: '#374151' };

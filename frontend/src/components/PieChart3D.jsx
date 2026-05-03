@@ -1,3 +1,4 @@
+﻿import styles from '../styles/PieChart3D.module.scss';
 const PIE_COLORS = ['#7c3aed', '#0891b2', '#059669', '#f59e0b', '#e11d48', '#9ca3af'];
 
 function darken(hex) {
@@ -62,7 +63,7 @@ export default function PieChart3D({ items, small = false, tiny = false }) {
   const sortedSlices = [...slices].sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
 
   return (
-    <svg width={W} height={H} style={{ display: 'block' }}>
+    <svg width={W} height={H} className={styles.svg}>
       <ellipse cx={cx} cy={cy + dep} rx={rx} ry={ry} fill="rgba(0,0,0,0.08)" />
       {sides.map((s, i) => <path key={i} d={s.path} fill={s.color} />)}
       {sortedSlices.map((s, i) => {

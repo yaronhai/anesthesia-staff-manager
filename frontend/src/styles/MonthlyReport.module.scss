@@ -1,0 +1,86 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.navRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.monthTitle {
+  margin: 0;
+  color: #1a2e4a;
+  font-size: 1.25rem;
+  min-width: 150px;
+  text-align: center;
+}
+.controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+.legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  align-items: center;
+}
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.legendSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--swatch-bg);
+}
+
+.calendarWrapper {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #1a2e4a;
+}
+.calendarHeaderRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: #1a2e4a;
+}
+.calendarWeekRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 2px solid #1a2e4a;
+}
+.calendarCell {
+  padding: 0.15rem;
+  min-height: 50px;
+  cursor: pointer;
+  border: var(--cell-border, none);
+  background-color: var(--cell-bg, white);
+}
+.dayHeader {
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-bottom: 0.08rem;
+  padding-bottom: 0.05rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.shiftBlock { font-size: 0.5rem; margin-bottom: 0.1rem; }
+.shiftLabel {
+  font-weight: 700;
+  font-size: 0.48rem;
+  text-transform: uppercase;
+  margin-bottom: 0.04rem;
+  color: #4b5563;
+}
+.preferName { color: #16a34a; font-weight: 600; line-height: 1; margin-bottom: 0.01rem; }
+.canName { color: #0369a1; line-height: 1; margin-bottom: 0.01rem; }
+
+.groupLabelPrefer { color: #16a34a; font-weight: 700; }
+.groupLabelCan { color: #0369a1; font-weight: 700; }
+.badgePrefer { background: #dcfce7; color: #166534; border-color: #16a34a; }
+.badgeCan { background: #e0f2fe; color: #0c4a6e; border-color: #0369a1; }

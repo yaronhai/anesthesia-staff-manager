@@ -1,0 +1,63 @@
+.logoSmall { width: 60px; height: auto; }
+.logoMain { width: 100px; height: auto; }
+.headerTitleCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+.headerBranchName {
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+.headerBranchSelectWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.headerBranchLabel { font-size: 0.78rem; opacity: 0.7; }
+.branchDropdown {
+  font-size: 0.82rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: #fff;
+  color: #1a2e4a;
+  cursor: pointer;
+  font-weight: 500;
+}
+.headerUserInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.headerUserBranch { font-size: 0.7rem; opacity: 0.75; margin-top: 1px; }
+.changePwBtn { font-size: 0.75rem; margin-left: 0.25rem; }
+.messagesTabBtn { position: relative; }
+.unreadBadge {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0 3px;
+}
+.roomsTab { display: var(--rooms-display, none); }
+.addWorkerBtn { white-space: nowrap; font-size: 1.3rem; padding: 0.35rem 0.7rem; line-height: 1; }
+.searchInput { min-width: 220px; }
+.loginHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}

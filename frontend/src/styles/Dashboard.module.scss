@@ -1,0 +1,117 @@
+// Loading
+.loadingMsg {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+// Root
+.root {
+  padding: 1.25rem;
+  direction: rtl;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+// KPI row
+.kpiRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(100px, 1fr));
+  gap: 0.5rem;
+}
+
+// Stat card
+.statCard {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.statCardLabel {
+  font-size: 0.7rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+.statCardValue {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--card-color, #1a2e4a);
+  line-height: 1.1;
+}
+.statCardSub {
+  font-size: 0.65rem;
+  color: #9ca3af;
+}
+
+// Branches section
+.sectionTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1a2e4a;
+  margin-bottom: 0.75rem;
+}
+.branchesEmpty {
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+.branchesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+// Branch card
+.branchCard {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.branchName {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #1a2e4a;
+}
+.branchDesc {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+.branchStats {
+  font-size: 0.8rem;
+  color: #374151;
+  display: flex;
+  gap: 0.5rem;
+}
+.branchActiveCount { color: #059669; }
+.branchPieWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.2rem;
+}
+.branchBtn {
+  margin-top: 0.25rem;
+  padding: 0.3rem 0;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+}

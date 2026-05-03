@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
+import styles from '../styles/WorkplaceStaffing.module.scss';
 
 export default function WorkplaceStaffing({ config, authToken }) {
   const [viewDate, setViewDate] = useState(new Date());
@@ -162,30 +163,24 @@ export default function WorkplaceStaffing({ config, authToken }) {
         </div>
 
         {(config.site_groups?.length > 0) && (
-          <div style={{
-            display: 'flex', gap: '0.25rem',
-            borderBottom: '2px solid #e5e7eb',
-            flexWrap: 'wrap', padding: '0 0.5rem',
-            marginTop: '0.5rem'
-          }}>
-            {config.site_groups.map(group => (
-              <button
-                key={group.id}
-                onClick={() => setSelectedGroupId(group.id)}
-                style={{
-                  padding: '0.75rem 1rem',
-                  border: 'none',
-                  background: selectedGroupId === group.id ? '#1a2e4a' : '#f3f4f6',
-                  color: selectedGroupId === group.id ? 'white' : '#666',
-                  fontWeight: selectedGroupId === group.id ? 600 : 400,
-                  cursor: 'pointer',
-                  borderRadius: '6px 6px 0 0',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {group.name}
-              </button>
-            ))}
+          <div className={styles.groupTabs}>
+            {config.site_groups.map(group => {
+              const active = selectedGroupId === group.id;
+              return (
+                <button
+                  key={group.id}
+                  className={styles.groupTab}
+                  onClick={() => setSelectedGroupId(group.id)}
+                  style={{
+                    '--tab-bg': active ? '#1a2e4a' : '#f3f4f6',
+                    '--tab-color': active ? 'white' : '#666',
+                    '--tab-weight': active ? 600 : 400,
+                  }}
+                >
+                  {group.name}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

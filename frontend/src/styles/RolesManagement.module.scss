@@ -1,0 +1,94 @@
+.root { direction: rtl; }
+.desc { color: #4b5563; font-size: 0.85rem; margin-bottom: 1rem; }
+.error { color: #dc2626; margin-bottom: 0.5rem; font-size: 0.85rem; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.thead tr { background: #f1f5f9; text-align: right; }
+.th { padding: 0.4rem 0.6rem; font-weight: 600; font-size: 0.8rem; color: #374151; }
+.tr { border-bottom: 1px solid #e5e7eb; }
+.td { padding: 0.45rem 0.6rem; vertical-align: middle; }
+.tdMuted { padding: 0.45rem 0.6rem; vertical-align: middle; color: #6b7280; }
+.muted { color: #9ca3af; }
+.lockBadge { font-size: 0.75rem; color: #9ca3af; margin-right: 0.4rem; }
+
+.input {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 0.85rem;
+}
+.inputNarrow {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 0.85rem;
+  width: 70px;
+}
+
+.btnPrimary {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+.btnSecondary {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: white;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+.btnSecondaryMargin {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: white;
+  cursor: pointer;
+  font-size: 0.82rem;
+  margin-right: 0.3rem;
+}
+.btnDelete {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  cursor: pointer;
+  font-size: 0.82rem;
+  margin-right: 0.3rem;
+}
+
+.tierBadge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+}
+
+.addSection {
+  margin-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+}
+.addTitle { font-weight: 600; margin-bottom: 0.75rem; font-size: 0.9rem; }
+.addRow {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #374151;
+}
+.btnAddAlign { align-self: flex-end; }

@@ -1,0 +1,218 @@
+// Root container
+.root {
+  direction: rtl;
+  display: flex;
+  gap: var(--root-gap, 0.5rem);
+  height: var(--root-height, calc(100vh - 200px));
+  padding: var(--root-padding, 0.75rem);
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+// Contacts sidebar
+.contacts {
+  width: var(--contacts-width, 130px);
+  min-width: var(--contacts-min-width, 80px);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+.contactsMobile {
+  width: 100%;
+  overflow: visible;
+  overflow-y: auto;
+}
+
+.contactsHeader {
+  padding: var(--contacts-header-padding, 0.5rem);
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 700;
+  color: #991b1b;
+  font-size: var(--contacts-header-font, 0.8rem);
+  text-align: center;
+}
+.contactsList {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.25rem;
+}
+.contactsEmpty {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  padding: 0.5rem;
+  text-align: center;
+}
+.contactBtn {
+  padding: var(--contact-btn-padding, 0.3rem 0.4rem);
+  border-radius: 3px;
+  border: none;
+  text-align: right;
+  cursor: pointer;
+  background: var(--contact-bg, white);
+  color: var(--contact-color, #1e40af);
+  font-weight: 700;
+  font-size: var(--contact-font, 0.7rem);
+  position: relative;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contactBtnMobile {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  height: auto;
+  line-height: 1.3;
+  word-break: break-word;
+}
+.unreadBadge {
+  position: absolute;
+  left: 0.3rem;
+  top: var(--badge-top, -5px);
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+// Chat area
+.chatArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+.chatHeader {
+  padding: var(--chat-header-padding, 0.75rem);
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  color: #1f2937;
+  font-size: var(--chat-header-font, 0.95rem);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #3b82f6;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0 0.25rem;
+}
+.messagesList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+.messagesEmpty {
+  color: #9ca3af;
+  text-align: center;
+  margin-top: 2rem;
+  font-size: 0.75rem;
+}
+
+// Date divider
+.dateDivider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.4rem 0;
+}
+.dateLine {
+  flex: 1;
+  height: 1px;
+  background: #d1d5db;
+}
+.dateLabel {
+  font-size: 0.65rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+// Message row
+.msgRow { display: flex; }
+.msgRowOwn { justify-content: flex-end; }
+.msgRowOther { justify-content: flex-start; }
+.msgBubble {
+  max-width: 80%;
+  padding: 0.2rem 0.4rem;
+  border-radius: 2px;
+  background: var(--bubble-bg, #ede9fe);
+  color: #1f2937;
+  font-size: var(--bubble-font, 0.7rem);
+  font-weight: var(--bubble-weight, normal);
+  word-break: break-word;
+  line-height: 1.1;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+.msgTime {
+  font-size: 0.6rem;
+  opacity: 0.6;
+  white-space: nowrap;
+  font-weight: normal;
+  font-family: inherit;
+}
+.msgContent { white-space: pre-wrap; }
+
+// Input form
+.inputForm {
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 0.5rem;
+}
+.inputField {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.sendBtn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 80px;
+}
+
+// No conversation selected
+.noConversation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9ca3af;
+}

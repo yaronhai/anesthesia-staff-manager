@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
+import styles from '../styles/VacationRequests.module.scss';
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
@@ -33,11 +34,7 @@ function parseDate(d) {
 function StatusBadge({ status }) {
   const s = STATUS_LABEL[status] || { label: status, color: '#333' };
   return (
-    <span style={{
-      background: s.color, color: 'white',
-      padding: '1px 6px', borderRadius: '12px',
-      fontSize: '0.72rem', fontWeight: 600
-    }}>
+    <span className={styles.badge} style={{ '--badge-bg': s.color }}>
       {s.label}
     </span>
   );
@@ -49,10 +46,11 @@ function SortableHeader({ label, sortKey, sort, onSort, style }) {
   return (
     <th
       onClick={() => onSort(sortKey)}
-      style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none', ...style }}
+      className={styles.sortTh}
+      style={style}
     >
       {label}
-      <span style={{ marginRight: '3px', fontSize: '0.65rem', color: active ? '#2563eb' : '#9ca3af' }}>
+      <span className={`${styles.sortIcon} ${active ? styles.active : styles.inactive}`}>
         {active ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
       </span>
     </th>
@@ -141,21 +139,21 @@ function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
   return (
     <div className="form-overlay" onClick={onClose}>
       <div className="worker-form" onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3 style={{ margin: 0 }}>{isAdmin ? 'הגשת בקשת חופשה עבור עובד' : 'הגשת בקשת חופשה'}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px' }}>✕</button>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalHeading}>{isAdmin ? 'הגשת בקשת חופשה עבור עובד' : 'הגשת בקשת חופשה'}</h3>
+          <button onClick={onClose} className={styles.modalCloseBtn}>✕</button>
         </div>
         <form onSubmit={handleSubmit}>
           {isAdmin && (
-            <div style={{ marginBottom: '12px', position: 'relative' }}>
-              <label style={{ display: 'block', marginBottom: '4px' }}>עובד *</label>
+            <div className={styles.fieldGroup}>
+              <label className={styles.fieldLabel}>עובד *</label>
               {selectedWorkerId ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #2563eb', borderRadius: '4px', background: '#eff6ff' }}>
-                  <span style={{ flex: 1, fontWeight: 600 }}>{selectedWorkerLabel}</span>
+                <div className={styles.selectedWorkerBox}>
+                  <span className={styles.selectedWorkerName}>{selectedWorkerLabel}</span>
                   <button
                     type="button"
                     onClick={() => { setSelectedWorkerId(''); setSelectedWorkerLabel(''); setWorkerSearch(''); }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '16px', lineHeight: 1 }}
+                    className={styles.clearWorkerBtn}
                   >✕</button>
                 </div>
               ) : (
@@ -166,17 +164,13 @@ function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
                     value={workerSearch}
                     onChange={(e) => { setWorkerSearch(e.target.value); setShowWorkerList(true); }}
                     onFocus={() => setShowWorkerList(true)}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                    className={styles.workerSearchInput}
                     autoComplete="off"
                   />
                   {showWorkerList && (
-                    <div style={{
-                      position: 'absolute', top: '100%', right: 0, left: 0, zIndex: 100,
-                      background: 'white', border: '1px solid #ccc', borderRadius: '4px',
-                      maxHeight: '180px', overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                    }}>
+                    <div className={styles.dropdownList}>
                       {filteredWorkers.length === 0 ? (
-                        <div style={{ padding: '10px', color: '#9ca3af', fontSize: '0.9rem' }}>לא נמצאו עובדים</div>
+                        <div className={styles.dropdownEmpty}>לא נמצאו עובדים</div>
                       ) : filteredWorkers.map((w) => (
                         <div
                           key={w.id}
@@ -187,12 +181,10 @@ function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
                             setShowWorkerList(false);
                             setWorkerSearch('');
                           }}
-                          style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#f0f4ff'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                          className={styles.dropdownItem}
                         >
-                          <span style={{ fontWeight: 600 }}>{w.first_name} {w.family_name}</span>
-                          {w.id_number && <span style={{ color: '#6b7280', fontSize: '0.85rem', marginRight: '8px' }}>{w.id_number}</span>}
+                          <span className={styles.dropdownItemName}>{w.first_name} {w.family_name}</span>
+                          {w.id_number && <span className={styles.dropdownItemId}>{w.id_number}</span>}
                         </div>
                       ))}
                     </div>
@@ -201,44 +193,40 @@ function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
               )}
             </div>
           )}
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 120px' }}>
-              <label style={{ display: 'block', marginBottom: '4px' }}>מתאריך *</label>
+          <div className={styles.dateRow}>
+            <div className={styles.dateField}>
+              <label className={styles.fieldLabel}>מתאריך *</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                className={styles.dateInput}
               />
             </div>
-            <div style={{ flex: '1 1 120px' }}>
-              <label style={{ display: 'block', marginBottom: '4px' }}>עד תאריך *</label>
+            <div className={styles.dateField}>
+              <label className={styles.fieldLabel}>עד תאריך *</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                className={styles.dateInput}
               />
             </div>
           </div>
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ display: 'block', marginBottom: '4px' }}>סיבה (אופציונלי)</label>
+          <div className={styles.reasonGroup}>
+            <label className={styles.fieldLabel}>סיבה (אופציונלי)</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', resize: 'vertical', minHeight: '60px' }}
+              className={styles.reasonTextarea}
             />
           </div>
-          {error && <div style={{ color: '#b91c1c', fontSize: '0.9rem', marginBottom: '12px' }}>{error}</div>}
+          {error && <div className={styles.errorText}>{error}</div>}
           <button
             type="submit"
             disabled={submitting}
-            style={{
-              background: '#2563eb', color: 'white',
-              padding: '8px 16px', borderRadius: '4px', border: 'none',
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              opacity: submitting ? 0.5 : 1
-            }}
+            className={styles.submitBtn}
+            style={{ '--btn-cursor': submitting ? 'not-allowed' : 'pointer', '--btn-opacity': submitting ? 0.5 : 1 }}
           >
             {submitting ? 'שולח...' : 'הגשת בקשה'}
           </button>
@@ -303,55 +291,43 @@ function AdminDecisionModal({ request, onClose, onSuccess, token }) {
 
   return (
     <div className="form-overlay" onClick={onClose}>
-      <div className="worker-form" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3 style={{ margin: 0 }}>{request.status === 'pending' ? 'קבלת החלטה על בקשה' : 'עריכת החלטה'}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px' }}>✕</button>
+      <div className={`worker-form ${styles.maxWidth500}`} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalHeading}>{request.status === 'pending' ? 'קבלת החלטה על בקשה' : 'עריכת החלטה'}</h3>
+          <button onClick={onClose} className={styles.modalCloseBtn}>✕</button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '12px' }}>
-            <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '8px' }}>
+          <div className={styles.fieldGroup}>
+            <p className={styles.requestInfoText}>
               בקשה של <strong>{request.first_name} {request.family_name}</strong> מתאריך {formatDateHe(request.start_date)} עד {formatDateHe(request.end_date)}
             </p>
-            {request.reason && <p style={{ fontSize: '0.85rem', color: '#666' }}>סיבה: {request.reason}</p>}
+            {request.reason && <p className={styles.reasonText}>סיבה: {request.reason}</p>}
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>החלטה *</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
+          <div className={styles.decisionGroup}>
+            <label className={styles.decisionLabel}>החלטה *</label>
+            <div className={styles.decisionBtns}>
               <button
                 type="button"
                 onClick={() => setDecision('approved')}
-                style={{
-                  flex: 1, padding: '8px', borderRadius: '4px',
-                  background: decision === 'approved' ? '#16a34a' : '#f0f0f0',
-                  color: decision === 'approved' ? 'white' : '#333',
-                  border: 'none', cursor: 'pointer'
-                }}
+                className={styles.decisionBtn}
+                style={{ '--decision-bg': decision === 'approved' ? '#16a34a' : '#f0f0f0', '--decision-color': decision === 'approved' ? 'white' : '#333' }}
               >
                 אישור מלא
               </button>
               <button
                 type="button"
                 onClick={() => setDecision('partial')}
-                style={{
-                  flex: 1, padding: '8px', borderRadius: '4px',
-                  background: decision === 'partial' ? '#2563eb' : '#f0f0f0',
-                  color: decision === 'partial' ? 'white' : '#333',
-                  border: 'none', cursor: 'pointer'
-                }}
+                className={styles.decisionBtn}
+                style={{ '--decision-bg': decision === 'partial' ? '#2563eb' : '#f0f0f0', '--decision-color': decision === 'partial' ? 'white' : '#333' }}
               >
                 אישור חלקי
               </button>
               <button
                 type="button"
                 onClick={() => setDecision('rejected')}
-                style={{
-                  flex: 1, padding: '8px', borderRadius: '4px',
-                  background: decision === 'rejected' ? '#dc2626' : '#f0f0f0',
-                  color: decision === 'rejected' ? 'white' : '#333',
-                  border: 'none', cursor: 'pointer'
-                }}
+                className={styles.decisionBtn}
+                style={{ '--decision-bg': decision === 'rejected' ? '#dc2626' : '#f0f0f0', '--decision-color': decision === 'rejected' ? 'white' : '#333' }}
               >
                 דחייה
               </button>
@@ -360,49 +336,45 @@ function AdminDecisionModal({ request, onClose, onSuccess, token }) {
 
           {decision === 'partial' && (
             <>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', marginBottom: '4px' }}>מתאריך *</label>
+              <div className={styles.partialFieldGroup}>
+                <label className={styles.fieldLabel}>מתאריך *</label>
                 <input
                   type="text"
                   placeholder="DD.MM.YYYY"
                   value={approvedStart}
                   onChange={(e) => setApprovedStart(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  className={styles.partialInput}
                 />
               </div>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', marginBottom: '4px' }}>עד תאריך *</label>
+              <div className={styles.partialFieldGroup}>
+                <label className={styles.fieldLabel}>עד תאריך *</label>
                 <input
                   type="text"
                   placeholder="DD.MM.YYYY"
                   value={approvedEnd}
                   onChange={(e) => setApprovedEnd(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  className={styles.partialInput}
                 />
               </div>
             </>
           )}
 
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ display: 'block', marginBottom: '4px' }}>הערות מנהל</label>
+          <div className={styles.adminNotesGroup}>
+            <label className={styles.fieldLabel}>הערות מנהל</label>
             <textarea
               value={adminNotes}
               onChange={(e) => setAdminNotes(e.target.value)}
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', resize: 'vertical', minHeight: '60px' }}
+              className={styles.adminNotesTextarea}
             />
           </div>
 
-          {error && <div style={{ color: '#b91c1c', fontSize: '0.9rem', marginBottom: '12px' }}>{error}</div>}
+          {error && <div className={styles.errorText}>{error}</div>}
 
           <button
             type="submit"
             disabled={submitting}
-            style={{
-              background: '#2563eb', color: 'white',
-              padding: '8px 16px', borderRadius: '4px', border: 'none',
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              opacity: submitting ? 0.5 : 1
-            }}
+            className={styles.submitBtn}
+            style={{ '--btn-cursor': submitting ? 'not-allowed' : 'pointer', '--btn-opacity': submitting ? 0.5 : 1 }}
           >
             {submitting ? 'מעבד...' : 'שלח החלטה'}
           </button>
@@ -419,34 +391,27 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
   const sorted = sortRows(requests, sort);
   return (
     <div>
-      <button
-        onClick={onNewRequest}
-        style={{
-          background: '#2563eb', color: 'white',
-          padding: '8px 16px', borderRadius: '4px', border: 'none',
-          cursor: 'pointer', marginBottom: '16px'
-        }}
-      >
+      <button onClick={onNewRequest} className={styles.newRequestBtn}>
         הגשת בקשת חופשה חדשה
       </button>
 
       {isMobile ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {requests.length === 0 && <p style={{ color: '#666' }}>אין בקשות חופשה</p>}
+        <div className={styles.mobileCardList}>
+          {requests.length === 0 && <p className={styles.emptyMsg}>אין בקשות חופשה</p>}
           {requests.map((r) => (
-            <div key={r.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div key={r.id} className={styles.mobileCard}>
+              <div className={styles.cardTopRow}>
                 <StatusBadge status={r.status} />
-                <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{formatDateHe(r.created_at?.split('T')[0])}</span>
+                <span className={styles.cardDate}>{formatDateHe(r.created_at?.split('T')[0])}</span>
               </div>
-              <div style={{ fontWeight: 600 }}>{formatDateHe(r.start_date)} – {formatDateHe(r.end_date)}</div>
-              {r.reason && <div style={{ fontSize: '0.88rem', color: '#374151' }}>סיבה: {r.reason}</div>}
+              <div className={styles.cardDateRange}>{formatDateHe(r.start_date)} – {formatDateHe(r.end_date)}</div>
+              {r.reason && <div className={styles.cardReason}>סיבה: {r.reason}</div>}
               {r.approved_start && r.approved_end && (
-                <div style={{ fontSize: '0.85rem', color: '#2563eb' }}>מאושר: {formatDateHe(r.approved_start)} – {formatDateHe(r.approved_end)}</div>
+                <div className={styles.cardApproved}>מאושר: {formatDateHe(r.approved_start)} – {formatDateHe(r.approved_end)}</div>
               )}
-              {r.admin_notes && <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>הערות: {r.admin_notes}</div>}
+              {r.admin_notes && <div className={styles.cardNotes}>הערות: {r.admin_notes}</div>}
               {r.status === 'pending' && (
-                <button onClick={() => onCancel(r.id)} style={{ background: '#dc2626', color: 'white', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', alignSelf: 'flex-start' }}>
+                <button onClick={() => onCancel(r.id)} className={styles.cancelBtn}>
                   ביטול
                 </button>
               )}
@@ -456,9 +421,9 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
       ) : (
         <>
         <div className="vacation-table-wrap">
-        <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
-          <thead>
-            <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
+        <table className={styles.vacationTable}>
+          <thead className={styles.tableHead}>
+            <tr>
               <SortableHeader label="תאריך הגשה"       sortKey="created_at"     sort={sort} onSort={onSort} />
               <SortableHeader label="מתאריך"            sortKey="start_date"     sort={sort} onSort={onSort} />
               <SortableHeader label="עד תאריך"          sortKey="end_date"       sort={sort} onSort={onSort} />
@@ -466,29 +431,26 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
               <SortableHeader label="סטטוס"             sortKey="status"         sort={sort} onSort={onSort} />
               <SortableHeader label="תאריכים מאושרים"  sortKey="approved_start" sort={sort} onSort={onSort} />
               <SortableHeader label="הערות"             sortKey="admin_notes"    sort={sort} onSort={onSort} />
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
+              <th className={styles.sortTh}>פעולה</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((r) => (
-              <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <td style={{ padding: '3px 8px' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
-                <td style={{ padding: '3px 8px' }}>{formatDateHe(r.start_date)}</td>
-                <td style={{ padding: '3px 8px' }}>{formatDateHe(r.end_date)}</td>
-                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
-                <td style={{ padding: '3px 8px' }}><StatusBadge status={r.status} /></td>
-                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>
+              <tr key={r.id} className={styles.tableRow}>
+                <td className={styles.tableCell}>{formatDateHe(r.created_at?.split('T')[0])}</td>
+                <td className={styles.tableCell}>{formatDateHe(r.start_date)}</td>
+                <td className={styles.tableCell}>{formatDateHe(r.end_date)}</td>
+                <td className={styles.tableCellSm}>{r.reason || '—'}</td>
+                <td className={styles.tableCell}><StatusBadge status={r.status} /></td>
+                <td className={styles.tableCellSm}>
                   {r.approved_start && r.approved_end
                     ? `${formatDateHe(r.approved_start)} – ${formatDateHe(r.approved_end)}`
                     : '—'}
                 </td>
-                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
-                <td style={{ padding: '3px 8px' }}>
+                <td className={styles.tableCellSm}>{r.admin_notes || '—'}</td>
+                <td className={styles.tableCell}>
                   {r.status === 'pending' && (
-                    <button
-                      onClick={() => onCancel(r.id)}
-                      style={{ background: '#dc2626', color: 'white', padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
-                    >
+                    <button onClick={() => onCancel(r.id)} className={styles.tableCancelBtn}>
                       ביטול
                     </button>
                   )}
@@ -498,7 +460,7 @@ function WorkerView({ requests, onCancel, onNewRequest, token }) {
           </tbody>
         </table>
         </div>
-        {requests.length === 0 && <p style={{ color: '#666' }}>אין בקשות חופשה</p>}
+        {requests.length === 0 && <p className={styles.emptyMsg}>אין בקשות חופשה</p>}
         </>
       )}
     </div>
@@ -527,17 +489,14 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
 
   return (
     <div>
-      <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <button
-          onClick={onNewRequest}
-          style={{ background: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
-        >
+      <div className={styles.filterRow}>
+        <button onClick={onNewRequest} className={styles.newRequestBtn}>
           הגש בקשה עבור עובד
         </button>
         <select
           value={statusFilter}
           onChange={(e) => onStatusFilterChange(e.target.value)}
-          style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}
+          className={styles.filterSelect}
         >
           {statuses.map((s) => (
             <option key={s} value={s}>{statusLabels[s]}</option>
@@ -548,37 +507,35 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
           placeholder="חיפוש לפי שם..."
           value={nameFilter}
           onChange={(e) => onNameFilterChange(e.target.value)}
-          style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc', flex: '1 1 120px' }}
+          className={styles.filterSearch}
         />
       </div>
 
       {isMobile ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {filtered.length === 0 && <p style={{ color: '#666' }}>אין בקשות</p>}
+        <div className={styles.mobileCardList}>
+          {filtered.length === 0 && <p className={styles.emptyMsg}>אין בקשות</p>}
           {filtered.map((r) => (
-            <div key={r.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700 }}>{r.first_name} {r.family_name}</span>
+            <div key={r.id} className={styles.mobileCard}>
+              <div className={styles.cardTopRow}>
+                <span className={styles.cardWorkerName}>{r.first_name} {r.family_name}</span>
                 <StatusBadge status={r.status} />
               </div>
-              <div style={{ fontSize: '0.88rem', color: '#374151' }}>{formatDateHe(r.start_date)} – {formatDateHe(r.end_date)}</div>
-              <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>הוגש: {formatDateHe(r.created_at?.split('T')[0])}</div>
-              {r.reason && <div style={{ fontSize: '0.85rem' }}>סיבה: {r.reason}</div>}
+              <div className={styles.cardReason}>{formatDateHe(r.start_date)} – {formatDateHe(r.end_date)}</div>
+              <div className={styles.cardSubmittedDate}>הוגש: {formatDateHe(r.created_at?.split('T')[0])}</div>
+              {r.reason && <div className={styles.cardReason}>סיבה: {r.reason}</div>}
               {r.approved_start && r.approved_end && (
-                <div style={{ fontSize: '0.85rem', color: '#2563eb' }}>מאושר: {formatDateHe(r.approved_start)} – {formatDateHe(r.approved_end)}</div>
+                <div className={styles.cardApproved}>מאושר: {formatDateHe(r.approved_start)} – {formatDateHe(r.approved_end)}</div>
               )}
-              {r.admin_notes && <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>הערות: {r.admin_notes}</div>}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+              {r.admin_notes && <div className={styles.cardNotes}>הערות: {r.admin_notes}</div>}
+              <div className={styles.cardActions}>
                 <button
                   onClick={() => onDecide(r)}
-                  style={{ background: r.status === 'pending' ? '#2563eb' : '#6b7280', color: 'white', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', flex: 1 }}
+                  className={styles.cardActionBtn}
+                  style={{ '--card-btn-bg': r.status === 'pending' ? '#2563eb' : '#6b7280' }}
                 >
                   {r.status === 'pending' ? 'קבל החלטה' : 'ערוך החלטה'}
                 </button>
-                <button
-                  onClick={() => onDelete(r.id)}
-                  style={{ background: '#dc2626', color: 'white', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
-                >
+                <button onClick={() => onDelete(r.id)} className={styles.cardDeleteBtn}>
                   מחק
                 </button>
               </div>
@@ -588,9 +545,9 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
       ) : (
         <>
         <div className="vacation-table-wrap">
-        <table style={{ width: '100%', borderCollapse: 'collapse', direction: 'rtl' }}>
-          <thead>
-            <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
+        <table className={styles.vacationTable}>
+          <thead className={styles.tableHead}>
+            <tr>
               <SortableHeader label="שם עובד"           sortKey="worker_name"    sort={sort} onSort={onSort} />
               <SortableHeader label="תאריך הגשה"        sortKey="created_at"     sort={sort} onSort={onSort} />
               <SortableHeader label="מתאריך"            sortKey="start_date"     sort={sort} onSort={onSort} />
@@ -599,35 +556,33 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
               <SortableHeader label="סטטוס"             sortKey="status"         sort={sort} onSort={onSort} />
               <SortableHeader label="תאריכים מאושרים"  sortKey="approved_start" sort={sort} onSort={onSort} />
               <SortableHeader label="הערות"             sortKey="admin_notes"    sort={sort} onSort={onSort} />
-              <th style={{ padding: '3px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>פעולה</th>
+              <th className={styles.sortTh}>פעולה</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((r) => (
-              <tr key={r.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{r.first_name} {r.family_name}</td>
-                <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{formatDateHe(r.created_at?.split('T')[0])}</td>
-                <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{formatDateHe(r.start_date)}</td>
-                <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>{formatDateHe(r.end_date)}</td>
-                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.reason || '—'}</td>
-                <td style={{ padding: '3px 8px' }}><StatusBadge status={r.status} /></td>
-                <td style={{ padding: '3px 8px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+              <tr key={r.id} className={styles.tableRow}>
+                <td className={styles.tableCellNoWrap}>{r.first_name} {r.family_name}</td>
+                <td className={styles.tableCellSmNoWrap}>{formatDateHe(r.created_at?.split('T')[0])}</td>
+                <td className={styles.tableCellNoWrap}>{formatDateHe(r.start_date)}</td>
+                <td className={styles.tableCellNoWrap}>{formatDateHe(r.end_date)}</td>
+                <td className={styles.tableCellSm}>{r.reason || '—'}</td>
+                <td className={styles.tableCell}><StatusBadge status={r.status} /></td>
+                <td className={styles.tableCellSmNoWrap}>
                   {r.approved_start && r.approved_end
                     ? `${formatDateHe(r.approved_start)} – ${formatDateHe(r.approved_end)}`
                     : '—'}
                 </td>
-                <td style={{ padding: '3px 8px', fontSize: '0.9rem' }}>{r.admin_notes || '—'}</td>
-                <td style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}>
+                <td className={styles.tableCellSm}>{r.admin_notes || '—'}</td>
+                <td className={styles.tableActionCell}>
                   <button
                     onClick={() => onDecide(r)}
-                    style={{ background: r.status === 'pending' ? '#2563eb' : '#6b7280', color: 'white', padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', marginLeft: '4px' }}
+                    className={styles.tableActionBtn}
+                    style={{ '--action-btn-bg': r.status === 'pending' ? '#2563eb' : '#6b7280' }}
                   >
                     {r.status === 'pending' ? 'קבל החלטה' : 'ערוך החלטה'}
                   </button>
-                  <button
-                    onClick={() => onDelete(r.id)}
-                    style={{ background: '#dc2626', color: 'white', padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
-                  >
+                  <button onClick={() => onDelete(r.id)} className={styles.tableDeleteBtn}>
                     מחק
                   </button>
                 </td>
@@ -636,7 +591,7 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
           </tbody>
         </table>
         </div>
-        {filtered.length === 0 && <p style={{ color: '#666' }}>אין בקשות</p>}
+        {filtered.length === 0 && <p className={styles.emptyMsg}>אין בקשות</p>}
         </>
       )}
     </div>
@@ -707,8 +662,8 @@ export default function VacationRequests({ currentUser, token, selectedBranchId,
   };
 
   return (
-    <div style={{ padding: '4px 16px 16px', direction: 'rtl' }}>
-      <h2 style={{ marginTop: '0' }}>בקשות חופשה</h2>
+    <div className={styles.container}>
+      <h2 className={styles.pageTitle}>בקשות חופשה</h2>
       {loading ? <p>טוען...</p> : (
         isAdmin ? (
           <AdminView

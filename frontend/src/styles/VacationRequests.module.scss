@@ -1,0 +1,370 @@
+// StatusBadge
+.badge {
+  background: var(--badge-bg, #333);
+  color: white;
+  padding: 1px 6px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+// SortableHeader
+.sortTh {
+  padding: 3px 8px;
+  text-align: right;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.sortIcon {
+  margin-right: 3px;
+  font-size: 0.65rem;
+  &.active { color: #2563eb; }
+  &.inactive { color: #9ca3af; }
+}
+
+// Modal shared
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.modalHeading { margin: 0; }
+.modalCloseBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+// New request modal – form fields
+.fieldGroup {
+  margin-bottom: 12px;
+  position: relative;
+}
+.fieldLabel {
+  display: block;
+  margin-bottom: 4px;
+}
+.selectedWorkerBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #2563eb;
+  border-radius: 4px;
+  background: #eff6ff;
+}
+.selectedWorkerName {
+  flex: 1;
+  font-weight: 600;
+}
+.clearWorkerBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1;
+}
+.workerSearchInput {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+}
+.dropdownList {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 100;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.dropdownEmpty {
+  padding: 10px;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+.dropdownItem {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  &:hover { background: #f0f4ff; }
+}
+.dropdownItemName { font-weight: 600; }
+.dropdownItemId {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin-right: 8px;
+}
+
+// Date row
+.dateRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.dateField {
+  flex: 1 1 120px;
+}
+.dateInput {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+}
+.reasonGroup { margin-bottom: 12px; }
+.reasonTextarea {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  resize: vertical;
+  min-height: 60px;
+}
+
+// Error
+.errorText {
+  color: #b91c1c;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+// Submit button
+.submitBtn {
+  background: #2563eb;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: var(--btn-cursor, pointer);
+  opacity: var(--btn-opacity, 1);
+}
+
+// Admin decision modal
+.maxWidth500 { max-width: 500px; }
+.requestInfoText {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+.reasonText {
+  font-size: 0.85rem;
+  color: #666;
+}
+.decisionGroup { margin-bottom: 16px; }
+.decisionLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.decisionBtns {
+  display: flex;
+  gap: 8px;
+}
+.decisionBtn {
+  flex: 1;
+  padding: 8px;
+  border-radius: 4px;
+  background: var(--decision-bg, #f0f0f0);
+  color: var(--decision-color, #333);
+  border: none;
+  cursor: pointer;
+}
+.adminNotesGroup { margin-bottom: 12px; }
+.adminNotesTextarea {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  resize: vertical;
+  min-height: 60px;
+}
+.partialFieldGroup { margin-bottom: 12px; }
+.partialInput {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+// Mobile card list
+.mobileCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mobileCard {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cardTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cardDate {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+.cardWorkerName { font-weight: 700; }
+.cardDateRange { font-weight: 600; }
+.cardReason {
+  font-size: 0.88rem;
+  color: #374151;
+}
+.cardApproved {
+  font-size: 0.85rem;
+  color: #2563eb;
+}
+.cardNotes {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+.cardSubmittedDate {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+.cardActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.cancelBtn {
+  background: #dc2626;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-self: flex-start;
+}
+.cardActionBtn {
+  background: var(--card-btn-bg, #2563eb);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  flex: 1;
+}
+.cardDeleteBtn {
+  background: #dc2626;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+// Table
+.vacationTable {
+  width: 100%;
+  border-collapse: collapse;
+  direction: rtl;
+}
+.tableHead tr {
+  background: #f3f4f6;
+  border-bottom: 2px solid #e5e7eb;
+}
+.tableRow { border-bottom: 1px solid #e5e7eb; }
+.tableCell { padding: 3px 8px; }
+.tableCellSm {
+  padding: 3px 8px;
+  font-size: 0.9rem;
+}
+.tableCellNoWrap {
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.tableCellSmNoWrap {
+  padding: 3px 8px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.tableActionCell {
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.tableActionBtn {
+  background: var(--action-btn-bg, #2563eb);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-left: 4px;
+}
+.tableDeleteBtn {
+  background: #dc2626;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.tableCancelBtn {
+  background: #dc2626;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.emptyMsg { color: #666; }
+
+// Admin filter row
+.filterRow {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.filterSelect {
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+.filterSearch {
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  flex: 1 1 120px;
+}
+.newRequestBtn {
+  background: #2563eb;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+}
+
+// Page container
+.container {
+  padding: 4px 16px 16px;
+  direction: rtl;
+}
+.pageTitle { margin-top: 0; }

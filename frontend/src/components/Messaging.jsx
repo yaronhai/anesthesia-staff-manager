@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import styles from '../styles/Messaging.module.scss';
 
 export default function Messaging({ authToken, currentUser, workers, branchId }) {
   const [conversations, setConversations] = useState([]);
@@ -33,7 +34,6 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     }
   }
 
-  // Fetch conversations list
   async function fetchConversations() {
     try {
       const res = await fetch('/api/messages/conversations', {
@@ -45,7 +45,6 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     }
   }
 
-  // Fetch messages with specific user
   async function fetchMessages(userId) {
     if (!userId) return;
     try {
@@ -55,7 +54,6 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
       if (res.ok) {
         const msgs = await res.json();
         setMessages(msgs);
-        // Mark as read
         await fetch(`/api/messages/read/${userId}`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${authToken}` },
@@ -66,7 +64,6 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     }
   }
 
-  // Send message
   async function sendMessage(e) {
     e.preventDefault();
     if (!draft.trim() || !selectedUserId || loading) return;
@@ -95,7 +92,6 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     }
   }
 
-  // Build unified contact list for both admins and workers, with system_sidur first
   const mergedContacts = (() => {
     const list = isAdmin
       ? workers.filter(w => w.user_id).map(w => ({ id: w.user_id, display_name: `${w.first_name} ${w.family_name}` }))
@@ -112,14 +108,12 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     });
   })();
 
-  // Auto-select first contact for workers (desktop only)
   useEffect(() => {
     if (!isMobile && isWorker && mergedContacts.length > 0 && !selectedUserId) {
       setSelectedUserId(mergedContacts[0].id);
     }
   }, [mergedContacts.length, isWorker, selectedUserId, isMobile]);
 
-  // Polling for messages
   useEffect(() => {
     fetchConversations();
     fetchContacts();
@@ -127,7 +121,6 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     return () => clearInterval(interval);
   }, [authToken]);
 
-  // Fetch messages when selectedUserId changes
   useEffect(() => {
     if (selectedUserId) {
       fetchMessages(selectedUserId);
@@ -136,7 +129,6 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     }
   }, [selectedUserId, authToken]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -146,36 +138,54 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   const showContacts = !isMobile || !selectedUserId;
   const showChat = !isMobile || !!selectedUserId;
 
+  const rootVars = {
+    '--root-height': isLandscape ? 'calc(100vh - 72px)' : 'calc(100vh - 200px)',
+    '--root-gap': isLandscape ? '0.25rem' : '0.5rem',
+    '--root-padding': isLandscape ? '0.25rem 0.5rem' : '0.75rem',
+  };
+
+  const contactsVars = {
+    '--contacts-width': isLandscape ? '110px' : '130px',
+    '--contacts-min-width': '80px',
+    '--contacts-header-padding': isLandscape ? '0.25rem' : '0.5rem',
+    '--contacts-header-font': isLandscape ? '0.7rem' : '0.8rem',
+    '--contact-btn-padding': isMobile ? '0.6rem 0.75rem' : isLandscape ? '0.2rem 0.3rem' : '0.3rem 0.4rem',
+    '--contact-font': isMobile ? '0.9rem' : isLandscape ? '0.65rem' : '0.7rem',
+  };
+
   const contactsList = (
-    <div style={{ width: isMobile ? '100%' : isLandscape ? '110px' : '130px', minWidth: isMobile ? undefined : '80px', flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-      <div style={{ padding: isLandscape ? '0.25rem' : '0.5rem', borderBottom: '1px solid #e5e7eb', fontWeight: 700, color: '#991b1b', fontSize: isLandscape ? '0.7rem' : '0.8rem', textAlign: 'center' }}>
+    <div
+      className={`${styles.contacts} ${isMobile ? styles.contactsMobile : ''}`}
+      style={isMobile ? undefined : contactsVars}
+    >
+      <div className={styles.contactsHeader}>
         {isAdmin ? 'עובדים' : 'אנשי קשר'}
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.125rem', padding: '0.25rem' }}>
+      <div className={styles.contactsList}>
         {mergedContacts.length === 0 ? (
-          <p style={{ fontSize: '0.7rem', color: '#9ca3af', padding: '0.5rem', textAlign: 'center' }}>אין אנשי קשר</p>
+          <p className={styles.contactsEmpty}>אין אנשי קשר</p>
         ) : mergedContacts.map(contact => {
           const conversation = conversations.find(c => c.partner_id === contact.id);
           const isSidur = contact.display_name === 'סידור עבודה';
+          const isSelected = selectedUserId === contact.id;
           return (
             <button
               key={contact.id}
+              className={`${styles.contactBtn} ${(isMobile || isLandscape) ? styles.contactBtnMobile : ''}`}
               onClick={() => setSelectedUserId(contact.id)}
               style={{
-                padding: isMobile ? '0.6rem 0.75rem' : isLandscape ? '0.2rem 0.3rem' : '0.3rem 0.4rem',
-                borderRadius: '3px', border: 'none', textAlign: 'right',
-                cursor: 'pointer',
-                background: selectedUserId === contact.id ? '#1e40af' : 'white',
-                color: selectedUserId === contact.id ? 'white' : isSidur ? '#7f1d1d' : '#1e40af',
-                fontWeight: 700,
-                fontSize: isMobile ? '0.9rem' : isLandscape ? '0.65rem' : '0.7rem',
-                position: 'relative', whiteSpace: 'nowrap',
-                overflow: 'hidden', textOverflow: 'ellipsis',
+                '--contact-bg': isSelected ? '#1e40af' : 'white',
+                '--contact-color': isSelected ? 'white' : isSidur ? '#7f1d1d' : '#1e40af',
+                '--contact-btn-padding': isMobile ? '0.6rem 0.75rem' : isLandscape ? '0.2rem 0.3rem' : '0.3rem 0.4rem',
+                '--contact-font': isMobile ? '0.9rem' : isLandscape ? '0.65rem' : '0.7rem',
               }}
             >
               {contact.display_name}
               {conversation?.unread_count > 0 && (
-                <span style={{ position: 'absolute', left: '0.3rem', top: isMobile ? '0.3rem' : '-5px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700 }}>
+                <span
+                  className={styles.unreadBadge}
+                  style={{ '--badge-top': isMobile ? '0.3rem' : '-5px' }}
+                >
                   {conversation.unread_count}
                 </span>
               )}
@@ -187,92 +197,93 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   );
 
   return (
-    <div style={{ direction: 'rtl', display: 'flex', height: isLandscape ? 'calc(100vh - 72px)' : 'calc(100vh - 200px)', gap: isLandscape ? '0.25rem' : '0.5rem', padding: isLandscape ? '0.25rem 0.5rem' : '0.75rem', maxWidth: '800px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+    <div className={styles.root} style={rootVars}>
       {showContacts && contactsList}
 
-      {/* Chat area */}
-      {showChat && <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        {selectedUserId ? (
-          <>
-            {/* Chat header */}
-            <div style={{ padding: isLandscape ? '0.25rem 0.5rem' : '0.75rem', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#1f2937', fontSize: isLandscape ? '0.8rem' : '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              {isMobile && (
-                <button onClick={() => setSelectedUserId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: '1rem', fontWeight: 700, padding: '0 0.25rem' }}>
-                  ←
-                </button>
-              )}
-              {selectedConversation?.partner_name || (() => {
-                const worker = workers.find(w => w.user_id === selectedUserId);
-                return worker ? `${worker.first_name} ${worker.family_name}` : selectedConversation?.partner_username || 'שיחה';
-              })()}
-            </div>
+      {showChat && (
+        <div className={styles.chatArea}>
+          {selectedUserId ? (
+            <>
+              <div
+                className={styles.chatHeader}
+                style={{
+                  '--chat-header-padding': isLandscape ? '0.25rem 0.5rem' : '0.75rem',
+                  '--chat-header-font': isLandscape ? '0.8rem' : '0.95rem',
+                }}
+              >
+                {isMobile && (
+                  <button className={styles.backBtn} onClick={() => setSelectedUserId(null)}>←</button>
+                )}
+                {selectedConversation?.partner_name || (() => {
+                  const worker = workers.find(w => w.user_id === selectedUserId);
+                  return worker ? `${worker.first_name} ${worker.family_name}` : selectedConversation?.partner_username || 'שיחה';
+                })()}
+              </div>
 
-            {/* Messages */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-              {messages.length === 0 ? (
-                <p style={{ color: '#9ca3af', textAlign: 'center', marginTop: '2rem', fontSize: '0.75rem' }}>אין הודעות עדיין</p>
-              ) : (() => {
-                const items = [];
-                let lastDate = null;
-                messages.forEach(msg => {
-                  const date = new Date(msg.created_at);
-                  const dateKey = date.toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit', day: '2-digit' });
-                  if (dateKey !== lastDate) {
-                    lastDate = dateKey;
+              <div className={styles.messagesList}>
+                {messages.length === 0 ? (
+                  <p className={styles.messagesEmpty}>אין הודעות עדיין</p>
+                ) : (() => {
+                  const items = [];
+                  let lastDate = null;
+                  messages.forEach(msg => {
+                    const date = new Date(msg.created_at);
+                    const dateKey = date.toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                    if (dateKey !== lastDate) {
+                      lastDate = dateKey;
+                      items.push(
+                        <div key={`date-${dateKey}`} className={styles.dateDivider}>
+                          <div className={styles.dateLine} />
+                          <span className={styles.dateLabel}>{dateKey}</span>
+                          <div className={styles.dateLine} />
+                        </div>
+                      );
+                    }
+                    const isOwn = msg.sender_id === currentUser.id;
+                    const isSidur = msg.sender_username === 'system_sidur';
+                    const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
                     items.push(
-                      <div key={`date-${dateKey}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.4rem 0' }}>
-                        <div style={{ flex: 1, height: '1px', background: '#d1d5db' }} />
-                        <span style={{ fontSize: '0.65rem', color: '#6b7280', whiteSpace: 'nowrap' }}>{dateKey}</span>
-                        <div style={{ flex: 1, height: '1px', background: '#d1d5db' }} />
+                      <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
+                        <div
+                          className={styles.msgBubble}
+                          style={{
+                            '--bubble-bg': isOwn ? '#e0f2fe' : '#ede9fe',
+                            '--bubble-font': isSidur ? '1rem' : '0.7rem',
+                            '--bubble-weight': isSidur ? 700 : 'normal',
+                            fontFamily: isSidur ? 'Arial, sans-serif' : 'inherit',
+                          }}
+                        >
+                          <span className={styles.msgTime}>{timeStr}</span>
+                          <span className={styles.msgContent}>{msg.content}</span>
+                        </div>
                       </div>
                     );
-                  }
-                  const isOwn = msg.sender_id === currentUser.id;
-                  const isSidur = msg.sender_username === 'system_sidur';
-                  const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-                  items.push(
-                    <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
-                      <div style={{
-                        maxWidth: '80%', padding: '0.2rem 0.4rem', borderRadius: '2px',
-                        background: isOwn ? '#e0f2fe' : '#ede9fe',
-                        color: '#1f2937',
-                        fontSize: isSidur ? '1rem' : '0.7rem',
-                        fontFamily: isSidur ? 'Arial, sans-serif' : 'inherit',
-                        fontWeight: isSidur ? 700 : 'normal',
-                        wordBreak: 'break-word', lineHeight: '1.1',
-                        display: 'flex', alignItems: 'flex-end', gap: '0.3rem',
-                      }}>
-                        <span style={{ fontSize: '0.6rem', opacity: 0.6, whiteSpace: 'nowrap', fontWeight: 'normal', fontFamily: 'inherit' }}>{timeStr}</span>
-                        <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
-                      </div>
-                    </div>
-                  );
-                });
-                return items;
-              })()}
-              <div ref={messagesEndRef} />
-            </div>
+                  });
+                  return items;
+                })()}
+                <div ref={messagesEndRef} />
+              </div>
 
-            {/* Input */}
-            <form onSubmit={sendMessage} style={{ padding: '1rem', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '0.5rem' }}>
-              <input
-                type="text"
-                value={draft}
-                onChange={e => setDraft(e.target.value)}
-                placeholder="הקלד הודעה..."
-                style={{ flex: 1, padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.9rem', fontFamily: 'inherit' }}
-              />
-              <button type="submit" disabled={loading || !draft.trim()} style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', background: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', minWidth: '80px' }}>
-                {loading ? '...' : 'שלח'}
-              </button>
-            </form>
-          </>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af' }}>
-            {isAdmin ? 'בחר שיחה להתחלה' : 'לא הוקמה שיחה עדיין'}
-          </div>
-        )}
-      </div>}
+              <form className={styles.inputForm} onSubmit={sendMessage}>
+                <input
+                  type="text"
+                  className={styles.inputField}
+                  value={draft}
+                  onChange={e => setDraft(e.target.value)}
+                  placeholder="הקלד הודעה..."
+                />
+                <button type="submit" className={styles.sendBtn} disabled={loading || !draft.trim()}>
+                  {loading ? '...' : 'שלח'}
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className={styles.noConversation}>
+              {isAdmin ? 'בחר שיחה להתחלה' : 'לא הוקמה שיחה עדיין'}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

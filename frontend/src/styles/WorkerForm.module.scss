@@ -1,0 +1,53 @@
+.branchSection {
+  margin-top: 0.5rem;
+}
+.branchAssignSection {
+  margin-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+}
+.branchAssignTitle { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.branchAssignEmpty { color: #9ca3af; font-size: 0.85rem; }
+.branchRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+.branchName { flex: 1; font-size: 0.88rem; }
+.activeLabel {
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+}
+.removeBtn {
+  padding: 2px 7px;
+  font-size: 0.78rem;
+  background: #fee2e2;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #b91c1c;
+}
+.addBranchRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.addBranchSelect {
+  font-size: 0.85rem;
+  flex: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+.canSubmitRow { margin-top: 0.75rem; }
+.canSubmitLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}

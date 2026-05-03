@@ -12,7 +12,8 @@ import VacationRequests from './components/VacationRequests';
 import SpecialDaysCalendar from './components/SpecialDaysCalendar';
 import Messaging from './components/Messaging';
 import logoAssuta from './assets/logo-assuta.png';
-import './App.css';
+import './styles/App.scss';
+import appStyles from './styles/App.module.scss';
 
 const API = '/api/workers';
 
@@ -253,8 +254,8 @@ export default function App() {
     return (
       <div className="app">
         <header>
-          <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
-            <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '60px', height: 'auto'}} />
+          <div className={appStyles.loginHeaderRow}>
+            <img src={logoAssuta} alt="Assuta" className={`logo-assuta ${appStyles.logoSmall}`} />
             <div>
               <h1>מחלקת הרדמה</h1>
               <p className="subtitle">ניהול צוות</p>
@@ -270,24 +271,24 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <img src={logoAssuta} alt="Assuta" className="logo-assuta" style={{width: '100px', height: 'auto'}} />
-        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1}}>
+        <img src={logoAssuta} alt="Assuta" className={`logo-assuta ${appStyles.logoMain}`} />
+        <div className={appStyles.headerTitleCol}>
           <h1>מחלקת הרדמה</h1>
           <p className="subtitle">ניהול צוות</p>
           {isAdmin && !isSuperAdmin && currentUserBranchName && (
-            <span style={{fontSize: '0.78rem', fontWeight: 600, opacity: 0.85, marginTop: '2px'}}>
+            <span className={appStyles.headerBranchName}>
               {currentUserBranchName}
             </span>
           )}
         </div>
         <div className="header-right">
           {isSuperAdmin && (
-            <div className="header-branch-select" style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-              <span style={{fontSize: '0.78rem', opacity: 0.7}}>סניף:</span>
+            <div className={`header-branch-select ${appStyles.headerBranchSelectWrap}`}>
+              <span className={appStyles.headerBranchLabel}>סניף:</span>
               <select
                 value={selectedBranchId ?? ''}
                 onChange={e => handleBranchSelect(e.target.value || null)}
-                style={{fontSize: '0.82rem', padding: '4px 10px', borderRadius: '6px', border: 'none', background: '#fff', color: '#1a2e4a', cursor: 'pointer', fontWeight: 500}}
+                className={appStyles.branchDropdown}
               >
                 <option value="">— כל הסניפים —</option>
                 {branches.map(b => (
@@ -301,18 +302,18 @@ export default function App() {
             <button onClick={() => setShowSettings(true)} className="btn-settings">⚙️</button>
           )}
           <div className="header-user">
-            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
+            <div className={appStyles.headerUserInfo}>
               <span className="header-username">{currentUser.displayName || currentUser.username}</span>
               <span className="header-role">
                 {isSuperAdmin ? 'מנהל ראשי' : isAdmin ? 'מנהל סניף' : 'משתמש'}
               </span>
               {!isSuperAdmin && currentUser.branch_name && (
-                <span style={{fontSize: '0.7rem', opacity: 0.75, marginTop: '1px'}}>
+                <span className={appStyles.headerUserBranch}>
                   {currentUser.branch_name}
                 </span>
               )}
             </div>
-            <button onClick={() => setShowChangePassword(true)} className="btn-link" style={{fontSize:'0.75rem',marginLeft:'0.25rem'}}>שינוי סיסמא</button>
+            <button onClick={() => setShowChangePassword(true)} className={`btn-link ${appStyles.changePwBtn}`}>שינוי סיסמא</button>
             <button onClick={handleLogout} className="btn-logout">יציאה</button>
           </div>
         </div>
@@ -369,15 +370,12 @@ export default function App() {
         )}
         {selectedBranchId && (
           <button
-            className={`tab-btn${activeTab === 'messages' ? ' active' : ''}`}
+            className={`tab-btn${activeTab === 'messages' ? ' active' : ''} ${appStyles.messagesTabBtn}`}
             onClick={() => setActiveTab('messages')}
-            style={{ position: 'relative' }}
           >
             💬 הודעות
             {unreadMessages > 0 && activeTab !== 'messages' && (
-              <span style={{ position: 'absolute', top: '-6px', left: '-6px', background: '#ef4444', color: 'white', borderRadius: '50%', minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700, padding: '0 3px' }}>
-                {unreadMessages}
-              </span>
+              <span className={appStyles.unreadBadge}>{unreadMessages}</span>
             )}
           </button>
         )}
@@ -418,13 +416,13 @@ export default function App() {
       {activeTab === 'workers' && isAdmin && selectedBranchId && (
         <>
           <div className="filters">
-            <button onClick={handleAdd} className="btn-primary" title="הוסף עובד" style={{whiteSpace:'nowrap', fontSize:'1.3rem', padding:'0.35rem 0.7rem', lineHeight:1}}>＋</button>
+            <button onClick={handleAdd} className={`btn-primary ${appStyles.addWorkerBtn}`} title="הוסף עובד">＋</button>
             <input
               type="text"
               placeholder="חיפוש לפי שם / ת.ז. / אימייל / טלפון"
               value={filterSearch}
               onChange={e => setFilterSearch(e.target.value)}
-              style={{minWidth: '220px'}}
+              className={appStyles.searchInput}
             />
             <select value={filterJobId} onChange={e => setFilterJobId(e.target.value)}>
               <option value="">כל התפקידים</option>
@@ -488,7 +486,7 @@ export default function App() {
       )}
 
       {isAdmin && selectedBranchId && (
-        <div style={{ display: activeTab === 'rooms' ? undefined : 'none' }}>
+        <div className={appStyles.roomsTab} style={{ '--rooms-display': activeTab === 'rooms' ? 'block' : 'none' }}>
           <DailyRoomView config={config} authToken={authToken} branchId={selectedBranchId} />
         </div>
       )}
