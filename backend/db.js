@@ -670,6 +670,9 @@ async function runMigrations() {
       )
     `);
 
+    // Add complexity_level to activity_types for overqualification scoring
+    await query(`ALTER TABLE activity_types ADD COLUMN IF NOT EXISTS complexity_level INTEGER NOT NULL DEFAULT 1`);
+
     console.log('✓ Migrations complete');
   } catch (error) {
     console.error('Error running migrations:', error);

@@ -281,8 +281,8 @@ async function getConfig(branchId = null) {
       ? query('SELECT id, name, color, group_type, branch_id FROM site_groups WHERE branch_id = $1 ORDER BY id', [branchId])
       : query('SELECT id, name, color, group_type, branch_id FROM site_groups ORDER BY id');
     const activityTypesQuery = branchId
-      ? query('SELECT id, name, group_id FROM activity_types WHERE branch_id = $1 ORDER BY name', [branchId])
-      : query('SELECT id, name, group_id FROM activity_types ORDER BY name');
+      ? query('SELECT id, name, group_id, complexity_level FROM activity_types WHERE branch_id = $1 ORDER BY name', [branchId])
+      : query('SELECT id, name, group_id, complexity_level FROM activity_types ORDER BY name');
     const activityTypeGroupsQuery = branchId
       ? query('SELECT id, name, branch_id FROM activity_type_groups WHERE branch_id = $1 ORDER BY id', [branchId])
       : query('SELECT id, name, branch_id FROM activity_type_groups ORDER BY id');
@@ -2273,11 +2273,11 @@ app.get('/api/fairness-report', requireAdmin, async (req, res) => {
 
 app.post('/api/config/activity-types', requireAdmin, async (req, res) => {
   try {
-    const { value, group_id } = req.body;
+    const { value, group_id, complexity_level } = req.body;
     if (!value?.trim()) return res.status(400).json({ error: 'שם סוג פעילות חובה' });
     const branchId = getEffectiveBranchId(req);
     try {
-      await query('INSERT INTO activity_types (name, branch_id, group_id) VALUES ($1, $2, $3)', [value.trim(), branchId, group_id || null]);
+      await query('INSERT INTO activity_types (name, branch_id, group_id, complexity_level) VALUES ($1, $2, $3, $4)', [value.trim(), branchId, group_id || null, complexity_level || 1]);
       const config = await getConfig(branchId);
       res.json(config);
     } catch {
@@ -2291,12 +2291,12 @@ app.post('/api/config/activity-types', requireAdmin, async (req, res) => {
 
 app.put('/api/config/activity-types/:id', requireAdmin, async (req, res) => {
   try {
-    const { value } = req.body;
+    const { value, complexity_level } = req.body;
     if (!value?.trim()) return res.status(400).json({ error: 'שם סוג פעילות חובה' });
     const branchId = getEffectiveBranchId(req);
     try {
-      const r = await query('UPDATE activity_types SET name=$1 WHERE id=$2 AND branch_id=$3',
-        [value.trim(), req.params.id, branchId]);
+      const r = await query('UPDATE activity_types SET name=$1, complexity_level=$2 WHERE id=$3 AND branch_id=$4',
+        [value.trim(), complexity_level || 1, req.params.id, branchId]);
       if (r.rowCount === 0) return res.status(403).json({ error: 'סוג פעילות לא נמצא בסניף זה' });
       const config = await getConfig(branchId);
       res.json(config);
@@ -2659,6 +2659,40 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       console.warn('Fairness fetch failed, skipping:', e.message);
     }
 
+    // Load complexity_level for each activity type used in slots
+    const activityLevels = new Map(); // activity_type_id → complexity_level
+    const activityIds = [...new Set(openSlotsRes.rows.map(r => r.activity_type_id).filter(Boolean))];
+    if (activityIds.length > 0) {
+      const placeholders = activityIds.map((_, i) => `$${i + 1}`).join(', ');
+      const aRes = await query(
+        `SELECT id, complexity_level FROM activity_types WHERE id IN (${placeholders})`,
+        activityIds
+      );
+      aRes.rows.forEach(r => activityLevels.set(r.id, r.complexity_level));
+    }
+
+    // Compute worker max level for overqualification scoring
+    const workerMaxLevel = new Map(); // worker_id → max complexity_level of all authorized activities
+    if (workerIds.length > 0 && activityIds.length > 0) {
+      const placeholders = activityIds.map((_, i) => `$${i + 1}`).join(', ');
+      const aRes = await query(
+        `SELECT id, complexity_level FROM activity_types WHERE id IN (${placeholders})`,
+        activityIds
+      );
+      const authTypeLevels = new Map();
+      aRes.rows.forEach(row => authTypeLevels.set(row.id, row.complexity_level));
+
+      // For each worker, compute max level across all their authorized activities
+      for (const [workerId, authSet] of workerAuthSet.entries()) {
+        let maxLevel = 1;
+        for (const atId of authSet) {
+          const lvl = authTypeLevels.get(atId) ?? 1;
+          if (lvl > maxLevel) maxLevel = lvl;
+        }
+        workerMaxLevel.set(workerId, maxLevel);
+      }
+    }
+
     // Build slotsByShift directly from SQL results — no JS type-comparison needed
     const siteMap = new Map(sites.map(s => [s.id, s]));
     const slotsByShift = {};
@@ -2684,18 +2718,22 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       const shiftWorkers = (availableByShift[shift] || [])
         .filter(w => !workerAssigned.has(`${w.worker_id}-${shift}`));
 
-      // adjacency[slotIdx] = sorted array of eligible workerIdx (prefer first)
+      // adjacency[slotIdx] = sorted array of eligible workerIdx (prefer first, then by overqualification gap, then fairness)
       let adjacency = shiftSlots.map(slot => {
+        const slotLevel = activityLevels.get(slot.activity_type_id) ?? 1;
         return shiftWorkers
           .map((w, idx) => {
             const jobOk = !slot.hasRestriction || slot.allowedJobs.has(w.job_id);
             const workerAuths = workerAuthSet.get(w.worker_id);
             const authOk = !slot.activity_type_id || (workerAuths != null && workerAuths.has(slot.activity_type_id));
-            return { idx, preferFirst: w.preference_type === 'prefer' ? 0 : 1, eligible: jobOk && authOk };
+            const workerLevel = workerMaxLevel.get(w.worker_id) ?? 1;
+            const overqualGap = Math.max(0, workerLevel - slotLevel);
+            return { idx, preferFirst: w.preference_type === 'prefer' ? 0 : 1, overqualGap, eligible: jobOk && authOk };
           })
           .filter(e => e.eligible)
           .sort((a, b) => {
             if (a.preferFirst !== b.preferFirst) return a.preferFirst - b.preferFirst;
+            if (a.overqualGap !== b.overqualGap) return a.overqualGap - b.overqualGap;
             return (fairnessCountByWorker.get(shiftWorkers[a.idx].worker_id) ?? 0)
                  - (fairnessCountByWorker.get(shiftWorkers[b.idx].worker_id) ?? 0);
           })

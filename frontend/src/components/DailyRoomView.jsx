@@ -2447,6 +2447,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             <button className="btn-close" onClick={() => setSuggestionModal(null)}>✕</button>
           </div>
           <div className="modal-body" style={{padding: '0.5rem 0.75rem'}}>
+            <details style={{marginBottom: '0.6rem', padding: '0.4rem', backgroundColor: '#f0f9ff', borderRadius: '4px', border: '1px solid #bfdbfe', fontSize: '0.75rem', lineHeight: 1.4, color: '#1e40af'}}>
+              <summary style={{cursor: 'pointer', fontWeight: 600, marginBottom: '0.3rem'}}>📋 אופן הבחירה</summary>
+              <div style={{marginLeft: '0.5rem'}}>
+                <p style={{margin: '0.2rem 0'}}>✓ <strong>העדפה:</strong> עובדים שביקשו "אוכל" מועדפים על "יכול"</p>
+                <p style={{margin: '0.2rem 0'}}>📊 <strong>רמת פעילות:</strong> עובדים תואמים את רמת המורכבות של הפעילות בחדר</p>
+                <p style={{margin: '0.2rem 0'}}>⚖️ <strong>צדק:</strong> עובדים שפחות שובצו לאתרים בעדיפות מועדפים</p>
+              </div>
+            </details>
             {suggestionModal.suggestions.length === 0 && suggestionModal.unassignable.length === 0 ? (
               <p style={{textAlign: 'center', color: '#666'}}>אין הצעות שיבוץ זמינות. ודא שהוגדרו סוגי פעילות לחדרים ושעובדים ביקשו את המשמרות.</p>
             ) : (

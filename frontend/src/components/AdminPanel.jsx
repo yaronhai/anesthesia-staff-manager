@@ -14,6 +14,8 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [newActivityTypeByGroup, setNewActivityTypeByGroup] = useState({});
   const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
+  const [editingComplexityLevel, setEditingComplexityLevel] = useState(1);
+  const [newActivityTypeComplexityByGroup, setNewActivityTypeComplexityByGroup] = useState({});
   const [expandedActivityAuths, setExpandedActivityAuths] = useState({});
   const [siteAllowedJobsModal, setSiteAllowedJobsModal] = useState(null);
   const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'branches' : 'groups');
@@ -128,6 +130,24 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     }
   }
 
+  async function saveActivityTypeEdit(id) {
+    if (!editingValue.trim()) return;
+    const res = await fetch(`/api/config/activity-types/${id}${branchParam()}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ value: editingValue.trim(), complexity_level: editingComplexityLevel }),
+    });
+    if (res.ok) {
+      onConfigChange(await res.json());
+      setEditingKey(null);
+    } else {
+      alert('שגיאה בשמירה');
+    }
+  }
+
   async function addSiteGroup() {
     if (!newSiteGroup.trim()) return;
     const res = await fetch(`/api/config/site-groups${branchParam()}`, {
@@ -179,9 +199,9 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     const res = await fetch(`/api/config/activity-types${branchParam()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify({ value: name, group_id: groupId || null }),
+      body: JSON.stringify({ value: name, group_id: groupId || null, complexity_level: newActivityTypeComplexityByGroup[key] || 1 }),
     });
-    if (res.ok) { onConfigChange(await res.json()); setNewActivityTypeByGroup(prev => ({ ...prev, [key]: '' })); }
+    if (res.ok) { onConfigChange(await res.json()); setNewActivityTypeByGroup(prev => ({ ...prev, [key]: '' })); setNewActivityTypeComplexityByGroup(prev => ({ ...prev, [key]: 1 })); }
     else { const e = await res.json(); alert('שגיאה: ' + (e.error || 'שגיאה')); }
   }
 
@@ -193,6 +213,16 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     });
     if (res.ok) onConfigChange(await res.json());
     else alert('שגיאה בהעברת פעילות');
+  }
+
+  async function updateActivityTypeComplexity(activityTypeId, complexityLevel) {
+    const res = await fetch(`/api/config/activity-types/${activityTypeId}${branchParam()}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ value: (config.activity_types?.find(at => at.id === activityTypeId)?.name || ''), complexity_level: complexityLevel }),
+    });
+    if (res.ok) onConfigChange(await res.json());
+    else alert('שגיאה בעדכון רמה');
   }
 
   async function addSiteInGroup(groupId) {
@@ -773,11 +803,19 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                         {editingKey === `activity-${actType.id}` ? (
                           <input className="config-inline-edit" value={editingValue}
                             onChange={e => setEditingValue(e.target.value)}
-                            onKeyDown={e => { if (e.key==='Enter') saveEdit('/api/config/activity-types', actType.id); if (e.key==='Escape') setEditingKey(null); }}
+                            onKeyDown={e => { if (e.key==='Enter') saveActivityTypeEdit(actType.id); if (e.key==='Escape') setEditingKey(null); }}
                             autoFocus style={{flex:1}} />
                         ) : (
                           <span className={styles.itemName}>{actType.name}</span>
                         )}
+                        <select className={styles.groupMoveSelect}
+                          value={actType.complexity_level || 1}
+                          onChange={e => updateActivityTypeComplexity(actType.id, parseInt(e.target.value))}
+                          title="רמת מורכבות">
+                          <option value={1}>רמה 1</option>
+                          <option value={2}>רמה 2</option>
+                          <option value={3}>רמה 3</option>
+                        </select>
                         {actGroups.length > 0 && editingKey !== `activity-${actType.id}` && (
                           <select
                             className={styles.groupMoveSelect}
@@ -791,10 +829,10 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                         )}
                         <div className="config-item-actions">
                           {editingKey === `activity-${actType.id}` ? (
-                            <><button className="btn-save-inline" onClick={() => saveEdit('/api/config/activity-types', actType.id)}>שמור</button>
+                            <><button className="btn-save-inline" onClick={() => saveActivityTypeEdit(actType.id)}>שמור</button>
                               <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button></>
                           ) : (
-                            <><button className="btn-edit-inline" onClick={() => { setEditingKey(`activity-${actType.id}`); setEditingValue(actType.name); }}>עריכה</button>
+                            <><button className="btn-edit-inline" onClick={() => { setEditingKey(`activity-${actType.id}`); setEditingValue(actType.name); setEditingComplexityLevel(actType.complexity_level || 1); }}>עריכה</button>
                               <button className="btn-remove" onClick={() => removeActivityType(actType.id, actType.name)}>✕</button></>
                           )}
                         </div>
@@ -811,6 +849,12 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                           onChange={e => setNewActivityTypeByGroup(prev => ({...prev,[key]:e.target.value}))}
                           placeholder="סוג פעילות חדש..."
                           onKeyDown={e => e.key==='Enter' && addActivityTypeInGroup(groupId)} />
+                        <select className="config-inline-edit" style={{minWidth:'80px',fontSize:'0.82rem'}} value={newActivityTypeComplexityByGroup[key] || 1}
+                          onChange={e => setNewActivityTypeComplexityByGroup(prev => ({...prev,[key]:parseInt(e.target.value)}))}>
+                          <option value={1}>רמה 1</option>
+                          <option value={2}>רמה 2</option>
+                          <option value={3}>רמה 3</option>
+                        </select>
                         <button className={`btn-add-config ${styles.addRowBtn}`} onClick={() => addActivityTypeInGroup(groupId)}>הוסף</button>
                       </div>
                     );
