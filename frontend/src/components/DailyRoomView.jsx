@@ -2583,7 +2583,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             <details style={{marginBottom: '0.6rem', padding: '0.4rem', backgroundColor: '#f0f9ff', borderRadius: '4px', border: '1px solid #bfdbfe', fontSize: '0.75rem', lineHeight: 1.4, color: '#1e40af'}}>
               <summary style={{cursor: 'pointer', fontWeight: 600, marginBottom: '0.3rem'}}>📋 אופן הבחירה</summary>
               <div style={{marginLeft: '0.5rem'}}>
-                <p style={{margin: '0.2rem 0'}}>✓ <strong>העדפה:</strong> עובדים שביקשו "אוכל" מועדפים על "יכול"</p>
+                <p style={{margin: '0.2rem 0'}}>✓ <strong>העדפה:</strong> עובדים שביקשו "מעדיף" מועדפים על "יכול"</p>
                 <p style={{margin: '0.2rem 0'}}>📊 <strong>רמת פעילות:</strong> עובדים תואמים את רמת המורכבות של הפעילות בחדר</p>
                 <p style={{margin: '0.2rem 0'}}>⚖️ <strong>צדק:</strong> עובדים שפחות שובצו לאתרים בעדיפות מועדפים</p>
               </div>
