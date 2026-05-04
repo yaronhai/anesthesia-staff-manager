@@ -74,7 +74,7 @@ function TemplateItemsEditor({ config, items, onChange }) {
   return (
     <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
       {shownSites.length === 0 ? (
-        <p style={{ color: '#9ca3af', textAlign: 'center', margin: '1.5rem 0', fontSize: '0.85rem' }}>
+        <p style={{ color: '#d1d5db', textAlign: 'center', margin: '1.5rem 0', fontSize: '0.85rem' }}>
           אין חדרים בתבנית — הוסף חדרים מהרשימה למטה
         </p>
       ) : (
@@ -124,7 +124,7 @@ function TemplateItemsEditor({ config, items, onChange }) {
                 const active = groupFilter === null;
                 return (
                   <button onClick={() => setGroupFilter(null)}
-                    style={{ padding: '0.1rem 0.4rem', fontSize: '0.66rem', borderRadius: '999px', border: '1.5px solid #374151', background: active ? '#374151' : '#f3f4f6', color: active ? '#fff' : '#374151', cursor: 'pointer', fontWeight: 600, boxShadow: active ? '0 0 0 2px #37415133' : 'none' }}>
+                    style={{ padding: '0.1rem 0.4rem', fontSize: '0.66rem', borderRadius: '999px', border: '1.5px solid #374151', background: active ? '#374151' : '#d1d5db', color: active ? '#fff' : '#374151', cursor: 'pointer', fontWeight: 600, boxShadow: active ? '0 0 0 2px #37415133' : 'none' }}>
                     הכל
                   </button>
                 );
@@ -154,7 +154,7 @@ function TemplateItemsEditor({ config, items, onChange }) {
           <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
             {filteredAvailable.map(site => (
               <button key={site.id} onClick={() => addSite(site.id)}
-                style={{ padding: '0.1rem 0.4rem', fontSize: '0.66rem', background: '#f3f4f6', border: '1px dashed #9ca3af', borderRadius: '4px', cursor: 'pointer', color: '#374151' }}>
+                style={{ padding: '0.1rem 0.4rem', fontSize: '0.66rem', background: '#d1d5db', border: '1px dashed #d1d5db', borderRadius: '4px', cursor: 'pointer', color: '#374151' }}>
                 + {site.name}
               </button>
             ))}
@@ -1704,7 +1704,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   {(() => {
                     const tabPad = isMobile ? '0.2rem 0.45rem' : '0.75rem 1rem';
                     const tabFont = isMobile ? '0.72rem' : undefined;
-                    const tabStyle = (active, color = '#1a2e4a') => ({ padding: tabPad, fontSize: tabFont, border: 'none', background: active ? color : '#f3f4f6', color: active ? 'white' : '#666', fontWeight: active ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' });
+                    const tabStyle = (active, color = '#1a2e4a') => ({ padding: tabPad, fontSize: tabFont, border: 'none', background: active ? color : '#d1d5db', color: active ? 'white' : '#666', fontWeight: active ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' });
                     return (<>
                       <button onClick={() => setSelectedGroupId('__all__')} style={tabStyle(selectedGroupId === '__all__')}>הכל</button>
                       {Object.entries(regularGroupedSites).map(([groupId]) => {
@@ -1749,7 +1749,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
                   let morningBgColor = '#ffffff';
                   if (isCardEmpty) {
-                    morningBgColor = '#f3f4f6';
+                    morningBgColor = '#d1d5db';
                   } else if (hasMorningActivity && !morningCovered) {
                     morningBgColor = '#fee2e2';
                   } else if (hasMorningActivity && morningCovered) {
@@ -1760,7 +1760,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
                   let eveningBgColor = '#ffffff';
                   if (isCardEmpty) {
-                    eveningBgColor = '#f3f4f6';
+                    eveningBgColor = '#d1d5db';
                   } else if (hasEveningActivity && !eveningCovered) {
                     eveningBgColor = '#fee2e2';
                   } else if (hasEveningActivity && eveningCovered) {
@@ -1773,7 +1773,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     <div
                       key={site.id}
                       className="site-square"
-                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: isCardEmpty ? 'none' : undefined, backgroundColor: isCardEmpty ? '#f3f4f6' : undefined }}
+                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: isCardEmpty ? 'none' : undefined, backgroundColor: isCardEmpty ? '#d1d5db' : undefined }}
                       onClick={() => setSelectedSiteId(site.id)}
                     >
                       <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
@@ -2362,7 +2362,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               <>
                 <button
                   onClick={() => applyTemplate(template.id)}
-                  style={{ flex: 1, padding: '0.5rem 0.75rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', textAlign: 'right', fontSize: '0.9rem', fontWeight: 500 }}
+                  style={{ flex: 1, padding: '0.5rem 0.75rem', background: '#d1d5db', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', textAlign: 'right', fontSize: '0.9rem', fontWeight: 500 }}
                 >
                   {template.name}
                 </button>
@@ -2416,7 +2416,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       const allGroups = [...templateGroups];
       const renderTemplatesForGroup = (groupId) => {
         const groupTemplates = templates.filter(t => (t.group_id || null) === (groupId || null));
-        if (groupTemplates.length === 0) return <p style={{ color: '#9ca3af', fontSize: '0.72rem', margin: '0.1rem 0.3rem' }}>אין תבניות</p>;
+        if (groupTemplates.length === 0) return <p style={{ color: '#d1d5db', fontSize: '0.72rem', margin: '0.1rem 0.3rem' }}>אין תבניות</p>;
         return groupTemplates.map(t => (
           <div key={t.id} style={{ display: 'flex', gap: '0.2rem', alignItems: 'center', padding: '0.15rem 0.3rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '4px', marginBottom: '0.15rem' }}>
             <span style={{ flex: 1, fontWeight: 500, fontSize: '0.78rem' }}>{t.name}</span>
