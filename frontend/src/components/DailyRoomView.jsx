@@ -1704,19 +1704,21 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   {(() => {
                     const tabPad = isMobile ? '0.2rem 0.45rem' : '0.75rem 1rem';
                     const tabFont = isMobile ? '0.72rem' : undefined;
-                    const tabStyle = (active, color = '#1a2e4a') => ({ padding: tabPad, fontSize: tabFont, border: 'none', background: active ? color : '#d1d5db', color: active ? 'white' : '#666', fontWeight: active ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' });
+                    const tabStyle = (active, color = '#1a2e4a', bgColor = '#e5e7eb') => ({ padding: tabPad, fontSize: tabFont, border: 'none', background: active ? color : bgColor, color: active ? 'white' : color, fontWeight: active ? 600 : 700, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' });
                     const regularGroupsList = (config.site_groups || []).filter(g => !g.group_type || g.group_type === 'regular');
                     return (<>
-                      <button onClick={() => setSelectedGroupId('__all__')} style={tabStyle(selectedGroupId === '__all__')}>הכל</button>
+                      <button onClick={() => setSelectedGroupId('__all__')} style={tabStyle(selectedGroupId === '__all__', '#3a3f47', '#d9dce1')}>הכל</button>
                       {Object.entries(regularGroupedSites).map(([groupId]) => {
                         const group = getGroup(groupId);
                         const groupIndex = regularGroupsList.findIndex(g => g.id === parseInt(groupId));
                         const groupColor = GROUP_PALETTE[groupIndex % GROUP_PALETTE.length];
-                        return <button key={groupId} onClick={() => setSelectedGroupId(groupId)} style={tabStyle(selectedGroupId === groupId, groupColor)}>{group.name}</button>;
+                        const darkerBg = PALETTE_BG[groupIndex % PALETTE_BG.length].replace(/f/g, 'e').replace(/0/g, '1');
+                        const isActive = selectedGroupId === groupId;
+                        return <button key={groupId} onClick={() => setSelectedGroupId(groupId)} style={tabStyle(isActive, groupColor, darkerBg)}>{group.name}</button>;
                       })}
                       {(hasNightGroups || hasOncallGroups) && <span style={{ width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.1rem' }} />}
-                      {hasNightGroups && <button onClick={() => setSelectedGroupId('__night__')} style={tabStyle(selectedGroupId === '__night__', '#4b3085')}>{shiftDefaults.night?.icon || '⭐'} {shiftDefaults.night?.label_he || 'תורנות'}</button>}
-                      {hasOncallGroups && <button onClick={() => setSelectedGroupId('__oncall__')} style={tabStyle(selectedGroupId === '__oncall__', '#0369a1')}>{shiftDefaults.oncall?.icon || '📞'} {shiftDefaults.oncall?.label_he || 'כוננות'}</button>}
+                      {hasNightGroups && <button onClick={() => setSelectedGroupId('__night__')} style={tabStyle(selectedGroupId === '__night__', '#5b2c95', '#e8dff5')}>{shiftDefaults.night?.icon || '⭐'} {shiftDefaults.night?.label_he || 'תורנות'}</button>}
+                      {hasOncallGroups && <button onClick={() => setSelectedGroupId('__oncall__')} style={tabStyle(selectedGroupId === '__oncall__', '#0d5fa0', '#d4e8f8')}>{shiftDefaults.oncall?.icon || '📞'} {shiftDefaults.oncall?.label_he || 'כוננות'}</button>}
                     </>);
                   })()}
                 </div>
@@ -1785,7 +1787,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }}
                       onClick={() => setSelectedSiteId(site.id)}
                     >
-                      <div className="site-square-title" style={{fontSize: fs(0.78), color: '#000000', fontWeight: 700}}>{site.name}</div>
+                      <div className="site-square-title" style={{fontSize: fs(0.78), color: '#8B0000', fontWeight: 700}}>{site.name}</div>
                       <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: morningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
                         <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                           <span className="site-square-icon" style={{fontSize: fs(0.78)}}>☀</span>
