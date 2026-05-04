@@ -1705,11 +1705,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     const tabPad = isMobile ? '0.2rem 0.45rem' : '0.75rem 1rem';
                     const tabFont = isMobile ? '0.72rem' : undefined;
                     const tabStyle = (active, color = '#1a2e4a') => ({ padding: tabPad, fontSize: tabFont, border: 'none', background: active ? color : '#d1d5db', color: active ? 'white' : '#666', fontWeight: active ? 600 : 400, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' });
+                    const regularGroupsList = (config.site_groups || []).filter(g => !g.group_type || g.group_type === 'regular');
                     return (<>
                       <button onClick={() => setSelectedGroupId('__all__')} style={tabStyle(selectedGroupId === '__all__')}>הכל</button>
                       {Object.entries(regularGroupedSites).map(([groupId]) => {
                         const group = getGroup(groupId);
-                        return <button key={groupId} onClick={() => setSelectedGroupId(groupId)} style={tabStyle(selectedGroupId === groupId)}>{group.name}</button>;
+                        const groupIndex = regularGroupsList.findIndex(g => g.id === parseInt(groupId));
+                        const groupColor = GROUP_PALETTE[groupIndex % GROUP_PALETTE.length];
+                        return <button key={groupId} onClick={() => setSelectedGroupId(groupId)} style={tabStyle(selectedGroupId === groupId, groupColor)}>{group.name}</button>;
                       })}
                       {(hasNightGroups || hasOncallGroups) && <span style={{ width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.1rem' }} />}
                       {hasNightGroups && <button onClick={() => setSelectedGroupId('__night__')} style={tabStyle(selectedGroupId === '__night__', '#4b3085')}>{shiftDefaults.night?.icon || '⭐'} {shiftDefaults.night?.label_he || 'תורנות'}</button>}
