@@ -1745,8 +1745,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     ? isTimeRangeCovered(eveningAssignments, shiftDefaults.evening?.default_start || eveningStart, shiftDefaults.evening?.default_end || eveningEnd)
                     : true;
 
+                  const isCardEmpty = !hasMorningActivity && !hasEveningActivity && morningAssignments.length === 0 && eveningAssignments.length === 0;
+
                   let morningBgColor = '#ffffff';
-                  if (hasMorningActivity && !morningCovered) {
+                  if (isCardEmpty) {
+                    morningBgColor = '#f3f4f6';
+                  } else if (hasMorningActivity && !morningCovered) {
                     morningBgColor = '#fee2e2';
                   } else if (hasMorningActivity && morningCovered) {
                     morningBgColor = '#dcfce7';
@@ -1755,7 +1759,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   }
 
                   let eveningBgColor = '#ffffff';
-                  if (hasEveningActivity && !eveningCovered) {
+                  if (isCardEmpty) {
+                    eveningBgColor = '#f3f4f6';
+                  } else if (hasEveningActivity && !eveningCovered) {
                     eveningBgColor = '#fee2e2';
                   } else if (hasEveningActivity && eveningCovered) {
                     eveningBgColor = '#dcfce7';
@@ -1763,7 +1769,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     eveningBgColor = '#e5e7eb';
                   }
 
-                  const cardBgColor = !hasMorningActivity && !hasEveningActivity && morningAssignments.length === 0 && eveningAssignments.length === 0 ? '#f3f4f6 !important' : undefined;
+                  const cardBgColor = isCardEmpty ? '#f3f4f6 !important' : undefined;
 
                   return (
                     <div
