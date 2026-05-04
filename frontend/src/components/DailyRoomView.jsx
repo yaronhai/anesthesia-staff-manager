@@ -1763,7 +1763,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     eveningBgColor = '#e5e7eb';
                   }
 
-                  const cardBgColor = !hasMorningActivity && !hasEveningActivity && morningAssignments.length === 0 && eveningAssignments.length === 0 ? '#f3f4f6' : undefined;
+                  const cardBgColor = !hasMorningActivity && !hasEveningActivity && morningAssignments.length === 0 && eveningAssignments.length === 0 ? '#f3f4f6 !important' : undefined;
 
                   return (
                     <div
