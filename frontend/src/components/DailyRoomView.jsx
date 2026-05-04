@@ -289,7 +289,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const STEP = 20;
 
   const [restWarning, setRestWarning] = useState(null);
-  const checkMobile = () => window.innerWidth < 768 || (window.innerWidth < 900 && window.innerHeight < 500);
+  const checkMobile = () => {
+    const isMobileCalc = window.innerWidth < 768;
+    console.log('Mobile check:', { width: window.innerWidth, isMobile: isMobileCalc });
+    return isMobileCalc;
+  };
   const [isMobile, setIsMobile] = useState(checkMobile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -421,6 +425,48 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
   function getSiteShiftAssignments(siteId, shiftType) {
     return assignments.filter(a => a.site_id === siteId && a.date === dateStr && a.shift_type === shiftType);
+  }
+
+  function compareTime(time1, time2) {
+    const [h1 = 0, m1 = 0] = (time1 || '00:00').split(':').map(Number);
+    const [h2 = 0, m2 = 0] = (time2 || '00:00').split(':').map(Number);
+    const mins1 = h1 * 60 + m1;
+    const mins2 = h2 * 60 + m2;
+    if (mins1 < mins2) return -1;
+    if (mins1 > mins2) return 1;
+    return 0;
+  }
+
+  function isTimeRangeCovered(assignments, defaultStart, defaultEnd) {
+    if (assignments.length === 0 || !defaultStart || !defaultEnd) return false;
+    // Assignments with explicit times
+    const withTimes = assignments.filter(a => a.start_time && a.end_time);
+    // Assignments without explicit times (assume full shift coverage)
+    const withoutTimes = assignments.filter(a => !a.start_time || !a.end_time);
+
+    // If we have workers without explicit times, they cover the full shift
+    if (withoutTimes.length > 0) return true;
+
+    // Otherwise, check if explicit times cover the full range
+    if (withTimes.length === 0) return false;
+    const sorted = withTimes.sort((a, b) => compareTime(a.start_time, b.start_time));
+    console.log('Coverage check:', { defaultStart, defaultEnd, assignments: sorted.map(a => ({ name: `${a.first_name} ${a.family_name}`, start: a.start_time, end: a.end_time })) });
+    if (compareTime(sorted[0].start_time, defaultStart) > 0) {
+      console.log('NOT covered: first starts after default start', sorted[0].start_time, '>', defaultStart);
+      return false;
+    }
+    if (compareTime(sorted[sorted.length - 1].end_time, defaultEnd) < 0) {
+      console.log('NOT covered: last ends before default end', sorted[sorted.length - 1].end_time, '<', defaultEnd);
+      return false;
+    }
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (compareTime(sorted[i].end_time, sorted[i + 1].start_time) < 0) {
+        console.log('NOT covered: gap between assignments', sorted[i].end_time, 'to', sorted[i + 1].start_time);
+        return false;
+      }
+    }
+    console.log('COVERED: all checks passed');
+    return true;
   }
 
   const dayRequests = shiftRequests.filter(r => r.date === dateStr);
@@ -1689,16 +1735,43 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   const eveningTimes = getSiteShiftTimes(site.id, 'evening');
                   const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
                   const fs = v => `${(v * scale).toFixed(3)}rem`;
-                  const noActivity = !morningActivity?.activity_type_id && !eveningActivity?.activity_type_id;
+
+                  const hasMorningActivity = !!morningActivity?.activity_type_id;
+                  const hasEveningActivity = !!eveningActivity?.activity_type_id;
+                  const morningCovered = hasMorningActivity
+                    ? isTimeRangeCovered(morningAssignments, shiftDefaults.morning?.default_start || morningStart, shiftDefaults.morning?.default_end || morningEnd)
+                    : true;
+                  const eveningCovered = hasEveningActivity
+                    ? isTimeRangeCovered(eveningAssignments, shiftDefaults.evening?.default_start || eveningStart, shiftDefaults.evening?.default_end || eveningEnd)
+                    : true;
+
+                  let morningBgColor = '#ffffff';
+                  if (hasMorningActivity && !morningCovered) {
+                    morningBgColor = '#fee2e2';
+                  } else if (hasMorningActivity && morningCovered) {
+                    morningBgColor = '#dcfce7';
+                  } else if (!hasMorningActivity) {
+                    morningBgColor = '#e5e7eb';
+                  }
+
+                  let eveningBgColor = '#ffffff';
+                  if (hasEveningActivity && !eveningCovered) {
+                    eveningBgColor = '#fee2e2';
+                  } else if (hasEveningActivity && eveningCovered) {
+                    eveningBgColor = '#dcfce7';
+                  } else if (!hasEveningActivity) {
+                    eveningBgColor = '#e5e7eb';
+                  }
+
                   return (
                     <div
                       key={site.id}
                       className="site-square"
-                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, ...(noActivity && { background: '#e5e7eb', borderColor: '#c4c9d2' }) }}
+                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem` }}
                       onClick={() => setSelectedSiteId(site.id)}
                     >
                       <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
-                      <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`}}>
+                      <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: morningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
                         <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                           <span className="site-square-icon" style={{fontSize: fs(0.78)}}>☀</span>
                           <span style={{fontSize: fs(0.6), color: '#b45309', fontWeight: 600, whiteSpace: 'nowrap'}}>{formatTime24(morningTimes.start_time)}–{formatTime24(morningTimes.end_time)}</span>
@@ -1711,10 +1784,23 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           </div>
                         )}
                         <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
-                          {morningAssignments.length > 0 ? morningAssignments.map((a, idx) => (<div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>)) : <div>—</div>}
+                          {morningAssignments.length > 0 ? morningAssignments.map((a, idx) => {
+                            const startTime = a.start_time || (shiftDefaults.morning?.default_start || morningStart);
+                            const endTime = a.end_time || (shiftDefaults.morning?.default_end || morningEnd);
+                            const isExplicitTime = !!(a.start_time && a.end_time);
+                            return (
+                              <div key={idx}>
+                                <strong>{a.first_name} {a.family_name}</strong> ({a.job_name})
+                                <div style={{fontSize: fs(0.54), color: isExplicitTime ? '#666' : '#999', marginTop: '0.1rem', fontStyle: isExplicitTime ? 'normal' : 'italic'}}>
+                                  🕐 {formatTime24(startTime)}–{formatTime24(endTime)}
+                                  {!isExplicitTime && <span style={{marginLeft: '0.3rem'}}>*</span>}
+                                </div>
+                              </div>
+                            );
+                          }) : <div>—</div>}
                         </div>
                       </div>
-                      <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`}}>
+                      <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: eveningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
                         <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                           <span className="site-square-icon" style={{fontSize: fs(0.78)}}>🌙</span>
                           <span style={{fontSize: fs(0.6), color: '#0369a1', fontWeight: 600, whiteSpace: 'nowrap'}}>{formatTime24(eveningTimes.start_time)}–{formatTime24(eveningTimes.end_time)}</span>
@@ -1727,7 +1813,20 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           </div>
                         )}
                         <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
-                          {eveningAssignments.length > 0 ? eveningAssignments.map((a, idx) => (<div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>)) : <div>—</div>}
+                          {eveningAssignments.length > 0 ? eveningAssignments.map((a, idx) => {
+                            const startTime = a.start_time || (shiftDefaults.evening?.default_start || eveningStart);
+                            const endTime = a.end_time || (shiftDefaults.evening?.default_end || eveningEnd);
+                            const isExplicitTime = !!(a.start_time && a.end_time);
+                            return (
+                              <div key={idx}>
+                                <strong>{a.first_name} {a.family_name}</strong> ({a.job_name})
+                                <div style={{fontSize: fs(0.54), color: isExplicitTime ? '#666' : '#999', marginTop: '0.1rem', fontStyle: isExplicitTime ? 'normal' : 'italic'}}>
+                                  🕐 {formatTime24(startTime)}–{formatTime24(endTime)}
+                                  {!isExplicitTime && <span style={{marginLeft: '0.3rem'}}>*</span>}
+                                </div>
+                              </div>
+                            );
+                          }) : <div>—</div>}
                         </div>
                       </div>
                     </div>
@@ -1759,16 +1858,32 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     const duration = calcDurationHours(times.start_time, times.end_time);
                     const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
                     const fs = v => `${(v * scale).toFixed(3)}rem`;
-                    const hasAssignment = shiftAssignments.length > 0;
+
+                    const hasActivity = !!activity?.activity_type_id;
+                    const defaultStart = shiftDefaults[shiftKey]?.default_start || (isNight ? nightStart : (shiftKey === 'oncall' ? '00:00' : eveningStart));
+                    const defaultEnd = shiftDefaults[shiftKey]?.default_end || (isNight ? nightEnd : (shiftKey === 'oncall' ? '23:59' : eveningEnd));
+                    const isCovered = hasActivity
+                      ? isTimeRangeCovered(shiftAssignments, defaultStart, defaultEnd)
+                      : false;
+
+                    let shiftBgColor = '#ffffff';
+                    if (!hasActivity) {
+                      shiftBgColor = '#e5e7eb';
+                    } else if (hasActivity && !isCovered) {
+                      shiftBgColor = '#fee2e2';
+                    } else if (hasActivity && isCovered) {
+                      shiftBgColor = '#dcfce7';
+                    }
+
                     return (
                       <div
                         key={site.id}
                         className="site-square"
-                        style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}`, ...(!hasAssignment && { background: '#e5e7eb', borderColor: '#c4c9d2', borderTopColor: accentColor }) }}
+                        style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}` }}
                         onClick={() => setSelectedSiteId(site.id)}
                       >
                         <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
-                        <div className="site-square-shift" style={{flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`}}>
+                        <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: shiftBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
                           <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                             <span className="site-square-icon" style={{fontSize: fs(0.78)}}>{isNight ? '⭐' : '📞'}</span>
                             {times.start_time ? (
@@ -1787,7 +1902,22 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             </div>
                           )}
                           <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
-                            {shiftAssignments.length > 0 ? shiftAssignments.map((a, idx) => (<div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>)) : <div>—</div>}
+                            {shiftAssignments.length > 0 ? shiftAssignments.map((a, idx) => {
+                              const defaultStart = shiftDefaults[shiftKey]?.default_start || (isNight ? nightStart : (shiftKey === 'oncall' ? '00:00' : eveningStart));
+                              const defaultEnd = shiftDefaults[shiftKey]?.default_end || (isNight ? nightEnd : (shiftKey === 'oncall' ? '23:59' : eveningEnd));
+                              const startTime = a.start_time || defaultStart;
+                              const endTime = a.end_time || defaultEnd;
+                              const isExplicitTime = !!(a.start_time && a.end_time);
+                              return (
+                                <div key={idx}>
+                                  <strong>{a.first_name} {a.family_name}</strong> ({a.job_name})
+                                  <div style={{fontSize: fs(0.54), color: isExplicitTime ? '#666' : '#999', marginTop: '0.1rem', fontStyle: isExplicitTime ? 'normal' : 'italic'}}>
+                                    🕐 {formatTime24(startTime)}–{formatTime24(endTime)}
+                                    {!isExplicitTime && <span style={{marginLeft: '0.3rem'}}>*</span>}
+                                  </div>
+                                </div>
+                              );
+                            }) : <div>—</div>}
                           </div>
                         </div>
                       </div>
@@ -1919,14 +2049,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             <div style={{
               flex: 1,
               overflow: 'auto',
-              padding: '1.5rem',
+              padding: isMobile ? '0.75rem' : '1.5rem',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.5rem'
+              gap: isMobile ? '0.75rem' : '1.5rem'
             }}>
               {addingToShiftInSite && addingToShiftInSite.site_id === site.id ? (
-                <div style={{background: '#f9fafb', padding: '1.5rem', borderRadius: '8px', border: '1px solid #d1d5db'}}>
-                  <h3 style={{marginBottom: '1rem', color: '#1a2e4a'}}>הוסף שיבוץ — {shiftDefaults[addingToShiftInSite.shift_type]?.label_he || addingToShiftInSite.shift_type}</h3>
+                <div style={{background: '#f9fafb', padding: isMobile ? '0.75rem' : '1.5rem', borderRadius: '8px', border: '1px solid #d1d5db'}}>
+                  <h3 style={{marginBottom: isMobile ? '0.5rem' : '1rem', color: '#1a2e4a', fontSize: isMobile ? '0.95rem' : '1rem'}}>הוסף שיבוץ — {shiftDefaults[addingToShiftInSite.shift_type]?.label_he || addingToShiftInSite.shift_type}</h3>
 
                   <div style={{marginBottom: '1rem', padding: '0.75rem', background: '#fff', borderRadius: '6px'}}>
                     <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem'}}>
@@ -2021,12 +2151,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideActivityType={true} hideHeader={true}/>
                   </div>
                 );
-              })() : (
-                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem'}}>
+              })() : (() => {
+                console.log('Rendering grid with isMobile:', isMobile);
+                return (
+                <div style={{display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '0.75rem' : '2rem'}}>
                   <div style={{
                     order: 1,
                     background: 'linear-gradient(135deg, #fef9e7 0%, #fef5d9 100%)',
-                    padding: '1.5rem',
+                    padding: isMobile ? '0.75rem' : '1.5rem',
                     borderRadius: '12px',
                     border: '2px solid #fbbf24',
                     boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)'
@@ -2042,7 +2174,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   <div style={{
                     order: 2,
                     background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-                    padding: '1.5rem',
+                    padding: isMobile ? '0.75rem' : '1.5rem',
                     borderRadius: '12px',
                     border: '2px solid #7dd3fc',
                     boxShadow: '0 4px 12px rgba(125, 211, 252, 0.1)'
@@ -2055,7 +2187,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     <ShiftSection site={site} shiftType="evening" label={shiftDefaults.evening?.label_he} hideHeader={true}/>
                   </div>
                 </div>
-              )}
+              );
+              })()}
             </div>
           </div>
         </div>
