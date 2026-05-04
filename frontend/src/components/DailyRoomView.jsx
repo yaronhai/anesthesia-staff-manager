@@ -1723,10 +1723,15 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             {selectedGroupId && !['__night__', '__oncall__'].includes(selectedGroupId) && (
               // Regular rooms grid (morning / evening)
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'flex-start', alignContent: 'flex-start', flex: 1, overflow: 'auto' }}>
-                {(selectedGroupId === '__all__'
-                  ? (config.sites || []).filter(s => { if (!s.group_id) return true; const grp = (config.site_groups || []).find(g => g.id === s.group_id); return !grp || !grp.group_type || grp.group_type === 'regular'; }).sort(sortSites)
-                  : groupSitesByGroup(config.sites)[selectedGroupId] || []
-                ).map((site) => {
+                {(() => {
+                  const regularGroups = (config.site_groups || []).filter(g => !g.group_type || g.group_type === 'regular');
+                  const groupBgMap = Object.fromEntries(
+                    regularGroups.map((g, i) => [g.id, PALETTE_BG[i % PALETTE_BG.length]])
+                  );
+                  return (selectedGroupId === '__all__'
+                    ? (config.sites || []).filter(s => { if (!s.group_id) return true; const grp = (config.site_groups || []).find(g => g.id === s.group_id); return !grp || !grp.group_type || grp.group_type === 'regular'; }).sort(sortSites)
+                    : groupSitesByGroup(config.sites)[selectedGroupId] || []
+                  ).map((site) => {
                   const morningAssignments = getSiteShiftAssignments(site.id, 'morning');
                   const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
                   const morningActivity = getSiteShiftActivity(site.id, 'morning');
@@ -1746,6 +1751,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     : true;
 
                   const isCardEmpty = !hasMorningActivity && !hasEveningActivity && morningAssignments.length === 0 && eveningAssignments.length === 0;
+                  const groupBg = groupBgMap[site.group_id] || '#ffffff';
 
                   let morningBgColor = '#ffffff';
                   if (isCardEmpty) {
@@ -1773,10 +1779,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     <div
                       key={site.id}
                       className="site-square"
-                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: isCardEmpty ? 'none' : undefined, backgroundColor: isCardEmpty ? '#d1d5db' : undefined }}
+                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }}
                       onClick={() => setSelectedSiteId(site.id)}
                     >
-                      <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
+                      <div className="site-square-title" style={{fontSize: fs(0.78), color: '#000000', fontWeight: 700}}>{site.name}</div>
                       <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: morningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
                         <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                           <span className="site-square-icon" style={{fontSize: fs(0.78)}}>☀</span>
@@ -1837,7 +1843,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       </div>
                     </div>
                   );
-                })}
+                  });
+                })()}
               </div>
             )}
 
