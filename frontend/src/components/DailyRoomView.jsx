@@ -1769,13 +1769,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     eveningBgColor = '#e5e7eb';
                   }
 
-                  const cardBgColor = isCardEmpty ? '#f3f4f6 !important' : undefined;
-
                   return (
                     <div
                       key={site.id}
                       className="site-square"
-                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, background: cardBgColor }}
+                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: isCardEmpty ? 'none' : undefined, backgroundColor: isCardEmpty ? '#f3f4f6' : undefined }}
                       onClick={() => setSelectedSiteId(site.id)}
                     >
                       <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
