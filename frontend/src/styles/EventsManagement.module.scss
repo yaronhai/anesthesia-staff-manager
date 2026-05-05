@@ -81,7 +81,7 @@
 .detail {
   flex: 1;
   overflow-y: auto;
-  padding: 1.25rem 1.5rem;
+  padding: 0.6rem 1rem;
 }
 
 .placeholder {
@@ -103,32 +103,32 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.4rem;
   border-bottom: 1px solid #e2e8f0;
 }
 
 .detailTitle {
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #1a2e4a;
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.15rem;
 }
 
 .detailType {
   display: inline-block;
   background: #dbeafe;
   color: #1d4ed8;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  padding: 0.15rem 0.5rem;
+  padding: 0.1rem 0.4rem;
   border-radius: 999px;
 }
 
 .detailDesc {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #6b7280;
-  margin: 0.5rem 0 0;
+  margin: 0.2rem 0 0;
 }
 
 .detailActions {
@@ -142,11 +142,11 @@
 .algoBar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  padding: 0.75rem;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  padding: 0.35rem 0.6rem;
   background: #f8fafc;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid #e2e8f0;
 }
 
@@ -165,17 +165,17 @@
 // ── Sections ─────────────────────────────────────────────────────────────────
 
 .section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .sectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.3rem;
 
   h3 {
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 700;
     color: #1a2e4a;
     margin: 0;
@@ -183,13 +183,13 @@
 }
 
 .sectionTitle {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #1a2e4a;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.3rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .unassignedBadge {
@@ -214,61 +214,61 @@
 .sessionsList {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.3rem;
 }
 
 .sessionCard {
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 0.85rem 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border-radius: 7px;
+  padding: 0.35rem 0.6rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .sessionCardHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.2rem;
 }
 
 .sessionCardInfo {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.45rem;
   flex-wrap: wrap;
 }
 
 .sessionDate {
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   color: #1a2e4a;
 }
 
 .sessionTime {
-  font-size: 0.83rem;
+  font-size: 0.78rem;
   color: #2563eb;
   font-weight: 600;
 }
 
 .sessionLocation {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: #6b7280;
 }
 
 .sessionCapacity {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .capacityBar {
-  font-size: 0.78rem;
+  font-size: 0.73rem;
   background: #f0fdf4;
   color: #15803d;
   border: 1px solid #bbf7d0;
   border-radius: 999px;
-  padding: 0.1rem 0.5rem;
+  padding: 0.05rem 0.4rem;
   font-weight: 700;
 }
 
@@ -282,13 +282,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.15rem;
 }
 
 .assignedListLabel {
-  font-size: 0.75rem;
+  font-size: 0.69rem;
   font-weight: 600;
-  color: #6b7280;
+  color: #9ca3af;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -296,7 +296,7 @@
 .clearAllBtn {
   background: none;
   border: none;
-  font-size: 0.75rem;
+  font-size: 0.69rem;
   color: #dc2626;
   cursor: pointer;
   padding: 0;
@@ -307,21 +307,20 @@
 .assignedList {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  min-height: 1.6rem;
-  margin-bottom: 0.5rem;
+  gap: 0.2rem;
+  margin-bottom: 0.2rem;
 }
 
 .assignedChip {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   background: #eff6ff;
   color: #1d4ed8;
   border: 1px solid #bfdbfe;
   border-radius: 999px;
-  padding: 0.15rem 0.5rem;
-  font-size: 0.78rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.73rem;
   font-weight: 500;
 }
 
@@ -330,7 +329,7 @@
   border: none;
   cursor: pointer;
   color: #6b7280;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   padding: 0;
   line-height: 1;
 
@@ -339,16 +338,16 @@
 
 .addWorkerBar {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.35rem;
   align-items: center;
-  margin-top: 0.5rem;
+  margin-top: 0.2rem;
 
   select {
     flex: 1;
-    padding: 0.25rem 0.5rem;
+    padding: 0.15rem 0.4rem;
     border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.83rem;
+    border-radius: 5px;
+    font-size: 0.78rem;
   }
 }
 
@@ -356,11 +355,11 @@
   background: none;
   border: 1px dashed #93c5fd;
   color: #2563eb;
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.8rem;
+  border-radius: 5px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
   cursor: pointer;
-  margin-top: 0.35rem;
+  margin-top: 0.1rem;
 
   &:hover { background: #eff6ff; }
 }
@@ -385,13 +384,17 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.25rem;
+
+  input[type="date"] { width: 112px; }
+  input[type="time"] { width: 68px; }
+  input[type="number"] { width: 48px; }
 
   input {
-    padding: 0.25rem 0.5rem;
+    padding: 0.15rem 0.35rem;
     border: 1px solid #d1d5db;
     border-radius: 5px;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
   }
 }
 
@@ -399,17 +402,21 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
+  gap: 0.25rem;
+  padding: 0.3rem 0.5rem;
   background: #f8fafc;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid #e2e8f0;
 
+  input[type="date"] { width: 112px; }
+  input[type="time"] { width: 68px; }
+  input[type="number"] { width: 48px; }
+
   input {
-    padding: 0.25rem 0.5rem;
+    padding: 0.15rem 0.35rem;
     border: 1px solid #d1d5db;
     border-radius: 5px;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
   }
 }
 
@@ -533,23 +540,54 @@
 // ── Event form modal ─────────────────────────────────────────────────────────
 
 .eventFormModal {
-  max-width: 620px;
+  max-width: 560px;
   width: 95vw;
 }
 
+.eventFormBody {
+  padding: 0.6rem 1rem;
+}
+
+.formRow2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.4rem;
+
+  label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  input, select {
+    padding: 0.22rem 0.45rem;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    font-size: 0.82rem;
+  }
+}
+
 .sessionsForm {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .sessionsFormHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
 
   label {
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: #374151;
   }
 }
@@ -557,15 +595,18 @@
 .sessionFormRow {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.4rem;
-  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.25rem;
+
+  input[type="date"] { width: 115px; }
+  input[type="time"] { width: 72px; }
+  input[type="number"] { width: 46px; }
 
   input {
-    padding: 0.25rem 0.5rem;
+    padding: 0.18rem 0.4rem;
     border: 1px solid #d1d5db;
     border-radius: 5px;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
   }
 }
 

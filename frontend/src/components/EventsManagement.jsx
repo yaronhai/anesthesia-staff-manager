@@ -670,23 +670,25 @@ function EventFormModal({ event, config, authToken, selectedBranchId, onSave, on
           <h3>{event ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
-        <div className="modal-body">
-          <div className="form-group">
-            <label>שם האירוע</label>
-            <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="שם האירוע..." autoFocus />
+        <div className={`modal-body ${styles.eventFormBody}`}>
+          <div className={styles.formRow2}>
+            <div className={styles.formField}>
+              <label>שם האירוע</label>
+              <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="שם האירוע..." autoFocus />
+            </div>
+            <div className={styles.formField}>
+              <label>סוג אירוע</label>
+              <select value={form.event_type_id} onChange={e => setForm(p => ({ ...p, event_type_id: e.target.value || null }))}>
+                <option value="">— ללא סוג —</option>
+                {eventTypes.map(et => (
+                  <option key={et.id} value={et.id}>{et.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="form-group">
-            <label>סוג אירוע</label>
-            <select value={form.event_type_id} onChange={e => setForm(p => ({ ...p, event_type_id: e.target.value || null }))}>
-              <option value="">— ללא סוג —</option>
-              {eventTypes.map(et => (
-                <option key={et.id} value={et.id}>{et.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
+          <div className={styles.formField}>
             <label>תיאור</label>
-            <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="תיאור אופציונלי..." />
+            <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="תיאור אופציונלי..." />
           </div>
 
           {!event && (
@@ -701,8 +703,7 @@ function EventFormModal({ event, config, authToken, selectedBranchId, onSave, on
                   <input type="time" value={s.start_time} onChange={e => updateSession(i, 'start_time', e.target.value)} />
                   <span>–</span>
                   <input type="time" value={s.end_time} onChange={e => updateSession(i, 'end_time', e.target.value)} />
-                  <input type="number" min="1" value={s.max_capacity} onChange={e => updateSession(i, 'max_capacity', parseInt(e.target.value) || 20)} style={{ width: 60 }} title="קיבולת" />
-                  <input value={s.location} onChange={e => updateSession(i, 'location', e.target.value)} placeholder="מיקום" style={{ width: 90 }} />
+                  <input type="number" min="1" value={s.max_capacity} onChange={e => updateSession(i, 'max_capacity', parseInt(e.target.value) || 20)} style={{ width: 52 }} title="קיבולת" placeholder="קיב׳" />
                   {sessions.length > 1 && (
                     <button type="button" className="btn-remove" onClick={() => removeSessionRow(i)}>✕</button>
                   )}
@@ -711,8 +712,7 @@ function EventFormModal({ event, config, authToken, selectedBranchId, onSave, on
             </div>
           )}
         </div>
-        <div className="modal-footer">
-          <button className="btn-secondary" onClick={onClose}>ביטול</button>
+        <div className="modal-footer" style={{ justifyContent: 'flex-end' }}>
           <button className="btn-primary" onClick={save} disabled={saving}>
             {saving ? 'שומר...' : 'שמור'}
           </button>
