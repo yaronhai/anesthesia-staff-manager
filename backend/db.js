@@ -721,21 +721,6 @@ async function runMigrations() {
     // Add complexity_level to activity_types for overqualification scoring
     await query(`ALTER TABLE activity_types ADD COLUMN IF NOT EXISTS complexity_level INTEGER NOT NULL DEFAULT 1`);
 
-    // Seed default event types per branch
-    await query(`
-      INSERT INTO event_types (name, branch_id)
-      SELECT et.name, b.id
-      FROM branches b
-      CROSS JOIN (VALUES
-        ('ישיבת צוות'),
-        ('ערב גיבוש'),
-        ('הדרכה'),
-        ('כנס')
-      ) AS et(name)
-      WHERE NOT EXISTS (
-        SELECT 1 FROM event_types WHERE name = et.name AND branch_id = b.id
-      )
-    `);
 
     console.log('✓ Migrations complete');
   } catch (error) {
