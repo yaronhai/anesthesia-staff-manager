@@ -48,6 +48,8 @@ async function initializeSchema() {
         employment_type_id INTEGER REFERENCES employment_types(id) ON DELETE SET NULL,
         phone TEXT,
         email TEXT NOT NULL DEFAULT '',
+        personal_email TEXT NOT NULL DEFAULT '',
+        birth_date DATE,
         notes TEXT,
         id_number TEXT UNIQUE,
         classification TEXT NOT NULL DEFAULT 'user',
@@ -550,6 +552,8 @@ async function runMigrations() {
     `);
 
     await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS can_submit_requests BOOLEAN NOT NULL DEFAULT TRUE;`);
+    await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS personal_email TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS birth_date DATE;`);
 
     await query(`ALTER TABLE special_days ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'holiday';`);
 

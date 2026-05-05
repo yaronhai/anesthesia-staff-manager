@@ -396,7 +396,7 @@ const WORKER_SELECT = `
          w.first_name, w.family_name,
          w.job_id, j.name AS job,
          w.employment_type_id, e.name AS employment_type,
-         w.phone, w.email, w.notes,
+         w.phone, w.email, w.personal_email, w.birth_date, w.notes,
          w.id_number, w.classification, w.can_submit_requests,
          COALESCE((SELECT BOOL_OR(wb2.is_active) FROM worker_branches wb2 WHERE wb2.worker_id = w.id), TRUE) AS is_active,
          w.primary_branch_id, pb.name AS primary_branch_name,
@@ -648,8 +648,8 @@ app.get('/api/workers', requireAuth, async (req, res) => {
 app.post('/api/workers', requireAdmin, async (req, res) => {
   try {
     const { honorific_id, first_name, family_name, job_id, employment_type_id,
-            phone, email, notes, id_number, classification, branch_ids, can_submit_requests } = req.body;
-    if (!email?.trim()) return res.status(400).json({ error: 'אימייל הוא שדה חובה' });
+            phone, email, personal_email, birth_date, notes, id_number, classification, branch_ids, can_submit_requests } = req.body;
+    if (!email?.trim()) return res.status(400).json({ error: 'אימייל ארגוני הוא שדה חובה' });
 
     const cls = classification || 'user';
 
@@ -674,11 +674,12 @@ app.post('/api/workers', requireAdmin, async (req, res) => {
     try {
       const insertRes = await query(`
         INSERT INTO workers (honorific_id, first_name, family_name, job_id, employment_type_id,
-                             phone, email, notes, id_number, classification, primary_branch_id, can_submit_requests)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                             phone, email, personal_email, birth_date, notes, id_number, classification, primary_branch_id, can_submit_requests)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING id
       `, [honorific_id || null, first_name, family_name, job_id || null,
-           employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId, canSubmit]);
+           employment_type_id || null, phone, email.trim(), (personal_email || '').trim(),
+           birth_date || null, notes, idNum, cls, primaryBranchId, canSubmit]);
 
       const workerId = insertRes.rows[0].id;
       await createUserForWorker(workerId, idNum, cls, email.trim());
@@ -725,8 +726,8 @@ app.put('/api/workers/:id', requireAdmin, async (req, res) => {
     }
 
     const { honorific_id, first_name, family_name, job_id, employment_type_id,
-            phone, email, notes, id_number, classification, primary_branch_id, can_submit_requests } = req.body;
-    if (!email?.trim()) return res.status(400).json({ error: 'אימייל הוא שדה חובה' });
+            phone, email, personal_email, birth_date, notes, id_number, classification, primary_branch_id, can_submit_requests } = req.body;
+    if (!email?.trim()) return res.status(400).json({ error: 'אימייל ארגוני הוא שדה חובה' });
 
     const cls = classification || 'user';
     const idNum = id_number?.trim() || null;
@@ -736,11 +737,12 @@ app.put('/api/workers/:id', requireAdmin, async (req, res) => {
     try {
       const updateRes = await query(
         `UPDATE workers SET honorific_id=$1, first_name=$2, family_name=$3, job_id=$4,
-           employment_type_id=$5, phone=$6, email=$7, notes=$8, id_number=$9, classification=$10,
-           primary_branch_id=$11, can_submit_requests=$12
-         WHERE id=$13`,
+           employment_type_id=$5, phone=$6, email=$7, personal_email=$8, birth_date=$9, notes=$10, id_number=$11, classification=$12,
+           primary_branch_id=$13, can_submit_requests=$14
+         WHERE id=$15`,
         [honorific_id || null, first_name, family_name, job_id || null,
-         employment_type_id || null, phone, email.trim(), notes, idNum, cls, primaryBranchId, canSubmit, req.params.id]
+         employment_type_id || null, phone, email.trim(), (personal_email || '').trim(),
+         birth_date || null, notes, idNum, cls, primaryBranchId, canSubmit, req.params.id]
       );
       
       if (updateRes.rowCount === 0) return res.status(404).json({ error: 'עובד לא נמצא' });

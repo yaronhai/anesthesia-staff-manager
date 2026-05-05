@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import styles from '../styles/WorkerForm.module.scss';
 
 export default function WorkerForm({ initial, config, onSave, onCancel, isSuperAdmin, authToken, branches = [], roles = [], currentUser = null }) {
@@ -14,6 +14,8 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
     employment_type_id: empTypes[0]?.id || '',
     phone: '',
     email: '',
+    personal_email: '',
+    birth_date: '',
     notes: '',
     id_number: '',
     classification: 'user',
@@ -79,8 +81,11 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
 
   return (
     <div className="form-overlay">
-      <form className="worker-form" onSubmit={handleSubmit}>
+      <form className={`worker-form ${styles.form}`} onSubmit={handleSubmit}>
         <h2>{initial ? 'עריכת עובד' : 'הוספת עובד'}</h2>
+
+        {/* פרטים אישיים */}
+        <div className={styles.sectionTitle}>פרטים אישיים</div>
 
         <div className="form-row form-row-3">
           <label>
@@ -91,53 +96,43 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           </label>
           <label>
             שם פרטי *
-            <input
-              name="first_name"
-              value={form.first_name}
-              onChange={handleChange}
-              placeholder="לדוגמה: שרה"
-              required
-            />
+            <input name="first_name" value={form.first_name} onChange={handleChange} placeholder="שרה" required />
           </label>
           <label>
             שם משפחה *
-            <input
-              name="family_name"
-              value={form.family_name}
-              onChange={handleChange}
-              placeholder="לדוגמה: כהן"
-              required
-            />
+            <input name="family_name" value={form.family_name} onChange={handleChange} placeholder="כהן" required />
           </label>
         </div>
 
         <div className="form-row">
           <label>
             תעודת זהות *
-            <input
-              name="id_number"
-              value={form.id_number}
-              onChange={handleChange}
-              placeholder="9 ספרות"
-              required
-            />
+            <input name="id_number" value={form.id_number} onChange={handleChange} placeholder="9 ספרות" required />
           </label>
           <label>
-            סיווג
-            <select name="classification" value={form.classification} onChange={handleChange}>
-              {roles.length > 0
-                ? roles
-                    .filter(r => currentUser?.role_level == null || r.level > currentUser.role_level)
-                    .map(r => <option key={r.name} value={r.name}>{r.display_name}</option>)
-                : <>
-                    <option value="user">משתמש</option>
-                    <option value="admin">מנהל סניף</option>
-                    <option value="superadmin">מנהל ראשי</option>
-                  </>
-              }
-            </select>
+            תאריך לידה
+            <input
+              name="birth_date"
+              type="date"
+              value={form.birth_date ? form.birth_date.slice(0, 10) : ''}
+              onChange={handleChange}
+            />
           </label>
         </div>
+
+        <div className="form-row">
+          <label>
+            טלפון
+            <input name="phone" value={form.phone} onChange={handleChange} placeholder="050-000-0000" />
+          </label>
+          <label>
+            אימייל אישי
+            <input name="personal_email" type="email" value={form.personal_email} onChange={handleChange} placeholder="name@gmail.com" />
+          </label>
+        </div>
+
+        {/* פרטים ארגוניים */}
+        <div className={styles.sectionTitle}>פרטים ארגוניים</div>
 
         <div className="form-row">
           <label>
@@ -156,61 +151,50 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
 
         <div className="form-row">
           <label>
-            טלפון
-            <input
-              name="phone"
-              value={form.phone}
-              onChange={handleChange}
-              placeholder="לדוגמה: 050-000-0000"
-            />
+            אימייל ארגוני *
+            <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="name@hospital.com" required />
           </label>
           <label>
-            אימייל *
-            <input
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="לדוגמה: name@hospital.com"
-              required
-            />
+            סיווג
+            <select name="classification" value={form.classification} onChange={handleChange}>
+              {roles.length > 0
+                ? roles
+                    .filter(r => currentUser?.role_level == null || r.level > currentUser.role_level)
+                    .map(r => <option key={r.name} value={r.name}>{r.display_name}</option>)
+                : <>
+                    <option value="user">משתמש</option>
+                    <option value="admin">מנהל סניף</option>
+                    <option value="superadmin">מנהל ראשי</option>
+                  </>
+              }
+            </select>
           </label>
         </div>
 
-        <label>
-          הערות
-          <textarea
-            name="notes"
-            value={form.notes}
-            onChange={handleChange}
-            placeholder="פרטים נוספים..."
-            rows={3}
-          />
-        </label>
-
         {isSuperAdmin && !initial?.id && branches.length > 0 && (
-          <div className={styles.branchSection}>
-            <label>
-              סניף ראשי
-              <select value={primaryBranchId} onChange={e => setPrimaryBranchId(e.target.value)}>
-                <option value="">— ללא סניף —</option>
-                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </label>
-          </div>
+          <label>
+            סניף ראשי
+            <select value={primaryBranchId} onChange={e => setPrimaryBranchId(e.target.value)}>
+              <option value="">— ללא סניף —</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </label>
         )}
 
         {initial?.id && branches.length > 0 && (
-          <div className={styles.branchSection}>
-            <label>
-              סניף ראשי
-              <select name="primary_branch_id" value={form.primary_branch_id || ''} onChange={handleChange}>
-                <option value="">— ללא סניף —</option>
-                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </label>
-          </div>
+          <label>
+            סניף ראשי
+            <select name="primary_branch_id" value={form.primary_branch_id || ''} onChange={handleChange}>
+              <option value="">— ללא סניף —</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </label>
         )}
+
+        <label>
+          הערות
+          <textarea name="notes" value={form.notes} onChange={handleChange} placeholder="פרטים נוספים..." rows={2} />
+        </label>
 
         {isSuperAdmin && initial?.id && (
           <div className={styles.branchAssignSection}>
@@ -220,11 +204,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
               <div key={wb.branch_id} className={styles.branchRow}>
                 <span className={styles.branchName}>{wb.branch_name}</span>
                 <label className={styles.activeLabel}>
-                  <input
-                    type="checkbox"
-                    checked={wb.is_active}
-                    onChange={e => toggleBranchActive(wb.branch_id, e.target.checked)}
-                  />
+                  <input type="checkbox" checked={wb.is_active} onChange={e => toggleBranchActive(wb.branch_id, e.target.checked)} />
                   פעיל
                 </label>
                 <button type="button" onClick={() => removeBranch(wb.branch_id)} className={styles.removeBtn}>הסר</button>
@@ -238,9 +218,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
                   className={styles.addBranchSelect}
                 >
                   <option value="">+ הוסף לסניף...</option>
-                  {unassignedBranches.map(b => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
+                  {unassignedBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
             )}
@@ -249,12 +227,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
 
         <div className={styles.canSubmitRow}>
           <label className={styles.canSubmitLabel}>
-            <input
-              type="checkbox"
-              name="can_submit_requests"
-              checked={form.can_submit_requests}
-              onChange={handleChange}
-            />
+            <input type="checkbox" name="can_submit_requests" checked={form.can_submit_requests} onChange={handleChange} />
             רשאי להגיש בקשות למשמרות
           </label>
         </div>

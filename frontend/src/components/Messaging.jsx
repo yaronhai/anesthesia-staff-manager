@@ -94,7 +94,11 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
 
   const mergedContacts = (() => {
     const list = isAdmin
-      ? workers.filter(w => w.user_id).map(w => ({ id: w.user_id, display_name: `${w.first_name} ${w.family_name}` }))
+      ? workers.filter(w => w.user_id).map(w => ({
+          id: w.user_id,
+          display_name: `${w.first_name} ${w.family_name}`,
+          is_borrowed: branchId && w.primary_branch_id && w.primary_branch_id !== branchId,
+        }))
       : [...contacts];
     conversations.forEach(conv => {
       if (!list.find(c => c.id === conv.partner_id)) {
@@ -145,7 +149,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   };
 
   const contactsVars = {
-    '--contacts-width': isLandscape ? '110px' : '130px',
+    '--contacts-width': isLandscape ? '110px' : '180px',
     '--contacts-min-width': '80px',
     '--contacts-header-padding': isLandscape ? '0.25rem' : '0.5rem',
     '--contacts-header-font': isLandscape ? '0.7rem' : '0.8rem',
@@ -181,6 +185,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
               }}
             >
               {contact.display_name}
+              {contact.is_borrowed && <span className={styles.borrowedTag}>מושאל</span>}
               {conversation?.unread_count > 0 && (
                 <span
                   className={styles.unreadBadge}

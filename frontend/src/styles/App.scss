@@ -283,28 +283,28 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .worker-form {
   background: white;
   border-radius: 10px;
-  padding: 0.9rem 1.25rem;
-  width: 680px;
+  padding: 0.7rem 1rem;
+  width: 480px;
   max-width: 95vw;
   max-height: 90vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.2rem;
   box-shadow: 0 8px 30px rgba(0,0,0,0.15);
 }
 
 .worker-form h2 {
   color: #1a2e4a;
-  font-size: 1rem;
-  margin-bottom: 0.1rem;
+  font-size: 0.95rem;
+  margin-bottom: 0;
 }
 
 .worker-form label {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  font-size: 0.78rem;
+  gap: 0.1rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: #374151;
 }
@@ -312,10 +312,10 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .worker-form input,
 .worker-form select,
 .worker-form textarea {
-  padding: 0.25rem 0.5rem;
+  padding: 0.18rem 0.4rem;
   border: 1px solid #d1d5db;
-  border-radius: 5px;
-  font-size: 0.82rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
   font-family: inherit;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -331,7 +331,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .form-row-3 {
@@ -342,7 +342,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .detail-modal {
   background: white;
   border-radius: 12px;
-  padding: 2rem;
+  padding: 1.25rem 1.5rem;
   width: 500px;
   max-width: 95vw;
   box-shadow: 0 8px 30px rgba(0,0,0,0.2);
@@ -351,14 +351,14 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .detail-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  margin-bottom: 1.5rem;
+  gap: 0;
+  margin-bottom: 1rem;
 }
 
 .detail-row {
   display: flex;
   gap: 1rem;
-  padding: 0.5rem 0;
+  padding: 0.3rem 0;
   border-bottom: 1px solid #f1f5f9;
   align-items: flex-start;
 }

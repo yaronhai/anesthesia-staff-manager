@@ -182,10 +182,20 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
   );
 }
 
-function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin }) {
+function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin, roles = [] }) {
   const independentTypeIds = new Set(
     (config.employment_types || []).filter(t => t.is_independent).map(t => t.id)
   );
+  const roleDisplay = roles.length > 0
+    ? (roles.find(r => r.name === worker.classification)?.display_name || worker.classification)
+    : (worker.classification === 'admin' ? 'מנהל' : worker.classification === 'superadmin' ? 'מנהל ראשי' : 'משתמש');
+  const isAdmin = worker.classification === 'admin' || worker.classification === 'superadmin';
+
+  function formatDate(val) {
+    if (!val) return '—';
+    return new Date(val).toLocaleDateString('he-IL');
+  }
+
   return (
     <div className="form-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={e => e.stopPropagation()}>
@@ -199,10 +209,14 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
             <span className="detail-value">{worker.id_number || '—'}</span>
           </div>
           <div className="detail-row">
+            <span className="detail-label">תאריך לידה</span>
+            <span className="detail-value">{formatDate(worker.birth_date)}</span>
+          </div>
+          <div className="detail-row">
             <span className="detail-label">סיווג</span>
             <span className="detail-value">
-              <span className={`badge ${worker.classification === 'admin' ? 'badge-admin' : 'badge-normal'}`}>
-                {worker.classification === 'admin' ? 'מנהל' : 'משתמש'}
+              <span className={`badge ${isAdmin ? 'badge-admin' : 'badge-normal'}`}>
+                {roleDisplay}
               </span>
             </span>
           </div>
@@ -235,8 +249,16 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
             <span className="detail-value">{worker.phone || '—'}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">אימייל</span>
+            <span className="detail-label">אימייל ארגוני</span>
             <span className="detail-value">{worker.email || '—'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">אימייל אישי</span>
+            <span className="detail-value">{worker.personal_email || '—'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">סניף ראשי</span>
+            <span className="detail-value">{worker.primary_branch_name || '—'}</span>
           </div>
           <div className="detail-row detail-row-full">
             <span className="detail-label">הערות</span>
@@ -322,6 +344,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
       authToken={authToken}
       config={config}
       isSuperAdmin={isSuperAdmin}
+      roles={roles}
     />
   );
 
