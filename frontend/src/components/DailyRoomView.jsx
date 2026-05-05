@@ -1711,8 +1711,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       {Object.entries(regularGroupedSites).map(([groupId]) => {
                         const group = getGroup(groupId);
                         const groupIndex = regularGroupsList.findIndex(g => g.id === parseInt(groupId));
-                        const groupColor = GROUP_PALETTE[groupIndex % GROUP_PALETTE.length];
-                        const darkerBg = PALETTE_BG[groupIndex % PALETTE_BG.length].replace(/f/g, 'e').replace(/0/g, '1');
+                        const safeIdx = groupIndex >= 0 ? groupIndex : 0;
+                        const groupColor = GROUP_PALETTE[safeIdx % GROUP_PALETTE.length];
+                        const darkerBg = PALETTE_BG[safeIdx % PALETTE_BG.length].replace(/f/g, 'e').replace(/0/g, '1');
                         const isActive = selectedGroupId === groupId;
                         return <button key={groupId} onClick={() => setSelectedGroupId(groupId)} style={tabStyle(isActive, groupColor, darkerBg)}>{group.name}</button>;
                       })}
