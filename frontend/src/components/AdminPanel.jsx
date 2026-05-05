@@ -23,6 +23,8 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [newBranchDesc, setNewBranchDesc] = useState('');
   const [localBranchId, setLocalBranchId] = useState(branchId);
   const [shiftTimesEdits, setShiftTimesEdits] = useState({});
+  const [templateGroups, setTemplateGroups] = useState([]);
+  const [newTemplateGroupName, setNewTemplateGroupName] = useState('');
 
   function branchParam(bid) {
     const id = bid !== undefined ? bid : localBranchId;
@@ -37,6 +39,14 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
       .then(data => { if (data) onConfigChange(data); })
       .catch(() => {});
   }, [localBranchId]);
+
+  useEffect(() => {
+    if (activeTab !== 'templateGroups') return;
+    fetch(`/api/config/activity-template-groups${branchParam()}`, { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(setTemplateGroups)
+      .catch(() => {});
+  }, [activeTab, localBranchId]);
 
   async function createBranch() {
     if (!newBranchName.trim()) return;
@@ -146,6 +156,38 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     } else {
       alert('שגיאה בשמירה');
     }
+  }
+
+  async function addTemplateGroup() {
+    if (!newTemplateGroupName.trim()) return;
+    const res = await fetch(`/api/config/activity-template-groups${branchParam()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ name: newTemplateGroupName.trim() }),
+    });
+    if (res.ok) { const g = await res.json(); setTemplateGroups(prev => [...prev, g]); setNewTemplateGroupName(''); }
+    else { const e = await res.json(); alert('שגיאה: ' + (e.error || 'שגיאה')); }
+  }
+
+  async function saveTemplateGroupEdit(id) {
+    if (!editingValue.trim()) return;
+    const res = await fetch(`/api/config/activity-template-groups/${id}${branchParam()}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ name: editingValue.trim() }),
+    });
+    if (res.ok) { setTemplateGroups(prev => prev.map(g => g.id === id ? { ...g, name: editingValue.trim() } : g)); setEditingKey(null); }
+    else { const e = await res.json(); alert('שגיאה: ' + (e.error || 'שגיאה')); }
+  }
+
+  async function deleteTemplateGroup(id) {
+    if (!window.confirm('למחוק קבוצה זו? התבניות שבה יועברו לקטגוריה "ללא קבוצה".')) return;
+    const res = await fetch(`/api/config/activity-template-groups/${id}${branchParam()}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (res.ok) setTemplateGroups(prev => prev.filter(g => g.id !== id));
+    else alert('שגיאה במחיקה');
   }
 
   async function addSiteGroup() {
@@ -323,6 +365,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     honorifics: 'תארים מגדירים את הכינוי הרשמי של העובד (לדוג׳ ד״ר, פרופ׳). שינויים ישפיעו על האופן שבו שמות העובדים מוצגים בכל חלקי המערכת.',
     activities: 'סוגי פעילות מגדירים סוגי עבודה ספציפיים שניתן להרשות לעובדים (לדוג׳ אנסתזיה כללית, ספינל). הרשאות אלו מיועדות לעובדים בנפרד ומשפיעות על הצעות השיבוץ האוטומטיות. רמת הקושי (1–3) קובעת את מורכבות הפעילות: עובד שהורשה לרמה גבוהה יותר יוצע תחילה לפעילויות ברמה זו; במקרה של חוסר, עובד ברמה גבוהה יכול לשמש גם ברמות נמוכות יותר (overqualified), אך הצעה כזו מקבלת עדיפות נמוכה יותר.',
     eventTypes: 'סוגי אירועים מגדירים קטגוריות לאירועי מחלקה (לדוג׳ ישיבת צוות, ערב גיבוש). ניתן להוסיף סוגים מותאמים אישית בנוסף לסוגי הברירת מחדל.',
+    templateGroups: 'קבוצות תבניות מאפשרות לאגד תבניות שיבוצים לקטגוריות (לדוג׳ ימי חול, סופ"ש). ניתן לשייך כל תבנית לקבוצה בעת יצירתה או עריכתה.',
   };
 
   function TabDescription({ tabKey }) {
@@ -342,6 +385,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     { key: 'honorifics', label: 'תארים' },
     { key: 'activities', label: 'סוגי פעילות' },
     { key: 'eventTypes', label: 'סוגי אירועים' },
+    { key: 'templateGroups', label: 'קבוצות תבניות' },
     { key: 'shifts', label: 'שעות משמרות' },
   ];
 
@@ -976,6 +1020,54 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                     onKeyDown={e => e.key === 'Enter' && addItem('/api/config/event-types', newEventType, setNewEventType)}
                   />
                   <button className="btn-primary" onClick={() => addItem('/api/config/event-types', newEventType, setNewEventType)}>הוסף</button>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'templateGroups' && (
+              <>
+                <TabDescription tabKey="templateGroups" />
+                <ul className="config-list">
+                  {templateGroups.map(group => (
+                    <li key={group.id}>
+                      {editingKey === `tg-${group.id}` ? (
+                        <input
+                          className="config-inline-edit"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveTemplateGroupEdit(group.id);
+                            if (e.key === 'Escape') setEditingKey(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span>{group.name}</span>
+                      )}
+                      <div className="config-item-actions">
+                        {editingKey === `tg-${group.id}` ? (
+                          <>
+                            <button className="btn-save-inline" onClick={() => saveTemplateGroupEdit(group.id)}>שמור</button>
+                            <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn-edit-inline" onClick={() => { setEditingKey(`tg-${group.id}`); setEditingValue(group.name); }}>עריכה</button>
+                            <button className="btn-remove" onClick={() => deleteTemplateGroup(group.id)}>✕</button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="config-add">
+                  <input
+                    value={newTemplateGroupName}
+                    onChange={e => setNewTemplateGroupName(e.target.value)}
+                    placeholder="קבוצה חדשה..."
+                    onKeyDown={e => e.key === 'Enter' && addTemplateGroup()}
+                  />
+                  <button className="btn-primary" onClick={addTemplateGroup}>הוסף</button>
                 </div>
               </>
             )}

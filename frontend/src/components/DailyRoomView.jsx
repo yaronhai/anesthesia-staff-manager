@@ -250,15 +250,13 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   // Save as template modal
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [saveAsTemplateName, setSaveAsTemplateName] = useState('');
+  const [saveAsTemplateGroupId, setSaveAsTemplateGroupId] = useState('');
 
   // Template manager modal (list)
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [managerEditingId, setManagerEditingId] = useState(null);
   const [managerEditingName, setManagerEditingName] = useState('');
   const [templateGroups, setTemplateGroups] = useState([]);
-  const [groupEditingId, setGroupEditingId] = useState(null);
-  const [groupEditingName, setGroupEditingName] = useState('');
-  const [newGroupName, setNewGroupName] = useState('');
 
   // Template edit modal (full editor)
   const [editTemplateId, setEditTemplateId] = useState(null);
@@ -882,6 +880,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
   const branchQS = branchId ? `?branch_id=${branchId}` : '';
 
+  async function openSaveAsTemplate() {
+    if (templateGroups.length === 0) {
+      const r = await fetch(`/api/config/activity-template-groups${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (r.ok) setTemplateGroups(await r.json());
+    }
+    setShowSaveAsTemplate(true);
+  }
+
   async function loadTemplates() {
     try {
       const [res, grpRes] = await Promise.all([
@@ -947,7 +953,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       const createRes = await fetch(`/api/config/activity-templates${branchQS}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, group_id: saveAsTemplateGroupId || null }),
       });
       if (!createRes.ok) {
         const err = await createRes.json();
@@ -969,6 +975,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       if (itemsRes.ok) {
         setShowSaveAsTemplate(false);
         setSaveAsTemplateName('');
+        setSaveAsTemplateGroupId('');
         alert(`תבנית "${name}" נשמרה בהצלחה`);
       } else {
         const err = await itemsRes.json().catch(() => ({}));
@@ -1027,65 +1034,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         setTemplates(await tmplRes.json());
         setTemplateGroups(await grpRes.json());
         setManagerEditingId(null);
-        setNewGroupName('');
         setShowTemplateManager(true);
       } else {
         alert('שגיאה בטעינת תבניות');
       }
     } catch {
       alert('שגיאה בטעינת תבניות');
-    }
-  }
-
-  async function createTemplateGroup(name) {
-    if (!name.trim()) return;
-    const res = await fetch(`/api/config/activity-template-groups${branchQS}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-      body: JSON.stringify({ name: name.trim() }),
-    });
-    if (res.ok) {
-      const grpRes = await fetch(`/api/config/activity-template-groups${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
-      if (grpRes.ok) setTemplateGroups(await grpRes.json());
-      setNewGroupName('');
-    } else {
-      const err = await res.json().catch(() => ({}));
-      alert('שגיאה: ' + (err.error || res.status));
-    }
-  }
-
-  async function renameTemplateGroup(id, name) {
-    if (!name.trim()) return;
-    const res = await fetch(`/api/config/activity-template-groups/${id}${branchQS}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-      body: JSON.stringify({ name: name.trim() }),
-    });
-    if (res.ok) {
-      setGroupEditingId(null);
-      const grpRes = await fetch(`/api/config/activity-template-groups${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
-      if (grpRes.ok) setTemplateGroups(await grpRes.json());
-    } else {
-      const err = await res.json().catch(() => ({}));
-      alert('שגיאה: ' + (err.error || res.status));
-    }
-  }
-
-  async function deleteTemplateGroup(id) {
-    if (!confirm('למחוק קבוצה זו? התבניות בה יעברו לקטגוריה "ללא קבוצה"')) return;
-    const res = await fetch(`/api/config/activity-template-groups/${id}${branchQS}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${authToken}` },
-    });
-    if (res.ok) {
-      const [tmplRes, grpRes] = await Promise.all([
-        fetch(`/api/config/activity-templates${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
-        fetch(`/api/config/activity-template-groups${branchQS}`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
-      ]);
-      if (tmplRes.ok) setTemplates(await tmplRes.json());
-      if (grpRes.ok) setTemplateGroups(await grpRes.json());
-    } else {
-      alert('שגיאה במחיקה');
     }
   }
 
@@ -1638,7 +1592,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           </div>{/* room-nav-row1 */}
           <div className="room-nav-row2">
           <div style={{ display: 'flex', border: '1px solid #d1d5db', borderRadius: '8px', overflow: 'hidden' }}>
-            <button onClick={() => setShowSaveAsTemplate(true)} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="שמור את הפעילויות הנוכחיות כתבנית">💾</button>
+            <button onClick={openSaveAsTemplate} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="שמור את הפעילויות הנוכחיות כתבנית">💾</button>
             <button onClick={loadTemplates} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="טען תבנית על היום הנוכחי">📋</button>
             <button onClick={openTemplateManager} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="ערוך תוכן תבניות קיימות">✏️</button>
             <button onClick={openCreateTemplate} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="צור תבנית חדשה מאפס">➕</button>
@@ -2340,6 +2294,15 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 autoFocus
               />
             </div>
+            {templateGroups.length > 0 && (
+              <div className="form-group">
+                <label>קבוצה:</label>
+                <select value={saveAsTemplateGroupId} onChange={e => setSaveAsTemplateGroupId(e.target.value)}>
+                  <option value="">ללא קבוצה</option>
+                  {templateGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
           <div className="modal-footer">
             <div>
@@ -2446,52 +2409,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               <button className="btn-close" onClick={() => setShowTemplateManager(false)}>✕</button>
             </div>
             <div className="modal-body" style={{ display: 'flex', gap: '0.75rem', flex: 1, minHeight: 0, overflow: 'hidden', padding: '0.5rem 0.75rem' }}>
-              {/* Left: group management */}
-              <div style={{ width: '170px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.3rem', borderLeft: '1px solid #e5e7eb', paddingLeft: '0.6rem' }}>
-                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151' }}>קבוצות</div>
-                <div style={{ display: 'flex', gap: '0.2rem' }}>
-                  <input
-                    value={newGroupName}
-                    onChange={e => setNewGroupName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') createTemplateGroup(newGroupName); }}
-                    placeholder="קבוצה חדשה"
-                    style={{ flex: 1, padding: '0.15rem 0.3rem', borderRadius: '3px', border: '1px solid #d1d5db', fontSize: '0.72rem', direction: 'rtl' }}
-                  />
-                  <button className="btn-primary btn-sm" style={{ fontSize: '0.68rem', padding: '0.1rem 0.3rem' }} onClick={() => createTemplateGroup(newGroupName)}>+</button>
-                </div>
-                <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                  {allGroups.map((g, gi) => {
-                    const color = GROUP_PALETTE[gi % GROUP_PALETTE.length];
-                    return (
-                      <div key={g.id} style={{ borderRadius: '3px', border: `1px solid ${color}33`, background: PALETTE_BG[gi % PALETTE_BG.length], padding: '0.1rem 0.25rem' }}>
-                        {groupEditingId === g.id ? (
-                          <div style={{ display: 'flex', gap: '0.15rem', alignItems: 'center' }}>
-                            <input
-                              value={groupEditingName}
-                              onChange={e => setGroupEditingName(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') renameTemplateGroup(g.id, groupEditingName);
-                                if (e.key === 'Escape') setGroupEditingId(null);
-                              }}
-                              autoFocus
-                              style={{ flex: 1, padding: '0.1rem 0.25rem', borderRadius: '3px', border: `1px solid ${color}`, fontSize: '0.72rem', direction: 'rtl' }}
-                            />
-                            <button className="btn-save-inline" style={{ fontSize: '0.65rem', padding: '0.05rem 0.25rem' }} onClick={() => renameTemplateGroup(g.id, groupEditingName)}>✓</button>
-                            <button className="btn-remove" style={{ fontSize: '0.65rem', padding: '0.05rem 0.2rem' }} onClick={() => setGroupEditingId(null)}>✕</button>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
-                            <span style={{ flex: 1, fontSize: '0.75rem', fontWeight: 600, color }}>{g.name}</span>
-                            <button onClick={() => { setGroupEditingId(g.id); setGroupEditingName(g.name); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.65rem', color: '#6b7280', padding: '0' }}>✏️</button>
-                            <button className="btn-remove" style={{ fontSize: '0.65rem', padding: '0.05rem 0.2rem' }} onClick={() => deleteTemplateGroup(g.id)}>✕</button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              {/* Right: templates by group */}
+              {/* Templates by group */}
               <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {allGroups.map((g, gi) => {
                   const color = GROUP_PALETTE[gi % GROUP_PALETTE.length];
