@@ -312,6 +312,8 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const thStyle = { padding: '0.3rem 0.5rem', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' };
   const tdStyle = { padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' };
 
+  const [newEventType, setNewEventType] = useState('');
+
   const tabDescriptions = {
     branches: 'ניהול סניפים במערכת. כל סניף הוא יחידה עצמאית עם עובדים, אתרים והגדרות משלו. הוספת סניף מאפשרת לנהל יחידות ארגוניות נפרדות; מחיקת סניף תסיר את כל הנתונים הקשורים אליו.',
     groups: 'קבוצות אתרים מאגדות מספר אתרים לקטגוריה משותפת (לדוג׳ תורנות, כוננות). ניתן לשייך כל אתר לקבוצה דרך כרטיסיית האתרים.',
@@ -320,6 +322,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     empTypes: 'סוגי העסקה מגדירים את מעמד ההעסקה של העובד (לדוג׳ קבוע, חלקי, חוזה). שינוי הרשימה ישפיע על אפשרויות הבחירה בעת יצירה או עריכה של עובד.',
     honorifics: 'תארים מגדירים את הכינוי הרשמי של העובד (לדוג׳ ד״ר, פרופ׳). שינויים ישפיעו על האופן שבו שמות העובדים מוצגים בכל חלקי המערכת.',
     activities: 'סוגי פעילות מגדירים סוגי עבודה ספציפיים שניתן להרשות לעובדים (לדוג׳ אנסתזיה כללית, ספינל). הרשאות אלו מיועדות לעובדים בנפרד ומשפיעות על הצעות השיבוץ האוטומטיות.',
+    eventTypes: 'סוגי אירועים מגדירים קטגוריות לאירועי מחלקה (לדוג׳ ישיבת צוות, ערב גיבוש). ניתן להוסיף סוגים מותאמים אישית בנוסף לסוגי הברירת מחדל.',
   };
 
   function TabDescription({ tabKey }) {
@@ -338,6 +341,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     { key: 'empTypes', label: 'סוגי העסקה' },
     { key: 'honorifics', label: 'תארים' },
     { key: 'activities', label: 'סוגי פעילות' },
+    { key: 'eventTypes', label: 'סוגי אירועים' },
     { key: 'shifts', label: 'שעות משמרות' },
   ];
 
@@ -925,6 +929,54 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                     </div>
                   );
                 })()}
+              </>
+            )}
+
+            {activeTab === 'eventTypes' && (
+              <>
+                <TabDescription tabKey="eventTypes" />
+                <ul className="config-list">
+                  {(config.event_types || []).map(et => (
+                    <li key={et.id}>
+                      {editingKey === `evtype-${et.id}` ? (
+                        <input
+                          className="config-inline-edit"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEdit('/api/config/event-types', et.id);
+                            if (e.key === 'Escape') setEditingKey(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span>{et.name}</span>
+                      )}
+                      <div className="config-item-actions">
+                        {editingKey === `evtype-${et.id}` ? (
+                          <>
+                            <button className="btn-save-inline" onClick={() => saveEdit('/api/config/event-types', et.id)}>שמור</button>
+                            <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn-edit-inline" onClick={() => { setEditingKey(`evtype-${et.id}`); setEditingValue(et.name); }}>עריכה</button>
+                            <button className="btn-remove" onClick={() => removeItem('/api/config/event-types', et.id)}>✕</button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="config-add">
+                  <input
+                    value={newEventType}
+                    onChange={e => setNewEventType(e.target.value)}
+                    placeholder="סוג אירוע חדש..."
+                    onKeyDown={e => e.key === 'Enter' && addItem('/api/config/event-types', newEventType, setNewEventType)}
+                  />
+                  <button className="btn-primary" onClick={() => addItem('/api/config/event-types', newEventType, setNewEventType)}>הוסף</button>
+                </div>
               </>
             )}
 

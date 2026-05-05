@@ -11,6 +11,7 @@ import ChangePasswordModal from './components/ChangePasswordModal';
 import VacationRequests from './components/VacationRequests';
 import SpecialDaysCalendar from './components/SpecialDaysCalendar';
 import Messaging from './components/Messaging';
+import EventsManagement from './components/EventsManagement';
 import logoAssuta from './assets/logo-assuta.png';
 import './styles/App.scss';
 import appStyles from './styles/App.module.scss';
@@ -362,6 +363,14 @@ export default function App() {
         )}
         {isAdmin && selectedBranchId && (
           <button
+            className={`tab-btn${activeTab === 'events' ? ' active' : ''}`}
+            onClick={() => setActiveTab('events')}
+          >
+            אירועים
+          </button>
+        )}
+        {isAdmin && selectedBranchId && (
+          <button
             className={`tab-btn${activeTab === 'special-days' ? ' active' : ''}`}
             onClick={() => setActiveTab('special-days')}
           >
@@ -501,6 +510,16 @@ export default function App() {
             onConfigChange={setConfig}
           />
         </div>
+      )}
+
+      {activeTab === 'events' && isAdmin && selectedBranchId && (
+        <EventsManagement
+          workers={workers}
+          config={config}
+          authToken={authToken}
+          currentUser={currentUser}
+          selectedBranchId={selectedBranchId}
+        />
       )}
 
       {activeTab === 'messages' && selectedBranchId && (

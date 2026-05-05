@@ -9,6 +9,7 @@ export default function WorkplaceStaffing({ config, authToken }) {
   const [editingCell, setEditingCell] = useState(null);
   const [editingAssignment, setEditingAssignment] = useState({ site_id: null, position_id: null, notes: '' });
   const [loading, setLoading] = useState(false);
+  const [eventIndicators, setEventIndicators] = useState({});
 
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
@@ -23,6 +24,7 @@ export default function WorkplaceStaffing({ config, authToken }) {
 
   useEffect(() => {
     fetchStaffingData();
+    fetchEventIndicators();
   }, [month, year, authToken]);
 
   async function fetchStaffingData() {
@@ -45,6 +47,30 @@ export default function WorkplaceStaffing({ config, authToken }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchEventIndicators() {
+    try {
+      const res = await fetch(`/api/events/staffing-indicators?month=${month}&year=${year}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const map = {};
+      for (const item of data) {
+        map[`${item.worker_id}-${item.date}`] = item.assigned;
+      }
+      setEventIndicators(map);
+    } catch (e) {
+      // not critical
+    }
+  }
+
+  function getEventIndicator(workerId, dayOfMonth) {
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
+    const key = `${workerId}-${dateStr}`;
+    if (!(key in eventIndicators)) return null;
+    return eventIndicators[key]; // true=assigned, false=invited but not assigned
   }
 
   const sitesInGroup = selectedGroupId
@@ -213,12 +239,22 @@ export default function WorkplaceStaffing({ config, authToken }) {
                   {days.map(day => {
                     const assignments = getDayAssignments(worker.id, day);
                     const isToday = new Date().getFullYear() === year && new Date().getMonth() + 1 === month && new Date().getDate() === day;
+                    const eventInd = getEventIndicator(worker.id, day);
+                    const hasEventNotAssigned = eventInd === false;
+                    const hasEventAssigned = eventInd === true;
                     return (
                       <td
                         key={day}
-                        className={`day-cell ${isToday ? 'today' : ''}`}
+                        className={`day-cell ${isToday ? 'today' : ''} ${hasEventNotAssigned ? 'event-missing' : ''}`}
                         onClick={() => openEditModal(worker.id, day)}
                       >
+                        {(hasEventNotAssigned || hasEventAssigned) && (
+                          <span
+                            className="event-dot"
+                            style={{ background: hasEventAssigned ? '#15803d' : '#dc2626' }}
+                            title={hasEventAssigned ? 'משובץ לאירוע' : 'מוזמן לאירוע — לא שובץ'}
+                          />
+                        )}
                         <div className="cell-content">
                           {assignments.map(a => {
                             const shiftDef = (config.shift_types || []).find(st => st.key === a.shift_type);

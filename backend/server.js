@@ -358,6 +358,16 @@ async function getConfig(branchId = null) {
       console.warn('special_days not available:', e.message);
     }
 
+    let eventTypes = [];
+    try {
+      const etRes = branchId
+        ? await query('SELECT id, name FROM event_types WHERE branch_id = $1 OR branch_id IS NULL ORDER BY name', [branchId])
+        : await query('SELECT id, name FROM event_types ORDER BY name');
+      eventTypes = etRes.rows;
+    } catch (e) {
+      console.warn('event_types not available:', e.message);
+    }
+
     return {
       jobs: res[0].rows,
       employment_types: res[1].rows,
@@ -372,6 +382,7 @@ async function getConfig(branchId = null) {
       special_days: specialDays,
       activity_type_groups: res[8].rows,
       template_groups: res[9].rows,
+      event_types: eventTypes,
     };
   } catch (error) {
     console.error('Error in getConfig:', error);
@@ -695,6 +706,17 @@ app.post('/api/workers', requireAdmin, async (req, res) => {
 
 app.put('/api/workers/:id', requireAdmin, async (req, res) => {
   try {
+    const tier = req.user.role_tier ?? req.user.role;
+    if (tier !== 'superadmin') {
+      const branchCheck = await query(
+        'SELECT 1 FROM worker_branches WHERE worker_id = $1 AND branch_id = $2',
+        [req.params.id, req.user.branch_id]
+      );
+      if (branchCheck.rows.length === 0) {
+        return res.status(403).json({ error: 'אין הרשאה לערוך עובד בסניף אחר' });
+      }
+    }
+
     if (req.user.role_level !== undefined) {
       const targetLevel = await getWorkerRoleLevel(req.params.id);
       if (req.user.role_level >= targetLevel) {
@@ -741,6 +763,17 @@ app.put('/api/workers/:id', requireAdmin, async (req, res) => {
 
 app.delete('/api/workers/:id', requireAdmin, async (req, res) => {
   try {
+    const tier = req.user.role_tier ?? req.user.role;
+    if (tier !== 'superadmin') {
+      const branchCheck = await query(
+        'SELECT 1 FROM worker_branches WHERE worker_id = $1 AND branch_id = $2',
+        [req.params.id, req.user.branch_id]
+      );
+      if (branchCheck.rows.length === 0) {
+        return res.status(403).json({ error: 'אין הרשאה למחוק עובד בסניף אחר' });
+      }
+    }
+
     if (req.user.role_level !== undefined) {
       const targetLevel = await getWorkerRoleLevel(req.params.id);
       if (req.user.role_level >= targetLevel) {
@@ -3515,6 +3548,591 @@ app.delete('/api/workers/:id/branches/:branchId', requireSuperAdmin, async (req,
     res.status(204).send();
   } catch (error) {
     console.error('Delete worker branch error:', error);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── Event Types (config) ─────────────────────────────────────────────────────
+
+app.post('/api/config/event-types', requireAdmin, async (req, res) => {
+  try {
+    const { value } = req.body;
+    if (!value?.trim()) return res.status(400).json({ error: 'ערך לא תקין' });
+    const branchId = getEffectiveBranchId(req);
+    try {
+      await query('INSERT INTO event_types (name, branch_id) VALUES ($1, $2)', [value.trim(), branchId]);
+      res.json(await getConfig(branchId));
+    } catch {
+      res.status(400).json({ error: 'סוג אירוע כבר קיים' });
+    }
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.put('/api/config/event-types/:id', requireAdmin, async (req, res) => {
+  try {
+    const { value } = req.body;
+    if (!value?.trim()) return res.status(400).json({ error: 'ערך לא תקין' });
+    const branchId = getEffectiveBranchId(req);
+    await query('UPDATE event_types SET name=$1 WHERE id=$2', [value.trim(), req.params.id]);
+    res.json(await getConfig(branchId));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.delete('/api/config/event-types/:id', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    await query('DELETE FROM event_types WHERE id=$1', [req.params.id]);
+    res.json(await getConfig(branchId));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── Events ───────────────────────────────────────────────────────────────────
+
+// Must be before /:id to avoid route collision
+app.get('/api/events/staffing-indicators', requireAuth, async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const branchId = getEffectiveBranchId(req);
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endDate = new Date(year, month, 0).toISOString().slice(0, 10);
+
+    const assignedRes = await query(`
+      SELECT esa.worker_id,
+        TO_CHAR(es.session_date, 'YYYY-MM-DD') AS date,
+        true AS assigned
+      FROM event_session_assignments esa
+      JOIN event_sessions es ON es.id = esa.session_id
+      JOIN events e ON e.id = es.event_id
+      WHERE es.session_date BETWEEN $1 AND $2
+        AND (e.branch_id = $3 OR e.branch_id IS NULL)
+    `, [startDate, endDate, branchId]);
+
+    const invitedRes = await query(`
+      SELECT ei.worker_id,
+        TO_CHAR(es.session_date, 'YYYY-MM-DD') AS date,
+        false AS assigned
+      FROM event_invitees ei
+      JOIN events e ON e.id = ei.event_id
+      JOIN event_sessions es ON es.event_id = e.id
+      WHERE es.session_date BETWEEN $1 AND $2
+        AND (e.branch_id = $3 OR e.branch_id IS NULL)
+        AND NOT EXISTS (
+          SELECT 1 FROM event_session_assignments esa2
+          JOIN event_sessions es2 ON es2.id = esa2.session_id
+          WHERE es2.event_id = e.id AND esa2.worker_id = ei.worker_id
+        )
+    `, [startDate, endDate, branchId]);
+
+    const indicators = {};
+    for (const r of assignedRes.rows) {
+      const key = `${r.worker_id}-${r.date}`;
+      indicators[key] = { workerId: r.worker_id, date: r.date, assigned: true };
+    }
+    for (const r of invitedRes.rows) {
+      const key = `${r.worker_id}-${r.date}`;
+      if (!indicators[key]) {
+        indicators[key] = { workerId: r.worker_id, date: r.date, assigned: false };
+      }
+    }
+    res.json(Object.values(indicators));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.get('/api/events', requireAuth, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const tier = req.user.role_tier ?? req.user.role;
+    let branchFilter;
+    if (tier === 'superadmin') {
+      branchFilter = branchId
+        ? 'AND (e.branch_id = $1 OR e.branch_id IS NULL)'
+        : 'AND TRUE';
+    } else {
+      branchFilter = 'AND (e.branch_id = $1 OR e.branch_id IS NULL)';
+    }
+    const result = await query(`
+      SELECT e.*, et.name AS event_type_name,
+        (SELECT COUNT(*) FROM event_sessions WHERE event_id = e.id) AS session_count,
+        (SELECT COUNT(*) FROM event_invitees WHERE event_id = e.id) AS invitee_count
+      FROM events e
+      LEFT JOIN event_types et ON e.event_type_id = et.id
+      WHERE TRUE ${branchFilter}
+      ORDER BY e.created_at DESC
+    `, branchId ? [branchId] : []);
+    res.json(result.rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.get('/api/events/:id', requireAuth, async (req, res) => {
+  try {
+    const eventRes = await query(`
+      SELECT e.*, et.name AS event_type_name
+      FROM events e LEFT JOIN event_types et ON e.event_type_id = et.id
+      WHERE e.id = $1
+    `, [req.params.id]);
+    if (!eventRes.rows.length) return res.status(404).json({ error: 'לא נמצא' });
+    const event = eventRes.rows[0];
+
+    const sessionsRes = await query(`
+      SELECT es.*,
+        COALESCE(json_agg(
+          json_build_object('id', esa.id, 'worker_id', esa.worker_id, 'assigned_at', esa.assigned_at,
+            'worker_name', w.first_name || ' ' || w.family_name)
+          ORDER BY w.family_name
+        ) FILTER (WHERE esa.id IS NOT NULL), '[]') AS assignments
+      FROM event_sessions es
+      LEFT JOIN event_session_assignments esa ON esa.session_id = es.id
+      LEFT JOIN workers w ON w.id = esa.worker_id
+      WHERE es.event_id = $1
+      GROUP BY es.id
+      ORDER BY es.session_date, es.start_time
+    `, [req.params.id]);
+
+    const inviteesRes = await query(`
+      SELECT ei.worker_id,
+        w.first_name || ' ' || w.family_name AS worker_name,
+        w.job_id,
+        (SELECT COUNT(*) FROM event_session_assignments esa
+          JOIN event_sessions es ON es.id = esa.session_id
+          WHERE es.event_id = $1 AND esa.worker_id = ei.worker_id) > 0 AS attended
+      FROM event_invitees ei
+      JOIN workers w ON w.id = ei.worker_id
+      WHERE ei.event_id = $1
+      ORDER BY w.family_name
+    `, [req.params.id]);
+
+    res.json({ ...event, sessions: sessionsRes.rows, invitees: inviteesRes.rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.post('/api/events', requireAdmin, async (req, res) => {
+  try {
+    const { name, event_type_id, description, sessions } = req.body;
+    const branchId = getEffectiveBranchId(req);
+    const tier = req.user.role_tier ?? req.user.role;
+    const effectiveBranchId = (tier === 'superadmin' && req.body.branch_id === null)
+      ? null
+      : branchId;
+
+    const eventRes = await query(
+      'INSERT INTO events (name, event_type_id, description, branch_id, created_by) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [name, event_type_id || null, description || null, effectiveBranchId, req.user.id]
+    );
+    const event = eventRes.rows[0];
+
+    if (sessions && sessions.length) {
+      for (const s of sessions) {
+        await query(
+          'INSERT INTO event_sessions (event_id, session_date, start_time, end_time, max_capacity, location, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+          [event.id, s.session_date, s.start_time, s.end_time, s.max_capacity || 20, s.location || null, s.notes || null]
+        );
+      }
+    }
+
+    // Auto-invite all branch workers (primary_branch_id or worker_branches)
+    const workersRes = await query(
+      `SELECT DISTINCT w.id FROM workers w
+       WHERE w.is_active = TRUE
+         AND (
+           w.primary_branch_id = $1
+           OR EXISTS (
+             SELECT 1 FROM worker_branches wb
+             WHERE wb.worker_id = w.id AND wb.branch_id = $1 AND wb.is_active = TRUE
+           )
+         )`,
+      [branchId]
+    );
+    if (workersRes.rows.length) {
+      const values = workersRes.rows.map((w, i) => `($1,$${i + 2})`).join(',');
+      await query(
+        `INSERT INTO event_invitees (event_id, worker_id) VALUES ${values} ON CONFLICT DO NOTHING`,
+        [event.id, ...workersRes.rows.map(w => w.id)]
+      );
+    }
+
+    res.status(201).json(event);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.put('/api/events/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name, event_type_id, description } = req.body;
+    const result = await query(
+      'UPDATE events SET name=$1, event_type_id=$2, description=$3 WHERE id=$4 RETURNING *',
+      [name, event_type_id || null, description || null, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'לא נמצא' });
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.delete('/api/events/:id', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM events WHERE id=$1', [req.params.id]);
+    res.status(204).send();
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── Event Sessions ────────────────────────────────────────────────────────────
+
+app.post('/api/events/:id/sessions', requireAdmin, async (req, res) => {
+  try {
+    const { session_date, start_time, end_time, max_capacity, location, notes } = req.body;
+    const result = await query(
+      'INSERT INTO event_sessions (event_id,session_date,start_time,end_time,max_capacity,location,notes) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [req.params.id, session_date, start_time, end_time, max_capacity || 20, location || null, notes || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.put('/api/events/:id/sessions/:sid', requireAdmin, async (req, res) => {
+  try {
+    const { session_date, start_time, end_time, max_capacity, location, notes } = req.body;
+    const result = await query(
+      'UPDATE event_sessions SET session_date=$1,start_time=$2,end_time=$3,max_capacity=$4,location=$5,notes=$6 WHERE id=$7 AND event_id=$8 RETURNING *',
+      [session_date, start_time, end_time, max_capacity, location || null, notes || null, req.params.sid, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'לא נמצא' });
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.delete('/api/events/:id/sessions/:sid', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM event_sessions WHERE id=$1 AND event_id=$2', [req.params.sid, req.params.id]);
+    res.status(204).send();
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── Event Invitees ────────────────────────────────────────────────────────────
+
+app.get('/api/events/:id/invitees', requireAuth, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT ei.worker_id, w.first_name || ' ' || w.family_name AS worker_name,
+        (SELECT COUNT(*) FROM event_session_assignments esa
+          JOIN event_sessions es ON es.id = esa.session_id
+          WHERE es.event_id = $1 AND esa.worker_id = ei.worker_id) > 0 AS attended
+      FROM event_invitees ei JOIN workers w ON w.id = ei.worker_id
+      WHERE ei.event_id = $1 ORDER BY w.family_name
+    `, [req.params.id]);
+    res.json(result.rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.put('/api/events/:id/invitees', requireAdmin, async (req, res) => {
+  try {
+    const { workerIds } = req.body;
+    await query('DELETE FROM event_invitees WHERE event_id=$1', [req.params.id]);
+    if (workerIds && workerIds.length) {
+      const vals = workerIds.map((wid, i) => `($1,$${i + 2})`).join(',');
+      await query(
+        `INSERT INTO event_invitees (event_id, worker_id) VALUES ${vals} ON CONFLICT DO NOTHING`,
+        [req.params.id, ...workerIds]
+      );
+    }
+    res.status(204).send();
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── Session Assignments ───────────────────────────────────────────────────────
+
+app.post('/api/events/:id/sessions/:sid/assign', requireAdmin, async (req, res) => {
+  try {
+    const { workerIds } = req.body;
+    const sessionRes = await query('SELECT * FROM event_sessions WHERE id=$1 AND event_id=$2', [req.params.sid, req.params.id]);
+    if (!sessionRes.rows.length) return res.status(404).json({ error: 'סשן לא נמצא' });
+    const session = sessionRes.rows[0];
+
+    const conflicts = [];
+    const assigned = [];
+
+    for (const workerId of workerIds) {
+      // check already assigned to another session of this event
+      const dupCheck = await query(`
+        SELECT esa.session_id FROM event_session_assignments esa
+        JOIN event_sessions es ON es.id = esa.session_id
+        WHERE es.event_id=$1 AND esa.worker_id=$2 AND esa.session_id != $3
+      `, [req.params.id, workerId, req.params.sid]);
+      if (dupCheck.rows.length) continue; // already in another session
+
+      // check shift conflict
+      const conflictRes = await query(`
+        SELECT wsa.id, wsa.site_id, wsa.shift_type, wsa.start_time, wsa.end_time,
+          s.name AS site_name
+        FROM worker_site_assignments wsa
+        JOIN sites s ON s.id = wsa.site_id
+        WHERE wsa.worker_id=$1 AND wsa.date=$2
+          AND wsa.start_time IS NOT NULL AND wsa.end_time IS NOT NULL
+          AND wsa.start_time < $3 AND wsa.end_time > $4
+      `, [workerId, session.session_date, session.end_time, session.start_time]);
+
+      if (conflictRes.rows.length) {
+        // find suggestions: workers invited but not yet assigned and no conflict
+        const suggestRes = await query(`
+          SELECT w.id, w.first_name || ' ' || w.family_name AS name, w.job_id
+          FROM event_invitees ei
+          JOIN workers w ON w.id = ei.worker_id
+          WHERE ei.event_id = $1
+            AND w.id != $2
+            AND NOT EXISTS (
+              SELECT 1 FROM event_session_assignments esa2
+              JOIN event_sessions es2 ON es2.id = esa2.session_id
+              WHERE es2.event_id = $1 AND esa2.worker_id = w.id
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM worker_site_assignments wsa2
+              WHERE wsa2.worker_id = w.id AND wsa2.date = $3
+                AND wsa2.start_time IS NOT NULL AND wsa2.end_time IS NOT NULL
+                AND wsa2.start_time < $4 AND wsa2.end_time > $5
+            )
+          LIMIT 5
+        `, [req.params.id, workerId, session.session_date, session.end_time, session.start_time]);
+
+        conflicts.push({
+          workerId,
+          sessionAssignments: conflictRes.rows,
+          suggestions: suggestRes.rows,
+        });
+      } else {
+        await query(
+          'INSERT INTO event_session_assignments (session_id, worker_id, assigned_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
+          [req.params.sid, workerId, req.user.id]
+        );
+        assigned.push(workerId);
+      }
+    }
+
+    res.json({ assigned, conflicts });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.delete('/api/events/:id/sessions/:sid/assign/:workerId', requireAdmin, async (req, res) => {
+  try {
+    await query(
+      'DELETE FROM event_session_assignments WHERE session_id=$1 AND worker_id=$2',
+      [req.params.sid, req.params.workerId]
+    );
+    res.status(204).send();
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── Conflict Resolution ───────────────────────────────────────────────────────
+
+app.post('/api/events/:id/sessions/:sid/resolve-conflict', requireAdmin, async (req, res) => {
+  try {
+    const { originalWorkerId, replacementWorkerId, assignmentId } = req.body;
+    const sessionRes = await query('SELECT * FROM event_sessions WHERE id=$1', [req.params.sid]);
+    if (!sessionRes.rows.length) return res.status(404).json({ error: 'סשן לא נמצא' });
+
+    // Update worker_site_assignments: swap original → replacement
+    if (assignmentId && replacementWorkerId) {
+      await query('UPDATE worker_site_assignments SET worker_id=$1 WHERE id=$2', [replacementWorkerId, assignmentId]);
+    }
+
+    // Assign original worker to event session
+    await query(
+      'INSERT INTO event_session_assignments (session_id, worker_id, assigned_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
+      [req.params.sid, originalWorkerId, req.user.id]
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── Optimize Event Assignments ────────────────────────────────────────────────
+
+app.post('/api/events/:id/optimize', requireAdmin, async (req, res) => {
+  try {
+    const eventId = req.params.id;
+
+    // Get all sessions for this event
+    const sessionsRes = await query(
+      'SELECT * FROM event_sessions WHERE event_id=$1 ORDER BY session_date, start_time',
+      [eventId]
+    );
+    const sessions = sessionsRes.rows;
+
+    // Get invitees not yet assigned to any session
+    const inviteesRes = await query(`
+      SELECT ei.worker_id FROM event_invitees ei
+      WHERE ei.event_id=$1
+        AND NOT EXISTS (
+          SELECT 1 FROM event_session_assignments esa
+          JOIN event_sessions es ON es.id = esa.session_id
+          WHERE es.event_id=$1 AND esa.worker_id=ei.worker_id
+        )
+    `, [eventId]);
+    let unassigned = inviteesRes.rows.map(r => r.worker_id);
+
+    const assignments = {};
+    for (const s of sessions) {
+      assignments[s.id] = [];
+    }
+
+    // Count existing assignments per session
+    const existingRes = await query(`
+      SELECT session_id, COUNT(*) AS cnt
+      FROM event_session_assignments esa
+      JOIN event_sessions es ON es.id = esa.session_id
+      WHERE es.event_id=$1
+      GROUP BY session_id
+    `, [eventId]);
+    const existingCounts = {};
+    for (const r of existingRes.rows) {
+      existingCounts[r.session_id] = parseInt(r.cnt);
+    }
+
+    // Greedy: for each session, fill up to max_capacity
+    for (const s of sessions) {
+      const currentCount = existingCounts[s.id] || 0;
+      const available = s.max_capacity - currentCount;
+      if (available <= 0) continue;
+
+      const newlyAssigned = [];
+      for (const workerId of [...unassigned]) {
+        if (newlyAssigned.length >= available) break;
+
+        // Check no shift conflict
+        const conflictRes = await query(`
+          SELECT 1 FROM worker_site_assignments
+          WHERE worker_id=$1 AND date=$2
+            AND start_time IS NOT NULL AND end_time IS NOT NULL
+            AND start_time < $3 AND end_time > $4
+        `, [workerId, s.session_date, s.end_time, s.start_time]);
+        if (conflictRes.rows.length) continue;
+
+        await query(
+          'INSERT INTO event_session_assignments (session_id, worker_id, assigned_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
+          [s.id, workerId, req.user.id]
+        );
+        newlyAssigned.push(workerId);
+        assignments[s.id].push(workerId);
+      }
+      // Remove newly assigned from unassigned pool
+      unassigned = unassigned.filter(w => !newlyAssigned.includes(w));
+    }
+
+    const totalAssigned = Object.values(assignments).flat().length;
+
+    // Build diagnostic reasons when nothing was assigned
+    const reasons = [];
+    if (totalAssigned === 0) {
+      if (sessions.length === 0) {
+        reasons.push('לא הוגדרו סשנים לאירוע');
+      } else {
+        // Check invitees total
+        const totalInviteesRes = await query(
+          'SELECT COUNT(*) AS cnt FROM event_invitees WHERE event_id=$1', [eventId]
+        );
+        const totalInvitees = parseInt(totalInviteesRes.rows[0].cnt);
+        if (totalInvitees === 0) {
+          reasons.push('לא הוגדרו מוזמנים לאירוע');
+        } else if (unassigned.length === 0 && totalInvitees > 0) {
+          reasons.push('כל המוזמנים כבר שובצו לאחד הסשנים');
+        } else {
+          // Check if all sessions are full
+          const allFull = sessions.every(s => (existingCounts[s.id] || 0) >= s.max_capacity);
+          if (allFull) {
+            reasons.push('כל הסשנים מלאים עד הקיבולת המקסימלית');
+          } else {
+            reasons.push('לכל המוזמנים הנותרים יש ניגוד משמרת בשעות הסשנים הפנויים');
+          }
+        }
+      }
+    }
+
+    res.json({ assignments, unassigned, reasons });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── Predict New Session ───────────────────────────────────────────────────────
+
+app.get('/api/events/:id/predict', requireAuth, async (req, res) => {
+  try {
+    const { date, startTime, endTime } = req.query;
+    if (!date || !startTime || !endTime) {
+      return res.status(400).json({ error: 'חסר date, startTime, endTime' });
+    }
+
+    // Invitees not yet assigned to any session of this event
+    const result = await query(`
+      SELECT w.id, w.first_name || ' ' || w.family_name AS name,
+        EXISTS (
+          SELECT 1 FROM worker_site_assignments wsa
+          WHERE wsa.worker_id=ei.worker_id AND wsa.date=$2
+            AND wsa.start_time IS NOT NULL AND wsa.end_time IS NOT NULL
+            AND wsa.start_time < $3 AND wsa.end_time > $4
+        ) AS has_conflict
+      FROM event_invitees ei
+      JOIN workers w ON w.id = ei.worker_id
+      WHERE ei.event_id=$1
+        AND NOT EXISTS (
+          SELECT 1 FROM event_session_assignments esa
+          JOIN event_sessions es ON es.id = esa.session_id
+          WHERE es.event_id=$1 AND esa.worker_id=ei.worker_id
+        )
+      ORDER BY w.family_name
+    `, [req.params.id, date, endTime, startTime]);
+
+    res.json({ count: result.rows.length, workers: result.rows });
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ error: 'שגיאה' });
   }
 });

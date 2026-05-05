@@ -1991,6 +1991,22 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   background: #fef3c7;
 }
 
+.staffing-grid .day-cell.event-missing {
+  outline: 2px solid #fca5a5;
+  outline-offset: -2px;
+}
+
+.event-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  z-index: 1;
+}
+
 .cell-content {
   padding: 0.4rem;
   display: flex;

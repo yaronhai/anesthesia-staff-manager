@@ -263,6 +263,50 @@ async function initializeSchema() {
         decided_at TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS event_types (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        UNIQUE(name, branch_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS events (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        event_type_id INTEGER REFERENCES event_types(id) ON DELETE SET NULL,
+        description TEXT,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS event_sessions (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        session_date DATE NOT NULL,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL,
+        max_capacity INTEGER NOT NULL DEFAULT 20,
+        location TEXT,
+        notes TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS event_invitees (
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        PRIMARY KEY (event_id, worker_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS event_session_assignments (
+        id SERIAL PRIMARY KEY,
+        session_id INTEGER NOT NULL REFERENCES event_sessions(id) ON DELETE CASCADE,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        assigned_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(session_id, worker_id)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_workers_id_number ON workers(id_number);
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_user_id ON shift_requests(user_id);
@@ -672,6 +716,22 @@ async function runMigrations() {
 
     // Add complexity_level to activity_types for overqualification scoring
     await query(`ALTER TABLE activity_types ADD COLUMN IF NOT EXISTS complexity_level INTEGER NOT NULL DEFAULT 1`);
+
+    // Seed default event types per branch
+    await query(`
+      INSERT INTO event_types (name, branch_id)
+      SELECT et.name, b.id
+      FROM branches b
+      CROSS JOIN (VALUES
+        ('ישיבת צוות'),
+        ('ערב גיבוש'),
+        ('הדרכה'),
+        ('כנס')
+      ) AS et(name)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM event_types WHERE name = et.name AND branch_id = b.id
+      )
+    `);
 
     console.log('✓ Migrations complete');
   } catch (error) {
