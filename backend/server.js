@@ -1123,9 +1123,17 @@ app.delete('/api/shift-requests/:id', requireAuth, async (req, res) => {
 app.get('/api/vacation-requests', requireAuth, async (req, res) => {
   try {
     const { status, all_branches } = req.query;
-    const branchId = all_branches === 'true' ? null : getEffectiveBranchId(req);
+    const tier = req.user.role_tier ?? req.user.role;
 
-    if (['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role)) {
+    let branchId;
+    if (tier === 'superadmin') {
+      branchId = all_branches === 'true' ? null : getEffectiveBranchId(req);
+    } else {
+      // admin always scoped to their own branch, all_branches ignored
+      branchId = req.user.branch_id ?? null;
+    }
+
+    if (['admin', 'superadmin'].includes(tier)) {
       const params = [];
       const conditions = [];
       let p = 1;
