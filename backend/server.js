@@ -1131,8 +1131,9 @@ app.get('/api/vacation-requests', requireAuth, async (req, res) => {
       let p = 1;
 
       if (branchId) {
-        conditions.push(`vr.branch_id = $${p++}`);
+        conditions.push(`(vr.branch_id = $${p} OR (vr.branch_id IS NULL AND w.primary_branch_id = $${p}))`);
         params.push(branchId);
+        p++;
       }
       if (status) {
         conditions.push(`vr.status = $${p++}`);
