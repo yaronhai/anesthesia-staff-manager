@@ -611,8 +611,10 @@ export default function VacationRequests({ currentUser, token, selectedBranchId,
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const statusQ = statusFilter ? `&status=${statusFilter}` : '';
-      const res = await fetch(`/api/vacation-requests?${statusQ}`, {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set('status', statusFilter);
+      if (selectedBranchId) params.set('branch_id', selectedBranchId);
+      const res = await fetch(`/api/vacation-requests?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -624,7 +626,7 @@ export default function VacationRequests({ currentUser, token, selectedBranchId,
     } finally {
       setLoading(false);
     }
-  }, [token, statusFilter]);
+  }, [token, statusFilter, selectedBranchId]);
 
   useEffect(() => {
     fetchRequests();
