@@ -48,12 +48,14 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
             .filter(wb => dayRequests.some(r => r.branch_id === wb.branch_id))
             .map(wb => (
               <div key={wb.branch_id} className={styles.branchRow}>
-                <span className={styles.branchTag}>{wb.branch_name.slice(0, 4)}</span>
-                {shifts.map(s => {
-                  const r = dayRequests.find(r => r.shift_type === s.key && r.branch_id === wb.branch_id);
-                  if (!r) return null;
-                  return <span key={s.key} className={`cal-dot pref-${r.preference_type}`}>{s.label_short}</span>;
-                })}
+                <span className={styles.branchTag} title={wb.branch_name}>{wb.branch_name}</span>
+                <div className={styles.branchDots}>
+                  {shifts.map(s => {
+                    const r = dayRequests.find(r => r.shift_type === s.key && r.branch_id === wb.branch_id);
+                    if (!r) return null;
+                    return <span key={s.key} className={`cal-dot pref-${r.preference_type}`}>{s.label_short}</span>;
+                  })}
+                </div>
               </div>
             ))
         ) : (

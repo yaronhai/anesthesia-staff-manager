@@ -242,9 +242,10 @@
 // All-branches mode: per-branch row inside a day cell
 .branchRow {
   display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-bottom: 1px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  margin-bottom: 2px;
 }
 
 .branchTag {
@@ -253,7 +254,14 @@
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
-  max-width: 22px;
-  flex-shrink: 0;
-  line-height: 1;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  width: 100%;
+  line-height: 1.2;
+}
+
+.branchDots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
 }
