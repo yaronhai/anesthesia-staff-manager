@@ -46,6 +46,7 @@ export default function App() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [pendingProfileCount, setPendingProfileCount] = useState(0);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
 
   const isSuperAdmin = (currentUser?.role_tier ?? currentUser?.role) === 'superadmin';
   const isAdmin = ['admin', 'superadmin'].includes(currentUser?.role_tier ?? currentUser?.role);
@@ -91,6 +92,14 @@ export default function App() {
     const interval = setInterval(fetchPendingProfileCount, 30000);
     return () => clearInterval(interval);
   }, [currentUser, authToken, isAdmin]);
+
+  useEffect(() => {
+    if (!currentUser?.worker_id || !authToken) return;
+    fetch('/api/profile', { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.worker?.photo_url) setProfilePhotoUrl(d.worker.photo_url); })
+      .catch(() => {});
+  }, [currentUser, authToken]);
 
   useEffect(() => {
     if (!currentUser || !isSuperAdmin) return;
@@ -484,6 +493,11 @@ export default function App() {
             <button onClick={() => setShowSettings(true)} className="btn-settings">⚙️</button>
           )}
           <div className="header-user">
+            {currentUser?.worker_id && (
+              profilePhotoUrl
+                ? <img src={profilePhotoUrl} alt="" className={appStyles.headerAvatar} />
+                : <div className={appStyles.headerAvatarPlaceholder}>{(currentUser.displayName || currentUser.username || '?')[0].toUpperCase()}</div>
+            )}
             <div className={appStyles.headerUserInfo}>
               <span className="header-username">{currentUser.displayName || currentUser.username}</span>
               <span className="header-role">
@@ -745,6 +759,7 @@ export default function App() {
           currentUser={currentUser}
           config={config}
           inline
+          onPhotoUpdate={url => setProfilePhotoUrl(url)}
         />
       )}
 
