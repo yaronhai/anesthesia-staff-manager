@@ -250,6 +250,164 @@ export default function App() {
   const selectedBranchName = branches.find(b => b.id === selectedBranchId)?.name;
   const currentUserBranchName = branches.find(b => b.id === currentUser?.branch_id)?.name;
 
+  function handlePrintReport() {
+    const branchName = selectedBranchName || '';
+    const now = new Date().toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' });
+    const activeCount = filteredWorkers.filter(w => w.is_active !== false).length;
+    const inactiveCount = filteredWorkers.length - activeCount;
+    const jobGroups = {};
+    filteredWorkers.forEach(w => {
+      const j = w.job || 'לא מוגדר';
+      jobGroups[j] = (jobGroups[j] || 0) + 1;
+    });
+    const summaryBadges = Object.entries(jobGroups)
+      .map(([job, count]) => `<span class="badge badge-job">${job} <b>${count}</b></span>`).join('');
+
+    const activeFilterLabels = [
+      filterSearch ? `חיפוש: "${filterSearch}"` : null,
+      filterJobId ? `תפקיד: ${config.jobs.find(j => j.id === Number(filterJobId))?.name || ''}` : null,
+      filterEmpTypeId ? `סוג העסקה: ${config.employment_types.find(t => t.id === Number(filterEmpTypeId))?.name || ''}` : null,
+      filterActive === 'active' ? 'פעילים בלבד' : filterActive === 'inactive' ? 'לא פעילים בלבד' : null,
+      filterBranchType === 'primary' ? 'ראשיים בסניף' : filterBranchType === 'secondary' ? 'מושאלים בלבד' : null,
+    ].filter(Boolean);
+    const filtersHtml = activeFilterLabels.length
+      ? `<div class="filters-row"><span class="filters-label">פילטרים פעילים:</span>${activeFilterLabels.map(f => `<span class="filter-tag">${f}</span>`).join('')}</div>`
+      : `<div class="filters-row"><span class="filters-label">ללא סינון — כל העובדים</span></div>`;
+
+    const rows = filteredWorkers.map((w, i) => {
+      const isActive = w.is_active !== false;
+      const isPrimary = w.is_primary_branch !== false;
+      return `<tr>
+        <td class="num">${i + 1}</td>
+        <td class="name">${w.title || ''} ${w.first_name || ''} ${w.family_name || ''}</td>
+        <td>${w.id_number || ''}</td>
+        <td><span class="pill pill-job">${w.job || '—'}</span></td>
+        <td>${w.employment_type || '—'}</td>
+        <td dir="ltr">${w.phone || '—'}</td>
+        <td>${w.email || '—'}</td>
+        <td><span class="pill ${isActive ? 'pill-active' : 'pill-inactive'}">${isActive ? 'פעיל' : 'לא פעיל'}</span></td>
+        <td><span class="pill ${isPrimary ? 'pill-primary' : 'pill-secondary'}">${isPrimary ? 'ראשי' : 'מושאל'}</span></td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<title>דו"ח עובדים – ${branchName}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 9.5px; background: #f0f4f8; color: #1a2e4a; }
+  .page { background: #fff; max-width: 100%; padding: 14px 18px 10px; }
+
+  /* ── Header ── */
+  .header { display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg, #1a2e4a 0%, #2563eb 100%);
+    color: #fff; border-radius: 8px; padding: 10px 16px; margin-bottom: 10px; }
+  .header-title { font-size: 15px; font-weight: 700; letter-spacing: 0.3px; }
+  .header-sub { font-size: 9px; opacity: 0.82; margin-top: 2px; }
+  .header-meta { text-align: left; font-size: 9px; opacity: 0.88; line-height: 1.6; }
+
+  /* ── Summary strip ── */
+  .summary { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+  .stat-box { background: #f0f4f8; border-right: 3px solid #2563eb; border-radius: 5px;
+    padding: 4px 10px; font-size: 9px; }
+  .stat-box b { font-size: 13px; color: #2563eb; display: block; line-height: 1.2; }
+  .badge { display: inline-block; background: #e8f0fe; color: #2563eb; border-radius: 20px;
+    padding: 2px 8px; font-size: 8.5px; margin: 2px; }
+  .badge b { color: #1a2e4a; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: #1a2e4a; }
+  th { color: #fff; padding: 4px 6px; font-size: 8.5px; font-weight: 600;
+    text-align: right; white-space: nowrap; }
+  th:first-child { border-radius: 0 5px 5px 0; width: 22px; }
+  th:last-child  { border-radius: 5px 0 0 5px; }
+  td { padding: 3px 6px; border-bottom: 1px solid #e8edf3; vertical-align: middle; }
+  td.num { color: #94a3b8; font-size: 8px; text-align: center; }
+  td.name { font-weight: 600; color: #1a2e4a; }
+  tr:nth-child(even) td { background: #f7f9fc; }
+  tr:hover td { background: #eef3ff; }
+
+  /* ── Pills ── */
+  .pill { display: inline-block; border-radius: 20px; padding: 1px 7px;
+    font-size: 8px; font-weight: 600; white-space: nowrap; }
+  .pill-job      { background: #dbeafe; color: #1d4ed8; }
+  .pill-active   { background: #dcfce7; color: #166534; }
+  .pill-inactive { background: #fee2e2; color: #991b1b; }
+  .pill-primary  { background: #ede9fe; color: #5b21b6; }
+  .pill-secondary{ background: #fef3c7; color: #92400e; }
+
+  /* ── Filters row ── */
+  .filters-row { display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+    background: #f8faff; border: 1px solid #dbeafe; border-radius: 6px;
+    padding: 4px 10px; margin-bottom: 8px; font-size: 8.5px; }
+  .filters-label { color: #64748b; font-weight: 600; margin-left: 4px; }
+  .filter-tag { background: #2563eb; color: #fff; border-radius: 20px;
+    padding: 1px 8px; font-size: 8px; font-weight: 500; }
+
+  /* ── Footer ── */
+  .footer { margin-top: 8px; font-size: 8px; color: #94a3b8; text-align: left;
+    border-top: 1px solid #e2e8f0; padding-top: 4px; }
+
+  @media print {
+    body { background: #fff; }
+    .page { padding: 6px 10px; }
+    .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    thead tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .pill, .badge, .stat-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="header-title">דו"ח עובדים — ${branchName}</div>
+      <div class="header-sub">מחלקת הרדמה · ניהול צוות</div>
+    </div>
+    <div class="header-meta">
+      תאריך: ${now}<br>
+      סה"כ עובדים: <b>${filteredWorkers.length}</b>
+    </div>
+  </div>
+
+  ${filtersHtml}
+  <div class="summary">
+    <div class="stat-box"><b>${filteredWorkers.length}</b>סה"כ</div>
+    <div class="stat-box"><b style="color:#166534">${activeCount}</b>פעילים</div>
+    ${inactiveCount ? `<div class="stat-box"><b style="color:#991b1b">${inactiveCount}</b>לא פעילים</div>` : ''}
+    <div style="flex:1"></div>
+    ${summaryBadges}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>שם</th><th>ת.ז.</th><th>תפקיד</th><th>סוג העסקה</th>
+        <th>טלפון</th><th>אימייל</th><th>סטטוס</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div class="footer">הופק: ${now} · ${filteredWorkers.length} רשומות</div>
+</div>
+</body>
+</html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:-9999px;';
+    document.body.appendChild(iframe);
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+    setTimeout(() => document.body.removeChild(iframe), 2000);
+  }
+
   // ── Not logged in ──────────────────────────────────────────────────────────
   if (!currentUser) {
     return (
@@ -457,6 +615,7 @@ export default function App() {
                 נקה סינון
               </button>
             )}
+            <button className={`btn-secondary ${appStyles.reportBtn}`} onClick={handlePrintReport}>🖨 דו"ח עובדים</button>
           </div>
 
           {showForm && (

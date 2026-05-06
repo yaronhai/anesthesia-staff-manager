@@ -55,6 +55,7 @@
 }
 .roomsTab { display: var(--rooms-display, none); }
 .addWorkerBtn { white-space: nowrap; font-size: 1.3rem; padding: 0.35rem 0.7rem; line-height: 1; }
+.reportBtn { margin-right: 1rem; white-space: nowrap; background: #e8f0fe; color: #1d4ed8; border-color: #bfdbfe; }
 .searchInput { min-width: 220px; }
 .loginHeaderRow {
   display: flex;
