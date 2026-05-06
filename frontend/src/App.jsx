@@ -495,9 +495,6 @@ export default function App() {
                 </span>
               )}
             </div>
-            {currentUser?.worker_id && (
-              <button onClick={() => setShowProfile(true)} className={`btn-link ${appStyles.changePwBtn}`}>הפרופיל שלי</button>
-            )}
             <button onClick={() => setShowChangePassword(true)} className={`btn-link ${appStyles.changePwBtn}`}>שינוי סיסמא</button>
             <button onClick={handleLogout} className="btn-logout">יציאה</button>
           </div>
@@ -519,6 +516,14 @@ export default function App() {
             onClick={() => setActiveTab('workers')}
           >
             ניהול עובדים
+          </button>
+        )}
+        {currentUser?.worker_id && (!isSuperAdmin || selectedBranchId) && (
+          <button
+            className={`tab-btn${activeTab === 'profile' ? ' active' : ''}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            הפרופיל שלי
           </button>
         )}
         {(!isSuperAdmin || selectedBranchId) && (
@@ -592,16 +597,6 @@ export default function App() {
           </button>
         )}
       </div>
-
-      {showProfile && currentUser?.worker_id && (
-        <UserProfile
-          authToken={authToken}
-          currentUser={currentUser}
-          config={config}
-          onClose={() => setShowProfile(false)}
-          onPhotoUpdate={() => {}}
-        />
-      )}
 
       {showChangePassword && (
         <div className="modal-overlay">
@@ -742,6 +737,15 @@ export default function App() {
 
       {activeTab === 'report' && isAdmin && selectedBranchId && (
         <MonthlyReport token={authToken} config={config} isAdmin={isAdmin} branchId={selectedBranchId} />
+      )}
+
+      {activeTab === 'profile' && currentUser?.worker_id && (
+        <UserProfile
+          authToken={authToken}
+          currentUser={currentUser}
+          config={config}
+          inline
+        />
       )}
 
       {activeTab === 'profile-requests' && isAdmin && selectedBranchId && (

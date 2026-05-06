@@ -14,7 +14,7 @@ function formatDate(d) {
   return `${dd}.${m}.${y}`;
 }
 
-export default function UserProfile({ authToken, currentUser, config, onClose, onPhotoUpdate }) {
+export default function UserProfile({ authToken, currentUser, config, onClose, onPhotoUpdate, inline = false }) {
   const honorifics = config?.honorifics || [];
 
   const [profile, setProfile]           = useState(null);
@@ -105,13 +105,14 @@ export default function UserProfile({ authToken, currentUser, config, onClose, o
 
   const displayName = [profile.honorific_name, profile.first_name, profile.family_name].filter(Boolean).join(' ');
 
-  return (
-    <div className={styles.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className={styles.modal} dir="rtl">
+  const content = (
+    <div className={inline ? styles.inlineWrap : styles.modal} dir="rtl">
+      {!inline && (
         <div className={styles.header}>
           <h2 className={styles.title}>הפרופיל שלי</h2>
           <button className={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
+      )}
 
         {/* Photo section */}
         <div className={styles.photoSection}>
@@ -207,7 +208,9 @@ export default function UserProfile({ authToken, currentUser, config, onClose, o
             </div>
           </form>
         )}
-      </div>
     </div>
   );
+
+  if (inline) return content;
+  return <div className={styles.overlay} onClick={e => e.target === e.currentTarget && onClose()}>{content}</div>;
 }

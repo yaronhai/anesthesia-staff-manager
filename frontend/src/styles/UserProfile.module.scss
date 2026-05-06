@@ -19,6 +19,17 @@
   box-shadow: 0 8px 40px rgba(0,0,0,0.18);
 }
 
+.inlineWrap {
+  background: #fff;
+  border-radius: 12px;
+  width: 480px;
+  max-width: 100%;
+  margin: 24px auto;
+  padding: 28px 28px 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  border: 1px solid #e5e7eb;
+}
+
 .header {
   display: flex;
   align-items: center;
