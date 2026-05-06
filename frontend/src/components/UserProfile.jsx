@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/UserProfile.module.scss';
+import PhotoCropModal from './PhotoCropModal';
+const UPLOADS_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
+const resolvePhotoUrl = url => !url ? null : url.startsWith('data:') ? url : UPLOADS_BASE + url;
 
 const STATUS_LABEL = {
   pending:  { label: 'ממתין לאישור', color: '#d97706' },
@@ -25,7 +28,9 @@ export default function UserProfile({ authToken, currentUser, config, onClose, o
   const [error, setError]                = useState('');
   const [success, setSuccess]            = useState('');
   const [photoUploading, setPhotoUp]     = useState(false);
+  const [cropSrc, setCropSrc]            = useState(null);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   const headers = () => ({ Authorization: `Bearer ${authToken}` });
 
@@ -80,23 +85,32 @@ export default function UserProfile({ authToken, currentUser, config, onClose, o
     }
   }
 
-  async function handlePhoto(e) {
+  function handlePhoto(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = '';
+    setCropSrc(URL.createObjectURL(file));
+  }
+
+  async function handleCropConfirm(base64) {
+    setCropSrc(null);
     setPhotoUp(true);
-    const fd = new FormData();
-    fd.append('photo', file);
-    const res = await fetch('/api/profile/photo', {
-      method: 'POST',
-      headers: headers(),
-      body: fd,
-    });
-    setPhotoUp(false);
-    if (res.ok) {
-      const d = await res.json();
-      setProfile(p => ({ ...p, photo_url: d.photo_url }));
-      if (onPhotoUpdate) onPhotoUpdate(d.photo_url);
-    } else {
+    try {
+      const res = await fetch('/api/profile/photo', {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_data: base64 }),
+      });
+      setPhotoUp(false);
+      if (res.ok) {
+        const d = await res.json();
+        setProfile(p => ({ ...p, photo_url: d.photo_url }));
+        if (onPhotoUpdate) onPhotoUpdate(d.photo_url);
+      } else {
+        setError('שגיאה בהעלאת תמונה');
+      }
+    } catch {
+      setPhotoUp(false);
       setError('שגיאה בהעלאת תמונה');
     }
   }
@@ -118,19 +132,40 @@ export default function UserProfile({ authToken, currentUser, config, onClose, o
         <div className={styles.photoSection}>
           <div className={styles.avatarWrap}>
             {profile.photo_url
-              ? <img src={profile.photo_url} alt="תמונת פרופיל" className={styles.avatar} />
+              ? <img src={resolvePhotoUrl(profile.photo_url)} alt="תמונת פרופיל" className={styles.avatar} />
               : <div className={styles.avatarPlaceholder}>{(profile.first_name?.[0] || '?').toUpperCase()}</div>
             }
-            <button
-              className={styles.changePhotoBtn}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={photoUploading}
-              title="החלף תמונה"
-            >
-              {photoUploading ? '⏳' : '📷'}
+            <button className={styles.changePhotoBtn} onClick={() => cameraInputRef.current?.click()} disabled={photoUploading} title="צלם תמונה">
+              📷
             </button>
           </div>
-          <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp" style={{ display: 'none' }} onChange={handlePhoto} />
+          <div className={styles.photoLinks}>
+            <button type="button" className={styles.photoLinkBtn} onClick={() => fileInputRef.current?.click()} disabled={photoUploading}>
+              {photoUploading ? 'מעלה...' : 'החלף תמונה'}
+            </button>
+            {profile.photo_url && (
+              <button type="button" className={styles.photoLinkBtn} onClick={() => setCropSrc(profile.photo_url)}>
+                ערוך תמונה
+              </button>
+            )}
+            {profile.photo_url && (
+              <button type="button" className={`${styles.photoLinkBtn} ${styles.photoLinkDelete}`} onClick={async () => {
+                if (!window.confirm('למחוק את תמונת הפרופיל?')) return;
+                const res = await fetch('/api/profile/photo', {
+                  method: 'DELETE',
+                  headers: headers(),
+                });
+                if (res.ok) {
+                  setProfile(p => ({ ...p, photo_url: null }));
+                  if (onPhotoUpdate) onPhotoUpdate(null);
+                }
+              }}>
+                מחק תמונה
+              </button>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="user" hidden onChange={handlePhoto} />
           <div className={styles.displayName}>{displayName}</div>
           <div className={styles.usernameLine}>שם משתמש: {currentUser?.username}</div>
         </div>
@@ -211,6 +246,14 @@ export default function UserProfile({ authToken, currentUser, config, onClose, o
     </div>
   );
 
-  if (inline) return content;
-  return <div className={styles.overlay} onClick={e => e.target === e.currentTarget && onClose()}>{content}</div>;
+  const cropModal = cropSrc && (
+    <PhotoCropModal
+      imageUrl={cropSrc}
+      onConfirm={handleCropConfirm}
+      onCancel={() => setCropSrc(null)}
+    />
+  );
+
+  if (inline) return <>{content}{cropModal}</>;
+  return <div className={styles.overlay} onClick={e => e.target === e.currentTarget && onClose()}>{content}{cropModal}</div>;
 }

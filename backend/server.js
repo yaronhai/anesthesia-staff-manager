@@ -11,7 +11,7 @@ const { query, pool, initializeSchema, ensureSiteAllowedJobsTable, runMigrations
 const app = express();
 app.disable('etag');
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 const FRONTEND_DIST = require('path').join(__dirname, '../frontend/dist');
 if (require('fs').existsSync(FRONTEND_DIST)) {
@@ -397,7 +397,7 @@ const WORKER_SELECT = `
          w.job_id, j.name AS job,
          w.employment_type_id, e.name AS employment_type,
          w.phone, w.email, w.personal_email, w.birth_date, w.notes,
-         w.id_number, w.classification, w.can_submit_requests,
+         w.id_number, w.classification, w.can_submit_requests, w.photo_url,
          COALESCE((SELECT BOOL_OR(wb2.is_active) FROM worker_branches wb2 WHERE wb2.worker_id = w.id), TRUE) AS is_active,
          w.primary_branch_id, pb.name AS primary_branch_name,
          w.created_at,
@@ -718,7 +718,9 @@ app.put('/api/workers/:id', requireAdmin, async (req, res) => {
       }
     }
 
-    if (req.user.role_level !== undefined) {
+    const isSelfEdit = req.user.worker_id && parseInt(req.user.worker_id) === parseInt(req.params.id);
+
+    if (!isSelfEdit && req.user.role_level !== undefined) {
       const targetLevel = await getWorkerRoleLevel(req.params.id);
       if (req.user.role_level >= targetLevel) {
         return res.status(403).json({ error: 'אין הרשאה לערוך משתמש ברמה שווה או גבוהה' });
@@ -729,7 +731,13 @@ app.put('/api/workers/:id', requireAdmin, async (req, res) => {
             phone, email, personal_email, birth_date, notes, id_number, classification, primary_branch_id, can_submit_requests } = req.body;
     if (!email?.trim()) return res.status(400).json({ error: 'אימייל ארגוני הוא שדה חובה' });
 
-    const cls = classification || 'user';
+    let cls;
+    if (isSelfEdit) {
+      const existing = await query('SELECT classification FROM workers WHERE id=$1', [req.params.id]);
+      cls = existing.rows[0]?.classification || 'user';
+    } else {
+      cls = classification || 'user';
+    }
     const idNum = id_number?.trim() || null;
     const primaryBranchId = primary_branch_id || null;
     const canSubmit = can_submit_requests !== undefined ? Boolean(can_submit_requests) : true;
@@ -4372,6 +4380,7 @@ const photoUpload = multer({
   },
 });
 
+
 app.get('/api/profile', requireAuth, async (req, res) => {
   try {
     const workerId = req.user.worker_id;
@@ -4444,26 +4453,61 @@ app.post('/api/profile/change-request', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/profile/photo', requireAuth, photoUpload.single('photo'), async (req, res) => {
+app.post('/api/workers/:id/photo', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const workerId = parseInt(req.params.id);
+    const { photo_data } = req.body;
+    if (!photo_data || !photo_data.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'נתוני תמונה לא תקינים' });
+    }
+    if (photo_data.length > 8 * 1024 * 1024) {
+      return res.status(400).json({ error: 'התמונה גדולה מדי (מקסימום 6MB)' });
+    }
+    await query('UPDATE workers SET photo_url=$1 WHERE id=$2', [photo_data, workerId]);
+    res.json({ photo_url: photo_data });
+  } catch (e) {
+    console.error('Admin photo upload error:', e);
+    res.status(500).json({ error: 'שגיאה בהעלאת תמונה' });
+  }
+});
+
+app.delete('/api/workers/:id/photo', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const workerId = parseInt(req.params.id);
+    await query('UPDATE workers SET photo_url=NULL WHERE id=$1', [workerId]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'שגיאה במחיקת תמונה' });
+  }
+});
+
+app.post('/api/profile/photo', requireAuth, async (req, res) => {
   try {
     const workerId = req.user.worker_id;
     if (!workerId) return res.status(400).json({ error: 'משתמש לא מקושר לעובד' });
-    if (!req.file) return res.status(400).json({ error: 'קובץ תמונה נדרש' });
-
-    // Remove old photo file if exists
-    const oldRes = await query('SELECT photo_url FROM workers WHERE id=$1', [workerId]);
-    const oldUrl = oldRes.rows[0]?.photo_url;
-    if (oldUrl) {
-      const oldPath = path.join(__dirname, oldUrl.replace(/^\//, ''));
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    const { photo_data } = req.body;
+    if (!photo_data || !photo_data.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'נתוני תמונה לא תקינים' });
     }
-
-    const photoUrl = `/uploads/profile-photos/${req.file.filename}`;
-    await query('UPDATE workers SET photo_url=$1 WHERE id=$2', [photoUrl, workerId]);
-    res.json({ photo_url: photoUrl });
+    if (photo_data.length > 8 * 1024 * 1024) {
+      return res.status(400).json({ error: 'התמונה גדולה מדי (מקסימום 6MB)' });
+    }
+    await query('UPDATE workers SET photo_url=$1 WHERE id=$2', [photo_data, workerId]);
+    res.json({ photo_url: photo_data });
   } catch (e) {
     console.error('Photo upload error:', e);
     res.status(500).json({ error: 'שגיאה בהעלאת תמונה' });
+  }
+});
+
+app.delete('/api/profile/photo', requireAuth, async (req, res) => {
+  try {
+    const workerId = req.user.worker_id;
+    if (!workerId) return res.status(400).json({ error: 'משתמש לא מקושר לעובד' });
+    await query('UPDATE workers SET photo_url=NULL WHERE id=$1', [workerId]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'שגיאה במחיקת תמונה' });
   }
 });
 

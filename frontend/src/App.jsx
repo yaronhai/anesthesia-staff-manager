@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+const UPLOADS_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
+const resolvePhotoUrl = url => !url ? null : url.startsWith('data:') ? url : UPLOADS_BASE + url;
 import WorkerList from './components/WorkerList';
 import WorkerForm from './components/WorkerForm';
 import AdminPanel from './components/AdminPanel';
@@ -495,7 +497,7 @@ export default function App() {
           <div className="header-user">
             {currentUser?.worker_id && (
               profilePhotoUrl
-                ? <img src={profilePhotoUrl} alt="" className={appStyles.headerAvatar} />
+                ? <img src={resolvePhotoUrl(profilePhotoUrl)} alt="" className={appStyles.headerAvatar} />
                 : <div className={appStyles.headerAvatarPlaceholder}>{(currentUser.displayName || currentUser.username || '?')[0].toUpperCase()}</div>
             )}
             <div className={appStyles.headerUserInfo}>
@@ -509,8 +511,10 @@ export default function App() {
                 </span>
               )}
             </div>
-            <button onClick={() => setShowChangePassword(true)} className={`btn-link ${appStyles.changePwBtn}`}>שינוי סיסמא</button>
-            <button onClick={handleLogout} className="btn-logout">יציאה</button>
+            <div className={appStyles.logoutGroup}>
+              <button onClick={handleLogout} className="btn-logout">יציאה</button>
+              <button onClick={() => setShowChangePassword(true)} className={`btn-link ${appStyles.changePwBtn}`}>שינוי סיסמא</button>
+            </div>
           </div>
         </div>
       </header>
@@ -532,7 +536,7 @@ export default function App() {
             ניהול עובדים
           </button>
         )}
-        {currentUser?.worker_id && (!isSuperAdmin || selectedBranchId) && (
+        {currentUser?.worker_id && !isAdmin && (!isSuperAdmin || selectedBranchId) && (
           <button
             className={`tab-btn${activeTab === 'profile' ? ' active' : ''}`}
             onClick={() => setActiveTab('profile')}
@@ -693,6 +697,9 @@ export default function App() {
               branches={branches}
               roles={roles}
               currentUser={currentUser}
+              onPhotoUpdate={(url) => {
+                if (editing?.id === currentUser?.worker_id) setProfilePhotoUrl(url);
+              }}
             />
           )}
           <WorkerList
@@ -753,7 +760,7 @@ export default function App() {
         <MonthlyReport token={authToken} config={config} isAdmin={isAdmin} branchId={selectedBranchId} />
       )}
 
-      {activeTab === 'profile' && currentUser?.worker_id && (
+      {activeTab === 'profile' && currentUser?.worker_id && !isAdmin && (
         <UserProfile
           authToken={authToken}
           currentUser={currentUser}

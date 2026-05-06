@@ -35,7 +35,13 @@
   align-items: flex-end;
 }
 .headerUserBranch { font-size: 0.7rem; opacity: 0.75; margin-top: 1px; }
-.changePwBtn { font-size: 0.75rem; margin-left: 0.25rem; }
+.logoutGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.changePwBtn { font-size: 0.72rem; opacity: 0.85; }
 .messagesTabBtn { position: relative; }
 .unreadBadge {
   position: absolute;
@@ -58,17 +64,17 @@
 .reportBtn { margin-right: 1rem; white-space: nowrap; background: #e2e8f0; color: #334155; border-color: #b0bac7; }
 .searchInput { min-width: 220px; }
 .headerAvatar {
-  width: 38px;
-  height: 38px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid rgba(255,255,255,0.6);
+  border: 2.5px solid rgba(255,255,255,0.7);
   flex-shrink: 0;
 }
 
 .headerAvatarPlaceholder {
-  width: 38px;
-  height: 38px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: rgba(255,255,255,0.25);
   color: #fff;
@@ -76,9 +82,9 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.2rem;
   flex-shrink: 0;
-  border: 2px solid rgba(255,255,255,0.4);
+  border: 2.5px solid rgba(255,255,255,0.4);
 }
 
 .loginHeaderRow {

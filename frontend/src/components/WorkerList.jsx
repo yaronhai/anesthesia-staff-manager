@@ -1,5 +1,8 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/WorkerList.module.scss';
+import PhotoCropModal from './PhotoCropModal';
+const UPLOADS_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
+const resolvePhotoUrl = url => !url ? null : url.startsWith('data:') ? url : UPLOADS_BASE + url;
 
 function WorkerAuthButton({ worker, authToken, config }) {
   const [showModal, setShowModal] = useState(false);
@@ -191,6 +194,40 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
     : (worker.classification === 'admin' ? 'מנהל' : worker.classification === 'superadmin' ? 'מנהל ראשי' : 'משתמש');
   const isAdmin = worker.classification === 'admin' || worker.classification === 'superadmin';
 
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [cropSrc, setCropSrc] = useState(null);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const fetchedId = useRef(null);
+
+  useEffect(() => {
+    if (fetchedId.current === worker.id) return;
+    fetchedId.current = worker.id;
+    fetch(`/api/workers/${worker.id}`, { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.photo_url) setPhotoUrl(d.photo_url); });
+  }, [worker.id, authToken]);
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    setCropSrc(URL.createObjectURL(file));
+  }
+
+  async function handleCropConfirm(base64) {
+    setCropSrc(null);
+    const res = await fetch(`/api/workers/${worker.id}/photo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ photo_data: base64 }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setPhotoUrl(data.photo_url);
+    }
+  }
+
   function formatDate(val) {
     if (!val) return '—';
     return new Date(val).toLocaleDateString('he-IL');
@@ -203,6 +240,44 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
           <h2>{worker.title} {worker.first_name} {worker.family_name}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
+        <div className={styles.detailPhotoWrap}>
+          {photoUrl
+            ? <img src={resolvePhotoUrl(photoUrl)} alt="" className={styles.detailPhoto} />
+            : <div className={styles.detailPhotoPlaceholder}>{(worker.first_name?.[0] || '?').toUpperCase()}</div>
+          }
+          {(isSuperAdmin || worker.is_primary_branch !== false) && (
+            <>
+              <div className={styles.photoActions}>
+                <button type="button" className={styles.changePhotoLink} onClick={() => fileInputRef.current?.click()}>
+                  החלף תמונה
+                </button>
+                <button type="button" className={styles.cameraBtn} onClick={() => cameraInputRef.current?.click()} title="צלם תמונה">📷</button>
+                {photoUrl && (
+                  <button type="button" className={styles.changePhotoLink} onClick={() => setCropSrc(photoUrl)}>
+                    ערוך תמונה
+                  </button>
+                )}
+                {photoUrl && (
+                  <button type="button" className={styles.deletePhotoLink} onClick={async () => {
+                    if (!window.confirm('למחוק את תמונת הפרופיל?')) return;
+                    const res = await fetch(`/api/workers/${worker.id}/photo`, {
+                      method: 'DELETE',
+                      headers: { Authorization: `Bearer ${authToken}` },
+                    });
+                    if (res.ok) setPhotoUrl(null);
+                  }}>
+                    מחק תמונה
+                  </button>
+                )}
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleFileSelect} />
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="user" hidden onChange={handleFileSelect} />
+            </>
+          )}
+        </div>
+        {cropSrc && (
+          <PhotoCropModal imageUrl={cropSrc} onConfirm={handleCropConfirm} onCancel={() => setCropSrc(null)} />
+        )}
         <div className="detail-grid">
           <div className="detail-row">
             <span className="detail-label">תעודת זהות</span>

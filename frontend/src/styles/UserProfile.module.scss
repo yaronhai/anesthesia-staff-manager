@@ -105,6 +105,30 @@
   &:disabled { opacity: 0.6; cursor: default; }
 }
 
+.photoLinks {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.photoLinkBtn {
+  font-size: 0.74rem;
+  color: #2563eb;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  &:hover { color: #1d4ed8; }
+  &:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
+}
+
+.photoLinkDelete {
+  color: #b91c1c;
+  &:hover { color: #991b1b; }
+}
+
 .displayName {
   font-weight: 700;
   font-size: 1.1rem;
