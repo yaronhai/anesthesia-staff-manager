@@ -197,3 +197,44 @@
   background: var(--sd-badge-bg);
   color: var(--sd-color);
 }
+
+// Permanent shifts button (appears near legend)
+.permanentBtn {
+  padding: 0.3rem 0.7rem;
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover { background: #e0f2fe; }
+}
+
+// Legend + button wrapper (user view)
+.legendWithBtn {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+// Ghost calendar dot (from permanent template, no manual override)
+.ghostDot {
+  opacity: 0.45;
+  border-style: dashed !important;
+}
+
+// Ghost toggle in DayEditor (permanent default, no manual entry)
+.ghostToggle {
+  opacity: 0.5;
+  border-style: dashed !important;
+}
+
+// Ghost legend label
+.ghostLegend {
+  opacity: 0.7;
+  font-style: italic;
+}

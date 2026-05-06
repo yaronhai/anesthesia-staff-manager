@@ -44,6 +44,8 @@ export default function EventsManagement({ workers, config, authToken, currentUs
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
+  useEffect(() => { setSelectedEvent(null); }, [selectedBranchId]);
+
   useEffect(() => {
     if (selectedEvent) fetchEventDetail(selectedEvent.id);
     else setEventDetail(null);

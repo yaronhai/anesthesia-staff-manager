@@ -89,6 +89,25 @@ async function initializeSchema() {
         created_at TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS permanent_shift_templates (
+        id SERIAL PRIMARY KEY,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        start_date TEXT NOT NULL,
+        end_date TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(worker_id, branch_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS permanent_shift_entries (
+        id SERIAL PRIMARY KEY,
+        template_id INTEGER NOT NULL REFERENCES permanent_shift_templates(id) ON DELETE CASCADE,
+        day_of_week INTEGER NOT NULL CHECK(day_of_week BETWEEN 0 AND 6),
+        shift_type TEXT NOT NULL,
+        preference_type TEXT NOT NULL CHECK(preference_type IN ('can','prefer','cannot')),
+        UNIQUE(template_id, day_of_week, shift_type)
+      );
+
       CREATE TABLE IF NOT EXISTS site_groups (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,

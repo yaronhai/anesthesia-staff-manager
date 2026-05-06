@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import styles from '../styles/ShiftRequests.module.scss';
+import PermanentShiftsModal from './PermanentShiftsModal';
 
 const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
                 'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -22,7 +23,7 @@ function buildCalendarWeeks(year, month) {
 }
 
 // ── Day cell in user calendar ────────────────────────────────────────────────
-function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations, specialDays }) {
+function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations, specialDays, permanentDayEntries }) {
   const isSaturday = dayOfWeek === 6;
   const isFriday = dayOfWeek === 5;
   const isVacation = vacations?.some(v =>
@@ -44,9 +45,10 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
       <div className="cal-indicators">
         {shifts.map(s => {
           const r = dayRequests.find(r => r.shift_type === s.key);
-          return r
-            ? <span key={s.key} className={`cal-dot pref-${r.preference_type}`}>{s.label_short}</span>
-            : null;
+          if (r) return <span key={s.key} className={`cal-dot pref-${r.preference_type}`}>{s.label_short}</span>;
+          const permPref = permanentDayEntries?.[s.key];
+          if (permPref) return <span key={s.key} className={`cal-dot pref-${permPref} ${styles.ghostDot}`}>{s.label_short}</span>;
+          return null;
         })}
       </div>
     </div>
@@ -54,7 +56,7 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
 }
 
 // ── Day editor modal ─────────────────────────────────────────────────────────
-function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs, branchId }) {
+function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs, branchId, permanentDayEntries }) {
   const dow = DAYS_HE[new Date(dateStr).getDay()];
   const [d, m, y] = [
     parseInt(dateStr.split('-')[2]),
@@ -108,18 +110,23 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
           <tbody>
             {shifts.map(s => {
               const req = dayRequests.find(r => r.shift_type === s.key);
+              const permPref = permanentDayEntries?.[s.key];
               return (
                 <tr key={s.key}>
                   <td className="pref-shift-label">{s.label_he}</td>
-                  {prefs.map(p => (
-                    <td key={p.key} className="pref-btn-cell">
-                      <button
-                        className={`pref-toggle pref-${p.key}${req?.preference_type === p.key ? ' active' : ''}`}
-                        onClick={() => setPref(s.key, p.key)}
-                        title={`${s.label_he} — ${p.label_he}`}
-                      />
-                    </td>
-                  ))}
+                  {prefs.map(p => {
+                    const isActive = req?.preference_type === p.key;
+                    const isGhost = !req && permPref === p.key;
+                    return (
+                      <td key={p.key} className="pref-btn-cell">
+                        <button
+                          className={`pref-toggle pref-${p.key}${isActive ? ' active' : ''}${isGhost ? ` ${styles.ghostToggle}` : ''}`}
+                          onClick={() => setPref(s.key, p.key)}
+                          title={`${s.label_he} — ${p.label_he}${isGhost ? ' (ברירת מחדל)' : ''}`}
+                        />
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
@@ -137,6 +144,12 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
               {p.label_he}
             </span>
           ))}
+          {permanentDayEntries && Object.keys(permanentDayEntries).length > 0 && (
+            <span className={`legend-item ${styles.ghostLegend}`}>
+              <span className={`pref-toggle pref-can small ${styles.ghostToggle}`} />
+              ברירת מחדל
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -144,11 +157,24 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
 }
 
 // ── User calendar view ───────────────────────────────────────────────────────
-function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit, specialDays }) {
+function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit, specialDays, permanentTemplate, onPermanentOpen }) {
   const [editingDay, setEditingDay] = useState(null); // { day, dateStr }
   const [blockedMsg, setBlockedMsg] = useState(false);
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
+
+  function getPermanentDayEntries(dateStr) {
+    if (!permanentTemplate) return null;
+    const { start_date, end_date, entries } = permanentTemplate;
+    if (dateStr < start_date) return null;
+    if (end_date && dateStr > end_date) return null;
+    const dow = new Date(dateStr).getDay();
+    const dayEntries = (entries || []).filter(e => e.day_of_week === dow);
+    if (!dayEntries.length) return null;
+    const map = {};
+    dayEntries.forEach(e => { map[e.shift_type] = e.preference_type; });
+    return map;
+  }
   const weeks = buildCalendarWeeks(year, month);
   const todayStr = toDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
 
@@ -195,6 +221,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
                       shifts={shifts}
                       vacations={vacations}
                       specialDays={specialDays}
+                      permanentDayEntries={getPermanentDayEntries(toDateStr(year, month, day))}
                     />
                   )}
                 </div>
@@ -228,6 +255,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
           shifts={shifts}
           prefs={prefs}
           branchId={branchId}
+          permanentDayEntries={getPermanentDayEntries(editingDay.dateStr)}
         />
       )}
     </>
@@ -599,6 +627,9 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const [canSubmit, setCanSubmit] = useState(null); // null = טרם נטען
   const [workerFilter, setWorkerFilter] = useState('all'); // 'allowed' | 'blocked' | 'all'
   const [jobFilter, setJobFilter] = useState(''); // '' = כל התפקידים
+  const [permanentTemplate, setPermanentTemplate] = useState(null);
+  const [showPermanentModal, setShowPermanentModal] = useState(false);
+  const [permanentModalWorkerId, setPermanentModalWorkerId] = useState(null);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const shifts = config.shift_types || [];
@@ -651,11 +682,25 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
     if (res.ok) setVacations(await res.json());
   }, [token]);
 
+  const fetchPermanentShifts = useCallback(async (workerIdOverride) => {
+    if (isAdmin && !workerIdOverride) return;
+    const branchQ = effectiveBranchId ? `&branch_id=${effectiveBranchId}` : '';
+    const workerQ = isAdmin ? `?worker_id=${workerIdOverride}${branchQ}` : branchQ ? `?${branchQ.slice(1)}` : '';
+    const res = await fetch(`/api/permanent-shifts${workerQ}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setPermanentTemplate(data.template);
+    }
+  }, [isAdmin, token, effectiveBranchId]);
+
   useEffect(() => {
     fetchRequests();
     fetchVacations();
     if (isAdmin) { fetchWorkers(); }
-  }, [fetchRequests, fetchWorkers, fetchVacations, isAdmin]);
+    else { fetchPermanentShifts(); }
+  }, [fetchRequests, fetchWorkers, fetchVacations, isAdmin, fetchPermanentShifts]);
 
   function prevMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
   function nextMonth() { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); }
@@ -728,6 +773,12 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
               <span className={styles.legendItem}>
                 <span className={styles.legendSwatch} style={{ '--swatch-bg': '#e5e7eb', '--swatch-border': '1px solid #9ca3af' }}></span>שישי
               </span>
+              <button
+                className={styles.permanentBtn}
+                onClick={() => { setPermanentModalWorkerId(null); setShowPermanentModal(true); }}
+              >
+                📌 משמרות קבועות
+              </button>
             </div>
           </div>
           <div className="month-year-nav">
@@ -739,6 +790,17 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           </div>
         </div>
         <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} specialDays={config.special_days || []} />
+      {showPermanentModal && (
+        <PermanentShiftsModal
+          token={token}
+          config={config}
+          isAdmin={true}
+          workers={filteredWorkers}
+          viewDate={viewDate}
+          branchId={effectiveBranchId}
+          onClose={() => { setShowPermanentModal(false); fetchRequests(); }}
+        />
+      )}
       </div>
     );
   }
@@ -753,6 +815,9 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
           <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
         </div>
+        <button className={styles.permanentBtn} onClick={() => setShowPermanentModal(true)}>
+          📌 משמרות קבועות{permanentTemplate ? ' ✓' : ''}
+        </button>
         {workerBranches.length > 1 && (
           <select
             className={styles.branchSelect}
@@ -768,7 +833,30 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           <span className={styles.branchLabel}>{workerBranches[0]?.branch_name}</span>
         )}
       </div>
-      <UserCalendar requests={requests} viewDate={viewDate} token={token} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} vacations={vacations} canSubmit={canSubmit} specialDays={config.special_days || []} />
+      <UserCalendar
+        requests={requests}
+        viewDate={viewDate}
+        token={token}
+        onRefresh={fetchRequests}
+        shifts={shifts}
+        prefs={prefs}
+        branchId={effectiveBranchId}
+        vacations={vacations}
+        canSubmit={canSubmit}
+        specialDays={config.special_days || []}
+        permanentTemplate={permanentTemplate}
+      />
+      {showPermanentModal && (
+        <PermanentShiftsModal
+          token={token}
+          config={config}
+          isAdmin={false}
+          workers={[]}
+          viewDate={viewDate}
+          branchId={effectiveBranchId}
+          onClose={() => { setShowPermanentModal(false); fetchPermanentShifts(); fetchRequests(); }}
+        />
+      )}
     </div>
   );
 }

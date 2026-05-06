@@ -1118,6 +1118,159 @@ app.delete('/api/shift-requests/:id', requireAuth, async (req, res) => {
   }
 });
 
+// ── Permanent Shift Templates ────────────────────────────────────────────────
+
+app.get('/api/permanent-shifts', requireAuth, async (req, res) => {
+  try {
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role);
+    let workerId;
+    if (isAdmin) {
+      workerId = req.query.worker_id ? parseInt(req.query.worker_id) : null;
+      if (!workerId) return res.json({ template: null });
+    } else {
+      workerId = req.user.worker_id;
+      if (!workerId) return res.json({ template: null });
+    }
+    const branchId = req.query.branch_id ? parseInt(req.query.branch_id) : null;
+    const tplRes = await query(
+      `SELECT * FROM permanent_shift_templates WHERE worker_id = $1 AND (branch_id = $2 OR ($2 IS NULL AND branch_id IS NULL))`,
+      [workerId, branchId]
+    );
+    if (tplRes.rows.length === 0) return res.json({ template: null });
+    const tpl = tplRes.rows[0];
+    const entriesRes = await query(
+      'SELECT day_of_week, shift_type, preference_type FROM permanent_shift_entries WHERE template_id = $1',
+      [tpl.id]
+    );
+    res.json({ template: { ...tpl, entries: entriesRes.rows } });
+  } catch (err) {
+    console.error('GET permanent-shifts error:', err);
+    res.status(500).json({ error: 'שגיאה בטעינת משמרות קבועות' });
+  }
+});
+
+app.post('/api/permanent-shifts', requireAuth, async (req, res) => {
+  try {
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role);
+    let workerId;
+    if (isAdmin && req.body.worker_id) {
+      workerId = parseInt(req.body.worker_id);
+    } else {
+      workerId = req.user.worker_id;
+    }
+    if (!workerId) return res.status(400).json({ error: 'worker_id חסר' });
+
+    const { start_date, end_date, entries = [], branch_id } = req.body;
+    if (!start_date) return res.status(400).json({ error: 'start_date חסר' });
+
+    const branchId = branch_id ? parseInt(branch_id) : null;
+
+    const upsertRes = await query(
+      `INSERT INTO permanent_shift_templates (worker_id, branch_id, start_date, end_date)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (worker_id, branch_id) DO UPDATE
+         SET start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date
+       RETURNING *`,
+      [workerId, branchId, start_date, end_date || null]
+    );
+    const tpl = upsertRes.rows[0];
+
+    await query('DELETE FROM permanent_shift_entries WHERE template_id = $1', [tpl.id]);
+    for (const e of entries) {
+      await query(
+        `INSERT INTO permanent_shift_entries (template_id, day_of_week, shift_type, preference_type)
+         VALUES ($1, $2, $3, $4)`,
+        [tpl.id, e.day_of_week, e.shift_type, e.preference_type]
+      );
+    }
+    const savedEntries = await query(
+      'SELECT day_of_week, shift_type, preference_type FROM permanent_shift_entries WHERE template_id = $1',
+      [tpl.id]
+    );
+    res.json({ template: { ...tpl, entries: savedEntries.rows } });
+  } catch (err) {
+    console.error('POST permanent-shifts error:', err);
+    res.status(500).json({ error: 'שגיאה בשמירת משמרות קבועות' });
+  }
+});
+
+app.delete('/api/permanent-shifts/:worker_id', requireAuth, async (req, res) => {
+  try {
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role);
+    const workerId = parseInt(req.params.worker_id);
+    if (!isAdmin && req.user.worker_id !== workerId) {
+      return res.status(403).json({ error: 'אין הרשאה' });
+    }
+    const branchId = req.query.branch_id ? parseInt(req.query.branch_id) : null;
+    await query(
+      `DELETE FROM permanent_shift_templates WHERE worker_id = $1 AND (branch_id = $2 OR ($2 IS NULL AND branch_id IS NULL))`,
+      [workerId, branchId]
+    );
+    res.status(204).send();
+  } catch (err) {
+    console.error('DELETE permanent-shifts error:', err);
+    res.status(500).json({ error: 'שגיאה במחיקת משמרות קבועות' });
+  }
+});
+
+app.post('/api/permanent-shifts/apply', requireAuth, async (req, res) => {
+  try {
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role);
+    let workerId;
+    if (isAdmin && req.body.worker_id) {
+      workerId = parseInt(req.body.worker_id);
+    } else {
+      workerId = req.user.worker_id;
+    }
+    if (!workerId) return res.status(400).json({ error: 'worker_id חסר' });
+
+    const { year, month, branch_id } = req.body;
+    if (!year || !month) return res.status(400).json({ error: 'year/month חסרים' });
+
+    const branchId = branch_id ? parseInt(branch_id) : null;
+
+    const userRes = await query('SELECT id FROM users WHERE worker_id = $1', [workerId]);
+    if (!userRes.rows.length) return res.status(404).json({ error: 'משתמש לא נמצא' });
+    const userId = userRes.rows[0].id;
+
+    const tplRes = await query(
+      `SELECT pst.*, json_agg(json_build_object('day_of_week', pse.day_of_week, 'shift_type', pse.shift_type, 'preference_type', pse.preference_type)) AS entries
+       FROM permanent_shift_templates pst
+       LEFT JOIN permanent_shift_entries pse ON pse.template_id = pst.id
+       WHERE pst.worker_id = $1 AND (pst.branch_id = $2 OR ($2 IS NULL AND pst.branch_id IS NULL))
+       GROUP BY pst.id`,
+      [workerId, branchId]
+    );
+    if (!tplRes.rows.length) return res.json({ created: 0 });
+
+    const tpl = tplRes.rows[0];
+    const entries = (tplRes.rows[0].entries || []).filter(e => e && e.day_of_week != null);
+
+    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+    let created = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (dateStr < tpl.start_date) continue;
+      if (tpl.end_date && dateStr > tpl.end_date) continue;
+      const dow = new Date(dateStr).getDay();
+      const dayEntries = entries.filter(e => e.day_of_week === dow);
+      for (const e of dayEntries) {
+        const result = await query(
+          `INSERT INTO shift_requests (user_id, date, shift_type, preference_type, branch_id)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (user_id, date, shift_type, branch_id) DO NOTHING`,
+          [userId, dateStr, e.shift_type, e.preference_type, branchId]
+        );
+        if (result.rowCount > 0) created++;
+      }
+    }
+    res.json({ created });
+  } catch (err) {
+    console.error('POST permanent-shifts/apply error:', err);
+    res.status(500).json({ error: 'שגיאה במילוי בקשות' });
+  }
+});
+
 // ── Vacation Requests ───────────────────────────────────────────────────────
 
 app.get('/api/vacation-requests', requireAuth, async (req, res) => {
@@ -3739,8 +3892,8 @@ app.post('/api/events', requireAdmin, async (req, res) => {
     const { name, event_type_id, description, sessions } = req.body;
     const branchId = getEffectiveBranchId(req);
     const tier = req.user.role_tier ?? req.user.role;
-    const effectiveBranchId = (tier === 'superadmin' && req.body.branch_id === null)
-      ? null
+    const effectiveBranchId = tier === 'superadmin' && req.body.branch_id !== undefined
+      ? req.body.branch_id
       : branchId;
 
     const eventRes = await query(
@@ -3788,10 +3941,10 @@ app.post('/api/events', requireAdmin, async (req, res) => {
 
 app.put('/api/events/:id', requireAdmin, async (req, res) => {
   try {
-    const { name, event_type_id, description } = req.body;
+    const { name, event_type_id, description, branch_id } = req.body;
     const result = await query(
-      'UPDATE events SET name=$1, event_type_id=$2, description=$3 WHERE id=$4 RETURNING *',
-      [name, event_type_id || null, description || null, req.params.id]
+      'UPDATE events SET name=$1, event_type_id=$2, description=$3, branch_id=$4 WHERE id=$5 RETURNING *',
+      [name, event_type_id || null, description || null, branch_id ?? null, req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'לא נמצא' });
     res.json(result.rows[0]);
