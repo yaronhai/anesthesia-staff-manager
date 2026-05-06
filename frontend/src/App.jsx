@@ -13,6 +13,8 @@ import SpecialDaysCalendar from './components/SpecialDaysCalendar';
 import Messaging from './components/Messaging';
 import EventsManagement from './components/EventsManagement';
 import MonthlyReport from './components/MonthlyReport';
+import UserProfile from './components/UserProfile';
+import ProfileChangeRequests from './components/ProfileChangeRequests';
 import logoAssuta from './assets/logo-assuta.png';
 import './styles/App.scss';
 import appStyles from './styles/App.module.scss';
@@ -42,6 +44,8 @@ export default function App() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [roles, setRoles] = useState([]);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [pendingProfileCount, setPendingProfileCount] = useState(0);
 
   const isSuperAdmin = (currentUser?.role_tier ?? currentUser?.role) === 'superadmin';
   const isAdmin = ['admin', 'superadmin'].includes(currentUser?.role_tier ?? currentUser?.role);
@@ -82,6 +86,13 @@ export default function App() {
   }, [currentUser, authToken]);
 
   useEffect(() => {
+    if (!currentUser || !isAdmin) return;
+    fetchPendingProfileCount();
+    const interval = setInterval(fetchPendingProfileCount, 30000);
+    return () => clearInterval(interval);
+  }, [currentUser, authToken, isAdmin]);
+
+  useEffect(() => {
     if (!currentUser || !isSuperAdmin) return;
     if (selectedBranchId) {
       fetchWorkers();
@@ -100,6 +111,17 @@ export default function App() {
       if (res.ok) {
         const convs = await res.json();
         setUnreadMessages(convs.reduce((sum, c) => sum + (parseInt(c.unread_count) || 0), 0));
+      }
+    } catch {}
+  }
+
+  async function fetchPendingProfileCount() {
+    if (!authToken) return;
+    try {
+      const res = await fetch('/api/profile/change-requests/pending-count', { headers: authHeaders() });
+      if (res.ok) {
+        const d = await res.json();
+        setPendingProfileCount(d.count || 0);
       }
     } catch {}
   }
@@ -473,6 +495,9 @@ export default function App() {
                 </span>
               )}
             </div>
+            {currentUser?.worker_id && (
+              <button onClick={() => setShowProfile(true)} className={`btn-link ${appStyles.changePwBtn}`}>הפרופיל שלי</button>
+            )}
             <button onClick={() => setShowChangePassword(true)} className={`btn-link ${appStyles.changePwBtn}`}>שינוי סיסמא</button>
             <button onClick={handleLogout} className="btn-logout">יציאה</button>
           </div>
@@ -544,6 +569,17 @@ export default function App() {
             דוח חודשי
           </button>
         )}
+        {isAdmin && selectedBranchId && (
+          <button
+            className={`tab-btn${activeTab === 'profile-requests' ? ' active' : ''} ${appStyles.messagesTabBtn}`}
+            onClick={() => setActiveTab('profile-requests')}
+          >
+            עדכון פרופיל
+            {pendingProfileCount > 0 && activeTab !== 'profile-requests' && (
+              <span className={appStyles.unreadBadge}>{pendingProfileCount}</span>
+            )}
+          </button>
+        )}
         {selectedBranchId && (
           <button
             className={`tab-btn${activeTab === 'messages' ? ' active' : ''} ${appStyles.messagesTabBtn}`}
@@ -556,6 +592,16 @@ export default function App() {
           </button>
         )}
       </div>
+
+      {showProfile && currentUser?.worker_id && (
+        <UserProfile
+          authToken={authToken}
+          currentUser={currentUser}
+          config={config}
+          onClose={() => setShowProfile(false)}
+          onPhotoUpdate={() => {}}
+        />
+      )}
 
       {showChangePassword && (
         <div className="modal-overlay">
@@ -696,6 +742,13 @@ export default function App() {
 
       {activeTab === 'report' && isAdmin && selectedBranchId && (
         <MonthlyReport token={authToken} config={config} isAdmin={isAdmin} branchId={selectedBranchId} />
+      )}
+
+      {activeTab === 'profile-requests' && isAdmin && selectedBranchId && (
+        <ProfileChangeRequests
+          authToken={authToken}
+          onDecision={fetchPendingProfileCount}
+        />
       )}
     </div>
   );

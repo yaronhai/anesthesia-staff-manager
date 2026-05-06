@@ -328,6 +328,26 @@ async function initializeSchema() {
         UNIQUE(session_id, worker_id)
       );
 
+      CREATE TABLE IF NOT EXISTS profile_change_requests (
+        id SERIAL PRIMARY KEY,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        requested_by_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+        honorific_id INTEGER REFERENCES honorifics(id) ON DELETE SET NULL,
+        first_name TEXT,
+        family_name TEXT,
+        phone TEXT,
+        personal_email TEXT,
+        birth_date TEXT,
+        photo_url TEXT,
+        admin_notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        decided_at TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_profile_change_requests_worker ON profile_change_requests(worker_id);
+      CREATE INDEX IF NOT EXISTS idx_profile_change_requests_status ON profile_change_requests(status);
+
       CREATE INDEX IF NOT EXISTS idx_workers_id_number ON workers(id_number);
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_shift_requests_user_id ON shift_requests(user_id);
@@ -739,7 +759,7 @@ async function runMigrations() {
 
     // Add complexity_level to activity_types for overqualification scoring
     await query(`ALTER TABLE activity_types ADD COLUMN IF NOT EXISTS complexity_level INTEGER NOT NULL DEFAULT 1`);
-
+    await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS photo_url TEXT`);
 
     console.log('✓ Migrations complete');
   } catch (error) {

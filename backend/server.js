@@ -4345,6 +4345,244 @@ app.get('/api/events/:id/predict', requireAuth, async (req, res) => {
   }
 });
 
+// ── Profile ───────────────────────────────────────────────────────────────────
+
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const uploadsDir = path.join(__dirname, 'uploads', 'profile-photos');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+const photoStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `worker_${req.user.worker_id}_${Date.now()}${ext}`);
+  },
+});
+const photoUpload = multer({
+  storage: photoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
+    cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()));
+  },
+});
+
+app.get('/api/profile', requireAuth, async (req, res) => {
+  try {
+    const workerId = req.user.worker_id;
+    if (!workerId) return res.status(400).json({ error: 'משתמש לא מקושר לעובד' });
+    const workerRes = await query(`
+      SELECT w.id, w.first_name, w.family_name, w.phone, w.personal_email,
+             w.birth_date, w.honorific_id, w.photo_url, h.name AS honorific_name
+      FROM workers w
+      LEFT JOIN honorifics h ON h.id = w.honorific_id
+      WHERE w.id = $1
+    `, [workerId]);
+    if (!workerRes.rows.length) return res.status(404).json({ error: 'עובד לא נמצא' });
+    const pendingRes = await query(
+      `SELECT id, status, honorific_id, first_name, family_name, phone, personal_email,
+              birth_date, photo_url, created_at
+       FROM profile_change_requests WHERE worker_id = $1 AND status = 'pending' ORDER BY created_at DESC LIMIT 1`,
+      [workerId]
+    );
+    res.json({ worker: workerRes.rows[0], pendingRequest: pendingRes.rows[0] || null });
+  } catch (e) {
+    console.error('Get profile error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת פרופיל' });
+  }
+});
+
+app.post('/api/profile/change-request', requireAuth, async (req, res) => {
+  try {
+    const workerId = req.user.worker_id;
+    if (!workerId) return res.status(400).json({ error: 'משתמש לא מקושר לעובד' });
+
+    const existingRes = await query(
+      'SELECT id FROM profile_change_requests WHERE worker_id=$1 AND status=$2',
+      [workerId, 'pending']
+    );
+    if (existingRes.rows.length) return res.status(409).json({ error: 'יש כבר בקשה ממתינה לאישור' });
+
+    const { honorific_id, first_name, family_name, phone, personal_email, birth_date } = req.body;
+    const r = await query(
+      `INSERT INTO profile_change_requests
+         (worker_id, requested_by_user_id, honorific_id, first_name, family_name, phone, personal_email, birth_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+      [workerId, req.user.id, honorific_id || null, first_name || null, family_name || null,
+       phone || null, personal_email || null, birth_date || null]
+    );
+
+    // Notify admin(s) via in-app message
+    const workerRes = await query('SELECT first_name, family_name, primary_branch_id FROM workers WHERE id=$1', [workerId]);
+    const worker = workerRes.rows[0];
+    const branchId = worker?.primary_branch_id ?? req.user.branch_id;
+    if (branchId) {
+      const adminsRes = await query(
+        "SELECT id FROM users WHERE branch_id=$1 AND role IN ('admin','superadmin')",
+        [branchId]
+      );
+      const senderRes = await query("SELECT id FROM users WHERE username='system_sidur'");
+      const senderId = senderRes.rows[0]?.id ?? req.user.id;
+      const content = `${worker?.first_name ?? ''} ${worker?.family_name ?? ''} שלח/ה בקשה לעדכון פרטים אישיים — ממתין לאישורך.`;
+      for (const admin of adminsRes.rows) {
+        await query(
+          'INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1,$2,$3,$4)',
+          [senderId, admin.id, content, branchId]
+        );
+      }
+    }
+
+    res.status(201).json({ id: r.rows[0].id });
+  } catch (e) {
+    console.error('Profile change request error:', e);
+    res.status(500).json({ error: 'שגיאה בשמירת הבקשה' });
+  }
+});
+
+app.post('/api/profile/photo', requireAuth, photoUpload.single('photo'), async (req, res) => {
+  try {
+    const workerId = req.user.worker_id;
+    if (!workerId) return res.status(400).json({ error: 'משתמש לא מקושר לעובד' });
+    if (!req.file) return res.status(400).json({ error: 'קובץ תמונה נדרש' });
+
+    // Remove old photo file if exists
+    const oldRes = await query('SELECT photo_url FROM workers WHERE id=$1', [workerId]);
+    const oldUrl = oldRes.rows[0]?.photo_url;
+    if (oldUrl) {
+      const oldPath = path.join(__dirname, oldUrl.replace(/^\//, ''));
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const photoUrl = `/uploads/profile-photos/${req.file.filename}`;
+    await query('UPDATE workers SET photo_url=$1 WHERE id=$2', [photoUrl, workerId]);
+    res.json({ photo_url: photoUrl });
+  } catch (e) {
+    console.error('Photo upload error:', e);
+    res.status(500).json({ error: 'שגיאה בהעלאת תמונה' });
+  }
+});
+
+app.get('/api/profile/change-requests', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const { status = 'pending' } = req.query;
+    let sql = `
+      SELECT pcr.id, pcr.worker_id, pcr.status, pcr.honorific_id, pcr.first_name, pcr.family_name,
+             pcr.phone, pcr.personal_email, pcr.birth_date, pcr.photo_url, pcr.admin_notes,
+             pcr.created_at, pcr.decided_at,
+             w.first_name AS current_first_name, w.family_name AS current_family_name,
+             w.phone AS current_phone, w.personal_email AS current_personal_email,
+             w.birth_date AS current_birth_date, w.honorific_id AS current_honorific_id,
+             w.photo_url AS current_photo_url,
+             h.name AS current_honorific_name
+      FROM profile_change_requests pcr
+      JOIN workers w ON w.id = pcr.worker_id
+      LEFT JOIN honorifics h ON h.id = w.honorific_id
+    `;
+    const params = [];
+    const conditions = [];
+    if (branchId) {
+      params.push(branchId);
+      conditions.push(`w.primary_branch_id = $${params.length}`);
+    }
+    if (status && status !== 'all') {
+      params.push(status);
+      conditions.push(`pcr.status = $${params.length}`);
+    }
+    if (conditions.length) sql += ` WHERE ${conditions.join(' AND ')}`;
+    sql += ` ORDER BY pcr.created_at DESC`;
+    const result = await query(sql, params);
+    res.json(result.rows);
+  } catch (e) {
+    console.error('Get profile change requests error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת בקשות' });
+  }
+});
+
+app.put('/api/profile/change-requests/:id/decision', requireAdmin, async (req, res) => {
+  try {
+    const { decision, admin_notes } = req.body;
+    if (!['approved', 'rejected'].includes(decision)) {
+      return res.status(400).json({ error: 'החלטה לא תקינה' });
+    }
+
+    const reqRes = await query('SELECT * FROM profile_change_requests WHERE id=$1', [req.params.id]);
+    if (!reqRes.rows.length) return res.status(404).json({ error: 'בקשה לא נמצאה' });
+    const pcr = reqRes.rows[0];
+    if (pcr.status !== 'pending') return res.status(400).json({ error: 'בקשה כבר טופלה' });
+
+    await query(
+      'UPDATE profile_change_requests SET status=$1, admin_notes=$2, decided_at=NOW() WHERE id=$3',
+      [decision, admin_notes || null, req.params.id]
+    );
+
+    if (decision === 'approved') {
+      const updates = [];
+      const vals = [];
+      if (pcr.first_name   !== null) { updates.push(`first_name=$${vals.length+1}`);     vals.push(pcr.first_name); }
+      if (pcr.family_name  !== null) { updates.push(`family_name=$${vals.length+1}`);    vals.push(pcr.family_name); }
+      if (pcr.phone        !== null) { updates.push(`phone=$${vals.length+1}`);           vals.push(pcr.phone); }
+      if (pcr.personal_email !== null) { updates.push(`personal_email=$${vals.length+1}`); vals.push(pcr.personal_email); }
+      if (pcr.birth_date   !== null) { updates.push(`birth_date=$${vals.length+1}`);     vals.push(pcr.birth_date); }
+      if (pcr.honorific_id !== null) { updates.push(`honorific_id=$${vals.length+1}`);   vals.push(pcr.honorific_id); }
+      if (updates.length) {
+        vals.push(pcr.worker_id);
+        await query(`UPDATE workers SET ${updates.join(', ')} WHERE id=$${vals.length}`, vals);
+      }
+    }
+
+    // Notify user via in-app message
+    const userRes = await query('SELECT id FROM users WHERE worker_id=$1', [pcr.worker_id]);
+    if (userRes.rows.length) {
+      const workerRes = await query('SELECT first_name, primary_branch_id FROM workers WHERE id=$1', [pcr.worker_id]);
+      const branchId = workerRes.rows[0]?.primary_branch_id;
+      const senderRes = await query("SELECT id FROM users WHERE username='system_sidur'");
+      const senderId = senderRes.rows[0]?.id ?? req.user.id;
+      const content = decision === 'approved'
+        ? `בקשתך לעדכון פרטים אישיים אושרה.${admin_notes ? ` הערת מנהל: ${admin_notes}` : ''}`
+        : `בקשתך לעדכון פרטים אישיים נדחתה.${admin_notes ? ` הערת מנהל: ${admin_notes}` : ''}`;
+      await query(
+        'INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1,$2,$3,$4)',
+        [senderId, userRes.rows[0].id, content, branchId || null]
+      );
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Profile decision error:', e);
+    res.status(500).json({ error: 'שגיאה בעיבוד ההחלטה' });
+  }
+});
+
+app.get('/api/profile/change-requests/pending-count', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    let sql = `
+      SELECT COUNT(*) AS count
+      FROM profile_change_requests pcr
+      JOIN workers w ON w.id = pcr.worker_id
+      WHERE pcr.status = 'pending'
+    `;
+    const params = [];
+    if (branchId) {
+      params.push(branchId);
+      sql += ` AND w.primary_branch_id = $1`;
+    }
+    const result = await query(sql, params);
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (e) {
+    console.error('Pending count error:', e);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+// ── End Profile ───────────────────────────────────────────────────────────────
+
 const PORT = process.env.PORT || 5001;
 
 async function start() {
