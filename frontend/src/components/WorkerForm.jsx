@@ -259,7 +259,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
                   <select name="classification" value={form.classification} onChange={handleChange}>
                     {roles.length > 0
                       ? roles
-                          .filter(r => currentUser?.role_level == null || r.level > currentUser.role_level)
+                          .filter(r => r.name === form.classification || currentUser?.role_level == null || r.level > currentUser.role_level)
                           .map(r => <option key={r.name} value={r.name}>{r.display_name}</option>)
                       : <>
                           <option value="user">משתמש</option>
