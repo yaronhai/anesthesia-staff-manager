@@ -24,10 +24,11 @@ function buildCalendarWeeks(year, month) {
   return weeks;
 }
 
-export default function MonthlyReport({ token, config }) {
+export default function MonthlyReport({ token, config, isAdmin, branchId }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [requests, setRequests] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [fulfillmentStats, setFulfillmentStats] = useState([]);
 
   const month = viewDate.getMonth();
   const year = viewDate.getFullYear();
@@ -48,9 +49,23 @@ export default function MonthlyReport({ token, config }) {
     }
   }, [month, year, token]);
 
+  const fetchFulfillment = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const branchQ = branchId ? `&branch_id=${branchId}` : '';
+      const res = await fetch(`/api/fulfillment-stats?month=${month + 1}&year=${year}${branchQ}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setFulfillmentStats(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch fulfillment stats:', err);
+    }
+  }, [month, year, token, isAdmin, branchId]);
+
   useEffect(() => {
     fetchRequests();
-  }, [fetchRequests]);
+    fetchFulfillment();
+  }, [fetchRequests, fetchFulfillment]);
 
   function prevMonth() {
     setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
@@ -164,6 +179,76 @@ export default function MonthlyReport({ token, config }) {
           </div>
         ))}
       </div>
+
+      {isAdmin && fulfillmentStats.length > 0 && (() => {
+        const totals = fulfillmentStats.reduce(
+          (acc, w) => {
+            acc.total += +w.total_assignments;
+            acc.prefer += +w.pref_prefer;
+            acc.can += +w.pref_can;
+            acc.cannot += +w.pref_cannot;
+            acc.none += +w.pref_none;
+            return acc;
+          },
+          { total: 0, prefer: 0, can: 0, cannot: 0, none: 0 }
+        );
+        const pct = (w) => w.total_assignments > 0
+          ? Math.round((+w.pref_prefer + +w.pref_can) / +w.total_assignments * 100)
+          : 0;
+        const totalPct = totals.total > 0
+          ? Math.round((totals.prefer + totals.can) / totals.total * 100)
+          : 0;
+        const rowClass = (p) => p >= 80 ? styles.rowGreen : p >= 50 ? styles.rowYellow : styles.rowRed;
+
+        return (
+          <div className={styles.fulfillmentSection}>
+            <h3 className={styles.fulfillmentTitle}>מדד התחשבות בבקשות</h3>
+            <p className={styles.fulfillmentHint}>
+              לכל עובד ששובץ בחודש זה — כמה שיבוצים תאמו את בקשתו
+            </p>
+            <table className={styles.fulfillmentTable}>
+              <thead>
+                <tr>
+                  <th>עובד</th>
+                  <th>שיבוצים</th>
+                  <th>מעדיף ✓</th>
+                  <th>יכול ✓</th>
+                  <th>לא יכול ✗</th>
+                  <th>ללא בקשה</th>
+                  <th>% התחשבות</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fulfillmentStats.map(w => {
+                  const p = pct(w);
+                  return (
+                    <tr key={w.worker_id} className={rowClass(p)}>
+                      <td>{w.first_name} {w.family_name}</td>
+                      <td>{w.total_assignments}</td>
+                      <td>{w.pref_prefer}</td>
+                      <td>{w.pref_can}</td>
+                      <td>{w.pref_cannot}</td>
+                      <td>{w.pref_none}</td>
+                      <td><strong>{p}%</strong></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className={styles.summaryRow}>
+                  <td>סה"כ</td>
+                  <td>{totals.total}</td>
+                  <td>{totals.prefer}</td>
+                  <td>{totals.can}</td>
+                  <td>{totals.cannot}</td>
+                  <td>{totals.none}</td>
+                  <td><strong>{totalPct}%</strong></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        );
+      })()}
 
       {selectedDay && (() => {
         const dayData = reportData[selectedDay];

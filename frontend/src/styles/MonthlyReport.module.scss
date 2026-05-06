@@ -84,3 +84,56 @@
 .groupLabelCan { color: #0369a1; font-weight: 700; }
 .badgePrefer { background: #dcfce7; color: #166534; border-color: #16a34a; }
 .badgeCan { background: #e0f2fe; color: #0c4a6e; border-color: #0369a1; }
+
+// ── Fulfillment stats table ──────────────────────────────────────────────────
+.fulfillmentSection {
+  margin-top: 1.5rem;
+  border-top: 2px solid #1a2e4a;
+  padding-top: 1rem;
+}
+
+.fulfillmentTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a2e4a;
+  margin: 0 0 0.25rem;
+}
+
+.fulfillmentHint {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 0.75rem;
+}
+
+.fulfillmentTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  direction: rtl;
+
+  th, td {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  th {
+    background: #1e293b;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  td:first-child { text-align: right; }
+}
+
+.rowGreen { background: #f0fdf4; }
+.rowYellow { background: #fefce8; }
+.rowRed { background: #fff1f2; }
+
+.summaryRow {
+  font-weight: 700;
+  background: #f1f5f9;
+
+  td { border-top: 2px solid #94a3b8; }
+}

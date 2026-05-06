@@ -1271,6 +1271,50 @@ app.post('/api/permanent-shifts/apply', requireAuth, async (req, res) => {
   }
 });
 
+// ── Fulfillment Stats ────────────────────────────────────────────────────────
+
+app.get('/api/fulfillment-stats', requireAdmin, async (req, res) => {
+  try {
+    const { month, year, branch_id } = req.query;
+    if (!month || !year) return res.status(400).json({ error: 'month/year חסרים' });
+    const datePrefix = `${year}-${String(month).padStart(2, '0')}-`;
+    const params = [datePrefix + '%'];
+    let branchFilter = '';
+    if (branch_id) {
+      branchFilter = ` AND s.branch_id = $${params.length + 1}`;
+      params.push(parseInt(branch_id));
+    }
+    const result = await query(
+      `SELECT
+         w.id          AS worker_id,
+         w.first_name,
+         w.family_name,
+         COUNT(wsa.id)                                                   AS total_assignments,
+         COUNT(CASE WHEN sr.preference_type = 'prefer'  THEN 1 END)     AS pref_prefer,
+         COUNT(CASE WHEN sr.preference_type = 'can'     THEN 1 END)     AS pref_can,
+         COUNT(CASE WHEN sr.preference_type = 'cannot'  THEN 1 END)     AS pref_cannot,
+         COUNT(CASE WHEN sr.id IS NULL                  THEN 1 END)     AS pref_none
+       FROM worker_site_assignments wsa
+       JOIN workers w  ON w.id = wsa.worker_id
+       JOIN sites   s  ON s.id = wsa.site_id
+       JOIN users   u  ON u.worker_id = w.id
+       LEFT JOIN shift_requests sr
+              ON sr.user_id    = u.id
+             AND sr.date       = wsa.date
+             AND sr.shift_type = wsa.shift_type
+             AND (sr.branch_id = s.branch_id OR sr.branch_id IS NULL)
+       WHERE wsa.date LIKE $1${branchFilter}
+       GROUP BY w.id, w.first_name, w.family_name
+       ORDER BY w.family_name, w.first_name`,
+      params
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET fulfillment-stats error:', err);
+    res.status(500).json({ error: 'שגיאה בטעינת נתוני התחשבות' });
+  }
+});
+
 // ── Vacation Requests ───────────────────────────────────────────────────────
 
 app.get('/api/vacation-requests', requireAuth, async (req, res) => {

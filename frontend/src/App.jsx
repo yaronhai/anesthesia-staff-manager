@@ -12,6 +12,7 @@ import VacationRequests from './components/VacationRequests';
 import SpecialDaysCalendar from './components/SpecialDaysCalendar';
 import Messaging from './components/Messaging';
 import EventsManagement from './components/EventsManagement';
+import MonthlyReport from './components/MonthlyReport';
 import logoAssuta from './assets/logo-assuta.png';
 import './styles/App.scss';
 import appStyles from './styles/App.module.scss';
@@ -535,6 +536,14 @@ export default function App() {
             ימים מיוחדים
           </button>
         )}
+        {isAdmin && selectedBranchId && (
+          <button
+            className={`tab-btn${activeTab === 'report' ? ' active' : ''}`}
+            onClick={() => setActiveTab('report')}
+          >
+            דוח חודשי
+          </button>
+        )}
         {selectedBranchId && (
           <button
             className={`tab-btn${activeTab === 'messages' ? ' active' : ''} ${appStyles.messagesTabBtn}`}
@@ -683,6 +692,10 @@ export default function App() {
 
       {activeTab === 'messages' && selectedBranchId && (
         <Messaging authToken={authToken} currentUser={currentUser} workers={workers} branchId={selectedBranchId} />
+      )}
+
+      {activeTab === 'report' && isAdmin && selectedBranchId && (
+        <MonthlyReport token={authToken} config={config} isAdmin={isAdmin} branchId={selectedBranchId} />
       )}
     </div>
   );
