@@ -23,7 +23,7 @@ function buildCalendarWeeks(year, month) {
 }
 
 // ── Day cell in user calendar ────────────────────────────────────────────────
-function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations, specialDays, permanentDayEntries }) {
+function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations, specialDays, permanentDayEntries, allBranchesMode, workerBranches }) {
   const isSaturday = dayOfWeek === 6;
   const isFriday = dayOfWeek === 5;
   const isVacation = vacations?.some(v =>
@@ -43,13 +43,28 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
       {sd && <div className={`cal-special-day-badge ${styles.sdBadge}`}>{sd.name}</div>}
       {isVacation && <div className="vac-indicator">חופש ✓</div>}
       <div className="cal-indicators">
-        {shifts.map(s => {
-          const r = dayRequests.find(r => r.shift_type === s.key);
-          if (r) return <span key={s.key} className={`cal-dot pref-${r.preference_type}`}>{s.label_short}</span>;
-          const permPref = permanentDayEntries?.[s.key];
-          if (permPref) return <span key={s.key} className={`cal-dot pref-${permPref} ${styles.ghostDot}`}>{s.label_short}</span>;
-          return null;
-        })}
+        {allBranchesMode ? (
+          (workerBranches || [])
+            .filter(wb => dayRequests.some(r => r.branch_id === wb.branch_id))
+            .map(wb => (
+              <div key={wb.branch_id} className={styles.branchRow}>
+                <span className={styles.branchTag}>{wb.branch_name.slice(0, 4)}</span>
+                {shifts.map(s => {
+                  const r = dayRequests.find(r => r.shift_type === s.key && r.branch_id === wb.branch_id);
+                  if (!r) return null;
+                  return <span key={s.key} className={`cal-dot pref-${r.preference_type}`}>{s.label_short}</span>;
+                })}
+              </div>
+            ))
+        ) : (
+          shifts.map(s => {
+            const r = dayRequests.find(r => r.shift_type === s.key);
+            if (r) return <span key={s.key} className={`cal-dot pref-${r.preference_type}`}>{s.label_short}</span>;
+            const permPref = permanentDayEntries?.[s.key];
+            if (permPref) return <span key={s.key} className={`cal-dot pref-${permPref} ${styles.ghostDot}`}>{s.label_short}</span>;
+            return null;
+          })
+        )}
       </div>
     </div>
   );
@@ -157,7 +172,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
 }
 
 // ── User calendar view ───────────────────────────────────────────────────────
-function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit, specialDays, permanentTemplate, onPermanentOpen }) {
+function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit, specialDays, permanentTemplate, onPermanentOpen, allBranchesMode, workerBranches }) {
   const [editingDay, setEditingDay] = useState(null); // { day, dateStr }
   const [blockedMsg, setBlockedMsg] = useState(false);
   const year = viewDate.getFullYear();
@@ -179,6 +194,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
   const todayStr = toDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
 
   function openEditor(day, dateStr) {
+    if (allBranchesMode) return;
     if (canSubmit === false) { setBlockedMsg(true); return; }
     setEditingDay({ day, dateStr });
   }
@@ -222,6 +238,8 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
                       vacations={vacations}
                       specialDays={specialDays}
                       permanentDayEntries={getPermanentDayEntries(toDateStr(year, month, day))}
+                      allBranchesMode={allBranchesMode}
+                      workerBranches={workerBranches}
                     />
                   )}
                 </div>
@@ -657,7 +675,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
     }
   }, [currentUser?.worker_id, isAdmin, token]);
 
-  const effectiveBranchId = isAdmin ? selectedBranchId : activeBranchId;
+  const effectiveBranchId = isAdmin ? selectedBranchId : (activeBranchId === 'all' ? null : activeBranchId);
 
   const fetchRequests = useCallback(async () => {
     const branchQ = effectiveBranchId ? `&branch_id=${effectiveBranchId}` : '';
@@ -815,15 +833,18 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
           <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
         </div>
-        <button className={styles.permanentBtn} onClick={() => setShowPermanentModal(true)}>
-          📌 משמרות קבועות{permanentTemplate ? ' ✓' : ''}
-        </button>
+        {activeBranchId !== 'all' && (
+          <button className={styles.permanentBtn} onClick={() => setShowPermanentModal(true)}>
+            📌 משמרות קבועות{permanentTemplate ? ' ✓' : ''}
+          </button>
+        )}
         {workerBranches.length > 1 && (
           <select
             className={styles.branchSelect}
             value={activeBranchId ?? ''}
-            onChange={e => setActiveBranchId(parseInt(e.target.value))}
+            onChange={e => setActiveBranchId(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
           >
+            <option value="all">הכל</option>
             {workerBranches.map(wb => (
               <option key={wb.branch_id} value={wb.branch_id}>{wb.branch_name}</option>
             ))}
@@ -845,6 +866,8 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
         canSubmit={canSubmit}
         specialDays={config.special_days || []}
         permanentTemplate={permanentTemplate}
+        allBranchesMode={activeBranchId === 'all'}
+        workerBranches={workerBranches}
       />
       {showPermanentModal && (
         <PermanentShiftsModal

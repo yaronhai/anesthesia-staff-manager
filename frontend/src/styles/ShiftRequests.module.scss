@@ -238,3 +238,22 @@
   opacity: 0.7;
   font-style: italic;
 }
+
+// All-branches mode: per-branch row inside a day cell
+.branchRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 1px;
+}
+
+.branchTag {
+  font-size: 0.5rem;
+  color: #64748b;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 22px;
+  flex-shrink: 0;
+  line-height: 1;
+}
