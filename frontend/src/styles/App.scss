@@ -1,18 +1,21 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 button, a, select, input, textarea { touch-action: manipulation; }
 
+html { overflow-x: hidden; }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #f0f4f8;
   color: #333;
   min-height: 100vh;
   direction: rtl;
+  overflow-x: hidden;
 }
 
 .app {
   max-width: 1400px;
   margin: 0 auto;
-  padding-top: 135px;
+  padding-top: var(--content-top, 135px);
 }
 
 header {
@@ -44,32 +47,43 @@ header {
 
 /* Tabs */
 .tabs {
-  display: flex;
-  gap: 0;
-  margin-bottom: 1.75rem;
   background: #e2e8f0;
   border-radius: 0 0 8px 8px;
-  padding: 0.35rem 0.5rem;
   border-top: 2px solid #1a2e4a;
   position: fixed;
-  top: 78px;
+  top: var(--header-h, 78px);
   left: 0;
   right: 0;
   z-index: 999;
   max-width: 1400px;
-  margin: 0 auto 1.75rem auto;
+  margin: 0 auto;
   width: calc(100% - 2rem);
+}
+.tabs-inner {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 0.35rem 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 .tab-btn {
   background: none;
   border: none;
-  padding: 0.35rem 0.85rem;
+  padding: 0.35rem 0.5rem;
   font-size: 0.82rem;
   cursor: pointer;
   color: #4b5563;
   border-radius: 6px;
   font-weight: 500;
   transition: background 0.15s, color 0.15s;
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 .tab-btn:hover { background: #cbd5e1; color: #1a2e4a; }
 .tab-btn.active { background: #1a2e4a; color: white; }
@@ -730,8 +744,9 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   padding: 0.4rem 1rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  overflow-x: auto;
 }
 
 .shift-admin-header h2 {
@@ -746,7 +761,9 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .month-year-label {
@@ -2582,8 +2599,9 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 
 .site-square-shift {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  gap: 0.3rem;
+  gap: 0.2rem;
   font-size: 0.68rem;
 }
 
@@ -3104,46 +3122,46 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 @media (max-width: 600px) {
   /* App body */
   .app {
-    padding-top: 100px;
+    padding-top: var(--content-top, 116px);
     padding-left: 0.4rem;
     padding-right: 0.4rem;
   }
 
-  /* Header */
+  /* Header – single row, no wrapping */
   header {
     padding: 0.4rem 0.6rem;
     gap: 0.4rem;
     border-radius: 0;
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
-  header h1 { font-size: 0.85rem; }
+  header h1 { font-size: 0.85rem; white-space: nowrap; }
   header .subtitle { display: none; }
   .logo-assuta { display: none; }
-  .header-right { gap: 0.35rem; }
-  .header-user { padding-right: 0.35rem; gap: 0.25rem; border-right: none; }
-  .header-username { font-size: 0.72rem; }
+  .header-right { gap: 0.35rem; flex-wrap: nowrap; flex-shrink: 0; }
+  .header-user { padding-right: 0.35rem; gap: 0.25rem; border-right: none; flex-wrap: nowrap; flex-shrink: 0; }
+  .header-username { font-size: 0.72rem; white-space: nowrap; }
   .header-role { display: none; }
-  .btn-logout { padding: 0.22rem 0.5rem; font-size: 0.7rem; }
+  .btn-logout { padding: 0.22rem 0.5rem; font-size: 0.7rem; white-space: nowrap; }
   .btn-settings { padding: 0.22rem 0.5rem; font-size: 0.85rem; }
   .header-branch-select { display: none !important; }
 
-  /* Tabs – wrap to two rows */
+  /* Tabs – mobile overrides */
   .tabs {
-    top: 56px;
-    left: 0;
-    right: 0;
-    width: 100vw;
-    max-width: 100vw;
+    top: var(--header-h, 62px);
+    width: 100%;
+    max-width: 100%;
     margin: 0;
+  }
+  .tabs-inner {
     padding: 0.2rem 0.3rem;
-    flex-wrap: wrap;
     gap: 2px;
   }
   .tab-btn {
-    padding: 0.28rem 0.6rem;
+    padding: 0.28rem 0.5rem;
     font-size: 0.72rem;
   }
-  /* enough room for header (~56px) + two rows of tabs (~54px) */
-  .app { padding-top: 118px; }
+  /* padding-top driven by JS ResizeObserver via --content-top */
 
   /* Shift view */
   .shift-view { max-height: none; }
@@ -3154,15 +3172,19 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
     gap: 0.4rem;
   }
   .shift-admin-header {
-    padding: 0.4rem 0.75rem;
-    flex-wrap: wrap;
-    gap: 0.35rem;
+    padding: 0.3rem 0.5rem;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
   }
   .shift-admin-title { display: none; }
   .shift-admin-legend { display: none; }
-  .shift-admin-filters { gap: 0.4rem !important; }
-  .shift-admin-filters label { font-size: 0.75rem !important; }
-  .shift-admin-filters select { padding: 3px 4px !important; font-size: 0.75rem; }
+  .shift-admin-filters { gap: 0.25rem !important; flex-wrap: nowrap !important; }
+  .shift-admin-filters label { font-size: 0.7rem !important; white-space: nowrap; }
+  .shift-admin-filters select { padding: 2px 3px !important; font-size: 0.7rem; max-width: 90px; }
+  .month-year-nav { flex-shrink: 0; gap: 0.2rem; }
+  .month-year-label { min-width: 0; font-size: 0.78rem; }
+  .month-year-nav .btn-sm { padding: 0.15rem 0.3rem; font-size: 0.72rem; }
   .month-year-nav { flex-wrap: nowrap; gap: 0.3rem; }
   .month-year-label { min-width: 80px; font-size: 0.82rem; }
   .month-year-nav .btn-sm { padding: 0.2rem 0.4rem; font-size: 0.7rem; }
@@ -3205,19 +3227,22 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .form-row-3 { grid-template-columns: 1fr; }
 
   /* Filters */
-  .filters { flex-wrap: wrap; row-gap: 0.4rem; }
-  .filters input { min-width: 120px !important; flex: 1; }
-  .filters select { flex: 1; min-width: 90px; }
+  .filters { flex-wrap: nowrap; gap: 0.25rem; overflow: hidden; }
+  .filters input { min-width: 0 !important; flex: 2; font-size: 0.7rem; padding: 0.25rem 0.35rem; }
+  .filters select { flex: 1; min-width: 0; font-size: 0.7rem; padding: 0.25rem 0.2rem; }
+  .filters button { font-size: 0.7rem; padding: 0.25rem 0.35rem; white-space: nowrap; flex-shrink: 0; }
 
   /* Tables */
   .worker-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-  /* Admin shift grid – single shared horizontal scroll, sticky name col */
-  .admin-grid-scroll-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0; }
-  .admin-grid-body-wrap { overflow-x: hidden; }
-  .admin-grid { min-width: 480px; }
-  /* RTL table: name col is visually on the right, must stick to right */
-  .admin-grid-name-col { right: 0; left: auto; }
+  /* Admin shift grid – body scrolls horizontally, header synced via JS */
+  .admin-grid-scroll-wrap { overflow: hidden; padding: 0; }
+  .admin-grid-header-wrap { overflow-x: hidden; overflow-y: hidden; }
+  .admin-grid-body-wrap { overflow-x: auto; overflow-y: auto; -webkit-overflow-scrolling: touch; max-height: calc(100svh - 200px); }
+  .admin-grid { min-width: 600px; }
+  /* RTL: name col sticks to right edge of body-wrap scroll container */
+  .admin-grid-name-col { position: sticky; right: 0; left: auto; z-index: 3; }
+  .admin-grid thead .admin-grid-name-col { z-index: 4; }
 
   /* Settings modal */
   .settings-modal { width: 100vw; max-width: 100vw; max-height: 95dvh; border-radius: 0; }
@@ -3344,14 +3369,15 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 
 /* ── Phone landscape (short viewport) ─────────────────────────────────────── */
 @media (max-height: 500px) and (max-width: 900px) {
-  header { padding: 0.25rem 0.65rem; gap: 0.3rem; }
+  header { padding: 0.25rem 0.65rem; gap: 0.3rem; border-radius: 0; width: 100%; max-width: 100%; margin: 0; }
   .logo-assuta { height: 20px; }
   header h1 { font-size: 0.8rem; }
   header .subtitle { display: none; }
   .header-branch-select { display: none !important; }
-  .tabs { top: 46px; padding: 0.1rem 0.3rem; flex-wrap: wrap; gap: 2px; overflow-x: hidden; }
-  .tab-btn { padding: 0.18rem 0.45rem; font-size: 0.68rem; white-space: nowrap; }
-  .app { padding-top: 74px; }
+  .tabs { top: var(--header-h, 40px); width: 100%; max-width: 100%; margin: 0; }
+  .tabs-inner { padding: 0.1rem 0.3rem; gap: 2px; }
+  .tab-btn { padding: 0.18rem 0.45rem; font-size: 0.68rem; }
+  .app { padding-top: var(--content-top, 68px); padding-left: 0.4rem; padding-right: 0.4rem; }
   .shift-admin-title { display: none; }
   .shift-admin-legend { display: none; }
   .shift-admin-filters { gap: 0.4rem !important; }
@@ -3363,6 +3389,13 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .shift-view { height: calc(100svh - 68px); max-height: none; overflow: hidden; }
   .room-view-container { height: calc(100vh - 70px); }
   .worker-table-wrap { max-height: calc(100vh - 90px); }
+
+  /* Shift grid – landscape: fit screen, no horizontal scroll */
+  .admin-grid-scroll-wrap { overflow: hidden; }
+  .admin-grid-header-wrap { overflow: hidden; }
+  .admin-grid-body-wrap { overflow-y: auto; overflow-x: hidden; max-height: calc(100svh - 130px); }
+  .admin-grid { min-width: 0; width: 100%; table-layout: fixed; }
+  .admin-grid-name-col { position: sticky; right: 0; left: auto; width: 70px; min-width: 70px; max-width: 70px; font-size: 0.55rem; }
 
   /* Vacation table – fit in landscape without horizontal scroll */
   .vacation-table-wrap * { font-size: 0.62rem !important; padding: 2px 4px !important; border-radius: 6px !important; }

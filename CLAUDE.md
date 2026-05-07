@@ -9,6 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Hebrew strings throughout UI (RTL support)
 - Consistent naming: camelCase for variables, PascalCase for components
 - No linter or formatter configured; manual code quality
+- **Mobile-first responsive design**: Every new UI element must be fully usable on mobile screens in both portrait and landscape orientations. Use CSS media queries in `.module.scss` files, flexible layouts (flexbox/grid), and avoid fixed pixel widths that break on small screens.
+- **No inline styles**: All styling must go in `.module.scss` or `.scss` files. Never use `style={{}}` attributes in JSX.
 
 ### Architecture
 - **Backend**: Single-file Express app (server.js, 700+ lines) with PostgreSQL database

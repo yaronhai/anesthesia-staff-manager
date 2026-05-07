@@ -1652,13 +1652,13 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               });
               const regularGroupedSites = groupSitesByGroup(regularSites);
               return (
-                <div style={{ display: 'flex', gap: isMobile ? '0.1rem' : '0.25rem', alignItems: 'center', borderBottom: '2px solid #e5e7eb', flexWrap: 'wrap', padding: isMobile ? '0.1rem 0.25rem 0' : '0.2rem 0.5rem 0 0.5rem', marginBottom: '0.25rem', flexShrink: 0, rowGap: isMobile ? '0.1rem' : '0.25rem', maxHeight: isMobile ? 'calc(2 * 2rem)' : undefined, overflow: isMobile ? 'hidden' : undefined }}>
-                  <button onClick={() => setCardSize(s => Math.max(MIN_CARD, s - STEP))} className="btn-secondary btn-sm" title="הקטן כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding: isMobile ? '0.05rem 0.3rem' : '0.1rem 0.5rem'}}>−</button>
-                  <button onClick={() => setCardSize(s => Math.min(MAX_CARD, s + STEP))} className="btn-secondary btn-sm" title="הגדל כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding: isMobile ? '0.05rem 0.3rem' : '0.1rem 0.5rem'}}>+</button>
+                <div style={{ display: 'flex', gap: isMobile ? '0.1rem' : '0.25rem', alignItems: 'stretch', borderBottom: '2px solid #e5e7eb', flexWrap: 'nowrap', padding: isMobile ? '0.1rem 0.25rem 0' : '0.2rem 0.5rem 0 0.5rem', marginBottom: '0.25rem', flexShrink: 0, width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+                  <button onClick={() => setCardSize(s => Math.max(MIN_CARD, s - STEP))} className="btn-secondary btn-sm" title="הקטן כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding: isMobile ? '0.05rem 0.25rem' : '0.1rem 0.5rem', flexShrink: 0}}>−</button>
+                  <button onClick={() => setCardSize(s => Math.min(MAX_CARD, s + STEP))} className="btn-secondary btn-sm" title="הגדל כרטיסייה" style={{fontWeight:700, fontSize:'1rem', padding: isMobile ? '0.05rem 0.25rem' : '0.1rem 0.5rem', flexShrink: 0}}>+</button>
                   {(() => {
-                    const tabPad = isMobile ? '0.2rem 0.45rem' : '0.75rem 1rem';
-                    const tabFont = isMobile ? '0.72rem' : undefined;
-                    const tabStyle = (active, color = '#1a2e4a', bgColor = '#e5e7eb') => ({ padding: tabPad, fontSize: tabFont, border: 'none', background: active ? color : bgColor, color: active ? 'white' : color, fontWeight: active ? 600 : 700, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap' });
+                    const tabPad = isMobile ? '0.15rem 0.3rem' : '0.75rem 1rem';
+                    const tabFont = isMobile ? '0.62rem' : undefined;
+                    const tabStyle = (active, color = '#1a2e4a', bgColor = '#e5e7eb') => ({ padding: tabPad, fontSize: tabFont, border: 'none', background: active ? color : bgColor, color: active ? 'white' : color, fontWeight: active ? 600 : 700, cursor: 'pointer', borderRadius: '6px 6px 0 0', whiteSpace: 'normal', wordBreak: 'normal', overflowWrap: 'normal', flex: '1 1 0', minWidth: 0, textAlign: 'center', lineHeight: 1.2, overflow: 'hidden' });
                     const regularGroupsList = (config.site_groups || []).filter(g => !g.group_type || g.group_type === 'regular');
                     return (<>
                       <button onClick={() => setSelectedGroupId('__all__')} style={tabStyle(selectedGroupId === '__all__', '#3a3f47', '#d9dce1')}>הכל</button>
@@ -1680,7 +1680,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               );
             })()}
 
-            {selectedGroupId && !['__night__', '__oncall__'].includes(selectedGroupId) && (
+            {selectedGroupId && !['__night__', '__oncall__', '__all__'].includes(selectedGroupId) && (
               // Regular rooms grid (morning / evening)
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'flex-start', alignContent: 'flex-start', flex: 1, overflow: 'auto' }}>
                 {(() => {
@@ -1688,10 +1688,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   const groupBgMap = Object.fromEntries(
                     regularGroups.map((g, i) => [g.id, PALETTE_BG[i % PALETTE_BG.length]])
                   );
-                  return (selectedGroupId === '__all__'
-                    ? (config.sites || []).filter(s => { if (!s.group_id) return true; const grp = (config.site_groups || []).find(g => g.id === s.group_id); return !grp || !grp.group_type || grp.group_type === 'regular'; }).sort(sortSites)
-                    : groupSitesByGroup(config.sites)[selectedGroupId] || []
-                  ).map((site) => {
+                  return (groupSitesByGroup(config.sites)[selectedGroupId] || []).map((site) => {
                   const morningAssignments = getSiteShiftAssignments(site.id, 'morning');
                   const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
                   const morningActivity = getSiteShiftActivity(site.id, 'morning');
@@ -1749,13 +1746,13 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           <span style={{fontSize: fs(0.6), color: '#b45309', fontWeight: 600, whiteSpace: 'nowrap'}}>{formatTime24(morningTimes.start_time)}–{formatTime24(morningTimes.end_time)}</span>
                         </div>
                         {morningActivity?.activity_type_id && (
-                          <div style={{marginRight: `${1.2 * scale}rem`}}>
+                          <div style={{}}>
                             <span style={{ fontSize: fs(0.65), color: '#b45309', fontWeight: 600, padding: `${0.2 * scale}rem ${0.35 * scale}rem`, background: '#fef9e7', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
                               {(config.activity_types || []).find(at => at.id === morningActivity.activity_type_id)?.name}
                             </span>
                           </div>
                         )}
-                        <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
+                        <div className="site-square-names" style={{fontSize: fs(0.58), lineHeight: '1.3'}}>
                           {morningAssignments.length > 0 ? morningAssignments.map((a, idx) => {
                             const startTime = a.start_time || (shiftDefaults.morning?.default_start || morningStart);
                             const endTime = a.end_time || (shiftDefaults.morning?.default_end || morningEnd);
@@ -1778,13 +1775,13 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           <span style={{fontSize: fs(0.6), color: '#0369a1', fontWeight: 600, whiteSpace: 'nowrap'}}>{formatTime24(eveningTimes.start_time)}–{formatTime24(eveningTimes.end_time)}</span>
                         </div>
                         {eveningActivity?.activity_type_id && (
-                          <div style={{marginRight: `${1.2 * scale}rem`}}>
+                          <div style={{}}>
                             <span style={{ fontSize: fs(0.65), color: '#0369a1', fontWeight: 600, padding: `${0.2 * scale}rem ${0.35 * scale}rem`, background: '#f0f9ff', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
                               {(config.activity_types || []).find(at => at.id === eveningActivity.activity_type_id)?.name}
                             </span>
                           </div>
                         )}
-                        <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
+                        <div className="site-square-names" style={{fontSize: fs(0.58), lineHeight: '1.3'}}>
                           {eveningAssignments.length > 0 ? eveningAssignments.map((a, idx) => {
                             const startTime = a.start_time || (shiftDefaults.evening?.default_start || eveningStart);
                             const endTime = a.end_time || (shiftDefaults.evening?.default_end || eveningEnd);
@@ -1809,8 +1806,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             )}
 
             {['__night__', '__oncall__'].includes(selectedGroupId) && (() => {
-              const shiftKey = selectedGroupId === '__night__' ? 'night' : 'oncall';
-              const groupType = shiftKey; // 'night' or 'oncall'
+              const shiftKeys = [selectedGroupId === '__night__' ? 'night' : 'oncall'];
+              if (shiftKeys.length === 0) return null;
+              return (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'flex-start', alignContent: 'flex-start', flex: 1, overflow: 'auto' }}>
+                {shiftKeys.map(shiftKey => { const groupType = shiftKey;
               const isNight = shiftKey === 'night';
               const accentColor = isNight ? '#6d28d9' : '#0369a1';
               const accentBg   = isNight ? '#f5f3ff' : '#f0f9ff';
@@ -1820,11 +1820,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 return grp?.group_type === groupType;
               }).sort(sortSites);
               if (groupTypeSites.length === 0) {
-                return <div style={{ padding: '2rem', color: '#888', fontSize: '0.95rem' }}>אין אתרים מוגדרים לקבוצות {isNight ? 'תורנות' : 'כוננות'}. צור קבוצה מסוג זה בהגדרות ⚙️ והוסף אליה אתרים.</div>;
+                return selectedGroupId !== '__all__' ? <div key={shiftKey} style={{ padding: '2rem', color: '#888', fontSize: '0.95rem' }}>אין אתרים מוגדרים לקבוצות {isNight ? 'תורנות' : 'כוננות'}. צור קבוצה מסוג זה בהגדרות ⚙️ והוסף אליה אתרים.</div> : null;
               }
-              return (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'flex-start', alignContent: 'flex-start', flex: 1, overflow: 'auto' }}>
-                  {groupTypeSites.map((site) => {
+              return (<div key={shiftKey} style={{ display: 'contents' }}>
+                {selectedGroupId === '__all__' && <div style={{ width: '100%', fontWeight: 600, fontSize: '0.8rem', color: accentColor, borderTop: `2px solid ${accentColor}`, paddingTop: '0.3rem', marginTop: '0.25rem' }}>{isNight ? (shiftDefaults.night?.icon || '⭐') + ' ' + (shiftDefaults.night?.label_he || 'תורנות') : (shiftDefaults.oncall?.icon || '📞') + ' ' + (shiftDefaults.oncall?.label_he || 'כוננות')}</div>}
+                {groupTypeSites.map((site) => {
                     const shiftAssignments = getSiteShiftAssignments(site.id, shiftKey);
                     const activity = getSiteShiftActivity(site.id, shiftKey);
                     const times = getSiteShiftTimes(site.id, shiftKey);
@@ -1839,14 +1839,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       ? isTimeRangeCovered(shiftAssignments, defaultStart, defaultEnd)
                       : false;
 
-                    let shiftBgColor = '#ffffff';
-                    if (!hasActivity) {
-                      shiftBgColor = '#e5e7eb';
-                    } else if (hasActivity && !isCovered) {
-                      shiftBgColor = '#fee2e2';
-                    } else if (hasActivity && isCovered) {
-                      shiftBgColor = '#dcfce7';
-                    }
+                    let shiftBgColor = shiftAssignments.length > 0 ? '#dcfce7' : '#e5e7eb';
 
                     return (
                       <div
@@ -1868,34 +1861,95 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             )}
                           </div>
                           {activity?.activity_type_id && (
-                            <div style={{marginRight: `${1.2 * scale}rem`}}>
+                            <div style={{}}>
                               <span style={{ fontSize: fs(0.65), color: accentColor, fontWeight: 600, padding: `${0.2 * scale}rem ${0.35 * scale}rem`, background: accentBg, borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
                                 {(config.activity_types || []).find(at => at.id === activity.activity_type_id)?.name}
                               </span>
                             </div>
                           )}
-                          <div className="site-square-names" style={{marginRight: `${1.2 * scale}rem`, fontSize: fs(0.58), lineHeight: '1.3'}}>
-                            {shiftAssignments.length > 0 ? shiftAssignments.map((a, idx) => {
-                              const defaultStart = shiftDefaults[shiftKey]?.default_start || (isNight ? nightStart : (shiftKey === 'oncall' ? '00:00' : eveningStart));
-                              const defaultEnd = shiftDefaults[shiftKey]?.default_end || (isNight ? nightEnd : (shiftKey === 'oncall' ? '23:59' : eveningEnd));
-                              const startTime = a.start_time || defaultStart;
-                              const endTime = a.end_time || defaultEnd;
-                              const isExplicitTime = !!(a.start_time && a.end_time);
-                              return (
-                                <div key={idx}>
-                                  <strong>{a.first_name} {a.family_name}</strong> ({a.job_name})
-                                  <div style={{fontSize: fs(0.54), color: isExplicitTime ? '#666' : '#999', marginTop: '0.1rem', fontStyle: isExplicitTime ? 'normal' : 'italic'}}>
-                                    🕐 {formatTime24(startTime)}–{formatTime24(endTime)}
-                                    {!isExplicitTime && <span style={{marginLeft: '0.3rem'}}>*</span>}
-                                  </div>
-                                </div>
-                              );
-                            }) : <div>—</div>}
+                          <div className="site-square-names" style={{fontSize: fs(0.58), lineHeight: '1.3', marginTop: `${0.2 * scale}rem`}}>
+                            {shiftAssignments.length > 0 ? shiftAssignments.map((a, idx) => (
+                              <div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>
+                            )) : <div>—</div>}
                           </div>
                         </div>
                       </div>
                     );
                   })}
+              </div>);
+              })}
+                </div>
+              );
+            })()}
+
+            {selectedGroupId === '__all__' && (() => {
+              const allGroups = config.site_groups || [];
+              const groupBgMap = Object.fromEntries(allGroups.map((g, i) => [g.id, PALETTE_BG[i % PALETTE_BG.length]]));
+              const regularSites = (config.sites || []).filter(s => { if (!s.group_id) return true; const grp = (config.site_groups || []).find(g => g.id === s.group_id); return !grp || !grp.group_type || grp.group_type === 'regular'; }).sort(sortSites);
+              const nightSites   = (config.sites || []).filter(s => { const grp = (config.site_groups || []).find(g => g.id === s.group_id); return grp?.group_type === 'night'; }).sort(sortSites);
+              const oncallSites  = (config.sites || []).filter(s => { const grp = (config.site_groups || []).find(g => g.id === s.group_id); return grp?.group_type === 'oncall'; }).sort(sortSites);
+              return (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'flex-start', alignContent: 'flex-start', flex: 1, overflow: 'auto' }}>
+                  {regularSites.map((site) => {
+                    const morningAssignments = getSiteShiftAssignments(site.id, 'morning');
+                    const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
+                    const morningActivity = getSiteShiftActivity(site.id, 'morning');
+                    const eveningActivity = getSiteShiftActivity(site.id, 'evening');
+                    const morningTimes = getSiteShiftTimes(site.id, 'morning');
+                    const eveningTimes = getSiteShiftTimes(site.id, 'evening');
+                    const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
+                    const fs = v => `${(v * scale).toFixed(3)}rem`;
+                    const hasMorningActivity = !!morningActivity?.activity_type_id;
+                    const hasEveningActivity = !!eveningActivity?.activity_type_id;
+                    const morningCovered = hasMorningActivity ? isTimeRangeCovered(morningAssignments, shiftDefaults.morning?.default_start || morningStart, shiftDefaults.morning?.default_end || morningEnd) : true;
+                    const eveningCovered = hasEveningActivity ? isTimeRangeCovered(eveningAssignments, shiftDefaults.evening?.default_start || eveningStart, shiftDefaults.evening?.default_end || eveningEnd) : true;
+                    const isCardEmpty = !hasMorningActivity && !hasEveningActivity && morningAssignments.length === 0 && eveningAssignments.length === 0;
+                    const groupBg = groupBgMap[site.group_id] || '#ffffff';
+                    let morningBgColor = isCardEmpty ? '#d1d5db' : hasMorningActivity && !morningCovered ? '#fee2e2' : hasMorningActivity && morningCovered ? '#dcfce7' : '#e5e7eb';
+                    let eveningBgColor = isCardEmpty ? '#d1d5db' : hasEveningActivity && !eveningCovered ? '#fee2e2' : hasEveningActivity && eveningCovered ? '#dcfce7' : '#e5e7eb';
+                    return (
+                      <div key={site.id} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }} onClick={() => setSelectedSiteId(site.id)}>
+                        <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
+                        <div className="site-square-shift" style={{background: morningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>☀️</span>{morningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#92400e',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(morningTimes.start_time)}{morningTimes.end_time?`–${formatTime24(morningTimes.end_time)}`:''}</span>}</div>
+                          {morningActivity?.activity_type_id&&<div style={{}}><span style={{fontSize:fs(0.65),color:'#92400e',fontWeight:600}}>{(config.activity_types||[]).find(at=>at.id===morningActivity.activity_type_id)?.name}</span></div>}
+                          <div className="site-square-names" style={{fontSize:fs(0.58),lineHeight:'1.3'}}>{morningAssignments.length>0?morningAssignments.map((a,idx)=><div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>):<div>—</div>}</div>
+                        </div>
+                        <div className="site-square-shift" style={{background: eveningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>🌙</span>{eveningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#1e40af',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(eveningTimes.start_time)}{eveningTimes.end_time?`–${formatTime24(eveningTimes.end_time)}`:''}</span>}</div>
+                          {eveningActivity?.activity_type_id&&<div style={{}}><span style={{fontSize:fs(0.65),color:'#1e40af',fontWeight:600}}>{(config.activity_types||[]).find(at=>at.id===eveningActivity.activity_type_id)?.name}</span></div>}
+                          <div className="site-square-names" style={{fontSize:fs(0.58),lineHeight:'1.3'}}>{eveningAssignments.length>0?eveningAssignments.map((a,idx)=><div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>):<div>—</div>}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {[{sites: nightSites, shiftKey: 'night', accentColor: '#6d28d9', accentBg: '#f5f3ff', isNight: true},
+                    {sites: oncallSites, shiftKey: 'oncall', accentColor: '#0369a1', accentBg: '#f0f9ff', isNight: false}
+                  ].flatMap(({sites: specialSites, shiftKey, accentColor, accentBg, isNight}) =>
+                    specialSites.map(site => {
+                      const shiftAssignments = getSiteShiftAssignments(site.id, shiftKey);
+                      const activity = getSiteShiftActivity(site.id, shiftKey);
+                      const times = getSiteShiftTimes(site.id, shiftKey);
+                      const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
+                      const fs = v => `${(v * scale).toFixed(3)}rem`;
+                      const hasActivity = !!activity?.activity_type_id;
+                      const defaultStart = shiftDefaults[shiftKey]?.default_start || (isNight ? nightStart : '00:00');
+                      const defaultEnd   = shiftDefaults[shiftKey]?.default_end   || (isNight ? nightEnd  : '23:59');
+                      const shiftBgColor = shiftAssignments.length > 0 ? '#dcfce7' : '#e5e7eb';
+                      const groupBg = groupBgMap[site.group_id] || '#ffffff';
+                      const isCardEmpty = !hasActivity && shiftAssignments.length === 0;
+                      return (
+                        <div key={`${shiftKey}-${site.id}`} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }} onClick={() => setSelectedSiteId(site.id)}>
+                          <div className="site-square-title" style={{fontSize:fs(0.78)}}>{site.name}</div>
+                          <div className="site-square-shift" style={{background: shiftBgColor, padding:`${0.3*scale}rem`, borderRadius:'3px'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>{isNight?'⭐':'📞'}</span>{times.start_time&&<span style={{fontSize:fs(0.6),color:accentColor,fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(times.start_time)}{times.end_time?`–${formatTime24(times.end_time)}`:''}</span>}</div>
+                            {hasActivity&&<div style={{}}><span style={{fontSize:fs(0.65),color:accentColor,fontWeight:600}}>{(config.activity_types||[]).find(at=>at.id===activity.activity_type_id)?.name}</span></div>}
+                            <div className="site-square-names" style={{fontSize:fs(0.58),lineHeight:'1.3'}}>{shiftAssignments.length>0?shiftAssignments.map((a,idx)=><div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>):<div>—</div>}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               );
             })()}
@@ -2106,8 +2160,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     >שמור</button>
                   </div>
                 </div>
-              ) : ['__night__', '__oncall__'].includes(selectedGroupId) ? (() => {
-                const ctxShift = selectedGroupId === '__night__' ? 'night' : 'oncall';
+              ) : (() => { const _siteGroup = (config.site_groups || []).find(g => g.id === site.group_id); const _siteGroupType = _siteGroup?.group_type; return _siteGroupType === 'night' || _siteGroupType === 'oncall'; })() || ['__night__', '__oncall__'].includes(selectedGroupId) ? (() => {
+                const ctxShift = selectedGroupId === '__night__' ? 'night' : selectedGroupId === '__oncall__' ? 'oncall' : ((config.site_groups || []).find(g => g.id === site.group_id)?.group_type);
                 const isNight = ctxShift === 'night';
                 const ctxAccent = isNight ? '#6d28d9' : '#0369a1';
                 const ctxBorder = isNight ? '#a78bfa' : '#7dd3fc';

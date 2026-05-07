@@ -303,6 +303,15 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
     return () => ro.disconnect();
   }, [workers, requests]);
 
+  useEffect(() => {
+    const body = bodyWrapRef.current;
+    const header = headerWrapRef.current;
+    if (!body || !header) return;
+    function onBodyScroll() { header.scrollLeft = body.scrollLeft; }
+    body.addEventListener('scroll', onBodyScroll, { passive: true });
+    return () => body.removeEventListener('scroll', onBodyScroll);
+  }, []);
+
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -762,45 +771,42 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
     return (
       <div className="shift-view">
         <div className="shift-admin-header">
-          <div className={`shift-admin-filters ${styles.adminFilters}`}>
-            <h2 className={`shift-admin-title ${styles.adminTitle}`}>ניהול בקשות משמרות</h2>
-            <div className={styles.filterGroup}>
-              <label className={styles.filterLabel}>הרשאה:</label>
-              <select className={styles.filterSelect} value={workerFilter} onChange={e => setWorkerFilter(e.target.value)}>
-                {filterOptions.map(opt => (
-                  <option key={opt.key} value={opt.key}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.filterGroup}>
-              <label className={styles.filterLabel}>תפקיד:</label>
-              <select className={styles.filterSelect} value={jobFilter} onChange={e => setJobFilter(e.target.value)}>
-                <option value=''>כל התפקידים</option>
-                {jobOptions.map(job => (
-                  <option key={job} value={job}>{job}</option>
-                ))}
-              </select>
-            </div>
-            <div className={`shift-admin-legend ${styles.legendRow}`}>
-              {prefs.map(p => (
-                <span key={p.key} className={styles.legendItem}>
-                  <span className={styles.legendSwatch} style={{ '--swatch-bg': p.color }}></span>{p.label_he}
-                </span>
+          <div className={styles.filterGroup}>
+            <label className={styles.filterLabel}>הרשאה:</label>
+            <select className={styles.filterSelect} value={workerFilter} onChange={e => setWorkerFilter(e.target.value)}>
+              {filterOptions.map(opt => (
+                <option key={opt.key} value={opt.key}>{opt.label}</option>
               ))}
-              <span className={styles.legendItem}>
-                <span className={styles.legendSwatch} style={{ '--swatch-bg': '#9ca3af' }}></span>שבת
-              </span>
-              <span className={styles.legendItem}>
-                <span className={styles.legendSwatch} style={{ '--swatch-bg': '#e5e7eb', '--swatch-border': '1px solid #9ca3af' }}></span>שישי
-              </span>
-              <button
-                className={styles.permanentBtn}
-                onClick={() => { setPermanentModalWorkerId(null); setShowPermanentModal(true); }}
-              >
-                📌 משמרות קבועות
-              </button>
-            </div>
+            </select>
           </div>
+          <div className={styles.filterGroup}>
+            <label className={styles.filterLabel}>תפקיד:</label>
+            <select className={styles.filterSelect} value={jobFilter} onChange={e => setJobFilter(e.target.value)}>
+              <option value=''>כל התפקידים</option>
+              {jobOptions.map(job => (
+                <option key={job} value={job}>{job}</option>
+              ))}
+            </select>
+          </div>
+          <div className={`shift-admin-legend ${styles.legendRow}`}>
+            {prefs.map(p => (
+              <span key={p.key} className={styles.legendItem}>
+                <span className={styles.legendSwatch} style={{ '--swatch-bg': p.color }}></span>{p.label_he}
+              </span>
+            ))}
+            <span className={styles.legendItem}>
+              <span className={styles.legendSwatch} style={{ '--swatch-bg': '#9ca3af' }}></span>שבת
+            </span>
+            <span className={styles.legendItem}>
+              <span className={styles.legendSwatch} style={{ '--swatch-bg': '#e5e7eb', '--swatch-border': '1px solid #9ca3af' }}></span>שישי
+            </span>
+          </div>
+          <button
+            className={styles.permanentBtn}
+            onClick={() => { setPermanentModalWorkerId(null); setShowPermanentModal(true); }}
+          >
+            📌 משמרות קבועות
+          </button>
           <div className="month-year-nav">
             <button className="btn-secondary btn-sm" onClick={nextYear} title="שנה קדימה">»</button>
             <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">›</button>

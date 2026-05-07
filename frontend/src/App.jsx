@@ -49,6 +49,16 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [pendingProfileCount, setPendingProfileCount] = useState(0);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportFields, setReportFields] = useState({
+    name: true, id_number: true, job: true, employment_type: true,
+    phone: true, email: true, status: true, branch_type: false,
+  });
+
+  const REPORT_FIELD_LABELS = {
+    name: 'שם', id_number: 'ת.ז.', job: 'תפקיד', employment_type: 'סוג העסקה',
+    phone: 'טלפון', email: 'אימייל', status: 'סטטוס', branch_type: 'שיוך לסניף',
+  };
 
   const isSuperAdmin = (currentUser?.role_tier ?? currentUser?.role) === 'superadmin';
   const isAdmin = ['admin', 'superadmin'].includes(currentUser?.role_tier ?? currentUser?.role);
@@ -232,6 +242,8 @@ export default function App() {
 
   const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
   const inactivityTimer = useRef(null);
+  const tabsRef = useRef(null);
+  const headerRef = useRef(null);
 
   const resetInactivityTimer = useCallback(() => {
     clearTimeout(inactivityTimer.current);
@@ -248,6 +260,21 @@ export default function App() {
       clearTimeout(inactivityTimer.current);
     };
   }, [authToken, resetInactivityTimer]);
+
+  useEffect(() => {
+    function updateOffsets() {
+      const headerH = headerRef.current?.offsetHeight ?? 0;
+      const tabsH   = tabsRef.current?.offsetHeight  ?? 0;
+      document.documentElement.style.setProperty('--header-h', `${headerH}px`);
+      document.documentElement.style.setProperty('--tabs-h',   `${tabsH}px`);
+      document.documentElement.style.setProperty('--content-top', `${headerH + tabsH + 8}px`);
+    }
+    updateOffsets();
+    const ro = new ResizeObserver(updateOffsets);
+    if (headerRef.current) ro.observe(headerRef.current);
+    if (tabsRef.current)   ro.observe(tabsRef.current);
+    return () => ro.disconnect();
+  }, [currentUser, activeTab]);
 
   function handlePasswordChanged() {
     const updated = { ...currentUser, must_change_password: 0 };
@@ -284,7 +311,7 @@ export default function App() {
   const selectedBranchName = branches.find(b => b.id === selectedBranchId)?.name;
   const currentUserBranchName = branches.find(b => b.id === currentUser?.branch_id)?.name;
 
-  function handlePrintReport() {
+  function handlePrintReport(fields = reportFields) {
     const branchName = selectedBranchName || '';
     const now = new Date().toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' });
     const activeCount = filteredWorkers.filter(w => w.is_active !== false).length;
@@ -308,20 +335,33 @@ export default function App() {
       ? `<div class="filters-row"><span class="filters-label">פילטרים פעילים:</span>${activeFilterLabels.map(f => `<span class="filter-tag">${f}</span>`).join('')}</div>`
       : `<div class="filters-row"><span class="filters-label">ללא סינון — כל העובדים</span></div>`;
 
+    const headers = [
+      '<th>#</th>',
+      fields.name           && '<th>שם</th>',
+      fields.id_number      && '<th>ת.ז.</th>',
+      fields.job            && '<th>תפקיד</th>',
+      fields.employment_type&& '<th>סוג העסקה</th>',
+      fields.phone          && '<th>טלפון</th>',
+      fields.email          && '<th>אימייל</th>',
+      fields.status         && '<th>סטטוס</th>',
+      fields.branch_type    && '<th>שיוך לסניף</th>',
+    ].filter(Boolean).join('');
+
     const rows = filteredWorkers.map((w, i) => {
       const isActive = w.is_active !== false;
       const isPrimary = w.is_primary_branch !== false;
-      return `<tr>
-        <td class="num">${i + 1}</td>
-        <td class="name">${w.title || ''} ${w.first_name || ''} ${w.family_name || ''}</td>
-        <td>${w.id_number || ''}</td>
-        <td><span class="pill pill-job">${w.job || '—'}</span></td>
-        <td>${w.employment_type || '—'}</td>
-        <td dir="ltr">${w.phone || '—'}</td>
-        <td>${w.email || '—'}</td>
-        <td><span class="pill ${isActive ? 'pill-active' : 'pill-inactive'}">${isActive ? 'פעיל' : 'לא פעיל'}</span></td>
-        <td><span class="pill ${isPrimary ? 'pill-primary' : 'pill-secondary'}">${isPrimary ? 'ראשי' : 'מושאל'}</span></td>
-      </tr>`;
+      const cells = [
+        `<td class="num">${i + 1}</td>`,
+        fields.name            && `<td class="name">${w.title || ''} ${w.first_name || ''} ${w.family_name || ''}</td>`,
+        fields.id_number       && `<td>${w.id_number || ''}</td>`,
+        fields.job             && `<td><span class="pill pill-job">${w.job || '—'}</span></td>`,
+        fields.employment_type && `<td>${w.employment_type || '—'}</td>`,
+        fields.phone           && `<td dir="ltr">${w.phone || '—'}</td>`,
+        fields.email           && `<td>${w.email || '—'}</td>`,
+        fields.status          && `<td><span class="pill ${isActive ? 'pill-active' : 'pill-inactive'}">${isActive ? 'פעיל' : 'לא פעיל'}</span></td>`,
+        fields.branch_type     && `<td><span class="pill ${isPrimary ? 'pill-primary' : 'pill-secondary'}">${isPrimary ? 'ראשי' : 'מושאל'}</span></td>`,
+      ].filter(Boolean).join('');
+      return `<tr>${cells}</tr>`;
     }).join('');
 
     const html = `<!DOCTYPE html>
@@ -418,12 +458,7 @@ export default function App() {
   </div>
 
   <table>
-    <thead>
-      <tr>
-        <th>#</th><th>שם</th><th>ת.ז.</th><th>תפקיד</th><th>סוג העסקה</th>
-        <th>טלפון</th><th>אימייל</th><th>סטטוס</th>
-      </tr>
-    </thead>
+    <thead><tr>${headers}</tr></thead>
     <tbody>${rows}</tbody>
   </table>
 
@@ -463,7 +498,7 @@ export default function App() {
   // ── Main app ───────────────────────────────────────────────────────────────
   return (
     <div className="app">
-      <header>
+      <header ref={headerRef}>
         <img src={logoAssuta} alt="Assuta" className={`logo-assuta ${appStyles.logoMain}`} />
         <div className={appStyles.headerTitleCol}>
           <h1>מחלקת הרדמה</h1>
@@ -519,7 +554,8 @@ export default function App() {
         </div>
       </header>
 
-      <div className="tabs">
+      <div className="tabs" ref={tabsRef}>
+        <div className="tabs-inner">
         {isSuperAdmin && (
           <button
             className={`tab-btn${activeTab === 'overview' ? ' active' : ''}`}
@@ -597,7 +633,7 @@ export default function App() {
             className={`tab-btn${activeTab === 'profile-requests' ? ' active' : ''} ${appStyles.messagesTabBtn}`}
             onClick={() => setActiveTab('profile-requests')}
           >
-            עדכון פרופיל
+            בקשות לאישור
             {pendingProfileCount > 0 && activeTab !== 'profile-requests' && (
               <span className={appStyles.unreadBadge}>{pendingProfileCount}</span>
             )}
@@ -614,6 +650,7 @@ export default function App() {
             )}
           </button>
         )}
+        </div>
       </div>
 
       {showChangePassword && (
@@ -683,7 +720,7 @@ export default function App() {
                 נקה סינון
               </button>
             )}
-            <button className={`btn-secondary ${appStyles.reportBtn}`} onClick={handlePrintReport}>🖨 דו"ח עובדים</button>
+            <button className={`btn-secondary ${appStyles.reportBtn}`} onClick={() => setShowReportModal(true)} title='דו"ח עובדים'>🖨</button>
           </div>
 
           {showForm && (
@@ -775,6 +812,34 @@ export default function App() {
           authToken={authToken}
           onDecision={fetchPendingProfileCount}
         />
+      )}
+
+      {showReportModal && (
+        <div className={appStyles.reportModalOverlay} onClick={() => setShowReportModal(false)}>
+          <div className={appStyles.reportModal} onClick={e => e.stopPropagation()}>
+            <div className={appStyles.reportModalHeader}>
+              <span>בחר שדות לדו"ח</span>
+              <button className={appStyles.reportModalClose} onClick={() => setShowReportModal(false)}>✕</button>
+            </div>
+            <div className={appStyles.reportModalFields}>
+              {Object.entries(REPORT_FIELD_LABELS).map(([key, label]) => (
+                <label key={key} className={appStyles.reportFieldLabel}>
+                  <input
+                    type="checkbox"
+                    checked={reportFields[key]}
+                    onChange={e => setReportFields(f => ({ ...f, [key]: e.target.checked }))}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className={appStyles.reportModalActions}>
+              <button className="btn-primary" onClick={() => { setShowReportModal(false); handlePrintReport(reportFields); }}>
+                🖨 הפקת דו"ח
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
