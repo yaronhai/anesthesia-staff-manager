@@ -2443,7 +2443,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .room-view-container {
   padding: 0.4rem 0.75rem;
   direction: rtl;
-  height: calc(100vh - 162px);
+  height: calc(100vh - var(--content-top, 162px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2917,21 +2917,22 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 3px;
-  padding: 0.1rem 0.4rem;
-  font-size: 0.62rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.3rem;
-  overflow: hidden;
-  max-height: 1.8rem;
+  gap: 0.35rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
 }
 
 .room-requests-label {
   font-weight: 700;
   color: #8B0000;
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -2983,30 +2984,30 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.35rem;
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 3px;
-  padding: 0.1rem 0.4rem;
-  font-size: 0.62rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
   flex-shrink: 0;
-  overflow: hidden;
-  max-height: 1.8rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
 }
 
 .room-unassigned-label {
-  font-weight: 600;
+  font-weight: 700;
   color: #991b1b;
   flex-shrink: 0;
   white-space: nowrap;
-  font-size: 0.62rem;
+  font-size: 0.7rem;
 }
 
 .room-unassigned-content {
   display: flex;
   gap: 0.2rem;
   flex-wrap: nowrap;
-  overflow-x: auto;
   flex: 1;
   align-items: center;
 }
@@ -3280,7 +3281,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .admin-cell-editor { min-width: min(300px, 92vw); max-width: 92vw; }
 
   /* Room view */
-  .room-view-container { height: calc(100svh - 95px); }
+  .room-view-container { height: calc(100svh - var(--content-top, 95px)); }
   .room-nav { flex-direction: row; align-items: stretch; flex-wrap: nowrap; overflow-x: auto; gap: 0.2rem; }
   .room-nav-row1, .room-nav-row2 { display: contents; }
   .room-nav button, .room-nav .btn-sm { padding: 0.22rem 0.38rem !important; font-size: 0.75rem !important; flex-shrink: 0; }
@@ -3403,7 +3404,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .month-year-label { min-width: 80px; font-size: 0.82rem; }
   .month-year-nav .btn-sm { padding: 0.2rem 0.4rem; font-size: 0.7rem; }
   .shift-view { height: calc(100svh - 68px); max-height: none; overflow: hidden; }
-  .room-view-container { height: calc(100vh - 70px); }
+  .room-view-container { height: calc(100svh - var(--content-top, 70px)); }
   .worker-table-wrap { max-height: calc(100vh - 90px); }
 
   /* Shift grid – landscape: fit screen, no horizontal scroll */
