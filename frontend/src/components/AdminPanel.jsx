@@ -410,27 +410,17 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
         </div>
 
         <div className={styles.modalFlex}>
-          {/* Tabs */}
-          <div className={styles.tabBar}>
-            {tabs.map(tab => {
-              const active = activeTab === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  className={styles.tabBtn}
-                  onClick={() => setActiveTab(tab.key)}
-                  style={{
-                    '--tab-border-color': active ? '#cbd5e1' : 'transparent',
-                    '--tab-border-bottom': active ? '2px solid white' : '2px solid transparent',
-                    '--tab-bg': active ? 'white' : 'transparent',
-                    '--tab-color': active ? '#1a2e4a' : '#64748b',
-                    '--tab-weight': active ? 700 : 400,
-                  }}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
+          {/* Tab selector */}
+          <div className={styles.tabSelectRow}>
+            <select
+              className={styles.tabSelect}
+              value={activeTab}
+              onChange={e => setActiveTab(e.target.value)}
+            >
+              {tabs.map(tab => (
+                <option key={tab.key} value={tab.key}>{tab.label}</option>
+              ))}
+            </select>
           </div>
 
           {/* Content */}

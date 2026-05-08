@@ -1591,18 +1591,18 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">‹‹‹</button>
           </div>{/* room-nav-row1 */}
           <div className="room-nav-row2">
-          <div style={{ display: 'flex', border: '1px solid #d1d5db', borderRadius: '8px', overflow: 'hidden' }}>
-            <button onClick={openSaveAsTemplate} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="שמור את הפעילויות הנוכחיות כתבנית">💾</button>
-            <button onClick={loadTemplates} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="טען תבנית על היום הנוכחי">📋</button>
-            <button onClick={openTemplateManager} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="ערוך תוכן תבניות קיימות">✏️</button>
-            <button onClick={openCreateTemplate} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db' }} title="צור תבנית חדשה מאפס">➕</button>
-            <button onClick={clearDayAssignments} className="btn-secondary btn-sm" style={{ borderRadius: 0, color: '#b91c1c' }} title="הסר את כל שיבוצי העובדים ליום זה">🗑️</button>
+          <button onClick={fetchSuggestions} disabled={suggestLoading} title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות" className="room-nav-action-btn room-nav-suggest-btn" style={{opacity: suggestLoading ? 0.6 : 1, cursor: suggestLoading ? 'not-allowed' : 'pointer'}}>{isMobile ? '🤖' : '🤖 הצע שיבוצים'}</button>
+          <button onClick={openSendModal} title="שלח תוכנית יומית בהודעה" className="room-nav-action-btn room-nav-send-btn">{isMobile ? '💬' : '💬 שלח תוכנית'}</button>
+          <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
+          <div style={{ display: 'flex', border: '1px solid #d1d5db', borderRadius: '8px', overflow: 'hidden', alignSelf: 'stretch' }}>
+            <button onClick={openSaveAsTemplate} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db', height: '100%' }} title="שמור את הפעילויות הנוכחיות כתבנית">💾</button>
+            <button onClick={loadTemplates} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db', height: '100%' }} title="טען תבנית על היום הנוכחי">📋</button>
+            <button onClick={openTemplateManager} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db', height: '100%' }} title="ערוך תוכן תבניות קיימות">✏️</button>
+            <button onClick={openCreateTemplate} className="btn-secondary btn-sm" style={{ borderRadius: 0, borderRight: '1px solid #d1d5db', height: '100%' }} title="צור תבנית חדשה מאפס">➕</button>
+            <button onClick={clearDayAssignments} className="btn-secondary btn-sm" style={{ borderRadius: 0, color: '#b91c1c', height: '100%' }} title="הסר את כל שיבוצי העובדים ליום זה">🗑️</button>
           </div>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️</button>
-          <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
-          <button onClick={openSendModal} title="שלח תוכנית יומית בהודעה" style={{background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(14,165,233,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>{isMobile ? '💬' : '💬 שלח תוכנית'}</button>
-          <button onClick={fetchSuggestions} disabled={suggestLoading} title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות" style={{background: 'linear-gradient(135deg, #7c3aed, #a855f7)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.45rem 0.9rem', fontSize: '1.05rem', fontWeight: 700, cursor: suggestLoading ? 'not-allowed' : 'pointer', opacity: suggestLoading ? 0.6 : 1, boxShadow: '0 2px 8px rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap'}}>{isMobile ? '🤖' : '🤖 הצע שיבוצים'}</button>
           <div style={{flex: 1}} />
           {!isMobile && statsBarContent}
           </div>{/* room-nav-row2 */}

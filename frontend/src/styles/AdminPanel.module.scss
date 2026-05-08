@@ -8,28 +8,23 @@
   margin-left: 12px;
 }
 
-// Tab bar + individual tab buttons
-.tabBar {
-  display: flex;
-  gap: 0.15rem;
-  border-bottom: 2px solid #e2e8f0;
-  padding: 0.5rem 0.75rem 0;
+// Tab dropdown selector row
+.tabSelectRow {
+  padding: 0.5rem 0.75rem;
   background: #f1f5f9;
-  overflow-x: auto;
+  border-bottom: 2px solid #e2e8f0;
 }
-.tabBtn {
-  padding: 0.25rem 0.55rem;
-  border: 1px solid var(--tab-border-color, transparent);
-  border-bottom: var(--tab-border-bottom, 2px solid transparent);
-  background: var(--tab-bg, transparent);
-  color: var(--tab-color, #64748b);
-  font-weight: var(--tab-weight, 400);
+.tabSelect {
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #1a2e4a;
+  font-size: 0.88rem;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 7px 7px 0 0;
-  white-space: nowrap;
-  font-size: 0.82rem;
-  margin-bottom: -2px;
-  transition: all 0.12s;
+  direction: rtl;
 }
 
 // Modal flex wrapper + content area

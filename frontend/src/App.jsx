@@ -50,6 +50,8 @@ export default function App() {
   const [pendingProfileCount, setPendingProfileCount] = useState(0);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
   const [reportFields, setReportFields] = useState({
     name: true, id_number: true, job: true, employment_type: true,
     phone: true, email: true, status: true, branch_type: false,
@@ -276,6 +278,15 @@ export default function App() {
     return () => ro.disconnect();
   }, [currentUser, activeTab]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handler(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
+
   function handlePasswordChanged() {
     const updated = { ...currentUser, must_change_password: 0 };
     localStorage.setItem('currentUser', JSON.stringify(updated));
@@ -499,6 +510,90 @@ export default function App() {
   return (
     <div className="app">
       <header ref={headerRef}>
+        <div className={appStyles.navMenuWrap} ref={menuRef}>
+            <button className={appStyles.hamburgerBtn} onClick={() => setMenuOpen(o => !o)}>
+              <span className={appStyles.hamburgerLine} />
+              <span className={appStyles.hamburgerLine} />
+              <span className={appStyles.hamburgerLine} />
+              {(unreadMessages > 0 || pendingProfileCount > 0) && (
+                <span className={appStyles.hamburgerBadge}>
+                  {unreadMessages + pendingProfileCount}
+                </span>
+              )}
+            </button>
+            {menuOpen && (
+              <div className={appStyles.navDropdown}>
+                {isSuperAdmin && (
+                  <button className={`${appStyles.navItem}${activeTab === 'overview' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('overview'); handleBranchSelect(null); setMenuOpen(false); }}>
+                    Dashboard
+                  </button>
+                )}
+                {isAdmin && selectedBranchId && (
+                  <button className={`${appStyles.navItem}${activeTab === 'workers' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('workers'); setMenuOpen(false); }}>
+                    ניהול עובדים
+                  </button>
+                )}
+                {currentUser?.worker_id && !isAdmin && (!isSuperAdmin || selectedBranchId) && (
+                  <button className={`${appStyles.navItem}${activeTab === 'profile' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('profile'); setMenuOpen(false); }}>
+                    הפרופיל שלי
+                  </button>
+                )}
+                {(!isSuperAdmin || selectedBranchId) && (
+                  <button className={`${appStyles.navItem}${activeTab === 'shifts' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('shifts'); setMenuOpen(false); }}>
+                    בקשות משמרות
+                  </button>
+                )}
+                {(!isSuperAdmin || selectedBranchId) && (
+                  <button className={`${appStyles.navItem}${activeTab === 'vacations' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('vacations'); setMenuOpen(false); }}>
+                    בקשות חופשה
+                  </button>
+                )}
+                {isAdmin && selectedBranchId && (
+                  <button className={`${appStyles.navItem}${activeTab === 'rooms' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('rooms'); setMenuOpen(false); }}>
+                    שיבוצים לחדרים
+                  </button>
+                )}
+                {isAdmin && selectedBranchId && (
+                  <button className={`${appStyles.navItem}${activeTab === 'events' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('events'); setMenuOpen(false); }}>
+                    אירועים
+                  </button>
+                )}
+                {isAdmin && selectedBranchId && (
+                  <button className={`${appStyles.navItem}${activeTab === 'special-days' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('special-days'); setMenuOpen(false); }}>
+                    ימים מיוחדים
+                  </button>
+                )}
+                {isAdmin && selectedBranchId && (
+                  <button className={`${appStyles.navItem}${activeTab === 'report' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('report'); setMenuOpen(false); }}>
+                    דוח חודשי
+                  </button>
+                )}
+                {isAdmin && selectedBranchId && (
+                  <button className={`${appStyles.navItem}${activeTab === 'profile-requests' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('profile-requests'); setMenuOpen(false); }}>
+                    בקשות לאישור
+                    {pendingProfileCount > 0 && <span className={appStyles.navBadge}>{pendingProfileCount}</span>}
+                  </button>
+                )}
+                {selectedBranchId && (
+                  <button className={`${appStyles.navItem}${activeTab === 'messages' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('messages'); setMenuOpen(false); }}>
+                    💬 הודעות
+                    {unreadMessages > 0 && <span className={appStyles.navBadge}>{unreadMessages}</span>}
+                  </button>
+                )}
+              </div>
+            )}
+        </div>
         <img src={logoAssuta} alt="Assuta" className={`logo-assuta ${appStyles.logoMain}`} />
         <div className={appStyles.headerTitleCol}>
           <h1>מחלקת הרדמה</h1>
@@ -553,105 +648,6 @@ export default function App() {
           </div>
         </div>
       </header>
-
-      <div className="tabs" ref={tabsRef}>
-        <div className="tabs-inner">
-        {isSuperAdmin && (
-          <button
-            className={`tab-btn${activeTab === 'overview' ? ' active' : ''}`}
-            onClick={() => { setActiveTab('overview'); handleBranchSelect(null); }}
-          >
-            Dashboard
-          </button>
-        )}
-        {isAdmin && selectedBranchId && (
-          <button
-            className={`tab-btn${activeTab === 'workers' ? ' active' : ''}`}
-            onClick={() => setActiveTab('workers')}
-          >
-            ניהול עובדים
-          </button>
-        )}
-        {currentUser?.worker_id && !isAdmin && (!isSuperAdmin || selectedBranchId) && (
-          <button
-            className={`tab-btn${activeTab === 'profile' ? ' active' : ''}`}
-            onClick={() => setActiveTab('profile')}
-          >
-            הפרופיל שלי
-          </button>
-        )}
-        {(!isSuperAdmin || selectedBranchId) && (
-          <button
-            className={`tab-btn${activeTab === 'shifts' ? ' active' : ''}`}
-            onClick={() => setActiveTab('shifts')}
-          >
-            בקשות משמרות
-          </button>
-        )}
-        {(!isSuperAdmin || selectedBranchId) && (
-          <button
-            className={`tab-btn${activeTab === 'vacations' ? ' active' : ''}`}
-            onClick={() => setActiveTab('vacations')}
-          >
-            בקשות חופשה
-          </button>
-        )}
-        {isAdmin && selectedBranchId && (
-          <button
-            className={`tab-btn${activeTab === 'rooms' ? ' active' : ''}`}
-            onClick={() => setActiveTab('rooms')}
-          >
-            שיבוצים לחדרים
-          </button>
-        )}
-        {isAdmin && selectedBranchId && (
-          <button
-            className={`tab-btn${activeTab === 'events' ? ' active' : ''}`}
-            onClick={() => setActiveTab('events')}
-          >
-            אירועים
-          </button>
-        )}
-        {isAdmin && selectedBranchId && (
-          <button
-            className={`tab-btn${activeTab === 'special-days' ? ' active' : ''}`}
-            onClick={() => setActiveTab('special-days')}
-          >
-            ימים מיוחדים
-          </button>
-        )}
-        {isAdmin && selectedBranchId && (
-          <button
-            className={`tab-btn${activeTab === 'report' ? ' active' : ''}`}
-            onClick={() => setActiveTab('report')}
-          >
-            דוח חודשי
-          </button>
-        )}
-        {isAdmin && selectedBranchId && (
-          <button
-            className={`tab-btn${activeTab === 'profile-requests' ? ' active' : ''} ${appStyles.messagesTabBtn}`}
-            onClick={() => setActiveTab('profile-requests')}
-          >
-            בקשות לאישור
-            {pendingProfileCount > 0 && activeTab !== 'profile-requests' && (
-              <span className={appStyles.unreadBadge}>{pendingProfileCount}</span>
-            )}
-          </button>
-        )}
-        {selectedBranchId && (
-          <button
-            className={`tab-btn${activeTab === 'messages' ? ' active' : ''} ${appStyles.messagesTabBtn}`}
-            onClick={() => setActiveTab('messages')}
-          >
-            💬 הודעות
-            {unreadMessages > 0 && activeTab !== 'messages' && (
-              <span className={appStyles.unreadBadge}>{unreadMessages}</span>
-            )}
-          </button>
-        )}
-        </div>
-      </div>
 
       {showChangePassword && (
         <div className="modal-overlay">

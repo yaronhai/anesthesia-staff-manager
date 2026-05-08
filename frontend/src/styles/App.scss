@@ -58,35 +58,21 @@ header {
   max-width: 1400px;
   margin: 0 auto;
   width: calc(100% - 2rem);
-}
-.tabs-inner {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0;
   padding: 0.35rem 0.5rem;
-  width: 100%;
   box-sizing: border-box;
 }
-.tab-btn {
-  background: none;
-  border: none;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.82rem;
-  cursor: pointer;
-  color: #4b5563;
+.tab-select {
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #94a3b8;
   border-radius: 6px;
-  font-weight: 500;
-  transition: background 0.15s, color 0.15s;
-  flex: 1 1 0;
-  min-width: 0;
-  white-space: normal;
-  text-align: center;
-  line-height: 1.2;
-  overflow-wrap: normal;
-  word-break: normal;
+  background: #fff;
+  color: #1a2e4a;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  direction: rtl;
 }
-.tab-btn:hover { background: #cbd5e1; color: #1a2e4a; }
-.tab-btn.active { background: #1a2e4a; color: white; }
 
 header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.01em; }
 header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
@@ -2476,15 +2462,40 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 
 .room-nav {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0.3rem;
   flex-wrap: wrap;
 }
 .room-nav-row1, .room-nav-row2 { display: contents; }
 
-.room-nav button {
+.room-nav button, .room-nav .btn-sm {
   padding: 0.3rem 0.6rem;
   font-size: 0.75rem;
+  align-self: stretch;
+}
+
+.room-nav-action-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  align-self: stretch;
+}
+.room-nav-suggest-btn {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(124,58,237,0.4);
+}
+.room-nav-send-btn {
+  background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(14,165,233,0.4);
 }
 
 .room-date-label {
@@ -3144,7 +3155,6 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .header-role { display: none; }
   .btn-logout { padding: 0.22rem 0.5rem; font-size: 0.7rem; white-space: nowrap; }
   .btn-settings { padding: 0.22rem 0.5rem; font-size: 0.85rem; }
-  .header-branch-select { display: none !important; }
 
   /* Tabs – mobile overrides */
   .tabs {
@@ -3253,9 +3263,10 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 
   /* Room view */
   .room-view-container { height: calc(100svh - 95px); }
-  .room-nav { flex-direction: column; align-items: flex-start; gap: 0.2rem; }
-  .room-nav-row1, .room-nav-row2 { display: flex; align-items: center; gap: 0.2rem; flex-wrap: nowrap; width: 100%; }
-  .room-nav button, .room-nav .btn-sm { padding: 0.22rem 0.38rem !important; font-size: 0.75rem !important; }
+  .room-nav { flex-direction: row; align-items: stretch; flex-wrap: nowrap; overflow-x: auto; gap: 0.2rem; }
+  .room-nav-row1, .room-nav-row2 { display: contents; }
+  .room-nav button, .room-nav .btn-sm { padding: 0.22rem 0.38rem !important; font-size: 0.75rem !important; flex-shrink: 0; }
+  .room-nav-action-btn { padding: 0.22rem 0.45rem !important; font-size: 0.82rem !important; flex-shrink: 0; }
   .room-nav button[style] { padding: 0.22rem 0.38rem !important; font-size: 0.85rem !important; font-weight: 600 !important; box-shadow: none !important; }
 
   /* Login */
@@ -3373,7 +3384,6 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .logo-assuta { height: 20px; }
   header h1 { font-size: 0.8rem; }
   header .subtitle { display: none; }
-  .header-branch-select { display: none !important; }
   .tabs { top: var(--header-h, 40px); width: 100%; max-width: 100%; margin: 0; }
   .tabs-inner { padding: 0.1rem 0.3rem; gap: 2px; }
   .tab-btn { padding: 0.18rem 0.45rem; font-size: 0.68rem; }
