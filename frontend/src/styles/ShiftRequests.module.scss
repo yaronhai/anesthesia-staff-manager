@@ -209,7 +209,17 @@
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   &:hover { background: #e0f2fe; }
+}
+.permanentBtnText { white-space: nowrap; }
+
+@media (max-width: 600px) {
+  .permanentBtnText { display: none; }
+  .permanentBtn { padding: 0.25rem 0.4rem; font-size: 1rem; }
+  .filterLabel { font-size: 0.7rem; white-space: nowrap; flex-shrink: 0; }
+  .filterSelect { padding: 2px 3px; font-size: 0.7rem; max-width: 75px; flex-shrink: 1; }
+  .filterGroup { gap: 2px; flex-shrink: 1; min-width: 0; }
 }
 
 // Legend + button wrapper (user view)

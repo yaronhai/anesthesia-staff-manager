@@ -805,7 +805,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
             className={styles.permanentBtn}
             onClick={() => { setPermanentModalWorkerId(null); setShowPermanentModal(true); }}
           >
-            📌 משמרות קבועות
+            📌 <span className={styles.permanentBtnText}>משמרות קבועות</span>
           </button>
           <div className="month-year-nav">
             <button className="btn-secondary btn-sm" onClick={nextYear} title="שנה קדימה">»</button>
@@ -843,7 +843,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
         </div>
         {activeBranchId !== 'all' && (
           <button className={styles.permanentBtn} onClick={() => setShowPermanentModal(true)}>
-            📌 משמרות קבועות{permanentTemplate ? ' ✓' : ''}
+            📌 <span className={styles.permanentBtnText}>משמרות קבועות{permanentTemplate ? ' ✓' : ''}</span>
           </button>
         )}
         {workerBranches.length > 1 && (
