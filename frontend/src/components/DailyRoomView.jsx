@@ -309,13 +309,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     return () => window.removeEventListener('resize', handler);
   }, []);
 
-  // Auto-select first group on mount
+  // Auto-select "all" on mount
   useEffect(() => {
     if (config.site_groups?.length && !selectedGroupId) {
-      const groups = Object.keys(groupSitesByGroup(config.sites));
-      if (groups.length > 0) {
-        setSelectedGroupId(groups[0]);
-      }
+      setSelectedGroupId('__all__');
     }
   }, [config.site_groups, config.sites]);
 
