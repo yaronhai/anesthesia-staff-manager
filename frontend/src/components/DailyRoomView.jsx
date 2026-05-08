@@ -1957,13 +1957,19 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             <div className="room-view-sidebar">
               <div className="room-sidebar-bars">
                   <div className="room-requests-bar">
-                    <span className="room-requests-label">זמינים:</span>
+                    <span className="room-requests-label">עובדים זמינים:</span>
                     <div className="room-requests-content">
                       {availabilityShifts.map(({ key: shiftKey, icon, label_he: label, color, bg_color: bg }) => {
-                        const count = (requestsByShift[shiftKey] || []).length;
+                        const requests = requestsByShift[shiftKey] || [];
+                        if (requests.length === 0) return null;
                         return (
-                          <span key={shiftKey} className="room-summary-chip" style={{background: bg, color, border: `1px solid ${color}33`}}>
-                            {icon} {count}
+                          <span key={shiftKey} className="room-requests-shift">
+                            <span className="room-requests-icon" style={{color, background: bg, padding: '0.05rem 0.3rem', borderRadius: '3px', fontWeight: 700}}>{icon}</span>
+                            {requests.map(r => (
+                              <span key={r.id} className={`room-requests-worker pref-${r.preference_type}`} title={r.first_name + ' ' + r.family_name}>
+                                {r.first_name} {r.family_name}
+                              </span>
+                            ))}
                           </span>
                         );
                       })}
@@ -1972,23 +1978,25 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   <div className="room-unassigned-bar">
                     <span className="room-unassigned-label">לא משובצים:</span>
                     <div className="room-unassigned-content">
-                      {(() => {
-                        const unassigned = getUnassignedWorkers();
-                        return unassigned.length === 0
-                          ? <span className="room-unassigned-empty">✓ כולם</span>
-                          : <span className="room-summary-chip" style={{background:'#fee2e2', color:'#991b1b', border:'1px solid #fca5a5'}}>{unassigned.length}</span>;
-                      })()}
+                      {getUnassignedWorkers().length === 0
+                        ? <span className="room-unassigned-empty">כל העובדים משובצים ✓</span>
+                        : getUnassignedWorkers().map(w => (
+                            <span key={w.id} className="room-unassigned-worker">{w.first_name} {w.family_name}</span>
+                          ))
+                      }
                     </div>
                   </div>
                   {(() => {
                     const vacWorkers = getVacationWorkersForDate();
                     return (
                       <div className="room-unassigned-bar room-vacation-bar">
-                        <span className="room-unassigned-label">חופשה:</span>
+                        <span className="room-unassigned-label">חופשה מאושרת:</span>
                         <div className="room-unassigned-content">
                           {vacWorkers.length === 0
                             ? <span className="room-unassigned-empty">אין</span>
-                            : <span className="room-summary-chip" style={{background:'#dbeafe', color:'#1e40af', border:'1px solid #93c5fd'}}>{vacWorkers.length}</span>
+                            : vacWorkers.map(w => (
+                                <span key={w.id} className="room-unassigned-worker room-vacation-worker">{w.first_name} {w.family_name}</span>
+                              ))
                           }
                         </div>
                       </div>

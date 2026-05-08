@@ -2922,10 +2922,9 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.35rem;
-  overflow: hidden;
-  white-space: nowrap;
+  flex-wrap: wrap;
 }
 
 .room-requests-label {
@@ -2939,19 +2938,18 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .room-requests-content {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
-  overflow: hidden;
+  flex-wrap: wrap;
   flex: 1;
   gap: 0.2rem;
   align-items: center;
+  min-width: 0;
 }
 
 .room-requests-shift {
   display: flex;
   align-items: center;
   gap: 0.15rem;
-  flex-wrap: nowrap;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .room-requests-icon {
@@ -2993,7 +2991,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .room-unassigned-bar {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.35rem;
   background: #fef2f2;
   border: 1px solid #fecaca;
@@ -3001,8 +2999,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   padding: 0.15rem 0.5rem;
   font-size: 0.7rem;
   flex-shrink: 0;
-  overflow: hidden;
-  white-space: nowrap;
+  flex-wrap: wrap;
 }
 
 .room-unassigned-label {
@@ -3016,9 +3013,10 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .room-unassigned-content {
   display: flex;
   gap: 0.2rem;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   flex: 1;
   align-items: center;
+  min-width: 0;
 }
 
 .room-unassigned-worker {
@@ -3377,20 +3375,11 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 @media (max-width: 768px) {
   .room-view-sidebar {
     width: 100%;
-    overflow: visible;
     flex-shrink: 0;
   }
   .room-sidebar-bars {
-    flex-direction: row;
-    flex-wrap: nowrap;
+    flex-direction: column;
     gap: 0.15rem;
-    overflow: hidden;
-  }
-  .room-sidebar-bars .room-requests-bar,
-  .room-sidebar-bars .room-unassigned-bar {
-    flex: 1;
-    min-width: 0;
-    border-radius: 3px;
   }
 }
 
