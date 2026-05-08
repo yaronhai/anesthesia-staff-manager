@@ -2925,6 +2925,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   align-items: center;
   gap: 0.3rem;
   overflow: hidden;
+  max-height: 1.8rem;
 }
 
 .room-requests-label {
@@ -2990,6 +2991,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   font-size: 0.62rem;
   flex-shrink: 0;
   overflow: hidden;
+  max-height: 1.8rem;
 }
 
 .room-unassigned-label {

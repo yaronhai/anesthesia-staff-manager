@@ -1970,7 +1970,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             <span className="room-requests-empty">אין</span>
                           ) : (
                             Object.entries(groupRequestsByJob(requests)).map(([job, reqs]) => (
-                              <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'wrap'}}>
+                              <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'nowrap', flexShrink:0}}>
                                 <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
                                 {reqs.map(r => (
                                   <span
@@ -1996,7 +1996,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         <span className="room-unassigned-empty">כל העובדים משובצים ✓</span>
                       ) : (
                         Object.entries(groupWorkersByJob(getUnassignedWorkers())).map(([job, wList]) => (
-                          <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'wrap'}}>
+                          <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'nowrap', flexShrink:0}}>
                             <span style={{fontSize:'0.6rem', color:'#7f1d1d', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
                             {wList.map(w => (
                               <span key={w.id} className="room-unassigned-worker">
@@ -2018,7 +2018,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             <span className="room-unassigned-empty">אין עובדים בחופשה ביום זה</span>
                           ) : (
                             Object.entries(groupWorkersByJob(vacWorkers)).map(([job, wList]) => (
-                              <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'wrap'}}>
+                              <span key={job} style={{display:'flex', alignItems:'center', gap:'0.15rem', flexWrap:'nowrap', flexShrink:0}}>
                                 <span style={{fontSize:'0.6rem', color:'#1e3a5f', fontWeight:700, whiteSpace:'nowrap'}}>{job}:</span>
                                 {wList.map(w => (
                                   <span key={w.id} className="room-unassigned-worker room-vacation-worker">
