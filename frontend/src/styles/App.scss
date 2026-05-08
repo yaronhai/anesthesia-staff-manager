@@ -2924,8 +2924,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   flex-direction: row;
   align-items: center;
   gap: 0.35rem;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   white-space: nowrap;
 }
 
@@ -2941,7 +2940,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  overflow-x: auto;
+  overflow: hidden;
   flex: 1;
   gap: 0.2rem;
   align-items: center;
@@ -2991,8 +2990,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   padding: 0.15rem 0.5rem;
   font-size: 0.7rem;
   flex-shrink: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   white-space: nowrap;
 }
 
@@ -3375,7 +3373,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
     flex-direction: row;
     flex-wrap: nowrap;
     gap: 0.15rem;
-    overflow-x: auto;
+    overflow: hidden;
   }
   .room-sidebar-bars .room-requests-bar,
   .room-sidebar-bars .room-unassigned-bar {
