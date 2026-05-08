@@ -2538,6 +2538,12 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   overflow-y: auto;
 }
 
+.room-sidebar-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
 .room-groups-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -2911,30 +2917,40 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 3px;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.62rem;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  overflow: hidden;
 }
 
 .room-requests-label {
   font-weight: 700;
   color: #8B0000;
-  display: block;
-  margin-bottom: 0.1rem;
-  font-size: 0.9rem;
+  font-size: 0.62rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .room-requests-content {
   display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  flex: 1;
+  gap: 0.2rem;
+  align-items: center;
 }
 
 .room-requests-shift {
   display: flex;
-  align-items: flex-start;
-  gap: 0.2rem;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .room-requests-icon {
@@ -2964,27 +2980,33 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 /* Unassigned workers bar */
 .room-unassigned-bar {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 3px;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.62rem;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .room-unassigned-label {
   font-weight: 600;
   color: #991b1b;
   flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.62rem;
 }
 
 .room-unassigned-content {
   display: flex;
   gap: 0.2rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  flex: 1;
+  align-items: center;
 }
 
 .room-unassigned-worker {
@@ -3120,12 +3142,6 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 
   .room-view-body {
     flex-direction: column;
-  }
-
-  .room-view-sidebar {
-    width: 100%;
-    overflow: visible;
-    flex-shrink: 0;
   }
 }
 
@@ -3345,36 +3361,24 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   align-items: center;
 }
 
-/* ── Mobile sidebar toggle (room view) ────────────────────────────────────── */
-.room-sidebar-mobile-toggle {
-  display: none;
-}
-
+/* ── Mobile sidebar (room view) ─────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .room-sidebar-mobile-toggle {
-    display: flex;
+  .room-view-sidebar {
     width: 100%;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.35rem 0.75rem;
-    background: #f1f5f9;
-    border: none;
-    border-top: 2px solid #e2e8f0;
-    cursor: pointer;
-    font-family: inherit;
+    overflow: visible;
+    flex-shrink: 0;
   }
-  .room-sidebar-mobile-content {
-    max-height: 210px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    background: #f8fafc;
+  .room-sidebar-bars {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.15rem;
+    overflow-x: auto;
   }
-  .room-sidebar-mobile-content .room-requests-bar,
-  .room-sidebar-mobile-content .room-unassigned-bar {
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-    border-top: none;
+  .room-sidebar-bars .room-requests-bar,
+  .room-sidebar-bars .room-unassigned-bar {
+    flex: 1;
+    min-width: 0;
+    border-radius: 3px;
   }
 }
 

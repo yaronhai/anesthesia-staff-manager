@@ -293,7 +293,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     return isMobileCalc;
   };
   const [isMobile, setIsMobile] = useState(checkMobile);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+
 
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
@@ -1955,23 +1955,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             })()}
             </div>
             <div className="room-view-sidebar">
-              {isMobile && (
-                <button className="room-sidebar-mobile-toggle" onClick={() => setSidebarOpen(o => !o)}>
-                  <span style={{fontSize:'0.78rem', fontWeight:600, color:'#1a2e4a'}}>
-                    עובדים זמינים{' '}
-                    <span style={{background:'#dbeafe', color:'#1e40af', borderRadius:'8px', padding:'0 0.3rem', fontSize:'0.65rem', fontWeight:700}}>
-                      {availabilityShifts.reduce((s, st) => s + (requestsByShift[st.key] || []).length, 0)}
-                    </span>
-                    {' | '}לא משובצים{' '}
-                    <span style={{background: getUnassignedWorkers().length ? '#fee2e2' : '#d1fae5', color: getUnassignedWorkers().length ? '#991b1b' : '#065f46', borderRadius:'8px', padding:'0 0.3rem', fontSize:'0.65rem', fontWeight:700}}>
-                      {getUnassignedWorkers().length}
-                    </span>
-                  </span>
-                  <span style={{fontSize:'0.7rem', color:'#6b7280'}}>{sidebarOpen ? '▲' : '▼'}</span>
-                </button>
-              )}
-              {(!isMobile || sidebarOpen) && (
-                <div className={isMobile ? 'room-sidebar-mobile-content' : undefined}>
+              <div className="room-sidebar-bars">
                   <div className="room-requests-bar">
                     <span className="room-requests-label">עובדים זמינים:</span>
                     <div className="room-requests-content">
@@ -2049,7 +2033,6 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     );
                   })()}
                 </div>
-              )}
             </div>
           </div>
         </>
