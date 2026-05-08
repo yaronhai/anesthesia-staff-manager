@@ -2945,6 +2945,31 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   min-width: 0;
 }
 
+.room-requests-columns {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.room-requests-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.room-requests-col-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  align-self: flex-start;
+}
+
 .room-requests-shift {
   display: flex;
   align-items: center;

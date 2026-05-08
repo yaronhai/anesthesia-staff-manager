@@ -1958,19 +1958,21 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               <div className="room-sidebar-bars">
                   <div className="room-requests-bar">
                     <span className="room-requests-label">עובדים זמינים:</span>
-                    <div className="room-requests-content">
-                      {availabilityShifts.map(({ key: shiftKey, icon, label_he: label, color, bg_color: bg }) => {
+                    <div className="room-requests-columns">
+                      {availabilityShifts.map(({ key: shiftKey, icon, color, bg_color: bg }) => {
                         const requests = requestsByShift[shiftKey] || [];
-                        if (requests.length === 0) return null;
                         return (
-                          <span key={shiftKey} className="room-requests-shift">
-                            <span className="room-requests-icon" style={{color, background: bg, padding: '0.05rem 0.3rem', borderRadius: '3px', fontWeight: 700}}>{icon}</span>
-                            {requests.map(r => (
-                              <span key={r.id} className={`room-requests-worker pref-${r.preference_type}`} title={r.first_name + ' ' + r.family_name}>
-                                {r.first_name} {r.family_name}
-                              </span>
-                            ))}
-                          </span>
+                          <div key={shiftKey} className="room-requests-col">
+                            <span className="room-requests-col-header" style={{color, background: bg}}>{icon}</span>
+                            {requests.length === 0
+                              ? <span className="room-requests-empty">אין</span>
+                              : requests.map(r => (
+                                  <span key={r.id} className={`room-requests-worker pref-${r.preference_type}`}>
+                                    {r.first_name} {r.family_name}
+                                  </span>
+                                ))
+                            }
+                          </div>
                         );
                       })}
                     </div>
