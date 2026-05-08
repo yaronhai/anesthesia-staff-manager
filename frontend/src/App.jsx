@@ -120,7 +120,7 @@ export default function App() {
     if (selectedBranchId) {
       fetchWorkers();
       fetchConfig();
-      setActiveTab('workers');
+      setActiveTab(prev => (prev === 'overview' || prev === null) ? 'workers' : prev);
     } else {
       setActiveTab('overview');
       setWorkers([]);
