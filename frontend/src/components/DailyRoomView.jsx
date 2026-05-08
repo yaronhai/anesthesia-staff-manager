@@ -230,6 +230,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [newAssignment, setNewAssignment] = useState({ worker_id: null });
   const [showAllWorkers, setShowAllWorkers] = useState(false);
   const [jobFilter, setJobFilter] = useState(null); // Filter by job when showing all workers
+  const [barsCollapsed, setBarsCollapsed] = useState(true);
 
   // Edit times modal
   const [editingAssignment, setEditingAssignment] = useState(null);
@@ -1956,6 +1957,19 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             </div>
             <div className="room-view-sidebar">
               <div className="room-sidebar-bars">
+                {isMobile && (
+                  <div className="room-bars-summary-row">
+                    <span className="room-bars-summary-counts">
+                      <span>זמינים: {Object.values(requestsByShift).reduce((s, a) => s + a.length, 0)}</span>
+                      <span>לא משובצים: {getUnassignedWorkers().length}</span>
+                      <span>חופשה: {getVacationWorkersForDate().length}</span>
+                    </span>
+                    <button className="room-bars-toggle-btn" onClick={() => setBarsCollapsed(c => !c)}>
+                      {barsCollapsed ? '▲' : '▼'}
+                    </button>
+                  </div>
+                )}
+                {(!isMobile || !barsCollapsed) && (<>
                   <div className="room-requests-bar">
                     <span className="room-requests-label">עובדים זמינים:</span>
                     <div className="room-requests-columns">
@@ -2004,6 +2018,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       </div>
                     );
                   })()}
+                </>)}
                 </div>
             </div>
           </div>

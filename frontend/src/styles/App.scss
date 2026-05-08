@@ -3067,6 +3067,34 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   color: #1e40af;
 }
 
+/* Sidebar bars collapse toggle (mobile) */
+.room-bars-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.15rem 0.3rem;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 0.68rem;
+}
+.room-bars-summary-counts {
+  display: flex;
+  gap: 0.5rem;
+  color: #374151;
+  flex-wrap: wrap;
+}
+.room-bars-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #6b7280;
+  padding: 0 0.2rem;
+  flex-shrink: 0;
+}
+
 /* Sidebar */
 .room-sidebar {
   width: 220px;
