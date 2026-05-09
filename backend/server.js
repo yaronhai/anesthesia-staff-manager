@@ -1668,6 +1668,7 @@ app.delete('/api/vacation-requests/:id', requireAdmin, async (req, res) => {
 app.get('/api/branch-settings', requireAuth, async (req, res) => {
   try {
     let branchId = getEffectiveBranchId(req);
+    console.log(`[branch-settings] user=${req.user.id} role=${req.user.role_tier??req.user.role} query_branch=${req.query.branch_id} getEffective=${branchId}`);
     // Resolve branch for workers when not provided in query params
     if (branchId === null) {
       branchId = req.user.branch_id ?? null;
@@ -1680,8 +1681,10 @@ app.get('/api/branch-settings', requireAuth, async (req, res) => {
         LEFT JOIN worker_branches wb ON wb.worker_id = u.worker_id AND wb.is_active = true
         WHERE u.id = $1 LIMIT 1`, [req.user.id]);
       if (br.rows[0]?.branch_id) branchId = br.rows[0].branch_id;
+      console.log(`[branch-settings] COALESCE result=${br.rows[0]?.branch_id} → branchId=${branchId}`);
     }
     const settings = await getBranchLockSettings(branchId);
+    console.log(`[branch-settings] → lock_mode=${settings.lock_mode} branch=${branchId}`);
     const period = getLockedPeriod(settings);
     let lockedPeriodLabel = null;
     let lockedPeriodStart = null;
