@@ -1664,14 +1664,8 @@ app.delete('/api/vacation-requests/:id', requireAdmin, async (req, res) => {
 app.get('/api/branch-settings', requireAuth, async (req, res) => {
   try {
     let branchId = getEffectiveBranchId(req);
-    // For workers without explicit branch_id, resolve from their worker record
-    if (branchId === null) {
-      const tier = req.user.role_tier ?? req.user.role;
-      if (tier !== 'admin' && tier !== 'superadmin') {
-        const wRes = await query('SELECT branch_id FROM workers WHERE user_id = $1', [req.user.id]);
-        if (wRes.rows[0]?.branch_id) branchId = wRes.rows[0].branch_id;
-      }
-    }
+    // For workers: fall back to branch_id from JWT when no query param provided
+    if (branchId === null) branchId = req.user.branch_id ?? null;
     const settings = await getBranchLockSettings(branchId);
     const period = getLockedPeriod(settings);
     let lockedPeriodLabel = null;
