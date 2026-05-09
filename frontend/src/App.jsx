@@ -35,6 +35,8 @@ export default function App() {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [adminInitialTab, setAdminInitialTab] = useState(null);
+  const [lockRefreshKey, setLockRefreshKey] = useState(0);
   const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [], site_groups: [], sites: [], activity_types: [], shift_types: [], preference_types: [] });
   const [filterJobId, setFilterJobId] = useState('');
   const [filterEmpTypeId, setFilterEmpTypeId] = useState('');
@@ -668,9 +670,11 @@ export default function App() {
           branches={branches}
           onConfigChange={setConfig}
           onBranchesChange={handleBranchesChange}
-          onClose={() => setShowSettings(false)}
+          onLockChange={() => setLockRefreshKey(k => k + 1)}
+          onClose={() => { setShowSettings(false); setAdminInitialTab(null); setLockRefreshKey(k => k + 1); }}
           roles={roles}
           onRolesChange={setRoles}
+          initialTab={adminInitialTab}
         />
       )}
 
@@ -750,7 +754,14 @@ export default function App() {
       )}
 
       {activeTab === 'shifts' && (
-        <ShiftRequests currentUser={currentUser} token={authToken} config={config} selectedBranchId={selectedBranchId} />
+        <ShiftRequests
+          currentUser={currentUser}
+          token={authToken}
+          config={config}
+          selectedBranchId={selectedBranchId}
+          onOpenLockSettings={() => { setAdminInitialTab('lockSettings'); setShowSettings(true); }}
+          lockRefreshKey={lockRefreshKey}
+        />
       )}
 
       {activeTab === 'vacations' && (

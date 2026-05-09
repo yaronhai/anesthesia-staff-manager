@@ -2,7 +2,34 @@
 import RolesManagement from './RolesManagement';
 import styles from '../styles/AdminPanel.module.scss';
 
-export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, branches = [], onConfigChange, onBranchesChange, onClose, roles = [], onRolesChange }) {
+function isoToDdMmYyyy(iso) {
+  if (!iso) return '';
+  const s = iso.slice(0, 10);
+  const [y, m, d] = s.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function ddMmYyyyToIso(display) {
+  const parts = display.split('/');
+  if (parts.length !== 3 || parts[2].length !== 4) return null;
+  return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+}
+
+function DatePickerField({ value, onChange }) {
+  return (
+    <span className={styles.datePickerWrap}>
+      <span className={styles.dateDisplay}>{isoToDdMmYyyy(value) || '—'}</span>
+      <input
+        type="date"
+        className={styles.datePickerIcon}
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+      />
+    </span>
+  );
+}
+
+export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, branches = [], onConfigChange, onBranchesChange, onClose, roles = [], onRolesChange, initialTab, onLockChange }) {
   const [newJob, setNewJob] = useState('');
   const [newEmpType, setNewEmpType] = useState('');
   const [newHonorific, setNewHonorific] = useState('');
@@ -18,7 +45,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [newActivityTypeComplexityByGroup, setNewActivityTypeComplexityByGroup] = useState({});
   const [expandedActivityAuths, setExpandedActivityAuths] = useState({});
   const [siteAllowedJobsModal, setSiteAllowedJobsModal] = useState(null);
-  const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'branches' : 'groups');
+  const [activeTab, setActiveTab] = useState(initialTab || (isSuperAdmin ? 'branches' : 'groups'));
   const [newBranchName, setNewBranchName] = useState('');
   const [newBranchDesc, setNewBranchDesc] = useState('');
   const [localBranchId, setLocalBranchId] = useState(branchId);
@@ -26,12 +53,12 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [templateGroups, setTemplateGroups] = useState([]);
   const [newTemplateGroupName, setNewTemplateGroupName] = useState('');
   const [lockSettings, setLockSettings] = useState(null);
-  const [lockOverrides, setLockOverrides] = useState([]);
-  const [lockWorkers, setLockWorkers] = useState([]);
   const [lockSaving, setLockSaving] = useState(false);
+  const [lockToggling, setLockToggling] = useState(false);
   const [lockMsg, setLockMsg] = useState('');
-  const [newOverrideWorkerId, setNewOverrideWorkerId] = useState('');
-  const [newOverrideUntil, setNewOverrideUntil] = useState('');
+  const [overrideFrom, setOverrideFrom] = useState('');
+  const [overrideUntil, setOverrideUntil] = useState('');
+  const [pastDateConfirm, setPastDateConfirm] = useState(false);
 
   function branchParam(bid) {
     const id = bid !== undefined ? bid : localBranchId;
@@ -61,15 +88,18 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     const h = { Authorization: `Bearer ${authToken}` };
     fetch(`/api/branch-settings${bp}`, { headers: h })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setLockSettings(d); })
-      .catch(() => {});
-    fetch(`/api/worker-lock-overrides${bp}`, { headers: h })
-      .then(r => r.ok ? r.json() : [])
-      .then(setLockOverrides)
-      .catch(() => {});
-    fetch(`/api/workers${bp}`, { headers: h })
-      .then(r => r.ok ? r.json() : [])
-      .then(d => setLockWorkers(Array.isArray(d) ? d : (d.workers || [])))
+      .then(d => {
+        if (!d) return;
+        setLockSettings(d);
+        // Set override date defaults from existing values or compute weekly window
+        const today = new Date(); today.setHours(0,0,0,0);
+        const todayDow = today.getDay();
+        const currSun = new Date(today); currSun.setDate(today.getDate() - todayDow);
+        const nextSat = new Date(currSun); nextSat.setDate(currSun.getDate() + 13);
+        const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+        setOverrideFrom(d.lock_override_from ? d.lock_override_from.slice(0,10) : fmt(currSun));
+        setOverrideUntil(d.lock_override_until && d.lock_override_until !== '9999-12-31' ? d.lock_override_until.slice(0,10) : fmt(nextSat));
+      })
       .catch(() => {});
   }, [activeTab, localBranchId]);
 
@@ -371,6 +401,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
           lock_mode: lockSettings.lock_mode,
           lock_day_of_month: lockSettings.lock_day_of_month,
           lock_day_of_week: lockSettings.lock_day_of_week,
+          lock_override_from: lockSettings.lock_override_from || null,
           lock_override_until: lockSettings.lock_override_until || null,
         }),
       });
@@ -379,34 +410,78 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
       setLockMsg('נשמר ✓');
     } catch {
       setLockMsg('שגיאה בשמירה');
+
     } finally {
       setLockSaving(false);
     }
   }
 
-  async function addLockOverride() {
-    if (!newOverrideWorkerId || !newOverrideUntil) return;
-    const bp = branchParam();
-    const res = await fetch(`/api/worker-lock-overrides${bp}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify({ worker_id: parseInt(newOverrideWorkerId), override_until: newOverrideUntil }),
-    });
-    if (res.ok) {
-      const row = await res.json();
-      setLockOverrides(prev => [...prev.filter(o => o.worker_id !== row.worker_id), row]);
-      setNewOverrideWorkerId('');
-      setNewOverrideUntil('');
+  function requestOpenLock() {
+    if (!lockSettings) return;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    if (overrideFrom && overrideFrom < todayStr) {
+      setPastDateConfirm(true);
+      return;
+    }
+    openLock();
+  }
+
+  async function openLock() {
+    if (!lockSettings) return;
+    setPastDateConfirm(false);
+    setLockToggling(true);
+    setLockMsg('');
+    try {
+      const bp = branchParam();
+      const res = await fetch(`/api/branch-settings${bp}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({
+          lock_mode: lockSettings.lock_mode,
+          lock_day_of_month: lockSettings.lock_day_of_month,
+          lock_day_of_week: lockSettings.lock_day_of_week,
+          lock_override_from: overrideFrom || null,
+          lock_override_until: overrideUntil || null,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setLockSettings(await res.json());
+      setLockMsg('הסידור נפתח ✓');
+      onLockChange?.();
+    } catch {
+      setLockMsg('שגיאה בשמירה');
+    } finally {
+      setLockToggling(false);
     }
   }
 
-  async function removeLockOverride(workerId) {
-    const bp = branchParam();
-    const res = await fetch(`/api/worker-lock-overrides/${workerId}${bp}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    if (res.ok) setLockOverrides(prev => prev.filter(o => o.worker_id !== workerId));
+  async function closeLock() {
+    if (!lockSettings) return;
+    setLockToggling(true);
+    setLockMsg('');
+    try {
+      const bp = branchParam();
+      const res = await fetch(`/api/branch-settings${bp}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({
+          lock_mode: lockSettings.lock_mode,
+          lock_day_of_month: lockSettings.lock_day_of_month,
+          lock_day_of_week: lockSettings.lock_day_of_week,
+          lock_override_from: null,
+          lock_override_until: null,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setLockSettings(await res.json());
+      setLockMsg('הסידור נעול ✓');
+      onLockChange?.();
+    } catch {
+      setLockMsg('שגיאה בשמירה');
+    } finally {
+      setLockToggling(false);
+    }
   }
 
   async function saveShiftTimes(key) {
@@ -487,17 +562,17 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
         </div>
 
         <div className={styles.modalFlex}>
-          {/* Tab selector */}
-          <div className={styles.tabSelectRow}>
-            <select
-              className={styles.tabSelect}
-              value={activeTab}
-              onChange={e => setActiveTab(e.target.value)}
-            >
-              {tabs.map(tab => (
-                <option key={tab.key} value={tab.key}>{tab.label}</option>
-              ))}
-            </select>
+          {/* Tab bar */}
+          <div className={styles.tabBar}>
+            {tabs.map(tab => (
+              <button
+                key={tab.key}
+                className={`${styles.tabBtn}${activeTab === tab.key ? ` ${styles.tabBtnActive}` : ''}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Content */}
@@ -1238,19 +1313,102 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                       </div>
                     )}
 
-                    <div className={styles.lockSection}>
-                      <label className={styles.lockLabel}>פתח סניף עד תאריך:</label>
-                      <input
-                        type="date"
-                        className={styles.lockDateInput}
-                        value={lockSettings.lock_override_until ? lockSettings.lock_override_until.slice(0,10) : ''}
-                        onChange={e => setLockSettings(s => ({ ...s, lock_override_until: e.target.value || null }))}
-                      />
-                      {lockSettings.lock_override_until && (
-                        <button className={styles.lockClearBtn} onClick={() => setLockSettings(s => ({ ...s, lock_override_until: null }))}>✕</button>
-                      )}
-                      <span className={styles.lockLabelSuffix}>כל העובדים יוכלו להגיש עד תאריך זה</span>
-                    </div>
+                    {(() => {
+                      const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+                      const DAYS_HE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+                      const today = new Date();
+                      const s = lockSettings;
+                      let statusLine, nextLockLine;
+
+                      if (s.lock_mode === 'monthly') {
+                        const lockDay = s.lock_day_of_month;
+                        const todayDay = today.getDate();
+                        if (todayDay >= lockDay) {
+                          const lockedMonth = (today.getMonth() + 1) % 12;
+                          const lockedYear = today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear();
+                          statusLine = `🔒 הסידור נעול כעת לחודש ${MONTHS_HE[lockedMonth]} ${lockedYear}`;
+                          nextLockLine = `הנעילה הופעלה ב-${lockDay} ב${MONTHS_HE[today.getMonth()]}`;
+                        } else {
+                          const lockedMonth = (today.getMonth() + 1) % 12;
+                          const lockedYear = today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear();
+                          const daysLeft = lockDay - todayDay;
+                          statusLine = `🔓 הסידור פתוח כעת`;
+                          nextLockLine = `ינעל ב-${lockDay} ב${MONTHS_HE[today.getMonth()]} (בעוד ${daysLeft} ימים) — יינעל לחודש ${MONTHS_HE[lockedMonth]} ${lockedYear}`;
+                        }
+                      } else {
+                        const todayDow = today.getDay();
+                        const lockDow = s.lock_day_of_week;
+                        if (todayDow >= lockDow) {
+                          const currSun = new Date(today); currSun.setDate(today.getDate() - todayDow);
+                          const nextSat = new Date(currSun); nextSat.setDate(currSun.getDate() + 13);
+                          const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+                          statusLine = `🔒 הסידור נעול כעת עד ${fmt(nextSat)}`;
+                          nextLockLine = `הנעילה הופעלה ביום ${DAYS_HE[lockDow]}`;
+                        } else {
+                          const daysLeft = lockDow - todayDow;
+                          // Current week Sun–Sat
+                          const currSun = new Date(today); currSun.setDate(today.getDate() - todayDow);
+                          const nextSat = new Date(currSun); nextSat.setDate(currSun.getDate() + 13);
+                          const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+                          statusLine = `🔓 הסידור פתוח כעת`;
+                          nextLockLine = `ינעל ביום ${DAYS_HE[lockDow]} (בעוד ${daysLeft} ימים) — יינעל עד ${fmt(nextSat)}`;
+                        }
+                      }
+
+                      const today2 = new Date();
+                      const todayStr2 = `${today2.getFullYear()}-${String(today2.getMonth()+1).padStart(2,'0')}-${String(today2.getDate()).padStart(2,'0')}`;
+                      const isCurrentlyLocked = s.is_locked;
+                      const overrideActive = s.lock_override_until && s.lock_override_until.slice(0,10) >= todayStr2;
+
+                      return (
+                        <div className={`${styles.lockStatusBox} ${isCurrentlyLocked && !overrideActive ? styles.lockStatusLocked : styles.lockStatusOpen}`}>
+                          <div className={styles.lockStatusMain}>{statusLine}</div>
+                          <div className={styles.lockStatusSub}>{nextLockLine}</div>
+                          {overrideActive && (
+                            <div className={styles.lockStatusOverride}>⚠️ הסידור נפתח ידנית לעריכה</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {(() => {
+                      const today3 = new Date();
+                      const todayStr3 = `${today3.getFullYear()}-${String(today3.getMonth()+1).padStart(2,'0')}-${String(today3.getDate()).padStart(2,'0')}`;
+                      const overrideActive = lockSettings.lock_override_until && lockSettings.lock_override_until.slice(0,10) >= todayStr3;
+
+                      if (overrideActive) {
+                        return (
+                          <div className={styles.lockSection} style={{flexWrap:'wrap',gap:'0.5rem'}}>
+                            <span className={styles.lockOpenUntilBadge}>
+                              🔓 פתוח {lockSettings.lock_override_from ? lockSettings.lock_override_from.slice(0,10).split('-').reverse().join('/') : ''} — {lockSettings.lock_override_until ? lockSettings.lock_override_until.slice(0,10).split('-').reverse().join('/') : ''}
+                            </span>
+                            <button className={styles.lockClearBtn} onClick={closeLock} disabled={lockToggling}>
+                              🔒 נעל סידור
+                            </button>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className={styles.lockSection} style={{flexWrap:'wrap',gap:'0.5rem',alignItems:'center'}}>
+                          <span className={styles.lockLabel}>מ-</span>
+                          <DatePickerField value={overrideFrom} onChange={setOverrideFrom} />
+                          <span className={styles.lockLabel}>עד-</span>
+                          <DatePickerField value={overrideUntil} onChange={setOverrideUntil} />
+                          <button className={styles.lockOpenBtn} onClick={requestOpenLock} disabled={lockToggling}>
+                            🔓 פתח סידור לעריכה
+                          </button>
+                          {pastDateConfirm && (
+                            <div className={styles.lockPastConfirm}>
+                              ⚠️ תאריך ההתחלה הוא בעבר. האם להמשיך?
+                              <div className={styles.alertRow}>
+                                <button className={styles.lockSaveBtn} onClick={openLock} disabled={lockToggling}>אישור</button>
+                                <button className={styles.lockClearBtn} onClick={() => setPastDateConfirm(false)}>ביטול</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className={styles.lockActions}>
                       <button className={styles.lockSaveBtn} onClick={saveLockSettings} disabled={lockSaving}>
@@ -1259,44 +1417,6 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                       {lockMsg && <span className={lockMsg.includes('שגיאה') ? styles.lockErr : styles.lockOk}>{lockMsg}</span>}
                     </div>
 
-                    <h4 className={styles.lockOverrideTitle}>פתיחת נעילה לעובד ספציפי</h4>
-                    <table className={styles.lockOverrideTable}>
-                      <thead>
-                        <tr>
-                          <th>עובד</th>
-                          <th>פתוח עד</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {lockOverrides.map(o => (
-                          <tr key={o.worker_id}>
-                            <td>{o.first_name} {o.family_name}</td>
-                            <td>{o.override_until ? o.override_until.slice(0,10).split('-').reverse().join('/') : ''}</td>
-                            <td><button className="btn-remove" onClick={() => removeLockOverride(o.worker_id)}>✕</button></td>
-                          </tr>
-                        ))}
-                        <tr>
-                          <td>
-                            <select className={styles.lockSelect} value={newOverrideWorkerId}
-                              onChange={e => setNewOverrideWorkerId(e.target.value)}>
-                              <option value="">— בחר עובד —</option>
-                              {lockWorkers.map(w => (
-                                <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td>
-                            <input type="date" className={styles.lockDateInput} value={newOverrideUntil}
-                              onChange={e => setNewOverrideUntil(e.target.value)} />
-                          </td>
-                          <td>
-                            <button className={styles.lockAddBtn} onClick={addLockOverride}
-                              disabled={!newOverrideWorkerId || !newOverrideUntil}>הוסף</button>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
                   </>
                 )}
               </div>

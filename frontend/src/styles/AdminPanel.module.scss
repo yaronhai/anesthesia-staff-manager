@@ -8,23 +8,35 @@
   margin-left: 12px;
 }
 
-// Tab dropdown selector row
-.tabSelectRow {
-  padding: 0.5rem 0.75rem;
+// Tab bar
+.tabBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 0.5rem 0.75rem 0;
   background: #f1f5f9;
   border-bottom: 2px solid #e2e8f0;
 }
-.tabSelect {
-  width: 100%;
-  padding: 0.35rem 0.6rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+.tabBtn {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover { background: #e2e8f0; color: #1a2e4a; }
+}
+.tabBtnActive {
   background: #fff;
   color: #1a2e4a;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  direction: rtl;
+  font-weight: 700;
+  border-color: #e2e8f0;
+  margin-bottom: -2px;
+  border-bottom: 2px solid #fff;
 }
 
 // Modal flex wrapper + content area
@@ -293,9 +305,23 @@
 .lockNumInput { width: 60px; padding: 0.25rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; text-align: center; }
 .lockSelect { padding: 0.25rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; }
 .lockDateInput { padding: 0.25rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; }
-.lockClearBtn { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 0.85rem; &:hover { color: #ef4444; } }
+.lockClearBtn { padding: 0.2rem 0.6rem; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer; color: #b91c1c; font-size: 0.8rem; font-weight: 600; &:hover { background: #fecaca; } }
+.lockFieldHint { font-size: 0.78rem; color: #64748b; width: 100%; margin-bottom: 0.35rem; }
+.lockStatusBox { border-radius: 8px; padding: 0.6rem 0.85rem; margin-bottom: 0.75rem; }
+.lockStatusLocked { background: #fef2f2; border: 1px solid #fca5a5; }
+.lockStatusOpen { background: #f0fdf4; border: 1px solid #86efac; }
+.lockStatusMain { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.2rem; }
+.lockStatusSub { font-size: 0.8rem; color: #64748b; }
+.lockStatusOverride { font-size: 0.8rem; color: #92400e; margin-top: 0.25rem; }
+.lockOpenUntilBadge { padding: 0.2rem 0.6rem; background: #dcfce7; border: 1px solid #86efac; border-radius: 6px; color: #15803d; font-size: 0.82rem; font-weight: 600; }
+.lockClosedBadge { padding: 0.2rem 0.6rem; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; color: #b91c1c; font-size: 0.82rem; font-weight: 600; }
 .lockActions { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.25rem; }
 .lockSaveBtn { padding: 0.35rem 1rem; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; &:hover:not(:disabled) { background: #1d4ed8; } &:disabled { opacity: 0.6; } }
+.lockOpenBtn { padding: 0.35rem 1rem; background: #dcfce7; color: #15803d; border: 1px solid #86efac; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; &:hover:not(:disabled) { background: #bbf7d0; } &:disabled { opacity: 0.6; } }
+.datePickerWrap { display: inline-flex; align-items: center; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #fff; }
+.dateDisplay { font-size: 0.85rem; padding: 0.25rem 0.5rem; min-width: 76px; color: #1e293b; }
+.datePickerIcon { border: none; border-right: 1px solid #cbd5e1; padding: 0.2rem; width: 26px; cursor: pointer; background: #f8fafc; &::-webkit-calendar-picker-indicator { cursor: pointer; margin: 0; } }
+.lockPastConfirm { width: 100%; background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; color: #92400e; }
 .lockOk { font-size: 0.82rem; color: #16a34a; }
 .lockErr { font-size: 0.82rem; color: #dc2626; }
 .lockOverrideTitle { font-size: 0.9rem; font-weight: 700; margin: 0.5rem 0 0.25rem; border-top: 1px solid #e2e8f0; padding-top: 0.75rem; }

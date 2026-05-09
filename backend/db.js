@@ -778,6 +778,7 @@ async function runMigrations() {
     // Add complexity_level to activity_types for overqualification scoring
     await query(`ALTER TABLE activity_types ADD COLUMN IF NOT EXISTS complexity_level INTEGER NOT NULL DEFAULT 1`);
     await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS photo_url TEXT`);
+    await query(`ALTER TABLE branch_settings ADD COLUMN IF NOT EXISTS lock_override_from DATE`);
 
     console.log('✓ Migrations complete');
   } catch (error) {

@@ -11,6 +11,11 @@ function toDateStr(year, month, day) {
   return `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 }
 
+function todayLocalStr() {
+  const t = new Date(); t.setHours(0,0,0,0);
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+
 function buildCalendarWeeks(year, month) {
   const firstDow = new Date(year, month, 1).getDay(); // 0=Sun
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -23,7 +28,7 @@ function buildCalendarWeeks(year, month) {
 }
 
 // ── Day cell in user calendar ────────────────────────────────────────────────
-function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations, specialDays, permanentDayEntries, allBranchesMode, workerBranches }) {
+function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shifts, vacations, specialDays, permanentDayEntries, allBranchesMode, workerBranches, isLocked, isReopened }) {
   const isSaturday = dayOfWeek === 6;
   const isFriday = dayOfWeek === 5;
   const isVacation = vacations?.some(v =>
@@ -34,12 +39,14 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
   const sd = (specialDays || []).find(s => s.date === dateStr);
   return (
     <div
-      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : isFriday ? ' cal-friday' : ''}${dayRequests.length ? ' cal-has-data' : ''}${isVacation ? ' cal-vacation-day' : ''}${sd ? ` cal-special-day ${styles.sdCell}` : ''}`}
+      className={`cal-day${isToday ? ' cal-today' : ''}${isSaturday ? ' cal-saturday' : isFriday ? ' cal-friday' : ''}${dayRequests.length ? ' cal-has-data' : ''}${isVacation ? ' cal-vacation-day' : ''}${sd ? ` cal-special-day ${styles.sdCell}` : ''}${isLocked ? ` ${styles.lockedCalDay}` : ''}${isReopened ? ` ${styles.reopenedCalDay}` : ''}`}
       style={sd ? { '--sd-color': sd.color, '--sd-badge-bg': sd.color + '33' } : undefined}
       onClick={() => onClick(day, dateStr)}
     >
       <span className={`cal-day-num${sd ? ` cal-special-day-num ${styles.sdDayNum}` : ''}`}>{day}</span>
       <div className="cal-day-name">{DAYS_HE[dayOfWeek]}</div>
+      {isLocked && <div className={styles.lockedCalBadge} title="נעול לעריכת עובדים">🔒</div>}
+      {isReopened && <div className={styles.reopenedCalBadge} title="נפתח מחדש לעריכה">🔓</div>}
       {sd && <div className={`cal-special-day-badge ${styles.sdBadge}`}>{sd.name}</div>}
       {isVacation && <div className="vac-indicator">חופש ✓</div>}
       <div className="cal-indicators">
@@ -205,15 +212,66 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
   const todayStr = toDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
 
   function isDateLocked(dateStr) {
-    if (!lockStatus?.is_locked) return false;
-    const { locked_period_start: s, locked_period_end: e } = lockStatus;
-    if (!s || !e) return false;
-    return dateStr >= s && dateStr <= e;
+    if (!lockStatus) return false;
+    const tstr = todayLocalStr();
+
+    // Past dates always blocked for workers
+    if (dateStr < tstr) return true;
+
+    // Check if admin has explicitly opened this date range
+    const ovFrom = lockStatus.lock_override_from?.slice(0,10);
+    const ovUntil = lockStatus.lock_override_until?.slice(0,10);
+    if (ovUntil && ovUntil >= tstr && (!ovFrom || dateStr >= ovFrom) && dateStr <= ovUntil) return false;
+
+    if (lockStatus.lock_mode === 'weekly') {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const todayDow = today.getDay();
+      const currWeekSun = new Date(today); currWeekSun.setDate(today.getDate() - todayDow);
+      let nextOpenSun;
+      if (lockStatus.is_locked && lockStatus.locked_period_end) {
+        const lockedEnd = new Date(lockStatus.locked_period_end + 'T00:00:00');
+        nextOpenSun = new Date(lockedEnd); nextOpenSun.setDate(lockedEnd.getDate() + 1);
+      } else {
+        nextOpenSun = new Date(currWeekSun); nextOpenSun.setDate(currWeekSun.getDate() + 7);
+      }
+      const nos = `${nextOpenSun.getFullYear()}-${String(nextOpenSun.getMonth()+1).padStart(2,'0')}-${String(nextOpenSun.getDate()).padStart(2,'0')}`;
+      return dateStr < nos;
+    }
+
+    if (!lockStatus.is_locked) return false;
+    return !!lockStatus.locked_period_end && dateStr <= lockStatus.locked_period_end;
+  }
+
+  function isDateReopened(dateStr) {
+    if (!lockStatus?.manually_opened) return false;
+    const tstr = todayLocalStr();
+    const ovFrom = lockStatus.lock_override_from?.slice(0,10);
+    const ovUntil = lockStatus.lock_override_until?.slice(0,10);
+    if (!ovUntil || ovUntil < tstr) return false;
+    return dateStr >= tstr && (!ovFrom || dateStr >= ovFrom) && dateStr <= ovUntil;
+  }
+
+  function getNextLockStr() {
+    if (!lockStatus) return null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (lockStatus.lock_mode === 'weekly') {
+      const lockDow = lockStatus.lock_day_of_week ?? 2;
+      const todayDow = today.getDay();
+      let daysUntil = lockDow - todayDow;
+      if (daysUntil <= 0) daysUntil += 7;
+      const d = new Date(today); d.setDate(today.getDate() + daysUntil);
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+    const lockDay = lockStatus.lock_day_of_month || 20;
+    const d = new Date(today.getFullYear(), today.getMonth(), lockDay);
+    if (d <= today) d.setMonth(d.getMonth() + 1);
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
   }
 
   function openEditor(day, dateStr) {
     if (allBranchesMode) return;
     if (canSubmit === false) { setBlockedMsg(true); return; }
+    if (isDateLocked(dateStr)) { setBlockedMsg('locked'); return; }
     setEditingDay({ day, dateStr });
   }
 
@@ -229,12 +287,25 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
           🔒 <strong>הסידור ל{lockStatus.locked_period_label} נעול להגשת בקשות.</strong>
         </div>
       )}
+      {lockStatus?.manually_opened && (
+        <div className={styles.reopenedBanner}>
+          🔓 <strong>הסידור נפתח לעריכה ידנית.</strong> יינעל שוב ע"י המנהל.
+        </div>
+      )}
+      {lockStatus && !lockStatus.is_locked && !lockStatus.manually_opened && (() => {
+        const nextLock = getNextLockStr();
+        return nextLock ? (
+          <div className={styles.nextLockBanner}>
+            ⏰ <strong>הסידור יינעל לעריכה ב-{nextLock}</strong>
+          </div>
+        ) : null;
+      })()}
       {blockedMsg && (
         <div className={styles.blockedOverlay} onClick={() => setBlockedMsg(false)}>
           <div className={styles.blockedModal}>
-            <div className={styles.blockedIcon}>⛔</div>
-            <strong className={styles.blockedText}>אין לך הרשאה להגיש או לערוך בקשות משמרת.</strong>
-            <div className={styles.blockedSub}>לפרטים פנה למנהל.</div>
+            <div className={styles.blockedIcon}>{blockedMsg === 'locked' ? '🔒' : '⛔'}</div>
+            <strong className={styles.blockedText}>{blockedMsg === 'locked' ? 'הסידור לתקופה זו נעול.' : 'אין לך הרשאה להגיש או לערוך בקשות משמרת.'}</strong>
+            {blockedMsg !== 'locked' && <div className={styles.blockedSub}>לפרטים פנה למנהל.</div>}
             <button className="btn-primary" onClick={() => setBlockedMsg(false)}>סגור</button>
           </div>
         </div>
@@ -263,6 +334,8 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
                       permanentDayEntries={getPermanentDayEntries(toDateStr(year, month, day))}
                       allBranchesMode={allBranchesMode}
                       workerBranches={workerBranches}
+                      isLocked={isDateLocked(toDateStr(year, month, day))}
+                      isReopened={isDateReopened(toDateStr(year, month, day))}
                     />
                   )}
                 </div>
@@ -305,7 +378,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
 }
 
 // ── Admin grid view ──────────────────────────────────────────────────────────
-function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, shifts, prefs, branchId, specialDays }) {
+function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, shifts, prefs, branchId, specialDays, lockStatus }) {
   const [editingCell, setEditingCell] = useState(null);
   const [cellError, setCellError] = useState(null);
   const [vacationWarning, setVacationWarning] = useState(null);
@@ -338,6 +411,45 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  function isDayLocked(d) {
+    if (!lockStatus) return false;
+    const dateStr = toDateStr(year, month, d);
+    const tstr = todayLocalStr();
+    if (dateStr < tstr) return true;
+
+    const ovFrom = lockStatus.lock_override_from?.slice(0,10);
+    const ovUntil = lockStatus.lock_override_until?.slice(0,10);
+    if (ovUntil && ovUntil >= tstr && (!ovFrom || dateStr >= ovFrom) && dateStr <= ovUntil) return false;
+
+    if (lockStatus.lock_mode === 'weekly') {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const todayDow = today.getDay();
+      const currWeekSun = new Date(today); currWeekSun.setDate(today.getDate() - todayDow);
+      let nextOpenSun;
+      if (lockStatus.is_locked && lockStatus.locked_period_end) {
+        const lockedEnd = new Date(lockStatus.locked_period_end + 'T00:00:00');
+        nextOpenSun = new Date(lockedEnd); nextOpenSun.setDate(lockedEnd.getDate() + 1);
+      } else {
+        nextOpenSun = new Date(currWeekSun); nextOpenSun.setDate(currWeekSun.getDate() + 7);
+      }
+      const nos = `${nextOpenSun.getFullYear()}-${String(nextOpenSun.getMonth()+1).padStart(2,'0')}-${String(nextOpenSun.getDate()).padStart(2,'0')}`;
+      return dateStr < nos;
+    }
+
+    if (!lockStatus.is_locked) return false;
+    return !!lockStatus.locked_period_end && dateStr <= lockStatus.locked_period_end;
+  }
+
+  function isDayReopened(d) {
+    if (!lockStatus?.manually_opened) return false;
+    const dateStr = toDateStr(year, month, d);
+    const tstr = todayLocalStr();
+    const ovFrom = lockStatus.lock_override_from?.slice(0,10);
+    const ovUntil = lockStatus.lock_override_until?.slice(0,10);
+    if (!ovUntil || ovUntil < tstr) return false;
+    return dateStr >= tstr && (!ovFrom || dateStr >= ovFrom) && dateStr <= ovUntil;
+  }
 
   // Group requests by userId
   const requestMap = {};
@@ -473,14 +585,18 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                   const dateStr = toDateStr(year, month, d);
                   const sd = (specialDays || []).find(s => s.date === dateStr);
                   const isWeekend = isSaturday || isFriday;
+                  const locked = isDayLocked(d);
+                  const reopened = isDayReopened(d);
                   return (
                     <th
                       key={d}
-                      className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}`}
+                      className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}${locked ? ` ${styles.lockedDayCol}` : ''}${reopened ? ` ${styles.reopenedDayCol}` : ''}`}
                       style={sd && !isWeekend ? { '--sd-header-bg': sd.color + '44', background: 'var(--sd-header-bg)' } : undefined}
                     >
                       <div>{d}</div>
                       <div className="admin-grid-day-letter">{DAYS_HE[dow]}</div>
+                      {locked && <div className={styles.lockedDayLabel} title="נעול לעריכת עובדים">🔒</div>}
+                      {reopened && <div className={styles.reopenedDayLabel} title="נפתח מחדש לעריכה">🔓</div>}
                       {sd && <div className="special-day-label" title={sd.name}>{sd.name}</div>}
                     </th>
                   );
@@ -510,8 +626,10 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                       v.approved_start && v.approved_end &&
                       v.approved_start <= dateStr && v.approved_end >= dateStr
                     );
+                    const locked = isDayLocked(d);
+                    const reopened = isDayReopened(d);
                     return (
-                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}`} onClick={() => {
+                      <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}${locked ? ` ${styles.lockedDayCell}` : ''}${reopened ? ` ${styles.reopenedDayCell}` : ''}`} onClick={() => {
   if (!row.canSubmit) { setBlockedWorkerMsg(row.name); return; }
   if (vac) {
     setVacationWarning({ message: `לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`, userId: row.userId, day: d });
@@ -556,8 +674,10 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                         v.approved_start && v.approved_end &&
                         v.approved_start <= dateStr && v.approved_end >= dateStr
                       );
+                      const locked = isDayLocked(d);
+                      const reopened = isDayReopened(d);
                       return (
-                        <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}`} onClick={() => {
+                        <td key={d} className={`admin-grid-cell${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${vac ? ' vacation-day' : ''}${!row.canSubmit ? ' blocked-worker' : ''}${locked ? ` ${styles.lockedDayCell}` : ''}${reopened ? ` ${styles.reopenedDayCell}` : ''}`} onClick={() => {
                           if (!row.canSubmit) { setBlockedWorkerMsg(row.name); return; }
                           if (vac) {
                             setVacationWarning({ message: `לעובד ${row.name} יש חופש מאושר בתאריך זה (${vac.approved_start} עד ${vac.approved_end})`, userId: row.userId, day: d });
@@ -668,7 +788,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-export default function ShiftRequests({ currentUser, token, config, selectedBranchId }) {
+export default function ShiftRequests({ currentUser, token, config, selectedBranchId, onOpenLockSettings, lockRefreshKey }) {
   const [requests, setRequests] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [vacations, setVacations] = useState([]);
@@ -711,12 +831,21 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
 
   const effectiveBranchId = isAdmin ? selectedBranchId : (activeBranchId === 'all' ? null : activeBranchId);
 
-  useEffect(() => {
+  const fetchLockStatus = useCallback(() => {
     const branchQ = effectiveBranchId ? `?branch_id=${effectiveBranchId}` : '';
     fetch(`/api/branch-settings${branchQ}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
-      .then(data => setLockStatus(data));
+      .then(data => { if (data) setLockStatus(data); });
   }, [effectiveBranchId, token]);
+
+  useEffect(() => {
+    fetchLockStatus();
+  }, [fetchLockStatus, lockRefreshKey]);
+
+  useEffect(() => {
+    const id = setInterval(fetchLockStatus, 60000);
+    return () => clearInterval(id);
+  }, [fetchLockStatus]);
 
   const fetchRequests = useCallback(async () => {
     const branchQ = effectiveBranchId ? `&branch_id=${effectiveBranchId}` : '';
@@ -837,6 +966,11 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           >
             📌 <span className={styles.permanentBtnText}>משמרות קבועות</span>
           </button>
+          {onOpenLockSettings && (
+            <button className={styles.permanentBtn} onClick={onOpenLockSettings}>
+              🔒 <span className={styles.permanentBtnText}>נעילת סידור{lockStatus?.is_locked ? ' ✓' : ''}</span>
+            </button>
+          )}
           <div className="month-year-nav">
             <button className="btn-secondary btn-sm" onClick={nextYear} title="שנה קדימה">»</button>
             <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">›</button>
@@ -848,7 +982,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
             <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">«</button>
           </div>
         </div>
-        <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} specialDays={config.special_days || []} />
+        <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} specialDays={config.special_days || []} lockStatus={lockStatus} />
       {showPermanentModal && (
         <PermanentShiftsModal
           token={token}

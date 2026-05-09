@@ -251,12 +251,12 @@ function getLockedPeriod(settings) {
   } else {
     const dow = today.getDay();
     if (dow < settings.lock_day_of_week) return null;
-    const daysToNextSun = 7 - dow;
-    const nextSun = new Date(today);
-    nextSun.setDate(today.getDate() + daysToNextSun);
-    const nextSat = new Date(nextSun);
-    nextSat.setDate(nextSun.getDate() + 6);
-    return { type: 'weekly', start: nextSun, end: nextSat };
+    // Lock from start of current week through end of next week
+    const currSun = new Date(today);
+    currSun.setDate(today.getDate() - dow);
+    const nextSat = new Date(currSun);
+    nextSat.setDate(currSun.getDate() + 13);
+    return { type: 'weekly', start: currSun, end: nextSat };
   }
 }
 
@@ -272,29 +272,26 @@ function isDateInLockedPeriod(dateStr, period) {
 
 async function isDateLockedForUser(dateStr, userId, branchId) {
   const settings = await getBranchLockSettings(branchId);
+
+  // Past dates always locked for workers
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  if (dateStr < todayStr) return true;
+
   const period = getLockedPeriod(settings);
-  if (!isDateInLockedPeriod(dateStr, period)) return false;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   if (settings.lock_override_until) {
-    const ov = new Date(settings.lock_override_until);
-    ov.setHours(0, 0, 0, 0);
-    if (today <= ov) return false;
+    const ov = new Date(settings.lock_override_until); ov.setHours(0, 0, 0, 0);
+    if (today <= ov) {
+      // Override active — check if this date falls in the override range
+      const normD = v => { if (!v) return null; const d = v instanceof Date ? v : new Date(v); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+      const ovFrom = settings.lock_override_from ? normD(settings.lock_override_from) : null;
+      const ovUntil = normD(settings.lock_override_until);
+      if ((!ovFrom || dateStr >= ovFrom) && dateStr <= ovUntil) return false; // no from = full override
+    }
   }
 
-  const workerOv = await query(
-    `SELECT wlo.override_until FROM worker_lock_overrides wlo
-     JOIN workers w ON wlo.worker_id = w.id
-     JOIN users u ON u.worker_id = w.id
-     WHERE u.id = $1 AND wlo.branch_id IS NOT DISTINCT FROM $2`,
-    [userId, branchId]
-  );
-  if (workerOv.rows.length > 0) {
-    const ov = new Date(workerOv.rows[0].override_until);
-    ov.setHours(0, 0, 0, 0);
-    if (today <= ov) return false;
-  }
+  if (!isDateInLockedPeriod(dateStr, period)) return false;
   return true;
 }
 
@@ -1682,11 +1679,45 @@ app.get('/api/branch-settings', requireAuth, async (req, res) => {
       } else {
         const s = period.start;
         lockedPeriodLabel = `${s.getDate().toString().padStart(2,'0')}/${(s.getMonth()+1).toString().padStart(2,'0')}/${s.getFullYear()}`;
-        lockedPeriodStart = period.start.toISOString().slice(0, 10);
-        lockedPeriodEnd = period.end.toISOString().slice(0, 10);
+        const fmtLocal = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        lockedPeriodStart = fmtLocal(period.start);
+        lockedPeriodEnd = fmtLocal(period.end);
       }
     }
-    res.json({ ...settings, is_locked: !!period, locked_period_label: lockedPeriodLabel, locked_period_start: lockedPeriodStart, locked_period_end: lockedPeriodEnd });
+    const fmtL = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const todayForOv = new Date(); todayForOv.setHours(0,0,0,0);
+    let isEffectivelyLocked = !!period;
+    let manuallyOpened = false;
+    if (settings.lock_override_until) {
+      const ov = new Date(settings.lock_override_until); ov.setHours(0,0,0,0);
+      if (todayForOv <= ov) {
+        isEffectivelyLocked = false;
+        manuallyOpened = true;
+        // If auto-lock hasn't fired yet, compute the upcoming window for display
+        if (!period && settings.lock_mode === 'weekly') {
+          const dow = todayForOv.getDay();
+          const currSun = new Date(todayForOv); currSun.setDate(todayForOv.getDate() - dow);
+          const nextSat = new Date(currSun); nextSat.setDate(currSun.getDate() + 13);
+          lockedPeriodStart = fmtL(currSun);
+          lockedPeriodEnd = fmtL(nextSat);
+        }
+      }
+    }
+    const normDate = v => {
+      if (!v) return null;
+      if (v instanceof Date) return fmtL(v);
+      return String(v).slice(0, 10);
+    };
+    res.json({
+      ...settings,
+      lock_override_from: normDate(settings.lock_override_from),
+      lock_override_until: normDate(settings.lock_override_until),
+      is_locked: isEffectivelyLocked,
+      manually_opened: manuallyOpened,
+      locked_period_label: lockedPeriodLabel,
+      locked_period_start: lockedPeriodStart,
+      locked_period_end: lockedPeriodEnd,
+    });
   } catch (err) {
     console.error('GET branch-settings error:', err);
     res.status(500).json({ error: 'שגיאה' });
@@ -1696,80 +1727,24 @@ app.get('/api/branch-settings', requireAuth, async (req, res) => {
 app.put('/api/branch-settings', requireAdmin, async (req, res) => {
   try {
     const branchId = getEffectiveBranchId(req);
-    const { lock_mode, lock_day_of_month, lock_day_of_week, lock_override_until } = req.body;
+    const { lock_mode, lock_day_of_month, lock_day_of_week, lock_override_until, lock_override_from } = req.body;
     await query(
-      `INSERT INTO branch_settings (branch_id, lock_mode, lock_day_of_month, lock_day_of_week, lock_override_until)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO branch_settings (branch_id, lock_mode, lock_day_of_month, lock_day_of_week, lock_override_until, lock_override_from)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (branch_id) DO UPDATE SET
          lock_mode = EXCLUDED.lock_mode,
          lock_day_of_month = EXCLUDED.lock_day_of_month,
          lock_day_of_week = EXCLUDED.lock_day_of_week,
-         lock_override_until = EXCLUDED.lock_override_until`,
-      [branchId, lock_mode || 'monthly', lock_day_of_month || 20, lock_day_of_week ?? 2, lock_override_until || null]
+         lock_override_until = EXCLUDED.lock_override_until,
+         lock_override_from = EXCLUDED.lock_override_from`,
+      [branchId, lock_mode || 'monthly', lock_day_of_month || 20, lock_day_of_week ?? 2, lock_override_until || null, lock_override_from || null]
     );
     const settings = await getBranchLockSettings(branchId);
-    res.json(settings);
+    const normD = v => { if (!v) return null; if (v instanceof Date) { return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`; } return String(v).slice(0,10); };
+    res.json({ ...settings, lock_override_from: normD(settings.lock_override_from), lock_override_until: normD(settings.lock_override_until) });
   } catch (err) {
     console.error('PUT branch-settings error:', err);
     res.status(500).json({ error: 'שגיאה בשמירת הגדרות' });
-  }
-});
-
-// ── Worker Lock Overrides ────────────────────────────────────────────────────
-
-app.get('/api/worker-lock-overrides', requireAdmin, async (req, res) => {
-  try {
-    const branchId = getEffectiveBranchId(req);
-    const result = await query(
-      `SELECT wlo.*, w.first_name, w.family_name
-       FROM worker_lock_overrides wlo
-       JOIN workers w ON wlo.worker_id = w.id
-       WHERE wlo.branch_id IS NOT DISTINCT FROM $1
-       ORDER BY w.family_name, w.first_name`,
-      [branchId]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('GET worker-lock-overrides error:', err);
-    res.status(500).json({ error: 'שגיאה' });
-  }
-});
-
-app.post('/api/worker-lock-overrides', requireAdmin, async (req, res) => {
-  try {
-    const branchId = getEffectiveBranchId(req);
-    const { worker_id, override_until } = req.body;
-    if (!worker_id || !override_until) return res.status(400).json({ error: 'חסרים שדות' });
-    await query(
-      `INSERT INTO worker_lock_overrides (worker_id, branch_id, override_until)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (worker_id, branch_id) DO UPDATE SET override_until = EXCLUDED.override_until`,
-      [worker_id, branchId, override_until]
-    );
-    const row = await query(
-      `SELECT wlo.*, w.first_name, w.family_name FROM worker_lock_overrides wlo
-       JOIN workers w ON wlo.worker_id = w.id
-       WHERE wlo.worker_id = $1 AND wlo.branch_id IS NOT DISTINCT FROM $2`,
-      [worker_id, branchId]
-    );
-    res.json(row.rows[0]);
-  } catch (err) {
-    console.error('POST worker-lock-overrides error:', err);
-    res.status(500).json({ error: 'שגיאה בשמירה' });
-  }
-});
-
-app.delete('/api/worker-lock-overrides/:worker_id', requireAdmin, async (req, res) => {
-  try {
-    const branchId = getEffectiveBranchId(req);
-    await query(
-      'DELETE FROM worker_lock_overrides WHERE worker_id = $1 AND branch_id IS NOT DISTINCT FROM $2',
-      [parseInt(req.params.worker_id), branchId]
-    );
-    res.status(204).send();
-  } catch (err) {
-    console.error('DELETE worker-lock-overrides error:', err);
-    res.status(500).json({ error: 'שגיאה' });
   }
 });
 
