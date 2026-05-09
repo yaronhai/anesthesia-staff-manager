@@ -843,8 +843,14 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   }, [fetchLockStatus, lockRefreshKey]);
 
   useEffect(() => {
-    const id = setInterval(fetchLockStatus, 60000);
+    const id = setInterval(fetchLockStatus, 15000);
     return () => clearInterval(id);
+  }, [fetchLockStatus]);
+
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchLockStatus(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [fetchLockStatus]);
 
   const fetchRequests = useCallback(async () => {
