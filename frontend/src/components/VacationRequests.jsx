@@ -22,7 +22,7 @@ const STATUS_LABEL = {
 function formatDateHe(d) {
   if (!d) return '';
   const [y, m, dd] = d.split('-');
-  return `${dd}/${m}/${y}`;
+  return `${dd}/${m.padStart(2, '0')}/${y}`;
 }
 
 function parseDate(d) {

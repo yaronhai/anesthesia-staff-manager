@@ -109,7 +109,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
     <div className="day-editor-backdrop">
       <div className="day-editor">
         <div className="day-editor-header">
-          <h3>יום {dow}, {d}.{String(m).padStart(2,'0')}.{y}</h3>
+          <h3>יום {dow}, {String(d).padStart(2,'0')}/{String(m).padStart(2,'0')}/{y}</h3>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 

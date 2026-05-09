@@ -43,6 +43,7 @@ No test framework configured. Agents should run build commands to validate chang
 - **No hardcoded business data**: All business data (job titles, employment types, special days, site groups, shift types, etc.) must live in the database and be served via `/api/config`. Never hardcode business values in source files.
 
 ### Conventions
+- **Date Format**: All dates displayed in the UI must use `dd/mm/yyyy` format. Never display dates as `yyyy-mm-dd` or any other format to the user.
 - ID Number as Username: Worker's `id_number` becomes login username
 - Worker ↔ User Sync: Editing worker auto-updates linked user
 - Shift Types: `morning`, `evening`, `oncall`

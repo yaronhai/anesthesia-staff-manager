@@ -1,11 +1,77 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from '../styles/PermanentShiftsModal.module.scss';
 
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const PREF_CYCLE = [null, 'can', 'prefer', 'cannot'];
 
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function DateField({ value, onChange, className, min }) {
+  const [raw, setRaw] = useState(value ? fmtDate(value) : '');
+  const pickerRef = useRef(null);
+
+  useEffect(() => {
+    setRaw(value ? fmtDate(value) : '');
+  }, [value]);
+
+  function handleChange(e) {
+    const digits = e.target.value.replace(/\D/g, '');
+    let v = digits;
+    if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
+    if (v.length > 5) v = v.slice(0, 5) + '/' + v.slice(5);
+    if (v.length > 10) v = v.slice(0, 10);
+    setRaw(v);
+    const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) {
+      const iso = `${m[3]}-${m[2]}-${m[1]}`;
+      if (!min || iso >= min) onChange(iso);
+    } else if (!v) {
+      onChange('');
+    }
+  }
+
+  function openPicker() {
+    try { pickerRef.current?.showPicker(); } catch {}
+  }
+
+  return (
+    <div className={styles.dateFieldWrap}>
+      <input
+        type="text"
+        className={`${styles.dateInput} ${className || ''}`}
+        value={raw}
+        onChange={handleChange}
+        placeholder="dd/mm/yyyy"
+        maxLength={10}
+        inputMode="numeric"
+      />
+      <button type="button" className={styles.calendarBtn} onClick={openPicker} tabIndex={-1}>📅</button>
+      <input
+        ref={pickerRef}
+        type="date"
+        className={styles.hiddenPicker}
+        value={value || ''}
+        min={min}
+        onChange={e => onChange(e.target.value)}
+        tabIndex={-1}
+      />
+    </div>
+  );
+}
+
 function today() {
   const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function nextSundayDate() {
+  const d = new Date();
+  const daysUntilNextSunday = d.getDay() === 0 ? 7 : 7 - d.getDay();
+  d.setDate(d.getDate() + daysUntilNextSunday);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
@@ -24,6 +90,7 @@ export default function PermanentShiftsModal({ token, config, isAdmin, workers, 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [applyMsg, setApplyMsg] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [branchId, setBranchId] = useState(propBranchId ?? null);
 
   const fetchTemplate = useCallback(async (wId) => {
@@ -40,8 +107,8 @@ export default function PermanentShiftsModal({ token, config, isAdmin, workers, 
       const data = await res.json();
       if (data.template) {
         setTemplate(data.template);
-        setStartDate(data.template.start_date || today());
-        setEndDate(data.template.end_date || '');
+        setStartDate((data.template.start_date || today()).slice(0, 10));
+        setEndDate(data.template.end_date ? data.template.end_date.slice(0, 10) : '');
         const g = {};
         for (const e of data.template.entries || []) {
           g[`${e.day_of_week}_${e.shift_type}`] = e.preference_type;
@@ -50,7 +117,7 @@ export default function PermanentShiftsModal({ token, config, isAdmin, workers, 
       } else {
         setTemplate(null);
         setGrid({});
-        setStartDate(today());
+        setStartDate(nextSundayDate());
         setEndDate('');
       }
     } catch {
@@ -77,6 +144,10 @@ export default function PermanentShiftsModal({ token, config, isAdmin, workers, 
   }
 
   async function handleSave() {
+    if (startDate < today()) {
+      setError('לא ניתן לשמור תאריך התחלה בעבר');
+      return;
+    }
     setSaving(true);
     setError('');
     setApplyMsg('');
@@ -128,22 +199,28 @@ export default function PermanentShiftsModal({ token, config, isAdmin, workers, 
     }
   }
 
-  async function handleDelete() {
+  async function handleDelete(deleteFuture) {
     if (!template) return;
+    setConfirmDelete(false);
     setSaving(true);
     setError('');
     try {
       const wId = isAdmin ? selectedWorkerId : template.worker_id;
-      const branchQ = branchId ? `?branch_id=${branchId}` : '';
-      const res = await fetch(`/api/permanent-shifts/${wId}${branchQ}`, {
+      const params = new URLSearchParams();
+      if (branchId) params.set('branch_id', branchId);
+      if (deleteFuture) params.set('delete_future', 'true');
+      const q = params.toString() ? `?${params}` : '';
+      const res = await fetch(`/api/permanent-shifts/${wId}${q}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error();
+      const data = res.status === 204 ? { deleted_requests: 0 } : await res.json();
       setTemplate(null);
       setGrid({});
-      setStartDate(today());
+      setStartDate(nextSundayDate());
       setEndDate('');
+      if (deleteFuture) setApplyMsg(`נמחק ✓ — ${data.deleted_requests} בקשות עתידיות נמחקו`);
     } catch {
       setError('שגיאה במחיקה');
     } finally {
@@ -233,20 +310,19 @@ export default function PermanentShiftsModal({ token, config, isAdmin, workers, 
             <div className={styles.datesRow}>
               <div className={styles.fieldGroup}>
                 <label className={styles.fieldLabel}>תחילת תוקף:</label>
-                <input
-                  type="date"
-                  className={styles.dateInput}
+                <DateField
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
+                  onChange={v => { setStartDate(v); setError(''); }}
+                  className={styles.dateInput}
+                  min={today()}
                 />
               </div>
               <div className={styles.fieldGroup}>
                 <label className={styles.fieldLabel}>סיום תוקף (אופציונלי):</label>
-                <input
-                  type="date"
-                  className={styles.dateInput}
+                <DateField
                   value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
+                  onChange={v => setEndDate(v)}
+                  className={styles.dateInput}
                 />
                 {endDate && (
                   <button className={styles.clearDate} onClick={() => setEndDate('')}>✕</button>
@@ -257,9 +333,26 @@ export default function PermanentShiftsModal({ token, config, isAdmin, workers, 
             {error && <div className={styles.error}>{error}</div>}
             {applyMsg && <div className={styles.applyMsg}>{applyMsg}</div>}
 
+            {confirmDelete && (
+              <div className={styles.confirmWarning}>
+                <span>האם למחוק גם את כל הבקשות העתידיות של העובד?</span>
+                <div className={styles.confirmActions}>
+                  <button className={styles.deleteBtn} onClick={() => handleDelete(true)} disabled={saving}>
+                    מחק תבנית ובקשות עתידיות
+                  </button>
+                  <button className={styles.cancelBtn} onClick={() => handleDelete(false)} disabled={saving}>
+                    מחק תבנית בלבד
+                  </button>
+                  <button className={styles.cancelBtn} onClick={() => setConfirmDelete(false)} disabled={saving}>
+                    ביטול
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className={styles.actions}>
-              {template && (
-                <button className={styles.deleteBtn} onClick={handleDelete} disabled={saving}>
+              {template && !confirmDelete && (
+                <button className={styles.deleteBtn} onClick={() => setConfirmDelete(true)} disabled={saving}>
                   מחק תבנית
                 </button>
               )}

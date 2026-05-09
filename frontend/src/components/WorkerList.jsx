@@ -230,7 +230,9 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
 
   function formatDate(val) {
     if (!val) return '—';
-    return new Date(val).toLocaleDateString('he-IL');
+    const s = val.slice(0, 10);
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
   }
 
   return (

@@ -1214,7 +1214,19 @@ app.delete('/api/permanent-shifts/:worker_id', requireAuth, async (req, res) => 
       `DELETE FROM permanent_shift_templates WHERE worker_id = $1 AND (branch_id = $2 OR ($2 IS NULL AND branch_id IS NULL))`,
       [workerId, branchId]
     );
-    res.status(204).send();
+    let deletedRequests = 0;
+    if (req.query.delete_future === 'true') {
+      const userRes = await query('SELECT id FROM users WHERE worker_id = $1 LIMIT 1', [workerId]);
+      if (userRes.rows.length > 0) {
+        const userId = userRes.rows[0].id;
+        const delRes = await query(
+          `DELETE FROM shift_requests WHERE user_id = $1 AND date >= CURRENT_DATE AND (branch_id = $2 OR ($2 IS NULL AND branch_id IS NULL))`,
+          [userId, branchId]
+        );
+        deletedRequests = delRes.rowCount;
+      }
+    }
+    res.json({ deleted_requests: deletedRequests });
   } catch (err) {
     console.error('DELETE permanent-shifts error:', err);
     res.status(500).json({ error: 'שגיאה במחיקת משמרות קבועות' });

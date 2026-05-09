@@ -142,7 +142,10 @@ export default function EventsManagement({ workers, config, authToken, currentUs
   function formatDate(d) {
     if (!d) return '';
     const dt = new Date(d);
-    return dt.toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' });
+    const weekday = dt.toLocaleDateString('he-IL', { weekday: 'short' });
+    const day = String(dt.getDate()).padStart(2, '0');
+    const month = String(dt.getMonth() + 1).padStart(2, '0');
+    return `${weekday}, ${day}/${month}/${dt.getFullYear()}`;
   }
 
   function formatTime(t) {

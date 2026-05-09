@@ -11,7 +11,7 @@ function formatDate(d) {
   if (!d) return '';
   const s = d.slice(0, 10);
   const [y, m, dd] = s.split('-');
-  return `${dd}.${m}.${y}`;
+  return `${dd}/${m.padStart(2, '0')}/${y}`;
 }
 
 function FieldDiff({ label, current, requested }) {

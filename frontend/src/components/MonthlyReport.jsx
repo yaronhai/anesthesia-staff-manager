@@ -259,7 +259,7 @@ export default function MonthlyReport({ token, config, isAdmin, branchId }) {
           <div className="daily-report-overlay" onClick={() => setSelectedDay(null)}>
             <div className="daily-report-modal" onClick={e => e.stopPropagation()}>
               <div className="daily-report-header">
-                <h3>{dayName}, {d}.{String(m).padStart(2, '0')}.{y}</h3>
+                <h3>{dayName}, {String(d).padStart(2, '0')}/{String(m).padStart(2, '0')}/{y}</h3>
                 <button className="btn-close" onClick={() => setSelectedDay(null)}>✕</button>
               </div>
 

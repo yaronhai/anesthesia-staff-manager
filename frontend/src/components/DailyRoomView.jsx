@@ -862,9 +862,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   }
 
 
-  const dateLabel = viewDate.toLocaleDateString('he-IL', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  });
+  const dateLabel = `${viewDate.toLocaleDateString('he-IL', { weekday: 'long' })} ${String(viewDate.getDate()).padStart(2, '0')}/${String(viewDate.getMonth() + 1).padStart(2, '0')}/${viewDate.getFullYear()}`;
 
   function isSaturday(dateStr) {
     const [year, month, day] = dateStr.split('-').map(Number);

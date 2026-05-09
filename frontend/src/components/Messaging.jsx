@@ -233,7 +233,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                   let lastDate = null;
                   messages.forEach(msg => {
                     const date = new Date(msg.created_at);
-                    const dateKey = date.toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                    const dateKey = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
                     if (dateKey !== lastDate) {
                       lastDate = dateKey;
                       items.push(
