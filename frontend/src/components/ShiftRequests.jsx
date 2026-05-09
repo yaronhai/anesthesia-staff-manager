@@ -799,7 +799,10 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
         .then(r => r.ok ? r.json() : [])
         .then(data => {
           setWorkerBranches(data);
-          if (data.length > 0) setActiveBranchId(data[0].branch_id);
+          if (data.length > 0) {
+            const primary = currentUser?.branch_id ? data.find(b => b.branch_id === currentUser.branch_id) : null;
+            setActiveBranchId((primary || data[0]).branch_id);
+          }
         });
     }
   }, [currentUser?.worker_id, isAdmin, token]);
