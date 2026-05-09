@@ -806,11 +806,13 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
 
   const effectiveBranchId = isAdmin ? selectedBranchId : (activeBranchId === 'all' ? null : activeBranchId);
 
+  const lockFetchGen = useRef(0);
   const fetchLockStatus = useCallback(() => {
+    const gen = ++lockFetchGen.current;
     const branchQ = effectiveBranchId ? `?branch_id=${effectiveBranchId}` : '';
     fetch(`/api/branch-settings${branchQ}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setLockStatus(data); });
+      .then(data => { if (data && gen === lockFetchGen.current) setLockStatus(data); });
   }, [effectiveBranchId, token]);
 
   useEffect(() => {
