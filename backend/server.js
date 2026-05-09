@@ -232,6 +232,72 @@ function getEffectiveBranchId(req) {
   return b ? parseInt(b) : null;
 }
 
+async function getBranchLockSettings(branchId) {
+  const res = await query(
+    'SELECT * FROM branch_settings WHERE branch_id IS NOT DISTINCT FROM $1',
+    [branchId]
+  );
+  return res.rows[0] || { lock_mode: 'monthly', lock_day_of_month: 20, lock_day_of_week: 2, lock_override_until: null };
+}
+
+function getLockedPeriod(settings) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (settings.lock_mode === 'monthly') {
+    if (today.getDate() < settings.lock_day_of_month) return null;
+    const y = today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear();
+    const m = (today.getMonth() + 1) % 12;
+    return { type: 'monthly', year: y, month: m };
+  } else {
+    const dow = today.getDay();
+    if (dow < settings.lock_day_of_week) return null;
+    const daysToNextSun = 7 - dow;
+    const nextSun = new Date(today);
+    nextSun.setDate(today.getDate() + daysToNextSun);
+    const nextSat = new Date(nextSun);
+    nextSat.setDate(nextSun.getDate() + 6);
+    return { type: 'weekly', start: nextSun, end: nextSat };
+  }
+}
+
+function isDateInLockedPeriod(dateStr, period) {
+  if (!period) return false;
+  const d = new Date(dateStr);
+  d.setHours(0, 0, 0, 0);
+  if (period.type === 'monthly') {
+    return d.getFullYear() === period.year && d.getMonth() === period.month;
+  }
+  return d >= period.start && d <= period.end;
+}
+
+async function isDateLockedForUser(dateStr, userId, branchId) {
+  const settings = await getBranchLockSettings(branchId);
+  const period = getLockedPeriod(settings);
+  if (!isDateInLockedPeriod(dateStr, period)) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (settings.lock_override_until) {
+    const ov = new Date(settings.lock_override_until);
+    ov.setHours(0, 0, 0, 0);
+    if (today <= ov) return false;
+  }
+
+  const workerOv = await query(
+    `SELECT wlo.override_until FROM worker_lock_overrides wlo
+     JOIN workers w ON wlo.worker_id = w.id
+     JOIN users u ON u.worker_id = w.id
+     WHERE u.id = $1 AND wlo.branch_id IS NOT DISTINCT FROM $2`,
+    [userId, branchId]
+  );
+  if (workerOv.rows.length > 0) {
+    const ov = new Date(workerOv.rows[0].override_until);
+    ov.setHours(0, 0, 0, 0);
+    if (today <= ov) return false;
+  }
+  return true;
+}
+
 async function getWorkerRoleLevel(workerId) {
   const r = await query(
     'SELECT r.level FROM users u JOIN roles r ON r.name = u.role WHERE u.worker_id = $1',
@@ -1068,6 +1134,11 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'עובד זה אינו מורשה להגיש בקשות משמרת' });
     }
 
+    if (!isAdmin) {
+      const locked = await isDateLockedForUser(date, targetUserId, branchId);
+      if (locked) return res.status(423).json({ error: 'הסידור לתקופה זו נעול' });
+    }
+
     const vacCheck = await query(
       `SELECT id FROM vacation_requests
        WHERE user_id = $1 AND status IN ('approved', 'partial')
@@ -1111,6 +1182,14 @@ app.delete('/api/shift-requests/:id', requireAuth, async (req, res) => {
       const isOwnRequest = ownerCheck.rows[0].user_id === req.user.id;
       if (isOwnRequest) {
         return res.status(403).json({ error: 'אין לך הרשאה לערוך בקשות משמרת' });
+      }
+    }
+
+    if (!isAdmin && ownerCheck.rows.length > 0) {
+      const srRes = await query('SELECT date, branch_id FROM shift_requests WHERE id = $1', [req.params.id]);
+      if (srRes.rows.length > 0) {
+        const locked = await isDateLockedForUser(srRes.rows[0].date, req.user.id, srRes.rows[0].branch_id);
+        if (locked) return res.status(423).json({ error: 'הסידור לתקופה זו נעול' });
       }
     }
 
@@ -1580,6 +1659,117 @@ app.delete('/api/vacation-requests/:id', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('Delete vacation request error:', err);
     res.status(500).json({ error: 'שגיאה במחיקת בקשה' });
+  }
+});
+
+// ── Branch Settings (lock configuration) ────────────────────────────────────
+
+app.get('/api/branch-settings', requireAuth, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const settings = await getBranchLockSettings(branchId);
+    const period = getLockedPeriod(settings);
+    let lockedPeriodLabel = null;
+    let lockedPeriodStart = null;
+    let lockedPeriodEnd = null;
+    if (period) {
+      if (period.type === 'monthly') {
+        const mm = String(period.month + 1).padStart(2, '0');
+        lockedPeriodLabel = `${mm}/${period.year}`;
+        lockedPeriodStart = `${period.year}-${mm}-01`;
+        const daysInMonth = new Date(period.year, period.month + 1, 0).getDate();
+        lockedPeriodEnd = `${period.year}-${mm}-${String(daysInMonth).padStart(2, '0')}`;
+      } else {
+        const s = period.start;
+        lockedPeriodLabel = `${s.getDate().toString().padStart(2,'0')}/${(s.getMonth()+1).toString().padStart(2,'0')}/${s.getFullYear()}`;
+        lockedPeriodStart = period.start.toISOString().slice(0, 10);
+        lockedPeriodEnd = period.end.toISOString().slice(0, 10);
+      }
+    }
+    res.json({ ...settings, is_locked: !!period, locked_period_label: lockedPeriodLabel, locked_period_start: lockedPeriodStart, locked_period_end: lockedPeriodEnd });
+  } catch (err) {
+    console.error('GET branch-settings error:', err);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.put('/api/branch-settings', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const { lock_mode, lock_day_of_month, lock_day_of_week, lock_override_until } = req.body;
+    await query(
+      `INSERT INTO branch_settings (branch_id, lock_mode, lock_day_of_month, lock_day_of_week, lock_override_until)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (branch_id) DO UPDATE SET
+         lock_mode = EXCLUDED.lock_mode,
+         lock_day_of_month = EXCLUDED.lock_day_of_month,
+         lock_day_of_week = EXCLUDED.lock_day_of_week,
+         lock_override_until = EXCLUDED.lock_override_until`,
+      [branchId, lock_mode || 'monthly', lock_day_of_month || 20, lock_day_of_week ?? 2, lock_override_until || null]
+    );
+    const settings = await getBranchLockSettings(branchId);
+    res.json(settings);
+  } catch (err) {
+    console.error('PUT branch-settings error:', err);
+    res.status(500).json({ error: 'שגיאה בשמירת הגדרות' });
+  }
+});
+
+// ── Worker Lock Overrides ────────────────────────────────────────────────────
+
+app.get('/api/worker-lock-overrides', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const result = await query(
+      `SELECT wlo.*, w.first_name, w.family_name
+       FROM worker_lock_overrides wlo
+       JOIN workers w ON wlo.worker_id = w.id
+       WHERE wlo.branch_id IS NOT DISTINCT FROM $1
+       ORDER BY w.family_name, w.first_name`,
+      [branchId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET worker-lock-overrides error:', err);
+    res.status(500).json({ error: 'שגיאה' });
+  }
+});
+
+app.post('/api/worker-lock-overrides', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const { worker_id, override_until } = req.body;
+    if (!worker_id || !override_until) return res.status(400).json({ error: 'חסרים שדות' });
+    await query(
+      `INSERT INTO worker_lock_overrides (worker_id, branch_id, override_until)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (worker_id, branch_id) DO UPDATE SET override_until = EXCLUDED.override_until`,
+      [worker_id, branchId, override_until]
+    );
+    const row = await query(
+      `SELECT wlo.*, w.first_name, w.family_name FROM worker_lock_overrides wlo
+       JOIN workers w ON wlo.worker_id = w.id
+       WHERE wlo.worker_id = $1 AND wlo.branch_id IS NOT DISTINCT FROM $2`,
+      [worker_id, branchId]
+    );
+    res.json(row.rows[0]);
+  } catch (err) {
+    console.error('POST worker-lock-overrides error:', err);
+    res.status(500).json({ error: 'שגיאה בשמירה' });
+  }
+});
+
+app.delete('/api/worker-lock-overrides/:worker_id', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    await query(
+      'DELETE FROM worker_lock_overrides WHERE worker_id = $1 AND branch_id IS NOT DISTINCT FROM $2',
+      [parseInt(req.params.worker_id), branchId]
+    );
+    res.status(204).send();
+  } catch (err) {
+    console.error('DELETE worker-lock-overrides error:', err);
+    res.status(500).json({ error: 'שגיאה' });
   }
 });
 

@@ -25,6 +25,13 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [shiftTimesEdits, setShiftTimesEdits] = useState({});
   const [templateGroups, setTemplateGroups] = useState([]);
   const [newTemplateGroupName, setNewTemplateGroupName] = useState('');
+  const [lockSettings, setLockSettings] = useState(null);
+  const [lockOverrides, setLockOverrides] = useState([]);
+  const [lockWorkers, setLockWorkers] = useState([]);
+  const [lockSaving, setLockSaving] = useState(false);
+  const [lockMsg, setLockMsg] = useState('');
+  const [newOverrideWorkerId, setNewOverrideWorkerId] = useState('');
+  const [newOverrideUntil, setNewOverrideUntil] = useState('');
 
   function branchParam(bid) {
     const id = bid !== undefined ? bid : localBranchId;
@@ -45,6 +52,24 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     fetch(`/api/config/activity-template-groups${branchParam()}`, { headers: { Authorization: `Bearer ${authToken}` } })
       .then(r => r.ok ? r.json() : [])
       .then(setTemplateGroups)
+      .catch(() => {});
+  }, [activeTab, localBranchId]);
+
+  useEffect(() => {
+    if (activeTab !== 'lockSettings') return;
+    const bp = branchParam();
+    const h = { Authorization: `Bearer ${authToken}` };
+    fetch(`/api/branch-settings${bp}`, { headers: h })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setLockSettings(d); })
+      .catch(() => {});
+    fetch(`/api/worker-lock-overrides${bp}`, { headers: h })
+      .then(r => r.ok ? r.json() : [])
+      .then(setLockOverrides)
+      .catch(() => {});
+    fetch(`/api/workers${bp}`, { headers: h })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setLockWorkers(Array.isArray(d) ? d : (d.workers || [])))
       .catch(() => {});
   }, [activeTab, localBranchId]);
 
@@ -333,6 +358,57 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     }
   }
 
+  async function saveLockSettings() {
+    if (!lockSettings) return;
+    setLockSaving(true);
+    setLockMsg('');
+    try {
+      const bp = branchParam();
+      const res = await fetch(`/api/branch-settings${bp}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({
+          lock_mode: lockSettings.lock_mode,
+          lock_day_of_month: lockSettings.lock_day_of_month,
+          lock_day_of_week: lockSettings.lock_day_of_week,
+          lock_override_until: lockSettings.lock_override_until || null,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setLockSettings(await res.json());
+      setLockMsg('נשמר ✓');
+    } catch {
+      setLockMsg('שגיאה בשמירה');
+    } finally {
+      setLockSaving(false);
+    }
+  }
+
+  async function addLockOverride() {
+    if (!newOverrideWorkerId || !newOverrideUntil) return;
+    const bp = branchParam();
+    const res = await fetch(`/api/worker-lock-overrides${bp}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ worker_id: parseInt(newOverrideWorkerId), override_until: newOverrideUntil }),
+    });
+    if (res.ok) {
+      const row = await res.json();
+      setLockOverrides(prev => [...prev.filter(o => o.worker_id !== row.worker_id), row]);
+      setNewOverrideWorkerId('');
+      setNewOverrideUntil('');
+    }
+  }
+
+  async function removeLockOverride(workerId) {
+    const bp = branchParam();
+    const res = await fetch(`/api/worker-lock-overrides/${workerId}${bp}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (res.ok) setLockOverrides(prev => prev.filter(o => o.worker_id !== workerId));
+  }
+
   async function saveShiftTimes(key) {
     const edit = shiftTimesEdits[key];
     if (!edit) return;
@@ -387,6 +463,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     { key: 'eventTypes', label: 'סוגי אירועים' },
     { key: 'templateGroups', label: 'קבוצות תבניות' },
     { key: 'shifts', label: 'שעות משמרות' },
+    { key: 'lockSettings', label: 'נעילת סידור' },
   ];
 
   return (
@@ -1105,6 +1182,123 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                     <p className={styles.noShifts}>אין משמרות תורנות/כוננות מוגדרות במערכת.</p>
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'lockSettings' && (
+              <div className={styles.lockTab}>
+                {!lockSettings ? (
+                  <div>טוען...</div>
+                ) : (
+                  <>
+                    <h3 className={styles.lockTitle}>הגדרות נעילת סידור</h3>
+
+                    <div className={styles.lockSection}>
+                      <label className={styles.lockLabel}>מצב נעילה:</label>
+                      <div className={styles.lockRadios}>
+                        <label>
+                          <input type="radio" value="monthly" checked={lockSettings.lock_mode === 'monthly'}
+                            onChange={() => setLockSettings(s => ({ ...s, lock_mode: 'monthly' }))} />
+                          {' '}חודשי
+                        </label>
+                        <label>
+                          <input type="radio" value="weekly" checked={lockSettings.lock_mode === 'weekly'}
+                            onChange={() => setLockSettings(s => ({ ...s, lock_mode: 'weekly' }))} />
+                          {' '}שבועי
+                        </label>
+                      </div>
+                    </div>
+
+                    {lockSettings.lock_mode === 'monthly' && (
+                      <div className={styles.lockSection}>
+                        <label className={styles.lockLabel}>נעל ב-</label>
+                        <input
+                          type="number" min="1" max="28"
+                          className={styles.lockNumInput}
+                          value={lockSettings.lock_day_of_month}
+                          onChange={e => setLockSettings(s => ({ ...s, lock_day_of_month: parseInt(e.target.value) || 20 }))}
+                        />
+                        <span className={styles.lockLabelSuffix}>לחודש (נעילת הסידור לחודש הבא)</span>
+                      </div>
+                    )}
+
+                    {lockSettings.lock_mode === 'weekly' && (
+                      <div className={styles.lockSection}>
+                        <label className={styles.lockLabel}>נעל ביום:</label>
+                        <select
+                          className={styles.lockSelect}
+                          value={lockSettings.lock_day_of_week}
+                          onChange={e => setLockSettings(s => ({ ...s, lock_day_of_week: parseInt(e.target.value) }))}
+                        >
+                          {['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'].map((d, i) => (
+                            <option key={i} value={i}>{d}</option>
+                          ))}
+                        </select>
+                        <span className={styles.lockLabelSuffix}>(נעילת הסידור לשבוע הבא)</span>
+                      </div>
+                    )}
+
+                    <div className={styles.lockSection}>
+                      <label className={styles.lockLabel}>פתח סניף עד תאריך:</label>
+                      <input
+                        type="date"
+                        className={styles.lockDateInput}
+                        value={lockSettings.lock_override_until ? lockSettings.lock_override_until.slice(0,10) : ''}
+                        onChange={e => setLockSettings(s => ({ ...s, lock_override_until: e.target.value || null }))}
+                      />
+                      {lockSettings.lock_override_until && (
+                        <button className={styles.lockClearBtn} onClick={() => setLockSettings(s => ({ ...s, lock_override_until: null }))}>✕</button>
+                      )}
+                      <span className={styles.lockLabelSuffix}>כל העובדים יוכלו להגיש עד תאריך זה</span>
+                    </div>
+
+                    <div className={styles.lockActions}>
+                      <button className={styles.lockSaveBtn} onClick={saveLockSettings} disabled={lockSaving}>
+                        {lockSaving ? 'שומר...' : 'שמור הגדרות'}
+                      </button>
+                      {lockMsg && <span className={lockMsg.includes('שגיאה') ? styles.lockErr : styles.lockOk}>{lockMsg}</span>}
+                    </div>
+
+                    <h4 className={styles.lockOverrideTitle}>פתיחת נעילה לעובד ספציפי</h4>
+                    <table className={styles.lockOverrideTable}>
+                      <thead>
+                        <tr>
+                          <th>עובד</th>
+                          <th>פתוח עד</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lockOverrides.map(o => (
+                          <tr key={o.worker_id}>
+                            <td>{o.first_name} {o.family_name}</td>
+                            <td>{o.override_until ? o.override_until.slice(0,10).split('-').reverse().join('/') : ''}</td>
+                            <td><button className="btn-remove" onClick={() => removeLockOverride(o.worker_id)}>✕</button></td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td>
+                            <select className={styles.lockSelect} value={newOverrideWorkerId}
+                              onChange={e => setNewOverrideWorkerId(e.target.value)}>
+                              <option value="">— בחר עובד —</option>
+                              {lockWorkers.map(w => (
+                                <option key={w.id} value={w.id}>{w.first_name} {w.family_name}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>
+                            <input type="date" className={styles.lockDateInput} value={newOverrideUntil}
+                              onChange={e => setNewOverrideUntil(e.target.value)} />
+                          </td>
+                          <td>
+                            <button className={styles.lockAddBtn} onClick={addLockOverride}
+                              disabled={!newOverrideWorkerId || !newOverrideUntil}>הוסף</button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </>
+                )}
               </div>
             )}
 

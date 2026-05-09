@@ -73,7 +73,7 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
 }
 
 // ── Day editor modal ─────────────────────────────────────────────────────────
-function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs, branchId, permanentDayEntries }) {
+function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs, branchId, permanentDayEntries, isLocked }) {
   const dow = DAYS_HE[new Date(dateStr).getDay()];
   const [d, m, y] = [
     parseInt(dateStr.split('-')[2]),
@@ -84,12 +84,18 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
 
   async function setPref(shiftKey, prefKey) {
     setError(null);
+    if (isLocked) { setError('הסידור לתקופה זו נעול'); return; }
     const existing = dayRequests.find(r => r.shift_type === shiftKey);
     if (existing && existing.preference_type === prefKey) {
-      await fetch(`/api/shift-requests/${existing.id}`, {
+      const res = await fetch(`/api/shift-requests/${existing.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'שגיאה במחיקת הבקשה');
+        return;
+      }
     } else {
       const res = await fetch('/api/shift-requests', {
         method: 'POST',
@@ -97,7 +103,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
         body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, branch_id: branchId }),
       });
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         setError(data.error || 'שגיאה בשמירת הבקשה');
         return;
       }
@@ -109,9 +115,12 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
     <div className="day-editor-backdrop">
       <div className="day-editor">
         <div className="day-editor-header">
-          <h3>יום {dow}, {String(d).padStart(2,'0')}/{String(m).padStart(2,'0')}/{y}</h3>
+          <h3>יום {dow}, {String(d).padStart(2,'0')}/{String(m).padStart(2,'0')}/{y}{isLocked ? ' 🔒' : ''}</h3>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
+        {isLocked && (
+          <div className="vacation-conflict-msg">הסידור לתקופה זו נעול — לא ניתן לערוך בקשות.</div>
+        )}
 
         <table className="pref-table">
           <thead>
@@ -174,7 +183,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
 }
 
 // ── User calendar view ───────────────────────────────────────────────────────
-function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit, specialDays, permanentTemplate, onPermanentOpen, allBranchesMode, workerBranches }) {
+function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit, specialDays, permanentTemplate, onPermanentOpen, allBranchesMode, workerBranches, lockStatus }) {
   const [editingDay, setEditingDay] = useState(null); // { day, dateStr }
   const [blockedMsg, setBlockedMsg] = useState(false);
   const year = viewDate.getFullYear();
@@ -195,6 +204,13 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
   const weeks = buildCalendarWeeks(year, month);
   const todayStr = toDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
 
+  function isDateLocked(dateStr) {
+    if (!lockStatus?.is_locked) return false;
+    const { locked_period_start: s, locked_period_end: e } = lockStatus;
+    if (!s || !e) return false;
+    return dateStr >= s && dateStr <= e;
+  }
+
   function openEditor(day, dateStr) {
     if (allBranchesMode) return;
     if (canSubmit === false) { setBlockedMsg(true); return; }
@@ -206,6 +222,11 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
       {canSubmit === false && (
         <div className={styles.blockedBanner}>
           <strong>⛔ אין לך הרשאה להגיש או לערוך בקשות משמרת.</strong> לפרטים פנה למנהל.
+        </div>
+      )}
+      {lockStatus?.is_locked && (
+        <div className={styles.lockedBanner}>
+          🔒 <strong>הסידור ל{lockStatus.locked_period_label} נעול להגשת בקשות.</strong>
         </div>
       )}
       {blockedMsg && (
@@ -276,6 +297,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
           prefs={prefs}
           branchId={branchId}
           permanentDayEntries={getPermanentDayEntries(editingDay.dateStr)}
+          isLocked={isDateLocked(editingDay.dateStr)}
         />
       )}
     </>
@@ -659,6 +681,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const [permanentTemplate, setPermanentTemplate] = useState(null);
   const [showPermanentModal, setShowPermanentModal] = useState(false);
   const [permanentModalWorkerId, setPermanentModalWorkerId] = useState(null);
+  const [lockStatus, setLockStatus] = useState(null);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const shifts = config.shift_types || [];
@@ -687,6 +710,13 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   }, [currentUser?.worker_id, isAdmin, token]);
 
   const effectiveBranchId = isAdmin ? selectedBranchId : (activeBranchId === 'all' ? null : activeBranchId);
+
+  useEffect(() => {
+    const branchQ = effectiveBranchId ? `?branch_id=${effectiveBranchId}` : '';
+    fetch(`/api/branch-settings${branchQ}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setLockStatus(data));
+  }, [effectiveBranchId, token]);
 
   const fetchRequests = useCallback(async () => {
     const branchQ = effectiveBranchId ? `&branch_id=${effectiveBranchId}` : '';
@@ -810,7 +840,10 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           <div className="month-year-nav">
             <button className="btn-secondary btn-sm" onClick={nextYear} title="שנה קדימה">»</button>
             <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">›</button>
-            <span className="month-year-label">{MONTHS[month]} {year}</span>
+            <span className="month-year-label">
+              {MONTHS[month]} {year}
+              {lockStatus?.is_locked && lockStatus.locked_period_label && ` 🔒`}
+            </span>
             <button className="btn-secondary btn-sm" onClick={prevMonth} title="חודש אחורה">‹</button>
             <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">«</button>
           </div>
@@ -876,6 +909,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
         permanentTemplate={permanentTemplate}
         allBranchesMode={activeBranchId === 'all'}
         workerBranches={workerBranches}
+        lockStatus={lockStatus}
       />
       {showPermanentModal && (
         <PermanentShiftsModal

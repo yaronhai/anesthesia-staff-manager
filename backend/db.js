@@ -345,6 +345,24 @@ async function initializeSchema() {
         decided_at TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS branch_settings (
+        id SERIAL PRIMARY KEY,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        lock_mode TEXT NOT NULL DEFAULT 'monthly',
+        lock_day_of_month INTEGER NOT NULL DEFAULT 20,
+        lock_day_of_week INTEGER NOT NULL DEFAULT 2,
+        lock_override_until DATE,
+        UNIQUE(branch_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS worker_lock_overrides (
+        id SERIAL PRIMARY KEY,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        override_until DATE NOT NULL,
+        UNIQUE(worker_id, branch_id)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_profile_change_requests_worker ON profile_change_requests(worker_id);
       CREATE INDEX IF NOT EXISTS idx_profile_change_requests_status ON profile_change_requests(status);
 

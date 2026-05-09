@@ -282,3 +282,22 @@
   cursor: pointer;
   text-align: right;
 }
+
+// Lock Settings Tab
+.lockTab { display: flex; flex-direction: column; gap: 0.75rem; }
+.lockTitle { font-size: 1rem; font-weight: 700; margin: 0 0 0.25rem; }
+.lockSection { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.lockLabel { font-size: 0.85rem; font-weight: 600; color: #334155; white-space: nowrap; }
+.lockLabelSuffix { font-size: 0.78rem; color: #64748b; }
+.lockRadios { display: flex; gap: 1rem; font-size: 0.85rem; }
+.lockNumInput { width: 60px; padding: 0.25rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; text-align: center; }
+.lockSelect { padding: 0.25rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; }
+.lockDateInput { padding: 0.25rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; }
+.lockClearBtn { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 0.85rem; &:hover { color: #ef4444; } }
+.lockActions { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.25rem; }
+.lockSaveBtn { padding: 0.35rem 1rem; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; &:hover:not(:disabled) { background: #1d4ed8; } &:disabled { opacity: 0.6; } }
+.lockOk { font-size: 0.82rem; color: #16a34a; }
+.lockErr { font-size: 0.82rem; color: #dc2626; }
+.lockOverrideTitle { font-size: 0.9rem; font-weight: 700; margin: 0.5rem 0 0.25rem; border-top: 1px solid #e2e8f0; padding-top: 0.75rem; }
+.lockOverrideTable { width: 100%; border-collapse: collapse; font-size: 0.85rem; th, td { padding: 0.3rem 0.5rem; text-align: right; border-bottom: 1px solid #f1f5f9; } th { font-weight: 600; color: #475569; } }
+.lockAddBtn { padding: 0.25rem 0.7rem; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 0.82rem; &:hover:not(:disabled) { background: #e2e8f0; } &:disabled { opacity: 0.5; } }
