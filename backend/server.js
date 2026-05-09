@@ -250,13 +250,17 @@ function getLockedPeriod(settings) {
     return { type: 'monthly', year: y, month: m };
   } else {
     const dow = today.getDay();
-    if (dow < settings.lock_day_of_week) return null;
-    // Lock from start of current week through end of next week
-    const currSun = new Date(today);
-    currSun.setDate(today.getDate() - dow);
-    const nextSat = new Date(currSun);
-    nextSat.setDate(currSun.getDate() + 13);
-    return { type: 'weekly', start: currSun, end: nextSat };
+    const lockDow = settings.lock_day_of_week;
+    // Days since the most recent occurrence of the lock day (0 = today is lock day)
+    const daysSinceLock = (dow - lockDow + 7) % 7;
+    const lastLockDay = new Date(today);
+    lastLockDay.setDate(today.getDate() - daysSinceLock);
+    // Locked period: Sunday of lastLockDay's week through the following Saturday
+    const periodStart = new Date(lastLockDay);
+    periodStart.setDate(lastLockDay.getDate() - lastLockDay.getDay());
+    const periodEnd = new Date(periodStart);
+    periodEnd.setDate(periodStart.getDate() + 13);
+    return { type: 'weekly', start: periodStart, end: periodEnd };
   }
 }
 

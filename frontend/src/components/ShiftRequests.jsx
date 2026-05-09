@@ -218,28 +218,16 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
     // Past dates always blocked for workers
     if (dateStr < tstr) return true;
 
-    // Check if admin has explicitly opened this date range
+    // If admin has explicitly opened this date range, not locked
     const ovFrom = lockStatus.lock_override_from?.slice(0,10);
     const ovUntil = lockStatus.lock_override_until?.slice(0,10);
     if (ovUntil && ovUntil >= tstr && (!ovFrom || dateStr >= ovFrom) && dateStr <= ovUntil) return false;
 
-    if (lockStatus.lock_mode === 'weekly') {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const todayDow = today.getDay();
-      const currWeekSun = new Date(today); currWeekSun.setDate(today.getDate() - todayDow);
-      let nextOpenSun;
-      if (lockStatus.is_locked && lockStatus.locked_period_end) {
-        const lockedEnd = new Date(lockStatus.locked_period_end + 'T00:00:00');
-        nextOpenSun = new Date(lockedEnd); nextOpenSun.setDate(lockedEnd.getDate() + 1);
-      } else {
-        nextOpenSun = new Date(currWeekSun); nextOpenSun.setDate(currWeekSun.getDate() + 7);
-      }
-      const nos = `${nextOpenSun.getFullYear()}-${String(nextOpenSun.getMonth()+1).padStart(2,'0')}-${String(nextOpenSun.getDate()).padStart(2,'0')}`;
-      return dateStr < nos;
-    }
-
-    if (!lockStatus.is_locked) return false;
-    return !!lockStatus.locked_period_end && dateStr <= lockStatus.locked_period_end;
+    // Use locked period from backend as source of truth
+    const start = lockStatus.locked_period_start;
+    const end = lockStatus.locked_period_end;
+    if (!end) return false;
+    return (!start || dateStr >= start) && dateStr <= end;
   }
 
   function isDateReopened(dateStr) {
@@ -422,23 +410,10 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
     const ovUntil = lockStatus.lock_override_until?.slice(0,10);
     if (ovUntil && ovUntil >= tstr && (!ovFrom || dateStr >= ovFrom) && dateStr <= ovUntil) return false;
 
-    if (lockStatus.lock_mode === 'weekly') {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const todayDow = today.getDay();
-      const currWeekSun = new Date(today); currWeekSun.setDate(today.getDate() - todayDow);
-      let nextOpenSun;
-      if (lockStatus.is_locked && lockStatus.locked_period_end) {
-        const lockedEnd = new Date(lockStatus.locked_period_end + 'T00:00:00');
-        nextOpenSun = new Date(lockedEnd); nextOpenSun.setDate(lockedEnd.getDate() + 1);
-      } else {
-        nextOpenSun = new Date(currWeekSun); nextOpenSun.setDate(currWeekSun.getDate() + 7);
-      }
-      const nos = `${nextOpenSun.getFullYear()}-${String(nextOpenSun.getMonth()+1).padStart(2,'0')}-${String(nextOpenSun.getDate()).padStart(2,'0')}`;
-      return dateStr < nos;
-    }
-
-    if (!lockStatus.is_locked) return false;
-    return !!lockStatus.locked_period_end && dateStr <= lockStatus.locked_period_end;
+    const start = lockStatus.locked_period_start;
+    const end = lockStatus.locked_period_end;
+    if (!end) return false;
+    return (!start || dateStr >= start) && dateStr <= end;
   }
 
   function isDayReopened(d) {
