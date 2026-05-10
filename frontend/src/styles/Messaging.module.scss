@@ -334,6 +334,16 @@
   align-items: flex-start;
 }
 
+// Live draft link preview (shown above the input form before sending)
+.draftLinkPreview {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f0f9ff;
+}
+
 // Link preview card
 .linkPreviewCard {
   display: flex;

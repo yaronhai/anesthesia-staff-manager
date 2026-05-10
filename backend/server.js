@@ -2576,6 +2576,17 @@ function parseOGTags(html, rawUrl) {
 
 // ── Messaging ──────────────────────────────────────────────────────────────────
 
+app.get('/api/link-preview', requireAuth, async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'url נדרש' });
+  try {
+    const og = await fetchLinkPreview(url);
+    res.json(og || {});
+  } catch {
+    res.json({});
+  }
+});
+
 app.post('/api/messages/upload', requireAuth, (req, res) => {
   chatUpload.single('file')(req, res, (err) => {
     if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE')

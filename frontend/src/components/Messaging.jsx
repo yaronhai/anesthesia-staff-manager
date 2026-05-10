@@ -14,7 +14,10 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   const [loading, setLoading] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState(null);
   const [attachUploading, setAttachUploading] = useState(false);
+  const [draftLinkPreview, setDraftLinkPreview] = useState(null);
+  const [draftLinkDismissed, setDraftLinkDismissed] = useState(false);
   const fileInputRef = useRef(null);
+  const linkPreviewTimerRef = useRef(null);
   const checkMobile = () => window.innerWidth < 640;
   const checkLandscape = () => window.innerWidth < 900 && window.innerHeight < 500;
   const [isMobile, setIsMobile] = useState(checkMobile);
@@ -125,6 +128,8 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     const attachment = pendingAttachment;
     setDraft('');
     setPendingAttachment(null);
+    setDraftLinkPreview(null);
+    setDraftLinkDismissed(false);
     setLoading(true);
     try {
       const res = await fetch(`/api/messages/group?branch_id=${branchId}`, {
@@ -156,6 +161,8 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     const attachment = pendingAttachment;
     setDraft('');
     setPendingAttachment(null);
+    setDraftLinkPreview(null);
+    setDraftLinkDismissed(false);
     setLoading(true);
     try {
       const res = await fetch('/api/messages', {
@@ -271,6 +278,33 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, groupMessages]);
+
+  useEffect(() => {
+    const URL_RE = /https?:\/\/[^\s"'<>\]]+/i;
+    const match = draft.match(URL_RE);
+    const url = match ? match[0] : null;
+
+    if (!url || draftLinkDismissed) {
+      if (!url) { setDraftLinkPreview(null); setDraftLinkDismissed(false); }
+      clearTimeout(linkPreviewTimerRef.current);
+      return;
+    }
+    if (draftLinkPreview?.link_url === url) return;
+
+    clearTimeout(linkPreviewTimerRef.current);
+    linkPreviewTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setDraftLinkPreview(data?.link_url ? data : null);
+        }
+      } catch {}
+    }, 600);
+    return () => clearTimeout(linkPreviewTimerRef.current);
+  }, [draft, authToken]);
 
   const selectedConversation = conversations.find(c => c.partner_id === selectedUserId);
 
@@ -452,6 +486,27 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
+              {draftLinkPreview && !pendingAttachment && (
+                <div className={styles.draftLinkPreview}>
+                  <a href={draftLinkPreview.link_url} target="_blank" rel="noopener noreferrer"
+                    className={styles.linkPreviewCard} onClick={e => e.preventDefault()}>
+                    {draftLinkPreview.link_image && (
+                      <img src={draftLinkPreview.link_image} alt="" className={styles.linkPreviewImg} />
+                    )}
+                    <div className={styles.linkPreviewBody}>
+                      {draftLinkPreview.link_title && (
+                        <span className={styles.linkPreviewTitle}>{draftLinkPreview.link_title}</span>
+                      )}
+                      {draftLinkPreview.link_description && (
+                        <span className={styles.linkPreviewDesc}>{draftLinkPreview.link_description}</span>
+                      )}
+                    </div>
+                  </a>
+                  <button type="button" className={styles.attachRemoveBtn}
+                    onClick={() => { setDraftLinkPreview(null); setDraftLinkDismissed(true); }}>✕</button>
+                </div>
+              )}
 
               {pendingAttachment && (
                 <div className={styles.attachPreview}>
