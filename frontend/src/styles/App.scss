@@ -3260,8 +3260,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   }
   .shift-admin-header {
     padding: 0.3rem 0.5rem;
-    flex-wrap: nowrap;
-    gap: 0.25rem;
+    flex-wrap: wrap;
+    gap: 0.3rem;
     overflow: visible;
   }
   .shift-admin-title { display: none; }
@@ -3269,10 +3269,12 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .shift-admin-filters { gap: 0.25rem !important; flex-wrap: nowrap !important; }
   .shift-admin-filters label { font-size: 0.7rem !important; white-space: nowrap; }
   .shift-admin-filters select { padding: 2px 3px !important; font-size: 0.7rem; max-width: 90px; }
-  .month-year-nav { flex-shrink: 0; gap: 0.2rem; }
-  .month-year-label { min-width: 0; font-size: 0.78rem; }
-  .month-year-nav .btn-sm { padding: 0.15rem 0.3rem; font-size: 0.72rem; }
-  .month-year-nav { flex-wrap: nowrap; gap: 0.3rem; }
+  .month-year-nav {
+    flex: 0 0 100%;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 0.3rem;
+  }
   .month-year-label { min-width: 80px; font-size: 0.82rem; }
   .month-year-nav .btn-sm { padding: 0.2rem 0.4rem; font-size: 0.7rem; }
 
@@ -3339,9 +3341,9 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .admin-cell-editor { min-width: min(300px, 92vw); max-width: 92vw; }
 
   /* Room view */
-  .room-view-container { height: calc(100svh - var(--content-top, 95px)); }
-  .room-nav { flex-direction: row; align-items: stretch; flex-wrap: nowrap; overflow-x: auto; gap: 0.2rem; }
-  .room-nav-row1, .room-nav-row2 { display: contents; }
+  .room-view-container { height: calc(100svh - var(--content-top, 95px)); padding-top: 0.25rem; }
+  .room-nav { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 0.2rem; }
+  .room-nav-row1, .room-nav-row2 { display: flex; align-items: stretch; gap: 0.2rem; flex-wrap: nowrap; overflow-x: auto; }
   .room-nav button, .room-nav .btn-sm { padding: 0.22rem 0.38rem !important; font-size: 0.75rem !important; flex-shrink: 0; }
   .room-nav-action-btn { padding: 0.22rem 0.45rem !important; font-size: 0.82rem !important; flex-shrink: 0; }
   .room-nav button[style] { padding: 0.22rem 0.38rem !important; font-size: 0.85rem !important; font-weight: 600 !important; box-shadow: none !important; }
