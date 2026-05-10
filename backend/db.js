@@ -403,6 +403,16 @@ async function initializeSchema() {
       CREATE INDEX IF NOT EXISTS idx_vacation_requests_status ON vacation_requests(status);
       CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
       CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id);
+
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        endpoint TEXT NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(endpoint)
+      );
     `);
     await query(`
       ALTER TABLE employment_types ADD COLUMN IF NOT EXISTS is_independent BOOLEAN DEFAULT FALSE NOT NULL;
@@ -838,6 +848,18 @@ async function runMigrations() {
         ADD COLUMN IF NOT EXISTS link_title       TEXT,
         ADD COLUMN IF NOT EXISTS link_image       TEXT,
         ADD COLUMN IF NOT EXISTS link_description TEXT
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        endpoint TEXT NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(endpoint)
+      )
     `);
 
     console.log('✓ Migrations complete');

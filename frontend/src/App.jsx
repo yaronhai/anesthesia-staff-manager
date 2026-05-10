@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 const UPLOADS_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
 const resolvePhotoUrl = url => !url ? null : url.startsWith('data:') ? url : UPLOADS_BASE + url;
 import WorkerList from './components/WorkerList';
 import WorkerForm from './components/WorkerForm';
@@ -128,6 +135,36 @@ export default function App() {
       setWorkers([]);
     }
   }, [selectedBranchId]);
+
+  useEffect(() => {
+    if (!currentUser || !authToken) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const isMobile = /Mobi|Android|iPhone|iPad|IEMobile/i.test(navigator.userAgent);
+    if (!isMobile) return;
+    if (localStorage.getItem('push-asked')) return;
+
+    async function setupPush() {
+      localStorage.setItem('push-asked', '1');
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      const { publicKey } = await fetch('/api/push/vapid-public-key').then(r => r.json());
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify(sub.toJSON()),
+      });
+    }
+
+    setupPush().catch(() => {});
+  }, [currentUser, authToken]);
 
   async function fetchUnreadCount() {
     if (!authToken) return;

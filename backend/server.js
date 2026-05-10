@@ -5,6 +5,12 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const webpush = require('web-push');
+webpush.setVapidDetails(
+  process.env.VAPID_MAILTO,
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 
 const { query, pool, initializeSchema, ensureSiteAllowedJobsTable, runMigrations } = require('./db');
 
@@ -2627,6 +2633,28 @@ app.post('/api/messages', requireAuth, async (req, res) => {
        og?.link_url || null, og?.link_title || null, og?.link_image || null, og?.link_description || null]
     );
     res.json(result.rows[0]);
+
+    // Fire-and-forget push notification to recipient
+    (async () => {
+      try {
+        const senderRes = await query(
+          `SELECT CASE WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name ELSE u.username END AS name
+           FROM users u LEFT JOIN workers w ON u.worker_id = w.id WHERE u.id = $1`,
+          [sender_id]
+        );
+        const senderName = senderRes.rows[0]?.name || 'הודעה חדשה';
+        const body = trimmedContent || (file_url ? '📎 קובץ מצורף' : '');
+        const subs = await query('SELECT * FROM push_subscriptions WHERE user_id = $1', [recipient_id]);
+        for (const sub of subs.rows) {
+          webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify({ title: senderName, body, icon: '/logo-assuta.png', url: '/' })
+          ).catch(() => {
+            query('DELETE FROM push_subscriptions WHERE endpoint=$1', [sub.endpoint]).catch(() => {});
+          });
+        }
+      } catch {}
+    })();
   } catch (e) {
     console.error('Send message error:', e);
     res.status(500).json({ error: 'שגיאה בשליחת הודעה' });
@@ -2911,6 +2939,40 @@ app.delete('/api/messages/attachment/:id', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Delete attachment error:', e);
     res.status(500).json({ error: 'שגיאה במחיקת קובץ' });
+  }
+});
+
+// ── Web Push Notifications ──────────────────────────────────────────────────
+
+app.get('/api/push/vapid-public-key', (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
+});
+
+app.post('/api/push/subscribe', requireAuth, async (req, res) => {
+  try {
+    const { endpoint, keys } = req.body;
+    if (!endpoint || !keys?.p256dh || !keys?.auth) return res.status(400).json({ error: 'נתוני מנוי חסרים' });
+    await query(
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (endpoint) DO UPDATE SET user_id=$1, p256dh=$3, auth=$4`,
+      [req.user.id, endpoint, keys.p256dh, keys.auth]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Push subscribe error:', e);
+    res.status(500).json({ error: 'שגיאה בהרשמה להתראות' });
+  }
+});
+
+app.delete('/api/push/unsubscribe', requireAuth, async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (!endpoint) return res.status(400).json({ error: 'endpoint נדרש' });
+    await query('DELETE FROM push_subscriptions WHERE endpoint=$1 AND user_id=$2', [endpoint, req.user.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'שגיאה בביטול הרשמה' });
   }
 });
 
