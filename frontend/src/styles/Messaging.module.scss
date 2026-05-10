@@ -223,6 +223,14 @@
   min-width: 80px;
 }
 
+.msgSenderName {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #6d28d9;
+  margin-bottom: 0.1rem;
+}
+
 // No conversation selected
 .noConversation {
   display: flex;

@@ -267,6 +267,16 @@ async function initializeSchema() {
         created_at TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS group_messages (
+        id         SERIAL PRIMARY KEY,
+        branch_id  INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+        sender_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content    TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_group_messages_branch ON group_messages(branch_id, created_at DESC);
+
       CREATE TABLE IF NOT EXISTS vacation_requests (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -779,6 +789,17 @@ async function runMigrations() {
     await query(`ALTER TABLE activity_types ADD COLUMN IF NOT EXISTS complexity_level INTEGER NOT NULL DEFAULT 1`);
     await query(`ALTER TABLE workers ADD COLUMN IF NOT EXISTS photo_url TEXT`);
     await query(`ALTER TABLE branch_settings ADD COLUMN IF NOT EXISTS lock_override_from DATE`);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS group_messages (
+        id         SERIAL PRIMARY KEY,
+        branch_id  INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+        sender_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content    TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_group_messages_branch ON group_messages(branch_id, created_at DESC)`);
 
     console.log('✓ Migrations complete');
   } catch (error) {

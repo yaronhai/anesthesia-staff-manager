@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/Messaging.module.scss';
 
+const GENERAL_CHAT_ID = 'general';
+
 export default function Messaging({ authToken, currentUser, workers, branchId }) {
   const [conversations, setConversations] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [groupMessages, setGroupMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
   const checkMobile = () => window.innerWidth < 640;
@@ -64,6 +67,44 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     }
   }
 
+  async function fetchGroupMessages() {
+    try {
+      const res = await fetch(`/api/messages/group?branch_id=${branchId}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) setGroupMessages(await res.json());
+    } catch (err) {
+      console.error('Error fetching group messages:', err);
+    }
+  }
+
+  async function sendGroupMessage(e) {
+    e.preventDefault();
+    if (!draft.trim() || loading) return;
+    const content = draft.trim();
+    setDraft('');
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/messages/group?branch_id=${branchId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ content }),
+      });
+      if (res.ok) {
+        await fetchGroupMessages();
+      } else {
+        setDraft(content);
+        alert('שגיאה בשליחת ההודעה, נסה שוב');
+      }
+    } catch (err) {
+      console.error('Error sending group message:', err);
+      setDraft(content);
+      alert('שגיאת רשת, נסה שוב');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function sendMessage(e) {
     e.preventDefault();
     if (!draft.trim() || !selectedUserId || loading) return;
@@ -105,11 +146,16 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
         list.push({ id: conv.partner_id, display_name: conv.partner_name || conv.partner_username });
       }
     });
-    return list.sort((a, b) => {
+    const sorted = list.sort((a, b) => {
       if (a.display_name === 'סידור עבודה') return -1;
       if (b.display_name === 'סידור עבודה') return 1;
       return 0;
     });
+    const generalEntry = { id: GENERAL_CHAT_ID, display_name: 'צ\'ט כללי', isGeneralChat: true };
+    const sidurIdx = sorted.findIndex(c => c.display_name === 'סידור עבודה');
+    if (sidurIdx >= 0) sorted.splice(sidurIdx + 1, 0, generalEntry);
+    else sorted.unshift(generalEntry);
+    return sorted;
   })();
 
   useEffect(() => {
@@ -121,12 +167,14 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   useEffect(() => {
     fetchConversations();
     fetchContacts();
+    fetchGroupMessages();
     const interval = setInterval(fetchConversations, 3000);
-    return () => clearInterval(interval);
+    const groupInterval = setInterval(fetchGroupMessages, 3000);
+    return () => { clearInterval(interval); clearInterval(groupInterval); };
   }, [authToken]);
 
   useEffect(() => {
-    if (selectedUserId) {
+    if (selectedUserId && selectedUserId !== GENERAL_CHAT_ID) {
       fetchMessages(selectedUserId);
       const interval = setInterval(() => fetchMessages(selectedUserId), 3000);
       return () => clearInterval(interval);
@@ -135,7 +183,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, groupMessages]);
 
   const selectedConversation = conversations.find(c => c.partner_id === selectedUserId);
 
@@ -171,6 +219,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
         ) : mergedContacts.map(contact => {
           const conversation = conversations.find(c => c.partner_id === contact.id);
           const isSidur = contact.display_name === 'סידור עבודה';
+          const isGeneralChat = contact.isGeneralChat === true;
           const isSelected = selectedUserId === contact.id;
           return (
             <button
@@ -179,7 +228,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
               onClick={() => setSelectedUserId(contact.id)}
               style={{
                 '--contact-bg': isSelected ? '#1e40af' : 'white',
-                '--contact-color': isSelected ? 'white' : isSidur ? '#7f1d1d' : '#1e40af',
+                '--contact-color': isSelected ? 'white' : isGeneralChat ? '#065f46' : isSidur ? '#7f1d1d' : '#1e40af',
                 '--contact-btn-padding': isMobile ? '0.6rem 0.75rem' : isLandscape ? '0.2rem 0.3rem' : '0.3rem 0.4rem',
                 '--contact-font': isMobile ? '0.9rem' : isLandscape ? '0.65rem' : '0.7rem',
               }}
@@ -219,57 +268,97 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                 {isMobile && (
                   <button className={styles.backBtn} onClick={() => setSelectedUserId(null)}>←</button>
                 )}
-                {selectedConversation?.partner_name || (() => {
-                  const worker = workers.find(w => w.user_id === selectedUserId);
-                  return worker ? `${worker.first_name} ${worker.family_name}` : selectedConversation?.partner_username || 'שיחה';
-                })()}
+                {selectedUserId === GENERAL_CHAT_ID
+                  ? 'צ\'ט כללי'
+                  : selectedConversation?.partner_name || (() => {
+                      const worker = workers.find(w => w.user_id === selectedUserId);
+                      return worker ? `${worker.first_name} ${worker.family_name}` : selectedConversation?.partner_username || 'שיחה';
+                    })()}
               </div>
 
               <div className={styles.messagesList}>
-                {messages.length === 0 ? (
-                  <p className={styles.messagesEmpty}>אין הודעות עדיין</p>
-                ) : (() => {
-                  const items = [];
-                  let lastDate = null;
-                  messages.forEach(msg => {
-                    const date = new Date(msg.created_at);
-                    const dateKey = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-                    if (dateKey !== lastDate) {
-                      lastDate = dateKey;
+                {selectedUserId === GENERAL_CHAT_ID ? (
+                  groupMessages.length === 0 ? (
+                    <p className={styles.messagesEmpty}>אין הודעות עדיין</p>
+                  ) : (() => {
+                    const items = [];
+                    let lastDate = null;
+                    groupMessages.forEach(msg => {
+                      const date = new Date(msg.created_at);
+                      const dateKey = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+                      if (dateKey !== lastDate) {
+                        lastDate = dateKey;
+                        items.push(
+                          <div key={`date-${dateKey}`} className={styles.dateDivider}>
+                            <div className={styles.dateLine} />
+                            <span className={styles.dateLabel}>{dateKey}</span>
+                            <div className={styles.dateLine} />
+                          </div>
+                        );
+                      }
+                      const isOwn = msg.sender_id === currentUser.id;
+                      const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
                       items.push(
-                        <div key={`date-${dateKey}`} className={styles.dateDivider}>
-                          <div className={styles.dateLine} />
-                          <span className={styles.dateLabel}>{dateKey}</span>
-                          <div className={styles.dateLine} />
+                        <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
+                          <div
+                            className={styles.msgBubble}
+                            style={{ '--bubble-bg': isOwn ? '#e0f2fe' : '#ede9fe', '--bubble-font': '0.7rem', '--bubble-weight': 'normal' }}
+                          >
+                            <span className={styles.msgSenderName}>{isOwn ? 'אני' : msg.sender_name}</span>
+                            <span className={styles.msgTime}>{timeStr}</span>
+                            <span className={styles.msgContent}>{msg.content}</span>
+                          </div>
                         </div>
                       );
-                    }
-                    const isOwn = msg.sender_id === currentUser.id;
-                    const isSidur = msg.sender_username === 'system_sidur';
-                    const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-                    items.push(
-                      <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
-                        <div
-                          className={styles.msgBubble}
-                          style={{
-                            '--bubble-bg': isOwn ? '#e0f2fe' : '#ede9fe',
-                            '--bubble-font': isSidur ? '1rem' : '0.7rem',
-                            '--bubble-weight': isSidur ? 700 : 'normal',
-                            fontFamily: isSidur ? 'Arial, sans-serif' : 'inherit',
-                          }}
-                        >
-                          <span className={styles.msgTime}>{timeStr}</span>
-                          <span className={styles.msgContent}>{msg.content}</span>
+                    });
+                    return items;
+                  })()
+                ) : (
+                  messages.length === 0 ? (
+                    <p className={styles.messagesEmpty}>אין הודעות עדיין</p>
+                  ) : (() => {
+                    const items = [];
+                    let lastDate = null;
+                    messages.forEach(msg => {
+                      const date = new Date(msg.created_at);
+                      const dateKey = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+                      if (dateKey !== lastDate) {
+                        lastDate = dateKey;
+                        items.push(
+                          <div key={`date-${dateKey}`} className={styles.dateDivider}>
+                            <div className={styles.dateLine} />
+                            <span className={styles.dateLabel}>{dateKey}</span>
+                            <div className={styles.dateLine} />
+                          </div>
+                        );
+                      }
+                      const isOwn = msg.sender_id === currentUser.id;
+                      const isSidur = msg.sender_username === 'system_sidur';
+                      const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                      items.push(
+                        <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
+                          <div
+                            className={styles.msgBubble}
+                            style={{
+                              '--bubble-bg': isOwn ? '#e0f2fe' : '#ede9fe',
+                              '--bubble-font': isSidur ? '1rem' : '0.7rem',
+                              '--bubble-weight': isSidur ? 700 : 'normal',
+                              fontFamily: isSidur ? 'Arial, sans-serif' : 'inherit',
+                            }}
+                          >
+                            <span className={styles.msgTime}>{timeStr}</span>
+                            <span className={styles.msgContent}>{msg.content}</span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  });
-                  return items;
-                })()}
+                      );
+                    });
+                    return items;
+                  })()
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
-              <form className={styles.inputForm} onSubmit={sendMessage}>
+              <form className={styles.inputForm} onSubmit={selectedUserId === GENERAL_CHAT_ID ? sendGroupMessage : sendMessage}>
                 <input
                   type="text"
                   className={styles.inputField}

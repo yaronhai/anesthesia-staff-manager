@@ -2659,6 +2659,46 @@ app.get('/api/messages/contacts', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/messages/group', requireAuth, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    if (!branchId) return res.status(400).json({ error: 'סניף לא נמצא' });
+    const result = await query(
+      `SELECT gm.id, gm.sender_id, gm.content, gm.created_at,
+              TO_CHAR(gm.created_at AT TIME ZONE 'Asia/Jerusalem', 'HH24:MI') AS time_display,
+              CASE WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name ELSE u.username END AS sender_name
+       FROM group_messages gm
+       JOIN users u ON gm.sender_id = u.id
+       LEFT JOIN workers w ON u.worker_id = w.id
+       WHERE gm.branch_id = $1
+       ORDER BY gm.created_at ASC
+       LIMIT 200`,
+      [branchId]
+    );
+    res.json(result.rows);
+  } catch (e) {
+    console.error('Get group messages error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת צ\'ט כללי' });
+  }
+});
+
+app.post('/api/messages/group', requireAuth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content?.trim()) return res.status(400).json({ error: 'הודעה נדרשת' });
+    const branchId = getEffectiveBranchId(req);
+    if (!branchId) return res.status(400).json({ error: 'סניף לא נמצא' });
+    const result = await query(
+      `INSERT INTO group_messages (branch_id, sender_id, content) VALUES ($1, $2, $3) RETURNING *`,
+      [branchId, req.user.id, content.trim()]
+    );
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error('Send group message error:', e);
+    res.status(500).json({ error: 'שגיאה בשליחת הודעה' });
+  }
+});
+
 // ── Fairness Report ─────────────────────────────────────────────────────────
 
 app.get('/api/fairness-report', requireAdmin, async (req, res) => {
