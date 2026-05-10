@@ -239,3 +239,152 @@
   height: 100%;
   color: #9ca3af;
 }
+
+// Attach button (paperclip)
+.attachBtn {
+  padding: 0.75rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: white;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// Pre-send attachment preview strip (above the input form)
+.attachPreview {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 1rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f0fdf4;
+  font-size: 0.75rem;
+  direction: rtl;
+}
+.attachPreviewImg {
+  max-height: 48px;
+  max-width: 80px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.attachPreviewIcon { font-size: 1.4rem; }
+.attachPreviewName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #065f46;
+  direction: ltr;
+  text-align: left;
+}
+.attachRemoveBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 0.9rem;
+  padding: 0 0.2rem;
+  &:hover { color: #ef4444; }
+}
+
+// In-bubble attachment rendering
+.msgAttachImg {
+  display: block;
+  max-width: 200px;
+  max-height: 180px;
+  border-radius: 4px;
+  margin-top: 0.25rem;
+  object-fit: cover;
+  cursor: pointer;
+}
+.msgAttachVideo {
+  display: block;
+  max-width: 240px;
+  max-height: 160px;
+  border-radius: 4px;
+  margin-top: 0.25rem;
+}
+.msgAttachDoc {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+  padding: 0.2rem 0.4rem;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
+  text-decoration: none;
+  color: #1e40af;
+  font-size: 0.7rem;
+  &:hover { background: rgba(0, 0, 0, 0.1); }
+}
+.msgAttachDocName {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+// Bubble column layout for messages that have attachments or link preview
+.msgBubbleCol {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+// Link preview card
+.linkPreviewCard {
+  display: flex;
+  margin-top: 0.3rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.6);
+  max-width: 240px;
+  text-decoration: none;
+  color: inherit;
+  &:hover { background: rgba(255, 255, 255, 0.9); }
+}
+.linkPreviewImg {
+  width: 72px;
+  min-width: 72px;
+  height: 60px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.linkPreviewBody {
+  padding: 0.25rem 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  overflow: hidden;
+  min-width: 0;
+}
+.linkPreviewTitle {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #1e40af;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.25;
+}
+.linkPreviewDesc {
+  font-size: 0.6rem;
+  color: #6b7280;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.2;
+}
+.linkPreviewDomain {
+  font-size: 0.55rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -2496,20 +2496,94 @@ app.get('/api/sent-emails', requireAdmin, async (req, res) => {
   }
 });
 
+// ── Link preview (OG fetch) ─────────────────────────────────────────────────
+
+const nodeHttps = require('https');
+const nodeHttp  = require('http');
+
+const LINK_URL_RE   = /https?:\/\/[^\s"'<>]+/i;
+const PRIVATE_IP_RE = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i;
+
+function fetchLinkPreview(rawUrl) {
+  return new Promise((resolve) => {
+    let parsed;
+    try { parsed = new URL(rawUrl); } catch { return resolve(null); }
+    if (!['http:', 'https:'].includes(parsed.protocol)) return resolve(null);
+    if (PRIVATE_IP_RE.test(parsed.hostname)) return resolve(null);
+
+    const lib = parsed.protocol === 'https:' ? nodeHttps : nodeHttp;
+    let html = '';
+    const req = lib.get(rawUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 4000 }, (res) => {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location)
+        return resolve(fetchLinkPreview(res.headers.location));
+      if (res.statusCode >= 400) return resolve(null);
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        html += chunk;
+        if (html.length > 300_000) { req.destroy(); resolve(parseOGTags(html, rawUrl)); }
+      });
+      res.on('end', () => resolve(parseOGTags(html, rawUrl)));
+      res.on('error', () => resolve(null));
+    });
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.on('error', () => resolve(null));
+  });
+}
+
+function parseOGTags(html, rawUrl) {
+  const get = (prop) => {
+    const re1 = new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i');
+    const re2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']${prop}["']`, 'i');
+    const m = html.match(re1) || html.match(re2);
+    return m ? m[1].trim() : null;
+  };
+  const title       = get('og:title')       || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || null;
+  const image       = get('og:image')       || null;
+  const description = get('og:description') || null;
+  if (!title && !image) return null;
+  return { link_url: rawUrl, link_title: title, link_image: image, link_description: description };
+}
+
 // ── Messaging ──────────────────────────────────────────────────────────────────
+
+app.post('/api/messages/upload', requireAuth, (req, res) => {
+  chatUpload.single('file')(req, res, (err) => {
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE')
+      return res.status(413).json({ error: 'הקובץ גדול מדי (מקסימום 10MB)' });
+    if (err) return res.status(400).json({ error: err.message || 'שגיאה בהעלאת קובץ' });
+    if (!req.file) return res.status(400).json({ error: 'קובץ נדרש' });
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    res.json({
+      file_url: `/uploads/chat/${req.file.filename}`,
+      file_name: req.file.originalname,
+      file_type: getChatFileType(ext),
+      file_size: req.file.size,
+    });
+  });
+});
 
 app.post('/api/messages', requireAuth, async (req, res) => {
   try {
-    const { recipient_id, content } = req.body;
-    if (!recipient_id || !content?.trim()) {
-      return res.status(400).json({ error: 'מקבל והודעה נדרשים' });
+    const { recipient_id, content, file_url, file_name, file_type, file_size } = req.body;
+    const trimmedContent = content?.trim() || '';
+    if (!recipient_id || (!trimmedContent && !file_url)) {
+      return res.status(400).json({ error: 'מקבל ותוכן או קובץ נדרשים' });
     }
     const sender_id = req.user.id;
     const branchId = getEffectiveBranchId(req);
 
+    const urlMatch = trimmedContent.match(LINK_URL_RE);
+    const og = urlMatch && !file_url ? await fetchLinkPreview(urlMatch[0]).catch(() => null) : null;
+
     const result = await query(
-      'INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1, $2, $3, $4) RETURNING *',
-      [sender_id, recipient_id, content.trim(), branchId || null]
+      `INSERT INTO messages
+         (sender_id, recipient_id, content, branch_id,
+          file_url, file_name, file_type, file_size,
+          link_url, link_title, link_image, link_description)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [sender_id, recipient_id, trimmedContent, branchId || null,
+       file_url || null, file_name || null, file_type || null, file_size || null,
+       og?.link_url || null, og?.link_title || null, og?.link_image || null, og?.link_description || null]
     );
     res.json(result.rows[0]);
   } catch (e) {
@@ -2575,6 +2649,8 @@ app.get('/api/messages/with/:user_id', requireAuth, async (req, res) => {
 
     let sql = `
       SELECT m.id, m.sender_id, m.recipient_id, m.content, m.read_at, m.branch_id,
+             m.file_url, m.file_name, m.file_type, m.file_size,
+             m.link_url, m.link_title, m.link_image, m.link_description,
              u.username as sender_username, uw.username as recipient_username,
              TO_CHAR(m.created_at AT TIME ZONE 'Asia/Jerusalem', 'HH24:MI') as time_display,
              m.created_at
@@ -2665,6 +2741,8 @@ app.get('/api/messages/group', requireAuth, async (req, res) => {
     if (!branchId) return res.status(400).json({ error: 'סניף לא נמצא' });
     const result = await query(
       `SELECT gm.id, gm.sender_id, gm.content, gm.created_at,
+              gm.file_url, gm.file_name, gm.file_type, gm.file_size,
+              gm.link_url, gm.link_title, gm.link_image, gm.link_description,
               TO_CHAR(gm.created_at AT TIME ZONE 'Asia/Jerusalem', 'HH24:MI') AS time_display,
               CASE WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name ELSE u.username END AS sender_name
        FROM group_messages gm
@@ -2684,13 +2762,23 @@ app.get('/api/messages/group', requireAuth, async (req, res) => {
 
 app.post('/api/messages/group', requireAuth, async (req, res) => {
   try {
-    const { content } = req.body;
-    if (!content?.trim()) return res.status(400).json({ error: 'הודעה נדרשת' });
+    const { content, file_url, file_name, file_type, file_size } = req.body;
+    const trimmedContent = content?.trim() || '';
+    if (!trimmedContent && !file_url) return res.status(400).json({ error: 'הודעה או קובץ נדרשים' });
     const branchId = getEffectiveBranchId(req);
     if (!branchId) return res.status(400).json({ error: 'סניף לא נמצא' });
+
+    const urlMatch = trimmedContent.match(LINK_URL_RE);
+    const og = urlMatch && !file_url ? await fetchLinkPreview(urlMatch[0]).catch(() => null) : null;
+
     const result = await query(
-      `INSERT INTO group_messages (branch_id, sender_id, content) VALUES ($1, $2, $3) RETURNING *`,
-      [branchId, req.user.id, content.trim()]
+      `INSERT INTO group_messages
+         (branch_id, sender_id, content, file_url, file_name, file_type, file_size,
+          link_url, link_title, link_image, link_description)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+      [branchId, req.user.id, trimmedContent,
+       file_url || null, file_name || null, file_type || null, file_size || null,
+       og?.link_url || null, og?.link_title || null, og?.link_image || null, og?.link_description || null]
     );
     res.json(result.rows[0]);
   } catch (e) {
@@ -4618,6 +4706,44 @@ const photoUpload = multer({
   fileFilter: (req, file, cb) => {
     const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
     cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()));
+  },
+});
+
+const chatUploadsDir = path.join(__dirname, 'uploads', 'chat');
+if (!fs.existsSync(chatUploadsDir)) fs.mkdirSync(chatUploadsDir, { recursive: true });
+
+const CHAT_ALLOWED_EXTS = [
+  '.jpg', '.jpeg', '.png', '.gif', '.webp',
+  '.mp4', '.webm', '.mov',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt',
+];
+const CHAT_ALLOWED_MIMES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'video/mp4', 'video/webm', 'video/quicktime',
+  'application/pdf', 'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+];
+function getChatFileType(ext) {
+  if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) return 'image';
+  if (['.mp4', '.webm', '.mov'].includes(ext)) return 'video';
+  return 'document';
+}
+const chatUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, chatUploadsDir),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, `msg_${req.user.id}_${Date.now()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    (CHAT_ALLOWED_EXTS.includes(ext) && CHAT_ALLOWED_MIMES.includes(file.mimetype))
+      ? cb(null, true) : cb(new Error('סוג קובץ לא מורשה'));
   },
 });
 

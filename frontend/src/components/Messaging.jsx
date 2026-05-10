@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/Messaging.module.scss';
 
 const GENERAL_CHAT_ID = 'general';
+const ALLOWED_EXTS = /\.(jpe?g|png|gif|webp|mp4|webm|mov|pdf|docx?|xlsx?|txt)$/i;
 
 export default function Messaging({ authToken, currentUser, workers, branchId }) {
   const [conversations, setConversations] = useState([]);
@@ -11,6 +12,9 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   const [groupMessages, setGroupMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState(null);
+  const [attachUploading, setAttachUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const checkMobile = () => window.innerWidth < 640;
   const checkLandscape = () => window.innerWidth < 900 && window.innerHeight < 500;
   const [isMobile, setIsMobile] = useState(checkMobile);
@@ -78,27 +82,67 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     }
   }
 
+  async function handleFileSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert('הקובץ גדול מ-10MB');
+      e.target.value = '';
+      return;
+    }
+    if (!ALLOWED_EXTS.test(file.name)) {
+      alert('סוג קובץ לא נתמך');
+      e.target.value = '';
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    setAttachUploading(true);
+    try {
+      const res = await fetch('/api/messages/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'שגיאה בהעלאת קובץ');
+        return;
+      }
+      setPendingAttachment(await res.json());
+    } catch {
+      alert('שגיאת רשת בהעלאת קובץ');
+    } finally {
+      setAttachUploading(false);
+      e.target.value = '';
+    }
+  }
+
   async function sendGroupMessage(e) {
     e.preventDefault();
-    if (!draft.trim() || loading) return;
+    if ((!draft.trim() && !pendingAttachment) || loading) return;
     const content = draft.trim();
+    const attachment = pendingAttachment;
     setDraft('');
+    setPendingAttachment(null);
     setLoading(true);
     try {
       const res = await fetch(`/api/messages/group?branch_id=${branchId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, ...(attachment || {}) }),
       });
       if (res.ok) {
         await fetchGroupMessages();
       } else {
         setDraft(content);
+        setPendingAttachment(attachment);
         alert('שגיאה בשליחת ההודעה, נסה שוב');
       }
     } catch (err) {
       console.error('Error sending group message:', err);
       setDraft(content);
+      setPendingAttachment(attachment);
       alert('שגיאת רשת, נסה שוב');
     } finally {
       setLoading(false);
@@ -107,30 +151,73 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
 
   async function sendMessage(e) {
     e.preventDefault();
-    if (!draft.trim() || !selectedUserId || loading) return;
+    if ((!draft.trim() && !pendingAttachment) || !selectedUserId || loading) return;
     const content = draft.trim();
+    const attachment = pendingAttachment;
     setDraft('');
+    setPendingAttachment(null);
     setLoading(true);
     try {
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ recipient_id: selectedUserId, content }),
+        body: JSON.stringify({ recipient_id: selectedUserId, content, ...(attachment || {}) }),
       });
       if (res.ok) {
         await fetchMessages(selectedUserId);
         await fetchConversations();
       } else {
         setDraft(content);
+        setPendingAttachment(attachment);
         alert('שגיאה בשליחת ההודעה, נסה שוב');
       }
     } catch (err) {
       console.error('Error sending message:', err);
       setDraft(content);
+      setPendingAttachment(attachment);
       alert('שגיאת רשת, נסה שוב');
     } finally {
       setLoading(false);
     }
+  }
+
+  function renderLinkPreview(msg) {
+    if (!msg.link_url) return null;
+    let domain = '';
+    try { domain = new URL(msg.link_url).hostname.replace(/^www\./, ''); } catch {}
+    return (
+      <a href={msg.link_url} target="_blank" rel="noopener noreferrer" className={styles.linkPreviewCard}>
+        {msg.link_image && (
+          <img src={msg.link_image} alt="" className={styles.linkPreviewImg} />
+        )}
+        <div className={styles.linkPreviewBody}>
+          {msg.link_title && <span className={styles.linkPreviewTitle}>{msg.link_title}</span>}
+          {msg.link_description && <span className={styles.linkPreviewDesc}>{msg.link_description}</span>}
+          {domain && <span className={styles.linkPreviewDomain}>{domain}</span>}
+        </div>
+      </a>
+    );
+  }
+
+  function renderAttachment(msg) {
+    if (!msg.file_url) return null;
+    if (msg.file_type === 'image') {
+      return (
+        <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
+          <img src={msg.file_url} alt={msg.file_name} className={styles.msgAttachImg} />
+        </a>
+      );
+    }
+    if (msg.file_type === 'video') {
+      return <video src={msg.file_url} controls className={styles.msgAttachVideo} />;
+    }
+    return (
+      <a href={msg.file_url} download={msg.file_name} className={styles.msgAttachDoc}
+        target="_blank" rel="noopener noreferrer">
+        <span>📄</span>
+        <span className={styles.msgAttachDocName}>{msg.file_name}</span>
+      </a>
+    );
   }
 
   const mergedContacts = (() => {
@@ -250,6 +337,8 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     </div>
   );
 
+  const isSendDisabled = loading || attachUploading || (!draft.trim() && !pendingAttachment);
+
   return (
     <div className={styles.root} style={rootVars}>
       {showContacts && contactsList}
@@ -298,15 +387,18 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                       }
                       const isOwn = msg.sender_id === currentUser.id;
                       const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                      const hasAttachment = !!msg.file_url || !!msg.link_url;
                       items.push(
                         <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
                           <div
-                            className={styles.msgBubble}
+                            className={`${styles.msgBubble} ${hasAttachment ? styles.msgBubbleCol : ''}`}
                             style={{ '--bubble-bg': isOwn ? '#e0f2fe' : '#ede9fe', '--bubble-font': '0.7rem', '--bubble-weight': 'normal' }}
                           >
                             <span className={styles.msgSenderName}>{isOwn ? 'אני' : msg.sender_name}</span>
                             <span className={styles.msgTime}>{timeStr}</span>
-                            <span className={styles.msgContent}>{msg.content}</span>
+                            {msg.content && <span className={styles.msgContent}>{msg.content}</span>}
+                            {renderAttachment(msg)}
+                            {renderLinkPreview(msg)}
                           </div>
                         </div>
                       );
@@ -335,10 +427,11 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                       const isOwn = msg.sender_id === currentUser.id;
                       const isSidur = msg.sender_username === 'system_sidur';
                       const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                      const hasAttachment = !!msg.file_url || !!msg.link_url;
                       items.push(
                         <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
                           <div
-                            className={styles.msgBubble}
+                            className={`${styles.msgBubble} ${hasAttachment ? styles.msgBubbleCol : ''}`}
                             style={{
                               '--bubble-bg': isOwn ? '#e0f2fe' : '#ede9fe',
                               '--bubble-font': isSidur ? '1rem' : '0.7rem',
@@ -347,7 +440,9 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                             }}
                           >
                             <span className={styles.msgTime}>{timeStr}</span>
-                            <span className={styles.msgContent}>{msg.content}</span>
+                            {msg.content && <span className={styles.msgContent}>{msg.content}</span>}
+                            {renderAttachment(msg)}
+                            {renderLinkPreview(msg)}
                           </div>
                         </div>
                       );
@@ -358,7 +453,43 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                 <div ref={messagesEndRef} />
               </div>
 
+              {pendingAttachment && (
+                <div className={styles.attachPreview}>
+                  {pendingAttachment.file_type === 'image' && (
+                    <img src={pendingAttachment.file_url} className={styles.attachPreviewImg} alt="preview" />
+                  )}
+                  {pendingAttachment.file_type === 'video' && (
+                    <span className={styles.attachPreviewIcon}>🎬</span>
+                  )}
+                  {pendingAttachment.file_type === 'document' && (
+                    <span className={styles.attachPreviewIcon}>📄</span>
+                  )}
+                  <span className={styles.attachPreviewName}>{pendingAttachment.file_name}</span>
+                  <button
+                    type="button"
+                    className={styles.attachRemoveBtn}
+                    onClick={() => setPendingAttachment(null)}
+                  >✕</button>
+                </div>
+              )}
+
               <form className={styles.inputForm} onSubmit={selectedUserId === GENERAL_CHAT_ID ? sendGroupMessage : sendMessage}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.mov,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  onChange={handleFileSelect}
+                />
+                <button
+                  type="button"
+                  className={styles.attachBtn}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={attachUploading}
+                  title="צרף קובץ"
+                >
+                  {attachUploading ? '…' : '📎'}
+                </button>
                 <input
                   type="text"
                   className={styles.inputField}
@@ -366,7 +497,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                   onChange={e => setDraft(e.target.value)}
                   placeholder="הקלד הודעה..."
                 />
-                <button type="submit" className={styles.sendBtn} disabled={loading || !draft.trim()}>
+                <button type="submit" className={styles.sendBtn} disabled={isSendDisabled}>
                   {loading ? '...' : 'שלח'}
                 </button>
               </form>

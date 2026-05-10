@@ -264,6 +264,14 @@ async function initializeSchema() {
         content TEXT NOT NULL,
         read_at TIMESTAMP,
         branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        file_url TEXT,
+        file_name TEXT,
+        file_type TEXT,
+        file_size INTEGER,
+        link_url TEXT,
+        link_title TEXT,
+        link_image TEXT,
+        link_description TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );
 
@@ -272,6 +280,14 @@ async function initializeSchema() {
         branch_id  INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
         sender_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         content    TEXT NOT NULL,
+        file_url   TEXT,
+        file_name  TEXT,
+        file_type  TEXT,
+        file_size  INTEGER,
+        link_url         TEXT,
+        link_title       TEXT,
+        link_image       TEXT,
+        link_description TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
@@ -800,6 +816,29 @@ async function runMigrations() {
       )
     `);
     await query(`CREATE INDEX IF NOT EXISTS idx_group_messages_branch ON group_messages(branch_id, created_at DESC)`);
+
+    await query(`
+      ALTER TABLE messages
+        ADD COLUMN IF NOT EXISTS file_url  TEXT,
+        ADD COLUMN IF NOT EXISTS file_name TEXT,
+        ADD COLUMN IF NOT EXISTS file_type TEXT,
+        ADD COLUMN IF NOT EXISTS file_size INTEGER,
+        ADD COLUMN IF NOT EXISTS link_url         TEXT,
+        ADD COLUMN IF NOT EXISTS link_title       TEXT,
+        ADD COLUMN IF NOT EXISTS link_image       TEXT,
+        ADD COLUMN IF NOT EXISTS link_description TEXT
+    `);
+    await query(`
+      ALTER TABLE group_messages
+        ADD COLUMN IF NOT EXISTS file_url  TEXT,
+        ADD COLUMN IF NOT EXISTS file_name TEXT,
+        ADD COLUMN IF NOT EXISTS file_type TEXT,
+        ADD COLUMN IF NOT EXISTS file_size INTEGER,
+        ADD COLUMN IF NOT EXISTS link_url         TEXT,
+        ADD COLUMN IF NOT EXISTS link_title       TEXT,
+        ADD COLUMN IF NOT EXISTS link_image       TEXT,
+        ADD COLUMN IF NOT EXISTS link_description TEXT
+    `);
 
     console.log('✓ Migrations complete');
   } catch (error) {
