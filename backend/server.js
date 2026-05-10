@@ -2838,28 +2838,31 @@ app.get('/api/messages/attachments', requireAuth, async (req, res) => {
     let rows;
 
     if (type === 'group') {
-      if (!branchId) return res.status(400).json({ error: 'סניף לא נמצא' });
+      const bid = branchId || parseInt(req.query.branch_id);
+      if (!bid) return res.status(400).json({ error: 'סניף לא נמצא' });
       const r = await query(
-        `SELECT gm.id, gm.sender_id, gm.file_url, gm.file_name, gm.file_type, gm.file_size, gm.created_at,
+        `SELECT gm.id, gm.sender_id, gm.file_url, gm.file_name, gm.file_type, gm.file_size,
+                gm.link_url, gm.link_title, gm.link_image, gm.created_at,
                 CASE WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name ELSE u.username END AS sender_name
          FROM group_messages gm
          JOIN users u ON gm.sender_id = u.id
          LEFT JOIN workers w ON u.worker_id = w.id
-         WHERE gm.branch_id = $1 AND gm.file_url IS NOT NULL
+         WHERE gm.branch_id = $1 AND (gm.file_url IS NOT NULL OR gm.link_url IS NOT NULL)
          ORDER BY gm.created_at ASC`,
-        [branchId]
+        [bid]
       );
       rows = r.rows;
     } else {
       const otherId = parseInt(other_user_id);
       if (!otherId) return res.status(400).json({ error: 'other_user_id נדרש' });
       const r = await query(
-        `SELECT m.id, m.sender_id, m.file_url, m.file_name, m.file_type, m.file_size, m.created_at,
+        `SELECT m.id, m.sender_id, m.file_url, m.file_name, m.file_type, m.file_size,
+                m.link_url, m.link_title, m.link_image, m.created_at,
                 CASE WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name ELSE u.username END AS sender_name
          FROM messages m
          JOIN users u ON m.sender_id = u.id
          LEFT JOIN workers w ON u.worker_id = w.id
-         WHERE m.file_url IS NOT NULL
+         WHERE (m.file_url IS NOT NULL OR m.link_url IS NOT NULL)
            AND ((m.sender_id = $1 AND m.recipient_id = $2) OR (m.sender_id = $2 AND m.recipient_id = $1))
          ORDER BY m.created_at ASC`,
         [userId, otherId]
@@ -2880,7 +2883,7 @@ app.delete('/api/messages/attachment/:id', requireAuth, async (req, res) => {
     const userId = req.user.id;
     const table = type === 'group' ? 'group_messages' : 'messages';
 
-    const r = await query(`SELECT sender_id, file_url, content FROM ${table} WHERE id = $1`, [msgId]);
+    const r = await query(`SELECT sender_id, file_url, link_url, content FROM ${table} WHERE id = $1`, [msgId]);
     if (!r.rows.length) return res.status(404).json({ error: 'הודעה לא נמצאה' });
     const msg = r.rows[0];
     if (msg.sender_id !== userId) return res.status(403).json({ error: 'אין הרשאה' });
@@ -2891,12 +2894,14 @@ app.delete('/api/messages/attachment/:id', requireAuth, async (req, res) => {
       require('fs').unlink(filePath, () => {});
     }
 
-    // If message has no text content, delete the whole row; otherwise just clear file fields
+    // If message has no text content, delete the whole row; otherwise just clear attachment fields
     if (!msg.content?.trim()) {
       await query(`DELETE FROM ${table} WHERE id = $1`, [msgId]);
     } else {
       await query(
-        `UPDATE ${table} SET file_url = NULL, file_name = NULL, file_type = NULL, file_size = NULL WHERE id = $1`,
+        `UPDATE ${table} SET file_url = NULL, file_name = NULL, file_type = NULL, file_size = NULL,
+                             link_url = NULL, link_title = NULL, link_image = NULL, link_description = NULL
+         WHERE id = $1`,
         [msgId]
       );
     }

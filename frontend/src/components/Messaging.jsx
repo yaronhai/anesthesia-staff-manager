@@ -193,7 +193,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   async function fetchAttachments() {
     const isGroup = selectedUserId === GENERAL_CHAT_ID;
     const url = isGroup
-      ? `/api/messages/attachments?type=group`
+      ? `/api/messages/attachments?type=group&branch_id=${branchId}`
       : `/api/messages/attachments?type=private&other_user_id=${selectedUserId}`;
     try {
       const res = await fetch(url, { headers: { Authorization: `Bearer ${authToken}` } });
@@ -203,7 +203,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
 
   async function deleteAttachment(id) {
     const isGroup = selectedUserId === GENERAL_CHAT_ID;
-    if (!window.confirm('למחוק את הקובץ?')) return;
+    if (!window.confirm('למחוק?')) return;
     try {
       const res = await fetch(`/api/messages/attachment/${id}?type=${isGroup ? 'group' : 'private'}`, {
         method: 'DELETE',
@@ -213,7 +213,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
         setFilesList(prev => prev.filter(f => f.id !== id));
         if (isGroup) fetchGroupMessages(); else fetchMessages(selectedUserId);
       } else {
-        alert('שגיאה במחיקת הקובץ');
+        alert('שגיאה במחיקה');
       }
     } catch { alert('שגיאת רשת'); }
   }
@@ -608,37 +608,53 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
               <button className={styles.filesModalClose} onClick={() => setFilesOpen(false)}>✕</button>
             </div>
             {filesList.length === 0 ? (
-              <p className={styles.filesEmpty}>אין קבצים בשיחה זו</p>
+              <p className={styles.filesEmpty}>אין קבצים או קישורים בשיחה זו</p>
             ) : (() => {
               const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
               const groups = {};
               filesList.forEach(f => {
                 const d = new Date(f.created_at);
                 const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                if (!groups[key]) groups[key] = { year: d.getFullYear(), month: d.getMonth(), files: [] };
-                groups[key].files.push(f);
+                if (!groups[key]) groups[key] = { year: d.getFullYear(), month: d.getMonth(), items: [] };
+                groups[key].items.push(f);
               });
               return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(key => {
                 const g = groups[key];
                 return (
                   <div key={key} className={styles.filesGroup}>
                     <div className={styles.filesGroupLabel}>{MONTHS_HE[g.month]} {g.year}</div>
-                    {g.files.map(f => {
+                    {g.items.map(f => {
                       const isOwn = f.sender_id === currentUser.id;
-                      const icon = f.file_type === 'image' ? '🖼️' : f.file_type === 'video' ? '🎬' : '📄';
                       const d = new Date(f.created_at);
                       const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+                      const isLink = !f.file_url && f.link_url;
+                      const icon = isLink ? '🔗' : f.file_type === 'image' ? '🖼️' : f.file_type === 'video' ? '🎬' : '📄';
+                      let domain = '';
+                      if (isLink) { try { domain = new URL(f.link_url).hostname.replace(/^www\./, ''); } catch {} }
                       return (
                         <div key={f.id} className={styles.filesItem}>
-                          <span className={styles.filesItemIcon}>{icon}</span>
+                          {isLink && f.link_image
+                            ? <img src={f.link_image} alt="" className={styles.filesLinkThumb} />
+                            : <span className={styles.filesItemIcon}>{icon}</span>
+                          }
                           <div className={styles.filesItemBody}>
-                            <a href={f.file_url} target="_blank" rel="noopener noreferrer"
-                              download={f.file_type !== 'image' && f.file_type !== 'video' ? f.file_name : undefined}
-                              className={styles.filesItemName}>{f.file_name}</a>
-                            <span className={styles.filesItemMeta}>{f.sender_name} · {dateStr}</span>
+                            {isLink ? (
+                              <a href={f.link_url} target="_blank" rel="noopener noreferrer"
+                                className={styles.filesItemName}>
+                                {f.link_title || domain || f.link_url}
+                              </a>
+                            ) : (
+                              <a href={f.file_url} target="_blank" rel="noopener noreferrer"
+                                download={f.file_type !== 'image' && f.file_type !== 'video' ? f.file_name : undefined}
+                                className={styles.filesItemName}>{f.file_name}</a>
+                            )}
+                            <span className={styles.filesItemMeta}>
+                              {f.sender_name} · {dateStr}
+                              {isLink && domain ? ` · ${domain}` : ''}
+                            </span>
                           </div>
                           {isOwn && (
-                            <button className={styles.filesItemDelete} title="מחק קובץ"
+                            <button className={styles.filesItemDelete} title="מחק"
                               onClick={() => deleteAttachment(f.id)}>🗑️</button>
                           )}
                         </div>

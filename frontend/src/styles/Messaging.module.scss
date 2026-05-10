@@ -328,6 +328,13 @@
   &:hover { background: #f9fafb; }
 }
 .filesItemIcon { font-size: 1.3rem; flex-shrink: 0; }
+.filesLinkThumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
 .filesItemBody {
   flex: 1;
   min-width: 0;
