@@ -244,10 +244,17 @@ function getLockedPeriod(settings) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (settings.lock_mode === 'monthly') {
-    if (today.getDate() < settings.lock_day_of_month) return null;
-    const y = today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear();
-    const m = (today.getMonth() + 1) % 12;
-    return { type: 'monthly', year: y, month: m };
+    // Before lock_day: current month is locked (was locked on previous month's lock_day).
+    // On/after lock_day: next month is locked (just triggered).
+    let year = today.getFullYear();
+    let month; // 0-based
+    if (today.getDate() >= settings.lock_day_of_month) {
+      month = today.getMonth() + 1;
+      if (month > 11) { month = 0; year++; }
+    } else {
+      month = today.getMonth();
+    }
+    return { type: 'monthly', year, month };
   } else {
     const dow = today.getDay();
     const lockDow = settings.lock_day_of_week;
