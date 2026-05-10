@@ -810,7 +810,12 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const effectiveBranchId = isAdmin ? selectedBranchId : (activeBranchId === 'all' ? null : activeBranchId);
 
   const lockFetchGen = useRef(0);
+  const prevLockBranch = useRef(undefined);
   const fetchLockStatus = useCallback(() => {
+    if (prevLockBranch.current !== effectiveBranchId) {
+      prevLockBranch.current = effectiveBranchId;
+      setLockStatus(null);
+    }
     const gen = ++lockFetchGen.current;
     const branchQ = effectiveBranchId ? `?branch_id=${effectiveBranchId}` : '';
     fetch(`/api/branch-settings${branchQ}`, { headers: { Authorization: `Bearer ${token}` } })
