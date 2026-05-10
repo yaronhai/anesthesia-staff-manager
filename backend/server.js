@@ -2828,6 +2828,85 @@ app.post('/api/messages/group', requireAuth, async (req, res) => {
   }
 });
 
+// ── Chat Attachments ────────────────────────────────────────────────────────
+
+app.get('/api/messages/attachments', requireAuth, async (req, res) => {
+  try {
+    const { type, other_user_id } = req.query;
+    const userId = req.user.id;
+    const branchId = getEffectiveBranchId(req);
+    let rows;
+
+    if (type === 'group') {
+      if (!branchId) return res.status(400).json({ error: 'סניף לא נמצא' });
+      const r = await query(
+        `SELECT gm.id, gm.sender_id, gm.file_url, gm.file_name, gm.file_type, gm.file_size, gm.created_at,
+                CASE WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name ELSE u.username END AS sender_name
+         FROM group_messages gm
+         JOIN users u ON gm.sender_id = u.id
+         LEFT JOIN workers w ON u.worker_id = w.id
+         WHERE gm.branch_id = $1 AND gm.file_url IS NOT NULL
+         ORDER BY gm.created_at ASC`,
+        [branchId]
+      );
+      rows = r.rows;
+    } else {
+      const otherId = parseInt(other_user_id);
+      if (!otherId) return res.status(400).json({ error: 'other_user_id נדרש' });
+      const r = await query(
+        `SELECT m.id, m.sender_id, m.file_url, m.file_name, m.file_type, m.file_size, m.created_at,
+                CASE WHEN w.id IS NOT NULL THEN w.first_name || ' ' || w.family_name ELSE u.username END AS sender_name
+         FROM messages m
+         JOIN users u ON m.sender_id = u.id
+         LEFT JOIN workers w ON u.worker_id = w.id
+         WHERE m.file_url IS NOT NULL
+           AND ((m.sender_id = $1 AND m.recipient_id = $2) OR (m.sender_id = $2 AND m.recipient_id = $1))
+         ORDER BY m.created_at ASC`,
+        [userId, otherId]
+      );
+      rows = r.rows;
+    }
+    res.json(rows);
+  } catch (e) {
+    console.error('Get attachments error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת קבצים' });
+  }
+});
+
+app.delete('/api/messages/attachment/:id', requireAuth, async (req, res) => {
+  try {
+    const { type } = req.query;
+    const msgId = parseInt(req.params.id);
+    const userId = req.user.id;
+    const table = type === 'group' ? 'group_messages' : 'messages';
+
+    const r = await query(`SELECT sender_id, file_url, content FROM ${table} WHERE id = $1`, [msgId]);
+    if (!r.rows.length) return res.status(404).json({ error: 'הודעה לא נמצאה' });
+    const msg = r.rows[0];
+    if (msg.sender_id !== userId) return res.status(403).json({ error: 'אין הרשאה' });
+
+    // Delete file from disk
+    if (msg.file_url) {
+      const filePath = require('path').join(__dirname, msg.file_url);
+      require('fs').unlink(filePath, () => {});
+    }
+
+    // If message has no text content, delete the whole row; otherwise just clear file fields
+    if (!msg.content?.trim()) {
+      await query(`DELETE FROM ${table} WHERE id = $1`, [msgId]);
+    } else {
+      await query(
+        `UPDATE ${table} SET file_url = NULL, file_name = NULL, file_type = NULL, file_size = NULL WHERE id = $1`,
+        [msgId]
+      );
+    }
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Delete attachment error:', e);
+    res.status(500).json({ error: 'שגיאה במחיקת קובץ' });
+  }
+});
+
 // ── Fairness Report ─────────────────────────────────────────────────────────
 
 app.get('/api/fairness-report', requireAdmin, async (req, res) => {

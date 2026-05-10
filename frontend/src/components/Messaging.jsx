@@ -16,6 +16,8 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   const [attachUploading, setAttachUploading] = useState(false);
   const [draftLinkPreview, setDraftLinkPreview] = useState(null);
   const [draftLinkDismissed, setDraftLinkDismissed] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [filesList, setFilesList] = useState([]);
   const fileInputRef = useRef(null);
   const linkPreviewTimerRef = useRef(null);
   const checkMobile = () => window.innerWidth < 640;
@@ -186,6 +188,34 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchAttachments() {
+    const isGroup = selectedUserId === GENERAL_CHAT_ID;
+    const url = isGroup
+      ? `/api/messages/attachments?type=group`
+      : `/api/messages/attachments?type=private&other_user_id=${selectedUserId}`;
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${authToken}` } });
+      if (res.ok) setFilesList(await res.json());
+    } catch {}
+  }
+
+  async function deleteAttachment(id) {
+    const isGroup = selectedUserId === GENERAL_CHAT_ID;
+    if (!window.confirm('למחוק את הקובץ?')) return;
+    try {
+      const res = await fetch(`/api/messages/attachment/${id}?type=${isGroup ? 'group' : 'private'}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        setFilesList(prev => prev.filter(f => f.id !== id));
+        if (isGroup) fetchGroupMessages(); else fetchMessages(selectedUserId);
+      } else {
+        alert('שגיאה במחיקת הקובץ');
+      }
+    } catch { alert('שגיאת רשת'); }
   }
 
   function renderLinkPreview(msg) {
@@ -397,6 +427,11 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                       const worker = workers.find(w => w.user_id === selectedUserId);
                       return worker ? `${worker.first_name} ${worker.family_name}` : selectedConversation?.partner_username || 'שיחה';
                     })()}
+                <button
+                  className={styles.filesBtn}
+                  title="קבצים מצורפים"
+                  onClick={() => { fetchAttachments(); setFilesOpen(true); }}
+                >📂</button>
               </div>
 
               <div className={styles.messagesList}>
@@ -562,6 +597,58 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
               {isAdmin ? 'בחר שיחה להתחלה' : 'לא הוקמה שיחה עדיין'}
             </div>
           )}
+        </div>
+      )}
+
+      {filesOpen && (
+        <div className={styles.filesModalOverlay} onClick={() => setFilesOpen(false)}>
+          <div className={styles.filesModal} onClick={e => e.stopPropagation()}>
+            <div className={styles.filesModalHeader}>
+              <span>קבצים מצורפים</span>
+              <button className={styles.filesModalClose} onClick={() => setFilesOpen(false)}>✕</button>
+            </div>
+            {filesList.length === 0 ? (
+              <p className={styles.filesEmpty}>אין קבצים בשיחה זו</p>
+            ) : (() => {
+              const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+              const groups = {};
+              filesList.forEach(f => {
+                const d = new Date(f.created_at);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                if (!groups[key]) groups[key] = { year: d.getFullYear(), month: d.getMonth(), files: [] };
+                groups[key].files.push(f);
+              });
+              return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(key => {
+                const g = groups[key];
+                return (
+                  <div key={key} className={styles.filesGroup}>
+                    <div className={styles.filesGroupLabel}>{MONTHS_HE[g.month]} {g.year}</div>
+                    {g.files.map(f => {
+                      const isOwn = f.sender_id === currentUser.id;
+                      const icon = f.file_type === 'image' ? '🖼️' : f.file_type === 'video' ? '🎬' : '📄';
+                      const d = new Date(f.created_at);
+                      const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+                      return (
+                        <div key={f.id} className={styles.filesItem}>
+                          <span className={styles.filesItemIcon}>{icon}</span>
+                          <div className={styles.filesItemBody}>
+                            <a href={f.file_url} target="_blank" rel="noopener noreferrer"
+                              download={f.file_type !== 'image' && f.file_type !== 'video' ? f.file_name : undefined}
+                              className={styles.filesItemName}>{f.file_name}</a>
+                            <span className={styles.filesItemMeta}>{f.sender_name} · {dateStr}</span>
+                          </div>
+                          {isOwn && (
+                            <button className={styles.filesItemDelete} title="מחק קובץ"
+                              onClick={() => deleteAttachment(f.id)}>🗑️</button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              });
+            })()}
+          </div>
         </div>
       )}
     </div>

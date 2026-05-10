@@ -240,6 +240,128 @@
   color: #9ca3af;
 }
 
+// Files button in chat header
+.filesBtn {
+  margin-right: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 0.25rem;
+  opacity: 0.7;
+  &:hover { opacity: 1; }
+}
+
+// Files modal
+.filesModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.filesModal {
+  background: white;
+  border-radius: 10px;
+  width: min(480px, 95vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  direction: rtl;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.filesModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1f2937;
+  flex-shrink: 0;
+}
+.filesModalClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #6b7280;
+  padding: 0 0.2rem;
+  &:hover { color: #ef4444; }
+}
+.filesEmpty {
+  padding: 2rem;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+.filesGroup {
+  flex-shrink: 0;
+}
+.filesGroupLabel {
+  padding: 0.4rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6b7280;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+}
+.filesModal > div:last-child,
+.filesModal > p {
+  overflow-y: auto;
+}
+.filesModal {
+  overflow-y: auto;
+}
+.filesItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  &:hover { background: #f9fafb; }
+}
+.filesItemIcon { font-size: 1.3rem; flex-shrink: 0; }
+.filesItemBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.filesItemName {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1e40af;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+  text-align: left;
+  &:hover { text-decoration: underline; }
+}
+.filesItemMeta {
+  font-size: 0.65rem;
+  color: #9ca3af;
+}
+.filesItemDelete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.1rem 0.2rem;
+  opacity: 0.5;
+  flex-shrink: 0;
+  &:hover { opacity: 1; }
+}
+
 // Attach button (paperclip)
 .attachBtn {
   padding: 0.75rem 0.6rem;
