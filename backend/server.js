@@ -2886,7 +2886,9 @@ app.delete('/api/messages/attachment/:id', requireAuth, async (req, res) => {
     const r = await query(`SELECT sender_id, file_url, link_url, content FROM ${table} WHERE id = $1`, [msgId]);
     if (!r.rows.length) return res.status(404).json({ error: 'הודעה לא נמצאה' });
     const msg = r.rows[0];
-    if (msg.sender_id !== userId) return res.status(403).json({ error: 'אין הרשאה' });
+    const userTier = req.user.role_tier ?? req.user.role;
+    const isAdminOrAbove = userTier === 'admin' || userTier === 'superadmin';
+    if (msg.sender_id !== userId && !isAdminOrAbove) return res.status(403).json({ error: 'אין הרשאה' });
 
     // Delete file from disk
     if (msg.file_url) {

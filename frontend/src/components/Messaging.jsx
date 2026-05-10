@@ -653,7 +653,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                               {isLink && domain ? ` · ${domain}` : ''}
                             </span>
                           </div>
-                          {isOwn && (
+                          {(isOwn || isAdmin) && (
                             <button className={styles.filesItemDelete} title="מחק"
                               onClick={() => deleteAttachment(f.id)}>🗑️</button>
                           )}
