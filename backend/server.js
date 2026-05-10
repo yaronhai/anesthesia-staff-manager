@@ -2501,33 +2501,63 @@ app.get('/api/sent-emails', requireAdmin, async (req, res) => {
 const nodeHttps = require('https');
 const nodeHttp  = require('http');
 
-const LINK_URL_RE   = /https?:\/\/[^\s"'<>]+/i;
+const LINK_URL_RE   = /https?:\/\/[^\s"'<>\]]+/i;
 const PRIVATE_IP_RE = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i;
+const YOUTUBE_RE    = /(?:youtube\.com\/watch|youtu\.be\/)/i;
 
-function fetchLinkPreview(rawUrl) {
+function httpGet(url, opts = {}) {
   return new Promise((resolve) => {
     let parsed;
-    try { parsed = new URL(rawUrl); } catch { return resolve(null); }
-    if (!['http:', 'https:'].includes(parsed.protocol)) return resolve(null);
-    if (PRIVATE_IP_RE.test(parsed.hostname)) return resolve(null);
-
+    try { parsed = new URL(url); } catch { return resolve(null); }
     const lib = parsed.protocol === 'https:' ? nodeHttps : nodeHttp;
-    let html = '';
-    const req = lib.get(rawUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 4000 }, (res) => {
-      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location)
-        return resolve(fetchLinkPreview(res.headers.location));
-      if (res.statusCode >= 400) return resolve(null);
+    let body = '';
+    const req = lib.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000, ...opts }, (res) => {
       res.setEncoding('utf8');
-      res.on('data', (chunk) => {
-        html += chunk;
-        if (html.length > 300_000) { req.destroy(); resolve(parseOGTags(html, rawUrl)); }
-      });
-      res.on('end', () => resolve(parseOGTags(html, rawUrl)));
+      res.on('data', c => { body += c; if (body.length > 300_000) req.destroy(); });
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body }));
       res.on('error', () => resolve(null));
     });
     req.on('timeout', () => { req.destroy(); resolve(null); });
     req.on('error', () => resolve(null));
   });
+}
+
+async function fetchYouTubePreview(rawUrl) {
+  const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(rawUrl)}&format=json`;
+  const res = await httpGet(oembedUrl);
+  if (!res || res.status !== 200) return null;
+  try {
+    const j = JSON.parse(res.body);
+    return {
+      link_url:         rawUrl,
+      link_title:       j.title       || null,
+      link_image:       j.thumbnail_url || null,
+      link_description: j.author_name  ? `ערוץ: ${j.author_name}` : null,
+    };
+  } catch { return null; }
+}
+
+async function fetchLinkPreview(rawUrl) {
+  let parsed;
+  try { parsed = new URL(rawUrl); } catch { return null; }
+  if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+  if (PRIVATE_IP_RE.test(parsed.hostname)) return null;
+
+  if (YOUTUBE_RE.test(rawUrl)) return fetchYouTubePreview(rawUrl);
+
+  // Generic OG fetch with up to 2 redirects
+  let url = rawUrl;
+  for (let i = 0; i < 3; i++) {
+    const res = await httpGet(url);
+    if (!res) return null;
+    if ([301, 302, 303, 307, 308].includes(res.status) && res.headers.location) {
+      url = res.headers.location.startsWith('http') ? res.headers.location : new URL(res.headers.location, url).href;
+      continue;
+    }
+    if (res.status >= 400) return null;
+    return parseOGTags(res.body, rawUrl);
+  }
+  return null;
 }
 
 function parseOGTags(html, rawUrl) {
