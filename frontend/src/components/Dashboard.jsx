@@ -14,10 +14,19 @@ function StatCard({ label, value, sub, color }) {
 }
 
 
+const checkLandscape = () => window.innerWidth < 900 && window.innerHeight < 500;
+
 export default function Dashboard({ authToken, onSelectBranch }) {
   const [branches, setBranches] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isLandscape, setIsLandscape] = useState(checkLandscape);
+
+  useEffect(() => {
+    const onResize = () => setIsLandscape(checkLandscape());
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     const headers = { Authorization: `Bearer ${authToken}` };
@@ -42,7 +51,7 @@ export default function Dashboard({ authToken, onSelectBranch }) {
           <StatCard label="עובדים פעילים" value={stats?.active_workers ?? '—'} sub={`מתוך ${stats?.total_workers ?? '—'} סה״כ`} color="#059669" />
           <StatCard label="עובדים לא פעילים" value={stats?.inactive_workers ?? '—'} color="#6b7280" />
         </div>
-        {stats?.by_type?.length > 0 && <PieChart3D items={stats.by_type.map(t => ({ name: t.name, value: t.active_count }))} />}
+        {stats?.by_type?.length > 0 && <PieChart3D items={stats.by_type.map(t => ({ name: t.name, value: t.active_count }))} small={isLandscape} />}
       </div>
 
       {/* Branches */}
