@@ -6,11 +6,13 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const webpush = require('web-push');
-webpush.setVapidDetails(
-  process.env.VAPID_MAILTO,
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+if (process.env.VAPID_MAILTO && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_MAILTO,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 const { query, pool, initializeSchema, ensureSiteAllowedJobsTable, runMigrations } = require('./db');
 
