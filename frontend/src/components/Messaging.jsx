@@ -342,13 +342,13 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   const showChat = !isMobile || !!selectedUserId;
 
   const rootVars = {
-    '--root-height': isLandscape ? 'calc(100vh - 72px)' : 'calc(100vh - 200px)',
+    '--root-height': isLandscape ? 'calc(100dvh - var(--content-top, 68px))' : 'calc(100dvh - var(--content-top, 140px))',
     '--root-gap': isLandscape ? '0.25rem' : '0.5rem',
     '--root-padding': isLandscape ? '0.25rem 0.5rem' : '0.75rem',
   };
 
   const contactsVars = {
-    '--contacts-width': isLandscape ? '110px' : '180px',
+    '--contacts-width': isLandscape ? '135px' : '210px',
     '--contacts-min-width': '80px',
     '--contacts-header-padding': isLandscape ? '0.25rem' : '0.5rem',
     '--contacts-header-font': isLandscape ? '0.7rem' : '0.8rem',

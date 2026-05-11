@@ -90,6 +90,23 @@
 .navMenuWrap {
   position: relative;
 }
+.navMenuRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.headerBranchInline {
+  font-size: 0.82rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 500;
+  max-width: 150px;
+  option { color: #1a2e4a; background: #fff; }
+}
 .hamburgerBtn {
   position: relative;
   width: 38px;
@@ -183,6 +200,23 @@
   padding: 0 3px;
 }
 
+.navBranchRow {
+  padding: 0.4rem 0.6rem 0.2rem;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 2px;
+}
+.navBranchDropdown {
+  width: 100%;
+  font-size: 0.88rem;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #1a2e4a;
+  cursor: pointer;
+  font-weight: 500;
+}
+
 .loginHeaderRow {
   display: flex;
   align-items: center;
@@ -261,6 +295,16 @@
   .reportBtn { margin-right: 0; }
   .addWorkerBtn { font-size: 1rem; padding: 0.25rem 0.45rem; flex-shrink: 0; }
   .headerTitleCol { display: none; }
+  .headerUserInfo {
+    max-width: 100px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  .headerBranchInline {
+    font-size: 0.68rem;
+    padding: 3px 5px;
+    max-width: 100px;
+  }
 }
 
 /* ── Phone landscape (short viewport) ── */
@@ -274,4 +318,14 @@
   .changePwBtn { display: none; }
   .logoutGroup { flex-direction: row; gap: 0.2rem; }
   .headerTitleCol { display: none; }
+  .headerUserInfo {
+    max-width: 90px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  .headerBranchInline {
+    font-size: 0.62rem;
+    padding: 2px 4px;
+    max-width: 85px;
+  }
 }

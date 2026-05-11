@@ -53,22 +53,21 @@ export default function Dashboard({ authToken, onSelectBranch }) {
         ) : (
           <div className={styles.branchesGrid}>
             {branches.map(b => (
-              <div key={b.id} className={styles.branchCard}>
-                <div className={styles.branchName}>{b.name}</div>
-                {b.description && <div className={styles.branchDesc}>{b.description}</div>}
-                <div className={styles.branchStats}>
-                  <span><strong>{b.worker_count}</strong> עובדים</span>
-                  <span className={styles.branchActiveCount}><strong>{b.active_worker_count}</strong> פעילים</span>
+              <button key={b.id} className={styles.branchCard} onClick={() => onSelectBranch(b.id)}>
+                <div className={styles.branchCardMain}>
+                  <div className={styles.branchName}>{b.name}</div>
+                  {b.description && <div className={styles.branchDesc}>{b.description}</div>}
+                  <div className={styles.branchStats}>
+                    <span><strong>{b.worker_count}</strong> עובדים</span>
+                    <span className={styles.branchActiveCount}><strong>{b.active_worker_count}</strong> פעילים</span>
+                  </div>
                 </div>
                 {b.emp_type_breakdown?.length > 0 && (
                   <div className={styles.branchPieWrap}>
                     <PieChart3D items={b.emp_type_breakdown.map(t => ({ name: t.name, value: t.count }))} small />
                   </div>
                 )}
-                <button className={styles.branchBtn} onClick={() => onSelectBranch(b.id)}>
-                  נהל סניף ←
-                </button>
-              </div>
+              </button>
             ))}
           </div>
         )}

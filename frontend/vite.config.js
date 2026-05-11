@@ -12,6 +12,7 @@ export default defineConfig({
     host: true,
     port: 3000,
     strictPort: true,
+    watch: { usePolling: true, interval: 300 },
     proxy: {
       '/api': 'http://localhost:5001',
       '/uploads': 'http://localhost:5001',

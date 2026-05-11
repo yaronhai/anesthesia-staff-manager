@@ -18,7 +18,6 @@
 
 // Locked day column in admin grid
 .lockedDayCol {
-  background: #fef3c7 !important;
   color: #92400e;
 }
 .lockedDayLabel {
@@ -264,8 +263,6 @@
   gap: 0.4rem;
   font-size: 0.72rem;
   color: #374151;
-  border-right: 1px solid #d1d5db;
-  padding-right: 0.6rem;
 }
 .legendItem {
   display: flex;
@@ -325,12 +322,21 @@
 }
 .permanentBtnText { white-space: nowrap; }
 
+.navBtnText { /* visible by default */ }
+
 @media (max-width: 600px) {
   .permanentBtnText { display: none; }
   .permanentBtn { padding: 0.25rem 0.4rem; font-size: 1rem; }
   .filterLabel { font-size: 0.7rem; white-space: nowrap; flex-shrink: 0; }
   .filterSelect { padding: 2px 3px; font-size: 0.7rem; max-width: 75px; flex-shrink: 1; }
   .filterGroup { gap: 2px; flex-shrink: 1; min-width: 0; }
+}
+
+@media (max-height: 500px) and (max-width: 900px) {
+  .navBtnText { display: none; }
+  .permanentBtnText { display: none; }
+  .permanentBtn { padding: 0.18rem 0.35rem; font-size: 0.95rem; }
+  .userNavRow { flex-wrap: nowrap; gap: 0.35rem; overflow-x: auto; }
 }
 
 // Legend + button wrapper (user view)

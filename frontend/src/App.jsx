@@ -550,16 +550,30 @@ export default function App() {
     <div className="app">
       <header ref={headerRef}>
         <div className={appStyles.navMenuWrap} ref={menuRef}>
-            <button className={appStyles.hamburgerBtn} onClick={() => setMenuOpen(o => !o)}>
-              <span className={appStyles.hamburgerLine} />
-              <span className={appStyles.hamburgerLine} />
-              <span className={appStyles.hamburgerLine} />
-              {(unreadMessages > 0 || pendingProfileCount > 0) && (
-                <span className={appStyles.hamburgerBadge}>
-                  {unreadMessages + pendingProfileCount}
-                </span>
+            <div className={appStyles.navMenuRow}>
+              <button className={appStyles.hamburgerBtn} onClick={() => setMenuOpen(o => !o)}>
+                <span className={appStyles.hamburgerLine} />
+                <span className={appStyles.hamburgerLine} />
+                <span className={appStyles.hamburgerLine} />
+                {(unreadMessages > 0 || pendingProfileCount > 0) && (
+                  <span className={appStyles.hamburgerBadge}>
+                    {unreadMessages + pendingProfileCount}
+                  </span>
+                )}
+              </button>
+              {isSuperAdmin && (
+                <select
+                  value={selectedBranchId ?? ''}
+                  onChange={e => handleBranchSelect(e.target.value || null)}
+                  className={appStyles.headerBranchInline}
+                >
+                  <option value="">— כל הסניפים —</option>
+                  {branches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
               )}
-            </button>
+            </div>
             {menuOpen && (
               <div className={appStyles.navDropdown}>
                 {isSuperAdmin && (
@@ -644,22 +658,6 @@ export default function App() {
           )}
         </div>
         <div className="header-right">
-          {isSuperAdmin && (
-            <div className={`header-branch-select ${appStyles.headerBranchSelectWrap}`}>
-              <span className={appStyles.headerBranchLabel}>סניף:</span>
-              <select
-                value={selectedBranchId ?? ''}
-                onChange={e => handleBranchSelect(e.target.value || null)}
-                className={appStyles.branchDropdown}
-              >
-                <option value="">— כל הסניפים —</option>
-                {branches.map(b => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {isAdmin && (
             <button onClick={() => setShowSettings(true)} className="btn-settings">⚙️</button>
           )}

@@ -72,28 +72,43 @@
   gap: 0.75rem;
 }
 
-// Branch card
+// Branch card (full-card 3D button)
 .branchCard {
   background: white;
-  border: 1px solid #e5e7eb;
+  color: inherit;
+  border: 1px solid #bfdbfe;
+  border-bottom: 3px solid #2563eb;
   border-radius: 10px;
   padding: 0.9rem 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 3px 8px rgba(37,99,235,0.15);
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  cursor: pointer;
+  text-align: right;
+  width: 100%;
+  transition: transform 0.1s, box-shadow 0.1s;
+  &:hover {
+    box-shadow: 0 5px 14px rgba(37,99,235,0.25);
+  }
+  &:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 4px rgba(37,99,235,0.15);
+    border-bottom-width: 1px;
+  }
 }
+.branchCardMain { display: contents; }
 .branchName {
   font-weight: 700;
-  font-size: 0.9rem;
-  color: #1a2e4a;
+  font-size: 1.35rem;
+  color: #991b1b;
 }
 .branchDesc {
-  font-size: 0.75rem;
+  font-size: 0.88rem;
   color: #9ca3af;
 }
 .branchStats {
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   color: #374151;
   display: flex;
   gap: 0.5rem;
@@ -104,14 +119,35 @@
   justify-content: center;
   margin-top: 0.2rem;
 }
-.branchBtn {
-  margin-top: 0.25rem;
-  padding: 0.3rem 0;
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 600;
+
+@media (max-width: 600px) {
+  .kpiRow {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .statGrid {
+    grid-template-columns: 1fr;
+    flex: 1;
+  }
+
+  .branchesGrid { grid-template-columns: 1fr; gap: 0.3rem; }
+  .branchCard {
+    flex-direction: row;
+    align-items: center;
+    padding: 0.35rem 0.65rem;
+    gap: 0.5rem;
+    border-radius: 7px;
+  }
+  .branchCardMain {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    flex: 1;
+    min-width: 0;
+  }
+  .branchName { font-size: 1.25rem; }
+  .branchDesc { display: none; }
+  .branchStats { font-size: 0.9rem; gap: 0.35rem; }
+  .branchPieWrap { margin-top: 0; flex-shrink: 0; }
+  .sectionTitle { margin-bottom: 0.4rem; }
 }

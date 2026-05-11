@@ -938,19 +938,6 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
               ))}
             </select>
           </div>
-          <div className={`shift-admin-legend ${styles.legendRow}`}>
-            {prefs.map(p => (
-              <span key={p.key} className={styles.legendItem}>
-                <span className={styles.legendSwatch} style={{ '--swatch-bg': p.color }}></span>{p.label_he}
-              </span>
-            ))}
-            <span className={styles.legendItem}>
-              <span className={styles.legendSwatch} style={{ '--swatch-bg': '#9ca3af' }}></span>שבת
-            </span>
-            <span className={styles.legendItem}>
-              <span className={styles.legendSwatch} style={{ '--swatch-bg': '#e5e7eb', '--swatch-border': '1px solid #9ca3af' }}></span>שישי
-            </span>
-          </div>
           <button
             className={styles.permanentBtn}
             onClick={() => { setPermanentModalWorkerId(null); setShowPermanentModal(true); }}
@@ -974,6 +961,19 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           </div>
         </div>
         <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} specialDays={config.special_days || []} lockStatus={lockStatus} />
+        <div className={`shift-admin-legend ${styles.legendRow}`}>
+          {prefs.map(p => (
+            <span key={p.key} className={styles.legendItem}>
+              <span className={styles.legendSwatch} style={{ '--swatch-bg': p.color }}></span>{p.label_he}
+            </span>
+          ))}
+          <span className={styles.legendItem}>
+            <span className={styles.legendSwatch} style={{ '--swatch-bg': '#9ca3af' }}></span>שבת
+          </span>
+          <span className={styles.legendItem}>
+            <span className={styles.legendSwatch} style={{ '--swatch-bg': '#e5e7eb', '--swatch-border': '1px solid #9ca3af' }}></span>שישי
+          </span>
+        </div>
       {showPermanentModal && (
         <PermanentShiftsModal
           token={token}
@@ -993,11 +993,11 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
     <div className="shift-view">
       <div className={styles.userNavRow}>
         <div className="month-year-nav">
-          <button className="btn-secondary btn-sm" onClick={prevYear}>◀ שנה</button>
-          <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ חודש</button>
+          <button className="btn-secondary btn-sm" onClick={prevYear}>◀ <span className={styles.navBtnText}>שנה</span></button>
+          <button className="btn-secondary btn-sm" onClick={prevMonth}>◀ <span className={styles.navBtnText}>חודש</span></button>
           <span className="month-year-label">{MONTHS[month]} {year}</span>
-          <button className="btn-secondary btn-sm" onClick={nextMonth}>חודש ▶</button>
-          <button className="btn-secondary btn-sm" onClick={nextYear}>שנה ▶</button>
+          <button className="btn-secondary btn-sm" onClick={nextMonth}><span className={styles.navBtnText}>חודש</span> ▶</button>
+          <button className="btn-secondary btn-sm" onClick={nextYear}><span className={styles.navBtnText}>שנה</span> ▶</button>
         </div>
         {activeBranchId !== 'all' && (
           <button className={styles.permanentBtn} onClick={() => setShowPermanentModal(true)}>
