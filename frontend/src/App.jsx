@@ -530,7 +530,7 @@ export default function App() {
   // ── Not logged in ──────────────────────────────────────────────────────────
   if (!currentUser) {
     return (
-      <div className="app">
+      <div className="app login-page">
         <header>
           <div className={appStyles.loginHeaderRow}>
             <img src={logoAssuta} alt="Assuta" className={`logo-assuta ${appStyles.logoSmall}`} />

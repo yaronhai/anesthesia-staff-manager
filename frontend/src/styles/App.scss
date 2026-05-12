@@ -682,6 +682,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 }
 
 /* ── Login ────────────────────────────────────────────────────────────────── */
+.login-page { padding-top: 5rem !important; }
 .login-box {
   max-width: 280px;
   margin: 2rem auto;
@@ -691,9 +692,12 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   box-shadow: 0 4px 20px rgba(0,0,0,0.1);
 }
 .login-box h2 {
-  margin-bottom: 1rem;
+  margin-bottom: 1.6rem;
   color: #1a2e4a;
   font-size: 1.1rem;
+}
+.login-form {
+  margin-top: 1.5rem;
 }
 .login-form .form-group {
   margin-bottom: 0.65rem;
