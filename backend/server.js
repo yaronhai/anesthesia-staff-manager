@@ -963,12 +963,21 @@ app.get('/api/workers/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/workers/:id/activity-authorizations', requireAdmin, async (req, res) => {
+app.get('/api/workers/:id/activity-authorizations', requireAuth, async (req, res) => {
   try {
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role);
+    if (!isAdmin) {
+      const selfCheck = await query(
+        'SELECT 1 FROM users WHERE id = $1 AND worker_id = $2',
+        [req.user.id, req.params.id]
+      );
+      if (selfCheck.rows.length === 0) return res.status(403).json({ error: 'אין הרשאה' });
+    }
     const res_query = await query(`
-      SELECT waa.id, waa.activity_type_id, at.name
+      SELECT waa.id, waa.activity_type_id, at.name, at.group_id, atg.name AS group_name
       FROM worker_activity_authorizations waa
       JOIN activity_types at ON waa.activity_type_id = at.id
+      LEFT JOIN activity_type_groups atg ON at.group_id = atg.id
       WHERE waa.worker_id = $1
       ORDER BY at.name
     `, [req.params.id]);
@@ -1056,6 +1065,7 @@ app.get('/api/shift-requests', requireAuth, async (req, res) => {
       const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
       const sql = `
         SELECT sr.id, sr.user_id, sr.date, sr.shift_type, sr.preference_type, sr.branch_id,
+               sr.admin_modified, sr.worker_original_pref,
                u.username, u.worker_id, w.first_name, w.family_name
         FROM shift_requests sr
         JOIN users u ON sr.user_id = u.id
@@ -1113,6 +1123,7 @@ app.get('/api/shift-requests/admin/all-with-workers', requireAdmin, async (req, 
 
     const sql = `
       SELECT sr.id, sr.user_id, sr.date, sr.shift_type, sr.preference_type, sr.branch_id,
+             sr.admin_modified, sr.worker_original_pref,
              u.username, u.worker_id, w.first_name, w.family_name
       FROM shift_requests sr
       JOIN users u ON sr.user_id = u.id
@@ -1150,6 +1161,24 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'עובד זה אינו מורשה להגיש בקשות משמרת' });
     }
 
+    // For workers submitting their own request: check shift-type authorization
+    if (!isAdminOverride && ['night', 'oncall'].includes(shift_type)) {
+      const groupName = shift_type === 'night' ? 'תורנים' : 'כוננים';
+      const shiftLabel = shift_type === 'night' ? 'תורנות' : 'כוננות';
+      const authCheck = await query(`
+        SELECT 1 FROM worker_activity_authorizations waa
+        JOIN activity_types at ON at.id = waa.activity_type_id
+        JOIN activity_type_groups atg ON atg.id = at.group_id
+        WHERE waa.worker_id = (SELECT worker_id FROM users WHERE id = $1)
+        AND at.branch_id = $2
+        AND atg.name = $3
+        LIMIT 1
+      `, [targetUserId, branchId, groupName]);
+      if (authCheck.rows.length === 0) {
+        return res.status(403).json({ error: `אינך מורשה/ת להגיש בקשות ${shiftLabel}. לפרטים פנה למנהל.` });
+      }
+    }
+
     if (!isAdmin) {
       const locked = await isDateLockedForUser(date, targetUserId, branchId);
       if (locked) return res.status(423).json({ error: 'הסידור לתקופה זו נעול' });
@@ -1165,16 +1194,27 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
       return res.status(409).json({ error: 'לא ניתן לשלוח בקשת משמרת לתאריך זה — קיים חופש מאושר' });
     }
 
-    await query(`
-      INSERT INTO shift_requests (user_id, date, shift_type, preference_type, branch_id) VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT(user_id, date, shift_type, branch_id) DO UPDATE SET preference_type = excluded.preference_type
-    `, [targetUserId, date, shift_type, preference_type, branchId]);
+    const isAdminOverride = isAdmin && user_id && Number(user_id) !== req.user.id;
 
-    const resultRes = await query(
-      'SELECT * FROM shift_requests WHERE user_id = $1 AND date = $2 AND shift_type = $3 AND branch_id IS NOT DISTINCT FROM $4',
-      [targetUserId, date, shift_type, branchId]
-    );
-    res.json(resultRes.rows[0]);
+    const upsertRes = await query(`
+      INSERT INTO shift_requests (user_id, date, shift_type, preference_type, branch_id, admin_modified, worker_original_pref)
+      VALUES ($1, $2, $3, $4, $5, $6, NULL)
+      ON CONFLICT(user_id, date, shift_type, branch_id) DO UPDATE SET
+        preference_type = EXCLUDED.preference_type,
+        admin_modified = CASE
+          WHEN $6 AND shift_requests.admin_modified AND $4 = shift_requests.worker_original_pref THEN FALSE
+          WHEN $6 THEN TRUE
+          ELSE FALSE
+        END,
+        worker_original_pref = CASE
+          WHEN $6 AND shift_requests.admin_modified AND $4 = shift_requests.worker_original_pref THEN NULL
+          WHEN $6 AND NOT shift_requests.admin_modified THEN shift_requests.preference_type
+          WHEN $6 AND shift_requests.admin_modified     THEN shift_requests.worker_original_pref
+          ELSE NULL
+        END
+      RETURNING *
+    `, [targetUserId, date, shift_type, preference_type, branchId, isAdminOverride]);
+    res.json(upsertRes.rows[0]);
   } catch (error) {
     console.error('Create shift request error:', error);
     res.status(500).json({ error: 'שגיאה בשמירת בקשת משמרת' });

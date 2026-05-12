@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import styles from '../styles/WorkerForm.module.scss';
 import PhotoCropModal from './PhotoCropModal';
+import { WorkerAuthorizationsPanel } from './WorkerList';
 const UPLOADS_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
 const resolvePhotoUrl = url => !url ? null : url.startsWith('data:') ? url : UPLOADS_BASE + url;
 
@@ -8,6 +9,7 @@ const TABS = [
   { key: 'personal', label: 'פרטים אישיים' },
   { key: 'org', label: 'פרטים ארגוניים' },
   { key: 'branches', label: 'שיוך לסניפים' },
+  { key: 'authorizations', label: 'הרשאות פעילות' },
 ];
 
 export default function WorkerForm({ initial, config, onSave, onCancel, isSuperAdmin, authToken, branches = [], roles = [], currentUser = null, onPhotoUpdate }) {
@@ -138,9 +140,11 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
 
   const unassignedBranches = branches.filter(b => !workerBranches.find(wb => wb.branch_id === b.id));
 
-  const visibleTabs = isSuperAdmin && initial?.id
-    ? TABS
-    : TABS.filter(t => t.key !== 'branches');
+  const visibleTabs = TABS.filter(t => {
+    if (t.key === 'branches') return isSuperAdmin && !!initial?.id;
+    if (t.key === 'authorizations') return !!initial?.id;
+    return true;
+  });
 
   return (
     <div className="form-overlay">
@@ -333,6 +337,12 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
                 </select>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'authorizations' && initial?.id && (
+          <div className={styles.tabContent}>
+            <WorkerAuthorizationsPanel worker={initial} authToken={authToken} config={config} />
           </div>
         )}
 

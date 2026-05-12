@@ -24,7 +24,7 @@ function WorkerAuthButton({ worker, authToken, config }) {
   );
 }
 
-function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
+export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
   const [authorizations, setAuthorizations] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -38,9 +38,7 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
       const res = await fetch(`/api/workers/${worker.id}/activity-authorizations`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
-      if (res.ok) {
-        setAuthorizations(await res.json());
-      }
+      if (res.ok) setAuthorizations(await res.json());
     } catch (err) {
       console.error('Error fetching authorizations:', err);
     } finally {
@@ -52,18 +50,11 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
     try {
       const res = await fetch(`/api/workers/${worker.id}/activity-authorizations`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ activity_type_id: activityTypeId }),
       });
-      if (res.ok) {
-        setAuthorizations(await res.json());
-      } else {
-        const err = await res.json();
-        alert('שגיאה: ' + (err.error || 'לא ניתן להוסיף הרשאה'));
-      }
+      if (res.ok) setAuthorizations(await res.json());
+      else { const err = await res.json(); alert('שגיאה: ' + (err.error || 'לא ניתן להוסיף הרשאה')); }
     } catch (err) {
       console.error('Error adding authorization:', err);
     }
@@ -75,9 +66,7 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${authToken}` },
       });
-      if (res.ok) {
-        setAuthorizations(await res.json());
-      }
+      if (res.ok) setAuthorizations(await res.json());
     } catch (err) {
       console.error('Error removing authorization:', err);
     }
@@ -89,54 +78,70 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
 
   function renderActivityButton(at) {
     return (
-      <button
-        key={at.id}
-        className={styles.activityBtn}
-        onClick={() => addAuthorization(at.id)}
-      >
+      <button key={at.id} className={styles.activityBtn} onClick={() => addAuthorization(at.id)}>
         {at.name}
       </button>
     );
   }
 
   function renderAvailableGrouped() {
-    if (availableActivities.length === 0) {
+    if (availableActivities.length === 0)
       return <p className={styles.actAllAuthorized}>כל סוגי הפעילות מורשים כבר</p>;
-    }
-    if (actGroups.length === 0) {
-      return (
-        <div className={styles.actGroupItems}>
-          {availableActivities.map(renderActivityButton)}
-        </div>
-      );
-    }
+    if (actGroups.length === 0)
+      return <div className={styles.actGroupItems}>{availableActivities.map(renderActivityButton)}</div>;
     const sections = [];
     actGroups.forEach(group => {
       const items = availableActivities.filter(at => at.group_id === group.id);
-      if (items.length === 0) return;
+      if (!items.length) return;
       sections.push(
         <div key={group.id}>
           <div className={styles.actGroupLabel}>{group.name}</div>
-          <div className={styles.actGroupItems}>
-            {items.map(renderActivityButton)}
-          </div>
+          <div className={styles.actGroupItems}>{items.map(renderActivityButton)}</div>
         </div>
       );
     });
     const ungrouped = availableActivities.filter(at => !at.group_id);
-    if (ungrouped.length > 0) {
+    if (ungrouped.length > 0)
       sections.push(
         <div key="ungrouped">
           <div className={`${styles.actGroupLabel} ${styles.actUngroupedLabel}`}>ללא קבוצה</div>
-          <div className={styles.actGroupItems}>
-            {ungrouped.map(renderActivityButton)}
-          </div>
+          <div className={styles.actGroupItems}>{ungrouped.map(renderActivityButton)}</div>
         </div>
       );
-    }
     return sections.length > 0 ? <div>{sections}</div> : <p className={styles.actAllAuthorized}>כל סוגי הפעילות מורשים כבר</p>;
   }
 
+  return (
+    <div className={styles.authModalContent}>
+      <div className={styles.authNote}>
+        הרשאה בקבוצת <strong>תורנים</strong> מאפשרת לעובד להגיש בקשת משמרת תורנות. הרשאה בקבוצת <strong>כוננים</strong> — משמרת כוננות.
+      </div>
+      {loading ? <p>טוען...</p> : (
+        <>
+          <div className={styles.authSection}>
+            <h4 className={styles.authSectionTitle}>מורשה עבור:</h4>
+            {authorizations.length === 0 ? <p className={styles.authEmpty}>—</p> : (
+              <div className={styles.authList}>
+                {authorizations.map(auth => (
+                  <div key={auth.activity_type_id} className={styles.authItem}>
+                    <span>{auth.name}</span>
+                    <button className={`btn-remove ${styles.authRemoveBtn}`} onClick={() => removeAuthorization(auth.activity_type_id)}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <h4 className={styles.authSectionTitle}>הוסף הרשאה:</h4>
+            {renderAvailableGrouped()}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
   return (
     <div className="form-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
@@ -144,39 +149,7 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
           <h2>הרשאות לפעילויות — {worker.first_name} {worker.family_name}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
-
-        <div className={styles.authModalContent}>
-          {loading ? (
-            <p>טוען...</p>
-          ) : (
-            <>
-              <div className={styles.authSection}>
-                <h4 className={styles.authSectionTitle}>מורשה עבור:</h4>
-                {authorizations.length === 0 ? (
-                  <p className={styles.authEmpty}>—</p>
-                ) : (
-                  <div className={styles.authList}>
-                    {authorizations.map(auth => (
-                      <div key={auth.activity_type_id} className={styles.authItem}>
-                        <span>{auth.name}</span>
-                        <button
-                          className={`btn-remove ${styles.authRemoveBtn}`}
-                          onClick={() => removeAuthorization(auth.activity_type_id)}
-                        >✕</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h4 className={styles.authSectionTitle}>הוסף הרשאה:</h4>
-                {renderAvailableGrouped()}
-              </div>
-            </>
-          )}
-        </div>
-
+        <WorkerAuthorizationsPanel worker={worker} authToken={authToken} config={config} />
         <div className="form-actions">
           <button className="btn-primary" onClick={onClose}>סגור</button>
         </div>

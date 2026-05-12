@@ -80,7 +80,7 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
 }
 
 // ── Day editor modal ─────────────────────────────────────────────────────────
-function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs, branchId, permanentDayEntries, isLocked }) {
+function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs, branchId, permanentDayEntries, isLocked, restrictedShiftKeys = new Set() }) {
   const dow = DAYS_HE[new Date(dateStr).getDay()];
   const [d, m, y] = [
     parseInt(dateStr.split('-')[2]),
@@ -144,9 +144,13 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
             {shifts.map(s => {
               const req = dayRequests.find(r => r.shift_type === s.key);
               const permPref = permanentDayEntries?.[s.key];
+              const isRestricted = restrictedShiftKeys.has(s.key);
               return (
-                <tr key={s.key}>
-                  <td className="pref-shift-label">{s.label_he}</td>
+                <tr key={s.key} className={isRestricted ? styles.restrictedShiftRow : ''}>
+                  <td className="pref-shift-label">
+                    {s.label_he}
+                    {isRestricted && <span className={styles.restrictedBadge}>נדרשת הרשאה</span>}
+                  </td>
                   {prefs.map(p => {
                     const isActive = req?.preference_type === p.key;
                     const isGhost = !req && permPref === p.key;
@@ -154,8 +158,9 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
                       <td key={p.key} className="pref-btn-cell">
                         <button
                           className={`pref-toggle pref-${p.key}${isActive ? ' active' : ''}${isGhost ? ` ${styles.ghostToggle}` : ''}`}
-                          onClick={() => setPref(s.key, p.key)}
-                          title={`${s.label_he} — ${p.label_he}${isGhost ? ' (ברירת מחדל)' : ''}`}
+                          onClick={() => !isRestricted && setPref(s.key, p.key)}
+                          disabled={isRestricted}
+                          title={isRestricted ? `אינך מורשה/ת לבקש ${s.label_he}` : `${s.label_he} — ${p.label_he}${isGhost ? ' (ברירת מחדל)' : ''}`}
                         />
                       </td>
                     );
@@ -190,11 +195,19 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
 }
 
 // ── User calendar view ───────────────────────────────────────────────────────
-function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit, specialDays, permanentTemplate, onPermanentOpen, allBranchesMode, workerBranches, lockStatus }) {
+function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, branchId, vacations, canSubmit, specialDays, permanentTemplate, onPermanentOpen, allBranchesMode, workerBranches, lockStatus, workerAuthorizations }) {
   const [editingDay, setEditingDay] = useState(null); // { day, dateStr }
   const [blockedMsg, setBlockedMsg] = useState(false);
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
+
+  // Compute which shift types this worker cannot request (missing authorization)
+  const restrictedShiftKeys = new Set();
+  if (workerAuthorizations !== null) {
+    const authedGroupNames = new Set(workerAuthorizations.map(a => a.group_name).filter(Boolean));
+    if (!authedGroupNames.has('תורנים')) restrictedShiftKeys.add('night');
+    if (!authedGroupNames.has('כוננים')) restrictedShiftKeys.add('oncall');
+  }
 
   function getPermanentDayEntries(dateStr) {
     if (!permanentTemplate) return null;
@@ -359,6 +372,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
           branchId={branchId}
           permanentDayEntries={getPermanentDayEntries(editingDay.dateStr)}
           isLocked={isDateLocked(editingDay.dateStr)}
+          restrictedShiftKeys={restrictedShiftKeys}
         />
       )}
     </>
@@ -432,7 +446,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
     if (!requestMap[r.user_id]) requestMap[r.user_id] = {};
     const d = parseInt(r.date.split('-')[2]);
     if (!requestMap[r.user_id][d]) requestMap[r.user_id][d] = {};
-    requestMap[r.user_id][d][r.shift_type] = { id: r.id, pref: r.preference_type };
+    requestMap[r.user_id][d][r.shift_type] = { id: r.id, pref: r.preference_type, adminModified: r.admin_modified, workerOriginalPref: r.worker_original_pref };
   });
 
   async function setPref(userId, day, shiftKey, prefKey) {
@@ -618,7 +632,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                           {shifts.map(s => {
                             const req = dayData[s.key];
                             return req
-                              ? <span key={s.key} className={`cell-pill pref-${req.pref}`}>{s.label_short}</span>
+                              ? <span key={s.key} className={`cell-pill pref-${req.pref}${req.adminModified && req.workerOriginalPref ? ` ${styles.adminModifiedPill}` : ''}`}>{s.label_short}</span>
                               : null;
                           })}
                         </div>
@@ -665,7 +679,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                           <div className="admin-cell-pills">
                             {shifts.map(s => {
                               const req = dayData[s.key];
-                              return req ? <span key={s.key} className={`cell-pill pref-${req.pref}`}>{s.label_short}</span> : null;
+                              return req ? <span key={s.key} className={`cell-pill pref-${req.pref}${req.adminModified && req.workerOriginalPref ? ` ${styles.adminModifiedPill}` : ''}`}>{s.label_short}</span> : null;
                             })}
                           </div>
                           {vac && <span className="vac-badge">חופש</span>}
@@ -721,6 +735,29 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               <button className="btn-close" onClick={() => setEditingCell(null)}>✕</button>
             </div>
             <div className="admin-editor-content">
+              {(() => {
+                const cellData = requestMap[editingCell.userId]?.[editingCell.day] || {};
+                const overrides = shifts.filter(s => cellData[s.key]?.adminModified && cellData[s.key]?.workerOriginalPref);
+                if (overrides.length === 0) return null;
+                return (
+                  <div className={styles.adminOverrideNotice}>
+                    <div className={styles.adminOverrideTitle}>שינוי מנהל</div>
+                    {overrides.map(s => {
+                      const entry = cellData[s.key];
+                      const origPref = prefs.find(p => p.key === entry.workerOriginalPref);
+                      const currPref = prefs.find(p => p.key === entry.pref);
+                      return (
+                        <div key={s.key} className={styles.adminOverrideRow}>
+                          <span className={styles.adminOverrideShift}>{s.label_he}:</span>
+                          <span>{origPref?.label_he || entry.workerOriginalPref}</span>
+                          <span className={styles.adminOverrideArrow}>←</span>
+                          <span>{currPref?.label_he || entry.pref}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
               {shifts.map(s => {
                 const dayData = requestMap[editingCell.userId]?.[editingCell.day] || {};
                 return (
@@ -771,6 +808,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const [workerBranches, setWorkerBranches] = useState([]);
   const [activeBranchId, setActiveBranchId] = useState(null);
   const [canSubmit, setCanSubmit] = useState(null); // null = טרם נטען
+  const [workerAuthorizations, setWorkerAuthorizations] = useState(null); // null = not yet loaded
   const [workerFilter, setWorkerFilter] = useState('all'); // 'allowed' | 'blocked' | 'all'
   const [jobFilter, setJobFilter] = useState(''); // '' = כל התפקידים
   const [permanentTemplate, setPermanentTemplate] = useState(null);
@@ -793,6 +831,12 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
       })
         .then(r => r.ok ? r.json() : null)
         .then(w => setCanSubmit(w ? w.can_submit_requests !== false : true));
+      fetch(`/api/workers/${currentUser.worker_id}/activity-authorizations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.ok ? r.json() : [])
+        .then(auths => setWorkerAuthorizations(auths))
+        .catch(() => setWorkerAuthorizations([]));
       fetch(`/api/workers/${currentUser.worker_id}/branches`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -973,6 +1017,9 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
           <span className={styles.legendItem}>
             <span className={styles.legendSwatch} style={{ '--swatch-bg': '#e5e7eb', '--swatch-border': '1px solid #9ca3af' }}></span>שישי
           </span>
+          <span className={styles.legendItem}>
+            <span className={styles.legendSwatch} style={{ '--swatch-bg': 'transparent', '--swatch-border': '2px solid #8B0000' }}></span>שינוי מנהל
+          </span>
         </div>
       {showPermanentModal && (
         <PermanentShiftsModal
@@ -1035,6 +1082,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
         allBranchesMode={activeBranchId === 'all'}
         workerBranches={workerBranches}
         lockStatus={lockStatus}
+        workerAuthorizations={workerAuthorizations}
       />
       {showPermanentModal && (
         <PermanentShiftsModal

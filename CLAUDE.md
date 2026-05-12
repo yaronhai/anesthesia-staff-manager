@@ -52,6 +52,7 @@ No test framework configured. Agents should run build commands to validate chang
 - Hebrew Defaults: Job titles, employment types, honorifics seeded in Hebrew
 - No Soft Deletes: All deletions permanent
 - Port: Backend on 5001 (not 5000 as previously documented)
+- **Language mirroring**: If the user writes in Hebrew, respond in Hebrew. If in English, respond in English.
 
 Potential pitfalls:
 - Hardcoded JWT secret; use .env for production

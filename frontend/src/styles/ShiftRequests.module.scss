@@ -236,6 +236,53 @@
 // Cell error in editing panel
 .cellErrorMargin { margin: 0.75rem 0 0; }
 
+// Restricted shift row (worker lacks authorization)
+.restrictedShiftRow {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.restrictedBadge {
+  display: block;
+  font-size: 0.6rem;
+  color: #92400e;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+// Admin-modified pill: dark-red outline on the shift pill
+.adminModifiedPill {
+  outline: 2px solid #8B0000;
+  outline-offset: 1px;
+}
+
+// Admin override notice in cell editor modal
+.adminOverrideNotice {
+  background: #fff3f3;
+  border: 1px solid #c0392b;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  color: #8B0000;
+}
+.adminOverrideTitle {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.adminOverrideRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.adminOverrideShift {
+  font-weight: 600;
+}
+.adminOverrideArrow {
+  color: #c0392b;
+  font-weight: 700;
+}
+
 // Admin filters header
 .adminFilters {
   display: flex;

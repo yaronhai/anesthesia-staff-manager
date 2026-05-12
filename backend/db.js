@@ -86,6 +86,8 @@ async function initializeSchema() {
         shift_type TEXT NOT NULL CHECK(shift_type IN ('morning', 'evening', 'night', 'oncall')),
         preference_type TEXT NOT NULL DEFAULT 'can' CHECK(preference_type IN ('can', 'prefer', 'cannot')),
         branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        admin_modified BOOLEAN NOT NULL DEFAULT FALSE,
+        worker_original_pref TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );
 
@@ -431,6 +433,19 @@ async function initializeSchema() {
     await query(`ALTER TABLE shift_types ADD COLUMN IF NOT EXISTS show_in_availability_bar BOOLEAN NOT NULL DEFAULT FALSE;`);
     await query(`ALTER TABLE preference_types ADD COLUMN IF NOT EXISTS label_group_he TEXT NOT NULL DEFAULT '';`);
     await query(`ALTER TABLE preference_types ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE shift_requests ADD COLUMN IF NOT EXISTS admin_modified BOOLEAN NOT NULL DEFAULT FALSE;`);
+    await query(`ALTER TABLE shift_requests ADD COLUMN IF NOT EXISTS worker_original_pref TEXT;`);
+    // Ensure each branch has תורנים/כוננים activity type groups and base activity types
+    const branchRows = (await query('SELECT id FROM branches')).rows;
+    for (const b of branchRows) {
+      for (const [groupName, typeName] of [['תורנים', 'תורן'], ['כוננים', 'כונן']]) {
+        await query(`INSERT INTO activity_type_groups (name, branch_id) VALUES ($1, $2) ON CONFLICT(name, branch_id) DO NOTHING`, [groupName, b.id]);
+        const grp = await query(`SELECT id FROM activity_type_groups WHERE name = $1 AND branch_id = $2`, [groupName, b.id]);
+        if (grp.rows.length > 0) {
+          await query(`INSERT INTO activity_types (name, group_id, branch_id) VALUES ($1, $2, $3) ON CONFLICT(name, branch_id) DO NOTHING`, [typeName, grp.rows[0].id, b.id]);
+        }
+      }
+    }
     await query(`
       DO $$ BEGIN
         IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='created_at' AND data_type='timestamp without time zone') THEN
