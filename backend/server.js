@@ -1151,6 +1151,7 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role_tier ?? req.user.role);
     const targetUserId = isAdmin && user_id ? user_id : req.user.id;
     const branchId = getEffectiveBranchId(req) || bodyBranchId || null;
+    const isAdminOverride = isAdmin && user_id && Number(user_id) !== req.user.id;
 
     // Always check can_submit_requests for the target worker, regardless of submitter's role
     const workerCheck = await query(
@@ -1193,8 +1194,6 @@ app.post('/api/shift-requests', requireAuth, async (req, res) => {
     if (vacCheck.rows.length > 0 && !(isAdmin && force_override)) {
       return res.status(409).json({ error: 'לא ניתן לשלוח בקשת משמרת לתאריך זה — קיים חופש מאושר' });
     }
-
-    const isAdminOverride = isAdmin && user_id && Number(user_id) !== req.user.id;
 
     const upsertRes = await query(`
       INSERT INTO shift_requests (user_id, date, shift_type, preference_type, branch_id, admin_modified, worker_original_pref)
