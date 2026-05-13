@@ -1,4 +1,4 @@
-﻿import styles from '../styles/PieChart3D.module.scss';
+import styles from '../styles/PieChart3D.module.scss';
 const PIE_COLORS = ['#7c3aed', '#0891b2', '#059669', '#f59e0b', '#e11d48', '#9ca3af'];
 
 function darken(hex) {
@@ -9,23 +9,23 @@ function darken(hex) {
   return `rgb(${r},${g},${b})`;
 }
 
-// size: 'normal' | 'small' | 'tiny'
-export default function PieChart3D({ items, small = false, tiny = false }) {
+export default function PieChart3D({ items, small = false, tiny = false, showAll = false, legend = false }) {
   const total = items.reduce((s, d) => s + d.value, 0);
   if (!total) return null;
 
-  const cx     = tiny ? 58  : small ? 75  : 118;
-  const cy     = tiny ? 34  : small ? 44  : 78;
+  // showAll mode uses a larger canvas so leader-line labels stay inside the SVG
+  const cx     = tiny ? 58  : small ? 75  : showAll ? 155 : 118;
+  const cy     = tiny ? 34  : small ? 44  : showAll ? 100 : 78;
   const rx     = tiny ? 50  : small ? 63  : 104;
   const ry     = tiny ? 30  : small ? 43  : 71;
   const dep    = tiny ? 5   : small ? 7   : 12;
-  const W      = tiny ? 116 : small ? 150 : 236;
-  const H      = tiny ? 72  : small ? 98  : 168;
+  const W      = tiny ? 116 : small ? 150 : showAll ? 310 : 236;
+  const H      = tiny ? 72  : small ? 98  : showAll ? 200 : 168;
   const fName  = tiny ? 7.5 : small ? 8.5 : 10.5;
   const fNum   = tiny ? 8   : small ? 9   : 11;
   const fPct   = tiny ? 7   : small ? 7.5 : 9.5;
   const lRatio = tiny ? 0.56: small ? 0.58: 0.60;
-  const minPct = tiny ? 10  : small ? 8   : 6;
+  const insideThresh = showAll ? 14 : (tiny ? 10 : small ? 8 : 6);
 
   const pt = (a, dy = 0) => [cx + rx * Math.cos(a), cy + ry * Math.sin(a) + dy];
 
@@ -63,25 +63,60 @@ export default function PieChart3D({ items, small = false, tiny = false }) {
   const sortedSlices = [...slices].sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
 
   return (
-    <svg width={W} height={H} className={styles.svg}>
-      <ellipse cx={cx} cy={cy + dep} rx={rx} ry={ry} fill="rgba(0,0,0,0.08)" />
-      {sides.map((s, i) => <path key={i} d={s.path} fill={s.color} />)}
-      {sortedSlices.map((s, i) => {
-        const [x1, y1] = pt(s.sa), [x2, y2] = pt(s.ea);
-        const lg = (s.ea - s.sa) > Math.PI ? 1 : 0;
-        const lx = cx + rx * lRatio * Math.cos(s.mid);
-        const ly = cy + ry * lRatio * Math.sin(s.mid);
-        return (
-          <g key={i}>
-            <path d={`M${cx},${cy} L${x1},${y1} A${rx},${ry} 0 ${lg} 1 ${x2},${y2}Z`} fill={s.color} stroke="white" strokeWidth="1.5" />
-            {s.pct >= minPct && <>
-              <text x={lx} y={ly - (tiny ? 6 : small ? 8 : 10)} textAnchor="middle" dominantBaseline="middle" fontSize={fName} fontWeight="700" fill="white">{s.name}</text>
-              <text x={lx} y={ly + (tiny ? 1 : small ? 2 : 3)}  textAnchor="middle" dominantBaseline="middle" fontSize={fNum}  fontWeight="700" fill="white">{s.count}</text>
-              {!tiny && <text x={lx} y={ly + (small ? 12 : 16)} textAnchor="middle" dominantBaseline="middle" fontSize={fPct} fill="rgba(255,255,255,0.88)">{s.pct}%</text>}
-            </>}
-          </g>
-        );
-      })}
-    </svg>
+    <div className={styles.wrap}>
+      <svg width={W} height={H} className={styles.svg}>
+        <ellipse cx={cx} cy={cy + dep} rx={rx} ry={ry} fill="rgba(0,0,0,0.08)" />
+        {sides.map((s, i) => <path key={i} d={s.path} fill={s.color} />)}
+        {sortedSlices.map((s, i) => {
+          const [x1, y1] = pt(s.sa), [x2, y2] = pt(s.ea);
+          const lg = (s.ea - s.sa) > Math.PI ? 1 : 0;
+          const lx = cx + rx * lRatio * Math.cos(s.mid);
+          const ly = cy + ry * lRatio * Math.sin(s.mid);
+          const showInside  = s.pct >= insideThresh;
+          const showOutside = showAll && !showInside;
+
+          // leader-line: radial segment → short horizontal tick → text
+          const edgeX  = cx + rx * 1.06 * Math.cos(s.mid);
+          const edgeY  = cy + ry * 1.06 * Math.sin(s.mid);
+          const elbowX = cx + rx * 1.22 * Math.cos(s.mid);
+          const elbowY = cy + ry * 1.22 * Math.sin(s.mid);
+          const isRight   = Math.cos(s.mid) >= 0;
+          const tickLen   = 14;
+          const tickEndX  = elbowX + (isRight ? tickLen : -tickLen);
+          const textAnchor = isRight ? 'start' : 'end';
+          const textX      = tickEndX + (isRight ? 5 : -5);
+
+          return (
+            <g key={i}>
+              <path d={`M${cx},${cy} L${x1},${y1} A${rx},${ry} 0 ${lg} 1 ${x2},${y2}Z`} fill={s.color} stroke="white" strokeWidth="1.5" />
+
+              {showInside && <>
+                <text x={lx} y={ly - (tiny ? 6 : small ? 8 : 10)} textAnchor="middle" dominantBaseline="middle" fontSize={fName} fontWeight="700" fill="white">{s.name}</text>
+                <text x={lx} y={ly + (tiny ? 1 : small ? 2 : 3)}  textAnchor="middle" dominantBaseline="middle" fontSize={fNum}  fontWeight="700" fill="white">{s.count}</text>
+                {!tiny && <text x={lx} y={ly + (small ? 12 : 16)} textAnchor="middle" dominantBaseline="middle" fontSize={fPct} fill="rgba(255,255,255,0.88)">({s.pct}%)</text>}
+              </>}
+
+              {showOutside && <>
+                <polyline points={`${edgeX},${edgeY} ${elbowX},${elbowY} ${tickEndX},${elbowY}`} fill="none" stroke={s.color} strokeWidth="1.1" />
+                <text x={textX} y={elbowY - 5} textAnchor={textAnchor} dominantBaseline="middle" fontSize={fNum} fontWeight="700" fill={s.color}>{s.count}</text>
+                <text x={textX} y={elbowY + 7} textAnchor={textAnchor} dominantBaseline="middle" fontSize={fPct} fill={s.color}>({s.pct}%)</text>
+              </>}
+            </g>
+          );
+        })}
+      </svg>
+      {legend && (
+        <ul className={styles.legend}>
+          {slices.map((s, i) => (
+            <li key={i} className={styles.legendItem}>
+              <span className={styles.legendSwatch} style={{ background: s.color }} />
+              <span className={styles.legendName}>{s.name}</span>
+              <span className={styles.legendCount}>{s.count}</span>
+              <span className={styles.legendPct}>({s.pct}%)</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

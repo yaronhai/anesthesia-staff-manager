@@ -2,6 +2,39 @@
   gap: 0.2rem !important;
 }
 
+.tabPendingSave {
+  color: #64748b;
+  font-size: 0.85rem;
+  padding: 1rem 0.5rem;
+  text-align: center;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.activeToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #7f1d1d;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  input { cursor: pointer; }
+}
+
+.workerNameInTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #7f1d1d;
+}
+
 .tabs {
   display: flex;
   gap: 0;
@@ -139,6 +172,7 @@
   border-radius: 3px;
   cursor: pointer;
   color: #b91c1c;
+  &:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 .addBranchRow {
   display: flex;
@@ -152,6 +186,18 @@
   border-radius: 4px;
   border: 1px solid #d1d5db;
 }
+.branchNote {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  color: #1e40af;
+  margin-bottom: 0.75rem;
+  p { margin-bottom: 0.35rem; &:last-child { margin-bottom: 0; } }
+  line-height: 1.5;
+}
+
 .canSubmitRow { margin-top: 0.3rem; }
 .canSubmitLabel {
   display: flex;

@@ -100,6 +100,7 @@
   font-size: 0.8rem;
   color: #1e40af;
   margin-bottom: 0.75rem;
+  p { margin-bottom: 0.35rem; &:last-child { margin-bottom: 0; } }
   line-height: 1.5;
 }
 .authSection { margin-bottom: 0.75rem; }

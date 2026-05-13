@@ -45,6 +45,7 @@ No test framework configured. Agents should run build commands to validate chang
 
 ### Conventions
 - **Date Format**: All dates displayed in the UI must use `dd/mm/yyyy` format. Never display dates as `yyyy-mm-dd` or any other format to the user.
+- **Name Order**: Person names must always appear as family name followed by first name (שם משפחה לפני שם פרטי) throughout the entire project — in lists, cards, headers, modals, and confirmation messages.
 - ID Number as Username: Worker's `id_number` becomes login username
 - Worker ↔ User Sync: Editing worker auto-updates linked user
 - Shift Types: `morning`, `evening`, `oncall`

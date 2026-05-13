@@ -114,7 +114,8 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
   return (
     <div className={styles.authModalContent}>
       <div className={styles.authNote}>
-        הרשאה בקבוצת <strong>תורנים</strong> מאפשרת לעובד להגיש בקשת משמרת תורנות. הרשאה בקבוצת <strong>כוננים</strong> — משמרת כוננות.
+        <p>הרשאות פעילות קובעות לאילו סוגי עבודה העובד מוסמך. הן משפיעות על <strong>הצעות השיבוץ האוטומטי</strong> — רק עובדים עם הרשאה מתאימה יוצעו לפעילות נתונה. עובד ברמת קושי גבוהה יותר יוצע תחילה; במקרה חוסר, עובד ברמה גבוהה עשוי לשמש גם ברמות נמוכות יותר (overqualified) אך בעדיפות נמוכה.</p>
+        <p>הרשאה בקבוצת <strong>תורנים</strong> מאפשרת לעובד להגיש בקשת משמרת תורנות. הרשאה בקבוצת <strong>כוננים</strong> — משמרת כוננות.</p>
       </div>
       {loading ? <p>טוען...</p> : (
         <>
@@ -146,7 +147,7 @@ function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
     <div className="form-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
         <div className="settings-header">
-          <h2>הרשאות לפעילויות — {worker.first_name} {worker.family_name}</h2>
+          <h2>הרשאות לפעילויות — {worker.family_name} {worker.first_name}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
         <WorkerAuthorizationsPanel worker={worker} authToken={authToken} config={config} />
@@ -212,7 +213,7 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
     <div className="form-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={e => e.stopPropagation()}>
         <div className="settings-header">
-          <h2>{worker.title} {worker.first_name} {worker.family_name}</h2>
+          <h2>{worker.title} {worker.family_name} {worker.first_name}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
         <div className={styles.detailPhotoWrap}>
@@ -326,7 +327,7 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
   );
 }
 
-export default function WorkerList({ workers, onEdit, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin, roles = [] }) {
+export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin, roles = [] }) {
   const [viewing, setViewing] = useState(null);
   const [sortField, setSortField] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
@@ -407,7 +408,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
             <div key={w.id} className={`worker-card${w.is_active === false ? ' worker-card-inactive' : ''}`}>
               <div className="worker-card-info">
                 <span className="worker-card-name">
-                  {w.title} {w.first_name} {w.family_name}
+                  {w.title} {w.family_name} {w.first_name}
                 </span>
                 <span className="worker-card-id">{w.id_number || '—'}</span>
                 {w.phone && <span className="worker-card-id">{w.phone}</span>}
@@ -423,10 +424,10 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
                 <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
                 {(isSuperAdmin || w.is_primary_branch !== false) && (
                   <>
-                    <WorkerAuthButton worker={w} authToken={authToken} config={config} />
+                    <button onClick={() => onEditAuth(w)} className="btn-auth" title="הרשאות">🔑</button>
                     <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
                     <button onClick={() => {
-                      if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
+                      if (window.confirm(`לאפס סיסמא של ${w.family_name} ${w.first_name}?`)) {
                         onResetPassword(w.id);
                       }
                     }} className="btn-reset" title="איפוס סיסמא">🔄</button>
@@ -450,8 +451,8 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
           <thead>
             <tr>
               <SortTh field="title">תואר</SortTh>
-              <SortTh field="first_name">שם פרטי</SortTh>
               <SortTh field="family_name">שם משפחה</SortTh>
+              <SortTh field="first_name">שם פרטי</SortTh>
               <th>טלפון</th>
               <SortTh field="email">אימייל</SortTh>
               <th>פעולות</th>
@@ -462,23 +463,23 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
               <tr key={w.id} className={w.is_active === false ? 'worker-row-inactive' : ''}>
                 <td>{w.title}</td>
                 <td>
-                  <strong>{w.first_name}</strong>
+                  <strong>{w.family_name}</strong>
                   {w.is_active === false && <span className={`badge badge-inactive ${styles.badgeMargin}`}>לא פעיל</span>}
                   {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
                     <span className={`badge badge-normal ${styles.borrowedBadge}`} title={`סניף ראשי: ${w.primary_branch_name}`}>מושאל</span>
                   )}
                 </td>
-                <td><strong>{w.family_name}</strong></td>
+                <td><strong>{w.first_name}</strong></td>
                 <td>{w.phone || '—'}</td>
                 <td>{w.email || '—'}</td>
                 <td>
                   <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
                   {(isSuperAdmin || w.is_primary_branch !== false) && (
                     <>
-                      <WorkerAuthButton worker={w} authToken={authToken} config={config} />
-                      <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
+                        <button onClick={() => onEditAuth(w)} className="btn-auth" title="הרשאות">🔑</button>
+                    <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
                       <button onClick={() => {
-                        if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
+                        if (window.confirm(`לאפס סיסמא של ${w.family_name} ${w.first_name}?`)) {
                           onResetPassword(w.id);
                         }
                       }} className="btn-reset" title="איפוס סיסמא">🔄</button>
@@ -503,8 +504,8 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
         <thead>
           <tr>
             <SortTh field="title">תואר</SortTh>
-            <SortTh field="first_name">שם פרטי</SortTh>
             <SortTh field="family_name">שם משפחה</SortTh>
+            <SortTh field="first_name">שם פרטי</SortTh>
             <SortTh field="id_number">ת.ז.</SortTh>
             <SortTh field="classification">סיווג</SortTh>
             <SortTh field="job">תפקיד</SortTh>
@@ -519,7 +520,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
             <tr key={w.id} className={w.is_active === false ? 'worker-row-inactive' : ''}>
               <td>{w.title}</td>
               <td>
-                <strong>{w.first_name}</strong>
+                <strong>{w.family_name}</strong>
                 {w.is_active === false && <span className={`badge badge-inactive ${styles.badgeMargin}`}>לא פעיל</span>}
                 {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
                   <span
@@ -530,7 +531,7 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
                   </span>
                 )}
               </td>
-              <td><strong>{w.family_name}</strong></td>
+              <td><strong>{w.first_name}</strong></td>
               <td>{w.id_number || '—'}</td>
               <td>
                 <span className={`badge ${isAdminRole(w.classification) ? 'badge-admin' : 'badge-normal'}`}>
@@ -549,10 +550,10 @@ export default function WorkerList({ workers, onEdit, onDelete, onResetPassword,
                 <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
                 {(isSuperAdmin || w.is_primary_branch !== false) && (
                   <>
-                    <WorkerAuthButton worker={w} authToken={authToken} config={config} />
+                    <button onClick={() => onEditAuth(w)} className="btn-auth" title="הרשאות">🔑</button>
                     <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
                     <button onClick={() => {
-                      if (window.confirm(`לאפס סיסמא של ${w.first_name} ${w.family_name}?`)) {
+                      if (window.confirm(`לאפס סיסמא של ${w.family_name} ${w.first_name}?`)) {
                         onResetPassword(w.id);
                       }
                     }} className="btn-reset" title="איפוס סיסמא">🔄</button>

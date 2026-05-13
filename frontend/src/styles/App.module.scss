@@ -63,6 +63,7 @@
 .addWorkerBtn { white-space: nowrap; font-size: 1.3rem; padding: 0.35rem 0.7rem; line-height: 1; }
 .reportBtn { margin-right: 1rem; white-space: nowrap; background: #e2e8f0; color: #334155; border-color: #b0bac7; font-size: 1.3rem; padding: 0.3rem 0.6rem; line-height: 1; }
 .searchInput { min-width: 220px; }
+.workerCount { font-size: 0.82rem; color: #7f1d1d; font-weight: 700; white-space: nowrap; margin-right: auto; padding-left: 0.5rem; }
 .headerAvatar {
   width: 52px;
   height: 52px;
@@ -223,6 +224,93 @@
   gap: 1rem;
 }
 
+/* ── Pie mini buttons & popup ── */
+@media (max-width: 600px) {
+  .pieMiniGroup {
+    order: 98;
+    width: 100%;
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.2rem 0.4rem 0;
+    border-top: 1px solid #e2e8f0;
+  }
+}
+@media (max-height: 500px) and (max-width: 900px) {
+  .pieMiniGroup { display: none; }
+}
+
+.pieMiniGroup {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pieMiniBtn {
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 1px 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.88;
+  transition: opacity 0.15s, border-color 0.15s;
+  &:hover { opacity: 1; border-color: #94a3b8; }
+}
+.pieMiniWrap {
+  display: block;
+  transform: scale(0.35);
+  transform-origin: center;
+  line-height: 0;
+  pointer-events: none;
+  // Collapse layout space so the button stays filter-row height
+  // tiny SVG = 116×72 → scaled = 40.6×25.2
+  margin: -23px -38px;
+}
+.piePopupOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.piePopup {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  padding: 2.8rem 1.6rem 1.2rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 300px;
+}
+.piePopupTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1a2e4a;
+  align-self: flex-start;
+}
+.piePopupClose {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.75rem;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #64748b;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  &:hover { background: #f1f5f9; }
+}
+
 /* ── Report fields modal ── */
 .reportModalOverlay {
   position: fixed;
@@ -294,6 +382,12 @@
   .searchInput { min-width: 0; }
   .reportBtn { margin-right: 0; }
   .addWorkerBtn { font-size: 1rem; padding: 0.25rem 0.45rem; flex-shrink: 0; }
+  .workerCount { order: 99; width: 100%; margin-right: 0; padding: 0.2rem 0.4rem 0; border-top: 1px solid #e2e8f0; }
+}
+
+/* ── Phone landscape ── */
+@media (max-height: 500px) and (max-width: 900px) {
+  .workerCount { order: 99; width: 100%; margin-right: 0; padding: 0.2rem 0.4rem 0; border-top: 1px solid #e2e8f0; }
   .headerTitleCol { display: none; }
   .headerUserInfo {
     max-width: 100px;
@@ -328,4 +422,8 @@
     padding: 4px 7px;
     max-width: 100px;
   }
+  .workerCount { font-size: 0.72rem; padding-left: 0.2rem; white-space: nowrap; flex-shrink: 0; }
+  .addWorkerBtn { font-size: 1rem; padding: 0.22rem 0.4rem; }
+  .reportBtn { margin-right: 0; font-size: 1rem; padding: 0.22rem 0.35rem; }
+  .searchInput { font-size: 0.78rem !important; }
 }

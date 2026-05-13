@@ -3,6 +3,11 @@ import styles from '../styles/WorkerForm.module.scss';
 import PhotoCropModal from './PhotoCropModal';
 import { WorkerAuthorizationsPanel } from './WorkerList';
 const UPLOADS_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
+
+const HE_TO_EN = { א:'a',ב:'b',ג:'g',ד:'d',ה:'h',ו:'v',ז:'z',ח:'ch',ט:'t',י:'y',כ:'k',ך:'k',ל:'l',מ:'m',ם:'m',נ:'n',ן:'n',ס:'s',ע:'a',פ:'p',ף:'f',צ:'tz',ץ:'tz',ק:'k',ר:'r',ש:'sh',ת:'t' };
+function hebrewToEnglish(str) {
+  return (str || '').split('').map(c => HE_TO_EN[c] ?? (c === ' ' ? '' : c)).join('').toLowerCase().replace(/[^a-z0-9.\-]/g, '');
+}
 const resolvePhotoUrl = url => !url ? null : url.startsWith('data:') ? url : UPLOADS_BASE + url;
 
 const TABS = [
@@ -12,13 +17,13 @@ const TABS = [
   { key: 'authorizations', label: 'הרשאות פעילות' },
 ];
 
-export default function WorkerForm({ initial, config, onSave, onCancel, isSuperAdmin, authToken, branches = [], roles = [], currentUser = null, onPhotoUpdate }) {
+export default function WorkerForm({ initial, config, onSave, onCancel, isSuperAdmin, authToken, branches = [], roles = [], currentUser = null, defaultBranchId, initialTab = 'personal', onPhotoUpdate }) {
   const jobs = config?.jobs || [];
   const empTypes = config?.employment_types || [];
   const honorifics = config?.honorifics || [];
   const isSelfEdit = initial?.id && currentUser?.worker_id && initial.id === currentUser.worker_id;
 
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [form, setForm] = useState({
     honorific_id: honorifics[0]?.id || '',
     first_name: '',
@@ -39,7 +44,7 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
   });
   const [saveError, setSaveError] = useState('');
   const [workerBranches, setWorkerBranches] = useState([]);
-  const [primaryBranchId, setPrimaryBranchId] = useState('');
+  const [primaryBranchId, setPrimaryBranchId] = useState(defaultBranchId || '');
   const [photoUrl, setPhotoUrl] = useState(initial?.photo_url || null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [cropSrc, setCropSrc] = useState(null);
@@ -55,11 +60,34 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
   function handleChange(e) {
     const { name, type, checked, value } = e.target;
     setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
+    if (name === 'primary_branch_id' && value && initial?.id) {
+      const bid = parseInt(value);
+      if (!workerBranches.find(wb => wb.branch_id === bid)) addBranch(bid);
+    }
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSaveError('');
+
+    const missing = [];
+    if (!form.family_name?.trim()) missing.push('שם משפחה');
+    if (!form.first_name?.trim()) missing.push('שם פרטי');
+    if (!form.id_number?.trim()) missing.push('תעודת זהות');
+    else if (!/^\d{9}$/.test(form.id_number.trim())) { setSaveError('תעודת זהות חייבת להכיל בדיוק 9 ספרות'); setActiveTab('personal'); return; }
+    if (!form.email?.trim()) missing.push('אימייל ארגוני');
+    if (!initial?.id) {
+      if (!form.job_id) missing.push('תפקיד');
+      if (isSuperAdmin && !primaryBranchId) missing.push('סניף ראשי');
+    }
+    if (missing.length > 0) {
+      const hasPersonal = missing.some(f => ['שם משפחה','שם פרטי','תעודת זהות'].includes(f));
+      const hasOrg = missing.some(f => ['אימייל ארגוני','תפקיד','סניף ראשי'].includes(f));
+      setActiveTab(hasPersonal ? 'personal' : 'org');
+      setSaveError('שדות חובה חסרים: ' + missing.join(', '));
+      return;
+    }
+
     const payload = initial?.id ? form : { ...form, branch_ids: primaryBranchId ? [parseInt(primaryBranchId)] : [] };
     const err = await onSave(payload);
     if (err) setSaveError(err);
@@ -141,15 +169,27 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
   const unassignedBranches = branches.filter(b => !workerBranches.find(wb => wb.branch_id === b.id));
 
   const visibleTabs = TABS.filter(t => {
-    if (t.key === 'branches') return isSuperAdmin && !!initial?.id;
-    if (t.key === 'authorizations') return !!initial?.id;
+    if (t.key === 'branches') return isSuperAdmin;
     return true;
   });
 
   return (
     <div className="form-overlay">
       <form className={`worker-form ${styles.form}`} onSubmit={handleSubmit}>
-        <h2>{initial ? 'עריכת עובד' : 'הוספת עובד'}</h2>
+        <div className={styles.titleRow}>
+          <h2>
+            {initial ? 'עריכת עובד' : 'הוספת עובד'}
+            {(form.first_name || form.family_name) && (
+              <span className={styles.workerNameInTitle}> - {[honorifics.find(h => h.id == form.honorific_id)?.name, form.family_name, form.first_name].filter(Boolean).join(' ')}{form.id_number ? ` (${form.id_number})` : ''}</span>
+            )}
+          </h2>
+          {!isSelfEdit && initial?.id && (
+            <label className={styles.activeToggle}>
+              <input type="checkbox" name="is_active" checked={form.is_active !== false} onChange={handleChange} />
+              פעיל
+            </label>
+          )}
+        </div>
 
         <div className={styles.tabs}>
           {visibleTabs.map(t => (
@@ -197,12 +237,12 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
                 </select>
               </label>
               <label>
-                שם פרטי *
-                <input name="first_name" value={form.first_name} onChange={handleChange} placeholder="שרה" required />
-              </label>
-              <label>
                 שם משפחה *
                 <input name="family_name" value={form.family_name} onChange={handleChange} placeholder="כהן" required />
+              </label>
+              <label>
+                שם פרטי *
+                <input name="first_name" value={form.first_name} onChange={handleChange} placeholder="שרה" required />
               </label>
             </div>
 
@@ -239,8 +279,9 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           <div className={styles.tabContent}>
             <div className="form-row">
               <label>
-                תפקיד
+                תפקיד {!initial?.id && <span className="required-star">*</span>}
                 <select name="job_id" value={form.job_id} onChange={handleChange}>
+                  {!initial?.id && <option value="">— בחר תפקיד —</option>}
                   {jobs.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
                 </select>
               </label>
@@ -255,7 +296,9 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
             <div className="form-row">
               <label>
                 אימייל ארגוני *
-                <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="name@hospital.com" required />
+                <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="name@assuta.co.il" required
+                  onFocus={e => { if (!e.target.value && (form.family_name?.trim() || form.first_name?.trim())) setForm(f => ({ ...f, email: [hebrewToEnglish(f.family_name), hebrewToEnglish(f.first_name)].filter(Boolean).join('.') + '@assuta.co.il' })); }}
+                  onBlur={e => { if (e.target.value && !e.target.value.includes('@')) setForm(f => ({ ...f, email: e.target.value + '@assuta.co.il' })); }} />
               </label>
               {!isSelfEdit && (
                 <label>
@@ -278,9 +321,9 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
 
             {isSuperAdmin && !initial?.id && branches.length > 0 && (
               <label>
-                סניף ראשי
+                סניף ראשי <span className="required-star">*</span>
                 <select value={primaryBranchId} onChange={e => setPrimaryBranchId(e.target.value)}>
-                  <option value="">— ללא סניף —</option>
+                  <option value="">— בחר סניף —</option>
                   {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </label>
@@ -312,37 +355,50 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           </div>
         )}
 
-        {activeTab === 'branches' && isSuperAdmin && initial?.id && (
+        {activeTab === 'branches' && isSuperAdmin && (
           <div className={styles.tabContent}>
-            {workerBranches.length === 0 && <div className={styles.branchAssignEmpty}>לא משויך לסניפים</div>}
-            {workerBranches.map(wb => (
-              <div key={wb.branch_id} className={styles.branchRow}>
-                <span className={styles.branchName}>{wb.branch_name}</span>
-                <label className={styles.activeLabel}>
-                  <input type="checkbox" checked={wb.is_active} onChange={e => toggleBranchActive(wb.branch_id, e.target.checked)} />
-                  פעיל
-                </label>
-                <button type="button" onClick={() => removeBranch(wb.branch_id)} className={styles.removeBtn}>הסר</button>
-              </div>
-            ))}
-            {unassignedBranches.length > 0 && (
-              <div className={styles.addBranchRow}>
-                <select
-                  defaultValue=""
-                  onChange={e => { if (e.target.value) { addBranch(e.target.value); e.target.value = ''; } }}
-                  className={styles.addBranchSelect}
-                >
-                  <option value="">+ הוסף לסניף...</option>
-                  {unassignedBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </div>
+            <div className={styles.branchNote}>
+              <p>שיוך לסניף מאפשר לעובד להופיע ברשימת העובדים של אותו סניף ולהיות מוצע לשיבוצים בו. <strong>הסניף הראשי</strong> נקבע בפרטים הארגוניים. סניפים נוספים הם שיוך משני — העובד יסומן כ"מושאל" בהם. ניתן להשבית שיוך לסניף מסוים מבלי להסיר אותו לחלוטין.</p>
+            </div>
+            {!initial?.id ? (
+              <p className={styles.tabPendingSave}>יש לשמור את העובד תחילה כדי לנהל שיוך לסניפים נוספים.</p>
+            ) : (
+              <>
+                {workerBranches.length === 0 && <div className={styles.branchAssignEmpty}>לא משויך לסניפים</div>}
+                {workerBranches.map(wb => (
+                  <div key={wb.branch_id} className={styles.branchRow}>
+                    <span className={styles.branchName}>{wb.branch_name}</span>
+                    <label className={styles.activeLabel}>
+                      <input type="checkbox" checked={wb.is_active} onChange={e => toggleBranchActive(wb.branch_id, e.target.checked)} />
+                      פעיל
+                    </label>
+                    <button type="button" onClick={() => removeBranch(wb.branch_id)} className={styles.removeBtn} disabled={wb.branch_id === Number(form.primary_branch_id)} title={wb.branch_id === Number(form.primary_branch_id) ? 'לא ניתן להסיר את הסניף הראשי' : undefined}>הסר</button>
+                  </div>
+                ))}
+                {unassignedBranches.length > 0 && (
+                  <div className={styles.addBranchRow}>
+                    <select
+                      defaultValue=""
+                      onChange={e => { if (e.target.value) { addBranch(e.target.value); e.target.value = ''; } }}
+                      className={styles.addBranchSelect}
+                    >
+                      <option value="">+ הוסף לסניף...</option>
+                      {unassignedBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
 
-        {activeTab === 'authorizations' && initial?.id && (
+        {activeTab === 'authorizations' && (
           <div className={styles.tabContent}>
-            <WorkerAuthorizationsPanel worker={initial} authToken={authToken} config={config} />
+            {!initial?.id ? (
+              <p className={styles.tabPendingSave}>יש לשמור את העובד תחילה כדי להגדיר הרשאות פעילות.</p>
+            ) : (
+              <WorkerAuthorizationsPanel worker={initial} authToken={authToken} config={config} />
+            )}
           </div>
         )}
 

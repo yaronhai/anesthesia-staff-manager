@@ -38,11 +38,14 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   const [newSiteGroupType, setNewSiteGroupType] = useState('regular');
   const [editingGroupType, setEditingGroupType] = useState('regular');
   const [newActivityTypeGroup, setNewActivityTypeGroup] = useState('');
-  const [newActivityTypeByGroup, setNewActivityTypeByGroup] = useState({});
   const [editingKey, setEditingKey] = useState(null);
   const [editingValue, setEditingValue] = useState('');
   const [editingComplexityLevel, setEditingComplexityLevel] = useState(1);
-  const [newActivityTypeComplexityByGroup, setNewActivityTypeComplexityByGroup] = useState({});
+  const [showAddActivityForm, setShowAddActivityForm] = useState(false);
+  const [showAddGroupForm, setShowAddGroupForm] = useState(false);
+  const [newActivityName, setNewActivityName] = useState('');
+  const [newActivityComplexity, setNewActivityComplexity] = useState(1);
+  const [newActivityGroupId, setNewActivityGroupId] = useState('');
   const [expandedActivityAuths, setExpandedActivityAuths] = useState({});
   const [siteAllowedJobsModal, setSiteAllowedJobsModal] = useState(null);
   const [activeTab, setActiveTab] = useState(initialTab || (isSuperAdmin ? 'branches' : 'groups'));
@@ -289,17 +292,21 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     else alert('שגיאה בשמירה');
   }
 
-  async function addActivityTypeInGroup(groupId) {
-    const key = groupId ?? 'ungrouped';
-    const name = (newActivityTypeByGroup[key] || '').trim();
+  async function addActivityType() {
+    const name = newActivityName.trim();
     if (!name) return;
     const res = await fetch(`/api/config/activity-types${branchParam()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify({ value: name, group_id: groupId || null, complexity_level: newActivityTypeComplexityByGroup[key] || 1 }),
+      body: JSON.stringify({ value: name, group_id: newActivityGroupId ? parseInt(newActivityGroupId) : null, complexity_level: newActivityComplexity }),
     });
-    if (res.ok) { onConfigChange(await res.json()); setNewActivityTypeByGroup(prev => ({ ...prev, [key]: '' })); setNewActivityTypeComplexityByGroup(prev => ({ ...prev, [key]: 1 })); }
-    else { const e = await res.json(); alert('שגיאה: ' + (e.error || 'שגיאה')); }
+    if (res.ok) {
+      onConfigChange(await res.json());
+      setNewActivityName('');
+      setNewActivityComplexity(1);
+      setNewActivityGroupId('');
+      setShowAddActivityForm(false);
+    } else { const e = await res.json(); alert('שגיאה: ' + (e.error || 'שגיאה')); }
   }
 
   async function moveActivityTypeToGroup(activityTypeId, groupId) {
@@ -987,6 +994,10 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
               <>
                 <TabDescription tabKey="activities" />
                 {(() => {
+                  const actGroups = config.activity_type_groups || [];
+                  const allActivityTypes = config.activity_types || [];
+                  const ungrouped = allActivityTypes.filter(at => !at.group_id);
+
                   function renderActivityTypeRow(actType) {
                     return (
                       <li key={actType.id} className={styles.itemRow}>
@@ -1007,12 +1018,10 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                           <option value={3}>רמה 3</option>
                         </select>
                         {actGroups.length > 0 && editingKey !== `activity-${actType.id}` && (
-                          <select
-                            className={styles.groupMoveSelect}
+                          <select className={styles.groupMoveSelect}
                             value={actType.group_id || ''}
                             onChange={e => moveActivityTypeToGroup(actType.id, e.target.value ? parseInt(e.target.value) : null)}
-                            title="העבר לקבוצה"
-                          >
+                            title="העבר לקבוצה">
                             <option value="">ללא קבוצה</option>
                             {actGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                           </select>
@@ -1030,88 +1039,119 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
                     );
                   }
 
-                  function renderAddRow(groupId) {
-                    const key = groupId ?? 'ungrouped';
-                    return (
-                      <div className={styles.addRow}>
-                        <input className="config-inline-edit" style={{flex:1,fontSize:'0.82rem'}}
-                          value={newActivityTypeByGroup[key] || ''}
-                          onChange={e => setNewActivityTypeByGroup(prev => ({...prev,[key]:e.target.value}))}
-                          placeholder="סוג פעילות חדש..."
-                          onKeyDown={e => e.key==='Enter' && addActivityTypeInGroup(groupId)} />
-                        <select className="config-inline-edit" style={{minWidth:'80px',fontSize:'0.82rem'}} value={newActivityTypeComplexityByGroup[key] || 1}
-                          onChange={e => setNewActivityTypeComplexityByGroup(prev => ({...prev,[key]:parseInt(e.target.value)}))}>
-                          <option value={1}>רמה 1</option>
-                          <option value={2}>רמה 2</option>
-                          <option value={3}>רמה 3</option>
-                        </select>
-                        <button className={`btn-add-config ${styles.addRowBtn}`} onClick={() => addActivityTypeInGroup(groupId)}>הוסף</button>
-                      </div>
-                    );
-                  }
-
-                  const actGroups = config.activity_type_groups || [];
-                  const ungrouped = (config.activity_types || []).filter(at => !at.group_id);
-
                   return (
-                    <div className={styles.columnGap2}>
-                      {actGroups.map(group => {
-                        const members = (config.activity_types || []).filter(at => at.group_id === group.id);
-                        return (
-                          <div key={group.id} className={styles.groupCard}>
-                            <div className={styles.groupHeader}>
-                              {editingKey === `actgroup-${group.id}` ? (
-                                <input className="config-inline-edit" value={editingValue}
-                                  onChange={e => setEditingValue(e.target.value)}
-                                  onKeyDown={e => { if (e.key==='Enter') saveActivityTypeGroupEdit(group.id); if (e.key==='Escape') setEditingKey(null); }}
-                                  autoFocus style={{flex:1}} />
-                              ) : (
-                                <span className={styles.actGroupNameDisplay}>{group.name}</span>
-                              )}
-                              <div className="config-item-actions">
+                    <div className={styles.actTwoSections}>
+
+                      {/* Section 1: Groups */}
+                      <div className={styles.actSectionPanel}>
+                        <div className={styles.actSectionHeader}>
+                          <span className={styles.actSectionTitle}>קבוצות</span>
+                          {!showAddGroupForm && (
+                            <button className={`btn-add-config ${styles.addRowBtn}`} onClick={() => setShowAddGroupForm(true)}>+ הוסף קבוצה</button>
+                          )}
+                        </div>
+                        {actGroups.length > 0 ? (
+                          <ul className={`config-list ${styles.configListReset}`}>
+                            {actGroups.map(group => (
+                              <li key={group.id} className={styles.itemRow}>
                                 {editingKey === `actgroup-${group.id}` ? (
-                                  <><button className="btn-save-inline" onClick={() => saveActivityTypeGroupEdit(group.id)}>שמור</button>
-                                    <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button></>
+                                  <input className="config-inline-edit" value={editingValue}
+                                    onChange={e => setEditingValue(e.target.value)}
+                                    onKeyDown={e => { if (e.key==='Enter') saveActivityTypeGroupEdit(group.id); if (e.key==='Escape') setEditingKey(null); }}
+                                    autoFocus style={{flex:1}} />
                                 ) : (
-                                  <><button className="btn-edit-inline" onClick={() => { setEditingKey(`actgroup-${group.id}`); setEditingValue(group.name); }}>עריכה</button>
-                                    <button className="btn-remove" onClick={() => removeItem('/api/config/activity-type-groups', group.id)}>✕</button></>
+                                  <span className={styles.itemName}>{group.name}</span>
                                 )}
-                              </div>
-                            </div>
-                            <div className={styles.groupContent}>
-                              {members.length > 0 && (
-                                <ul className={`config-list ${styles.configListReset}`}>{members.map(renderActivityTypeRow)}</ul>
-                              )}
-                              {renderAddRow(group.id)}
-                            </div>
+                                <div className="config-item-actions">
+                                  {editingKey === `actgroup-${group.id}` ? (
+                                    <><button className="btn-save-inline" onClick={() => saveActivityTypeGroupEdit(group.id)}>שמור</button>
+                                      <button className="btn-remove" onClick={() => setEditingKey(null)}>✕</button></>
+                                  ) : (
+                                    <><button className="btn-edit-inline" onClick={() => { setEditingKey(`actgroup-${group.id}`); setEditingValue(group.name); }}>עריכה</button>
+                                      <button className="btn-remove" onClick={() => removeItem('/api/config/activity-type-groups', group.id)}>✕</button></>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          !showAddGroupForm && <div className={styles.noActivities}>אין קבוצות עדיין.</div>
+                        )}
+                        {showAddGroupForm && (
+                          <div className={styles.addRow}>
+                            <input className="config-inline-edit" style={{flex:1,fontSize:'0.82rem'}}
+                              value={newActivityTypeGroup}
+                              onChange={e => setNewActivityTypeGroup(e.target.value)}
+                              placeholder="שם קבוצה חדשה..."
+                              autoFocus
+                              onKeyDown={e => { if (e.key==='Enter') addActivityTypeGroup(); if (e.key==='Escape') { setShowAddGroupForm(false); setNewActivityTypeGroup(''); } }} />
+                            <button className={`btn-add-config ${styles.addRowBtn}`} onClick={addActivityTypeGroup}>הוסף</button>
+                            <button className="btn-remove" onClick={() => { setShowAddGroupForm(false); setNewActivityTypeGroup(''); }}>✕</button>
                           </div>
-                        );
-                      })}
-
-                      {ungrouped.length > 0 && (
-                        <div className={styles.groupCard}>
-                          <div className={styles.groupHeader}>
-                            <span className={styles.actGroupNameUngrouped}>ללא קבוצה</span>
-                          </div>
-                          <div className={styles.groupContent}>
-                            <ul className={`config-list ${styles.configListReset}`}>{ungrouped.map(renderActivityTypeRow)}</ul>
-                            {renderAddRow(null)}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className={styles.addGroupBox}>
-                        <div className={styles.addActGroupLabel}>הוספת קבוצה חדשה</div>
-                        <div className={`config-add ${styles.configAddReset}`}>
-                          <input value={newActivityTypeGroup} onChange={e => setNewActivityTypeGroup(e.target.value)}
-                            placeholder="שם קבוצה..." onKeyDown={e => e.key==='Enter' && addActivityTypeGroup()} />
-                          <button className="btn-primary" onClick={addActivityTypeGroup}>הוסף קבוצה</button>
-                        </div>
+                        )}
                       </div>
 
-                      {actGroups.length === 0 && ungrouped.length === 0 && (
-                        <div className={styles.noActivities}>אין סוגי פעילות עדיין.</div>
-                      )}
+                      {/* Section 2: Activity Types */}
+                      <div className={styles.actSectionPanel}>
+                        <div className={styles.actSectionHeader}>
+                          <span className={styles.actSectionTitle}>סוגי פעילות</span>
+                          {!showAddActivityForm && (
+                            <button className={`btn-add-config ${styles.addRowBtn}`} onClick={() => setShowAddActivityForm(true)}>+ הוסף</button>
+                          )}
+                        </div>
+
+                        {showAddActivityForm && (
+                          <div className={styles.addRow}>
+                            <input className="config-inline-edit" style={{flex:1,fontSize:'0.82rem'}}
+                              value={newActivityName}
+                              onChange={e => setNewActivityName(e.target.value)}
+                              placeholder="שם פעילות חדשה..."
+                              autoFocus
+                              onKeyDown={e => e.key==='Enter' && addActivityType()} />
+                            <select className="config-inline-edit" style={{minWidth:'80px',fontSize:'0.82rem'}}
+                              value={newActivityComplexity}
+                              onChange={e => setNewActivityComplexity(parseInt(e.target.value))}>
+                              <option value={1}>רמה 1</option>
+                              <option value={2}>רמה 2</option>
+                              <option value={3}>רמה 3</option>
+                            </select>
+                            {actGroups.length > 0 && (
+                              <select className="config-inline-edit" style={{fontSize:'0.82rem'}}
+                                value={newActivityGroupId}
+                                onChange={e => setNewActivityGroupId(e.target.value)}>
+                                <option value="">ללא קבוצה</option>
+                                {actGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                              </select>
+                            )}
+                            <button className={`btn-add-config ${styles.addRowBtn}`} onClick={addActivityType}>הוסף</button>
+                            <button className="btn-remove" onClick={() => { setShowAddActivityForm(false); setNewActivityName(''); setNewActivityComplexity(1); setNewActivityGroupId(''); }}>✕</button>
+                          </div>
+                        )}
+
+                        {allActivityTypes.length === 0 ? (
+                          <div className={styles.noActivities}>אין סוגי פעילות עדיין.</div>
+                        ) : (
+                          <>
+                            {actGroups.map(group => {
+                              const members = allActivityTypes.filter(at => at.group_id === group.id);
+                              if (members.length === 0) return null;
+                              return (
+                                <div key={group.id}>
+                                  <div className={styles.actSubGroupHeader}>{group.name}</div>
+                                  <ul className={`config-list ${styles.configListReset}`}>{members.map(renderActivityTypeRow)}</ul>
+                                </div>
+                              );
+                            })}
+                            {ungrouped.length > 0 && (
+                              <div>
+                                {actGroups.length > 0 && <div className={styles.actSubGroupHeader}>ללא קבוצה</div>}
+                                <ul className={`config-list ${styles.configListReset}`}>{ungrouped.map(renderActivityTypeRow)}</ul>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+
                     </div>
                   );
                 })()}

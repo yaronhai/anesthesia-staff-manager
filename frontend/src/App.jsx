@@ -27,6 +27,7 @@ import ProfileChangeRequests from './components/ProfileChangeRequests';
 import logoAssuta from './assets/logo-assuta.png';
 import './styles/App.scss';
 import appStyles from './styles/App.module.scss';
+import PieChart3D from './components/PieChart3D';
 
 const API = '/api/workers';
 
@@ -50,6 +51,7 @@ export default function App() {
   const [filterActive, setFilterActive] = useState('active');
   const [filterBranchType, setFilterBranchType] = useState('all');
   const [filterSearch, setFilterSearch] = useState('');
+  const [piePopup, setPiePopup] = useState(null); // null | 'job' | 'emp'
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -260,8 +262,9 @@ export default function App() {
     }
   }
 
-  function handleEdit(worker) { setEditing(worker); setShowForm(true); }
-  function handleAdd()        { setEditing(null);   setShowForm(true); }
+  const [editInitialTab, setEditInitialTab] = useState('personal');
+  function handleEdit(worker, tab = 'personal') { setEditing(worker); setEditInitialTab(tab); setShowForm(true); }
+  function handleAdd()        { setEditing(null);   setEditInitialTab('personal'); setShowForm(true); }
   function handleCancel()     { setEditing(null);   setShowForm(false); }
 
   function handleLogin(token, user) {
@@ -357,6 +360,13 @@ export default function App() {
       (filterActive === 'all' || (filterActive === 'active' ? w.is_active !== false : w.is_active === false)) &&
       (filterBranchType === 'all' || (filterBranchType === 'primary' ? w.is_primary_branch !== false : w.is_primary_branch === false));
   });
+
+  const jobPieItems = Object.entries(
+    filteredWorkers.reduce((acc, w) => { const k = w.job || 'לא מוגדר'; acc[k] = (acc[k] || 0) + 1; return acc; }, {})
+  ).map(([name, value]) => ({ name, value }));
+  const empPieItems = Object.entries(
+    filteredWorkers.reduce((acc, w) => { const k = w.employment_type || 'לא מוגדר'; acc[k] = (acc[k] || 0) + 1; return acc; }, {})
+  ).map(([name, value]) => ({ name, value }));
 
   const selectedBranchName = branches.find(b => b.id === selectedBranchId)?.name;
   const currentUserBranchName = branches.find(b => b.id === currentUser?.branch_id)?.name;
@@ -756,7 +766,35 @@ export default function App() {
               </button>
             )}
             <button className={`btn-secondary ${appStyles.reportBtn}`} onClick={() => setShowReportModal(true)} title='דו"ח עובדים'>🖨</button>
+            <span className={appStyles.workerCount}>{[
+              filterSearch ? `"${filterSearch}"` : null,
+              filterJobId ? config.jobs.find(j => j.id === Number(filterJobId))?.name : null,
+              filterEmpTypeId ? config.employment_types.find(t => t.id === Number(filterEmpTypeId))?.name : null,
+              filterActive === 'active' ? 'פעילים' : filterActive === 'inactive' ? 'לא פעילים' : null,
+              filterBranchType === 'primary' ? 'ראשיים' : filterBranchType === 'secondary' ? 'מושאלים' : null,
+            ].filter(Boolean).join(', ') || 'כולם'} — {filteredWorkers.length}</span>
+            <div className={appStyles.pieMiniGroup}>
+              {jobPieItems.length > 0 && (
+                <button className={appStyles.pieMiniBtn} title="לפי תפקיד" onClick={() => setPiePopup(p => p === 'job' ? null : 'job')}>
+                  <span className={appStyles.pieMiniWrap}><PieChart3D items={jobPieItems} tiny /></span>
+                </button>
+              )}
+              {empPieItems.length > 0 && (
+                <button className={appStyles.pieMiniBtn} title="לפי סוג העסקה" onClick={() => setPiePopup(p => p === 'emp' ? null : 'emp')}>
+                  <span className={appStyles.pieMiniWrap}><PieChart3D items={empPieItems} tiny /></span>
+                </button>
+              )}
+            </div>
           </div>
+          {piePopup && (
+            <div className={appStyles.piePopupOverlay} onClick={() => setPiePopup(null)}>
+              <div className={appStyles.piePopup} onClick={e => e.stopPropagation()}>
+                <div className={appStyles.piePopupTitle}>{piePopup === 'job' ? 'התפלגות לפי תפקיד' : 'התפלגות לפי סוג העסקה'}</div>
+                <PieChart3D items={piePopup === 'job' ? jobPieItems : empPieItems} showAll legend />
+                <button className={appStyles.piePopupClose} onClick={() => setPiePopup(null)}>✕</button>
+              </div>
+            </div>
+          )}
 
           {showForm && (
             <WorkerForm
@@ -769,6 +807,8 @@ export default function App() {
               branches={branches}
               roles={roles}
               currentUser={currentUser}
+              defaultBranchId={selectedBranchId}
+              initialTab={editInitialTab}
               onPhotoUpdate={(url) => {
                 if (editing?.id === currentUser?.worker_id) setProfilePhotoUrl(url);
               }}
@@ -777,6 +817,7 @@ export default function App() {
           <WorkerList
             workers={filteredWorkers}
             onEdit={handleEdit}
+            onEditAuth={w => handleEdit(w, 'authorizations')}
             onDelete={handleDelete}
             onResetPassword={handleResetPassword}
             authToken={authToken}

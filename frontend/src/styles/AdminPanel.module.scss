@@ -246,6 +246,42 @@
 // "No activities" message
 .noActivities { color: #64748b; font-size: 0.85rem; padding: 0.5rem; }
 
+// Activity types tab — two-section layout
+.actTwoSections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.actSectionPanel {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.actSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1e3a5f;
+  padding: 0.3rem 0.6rem;
+}
+.actSectionTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+.actSubGroupHeader {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #7f1d1d;
+  background: #f1f5f9;
+  padding: 0.15rem 0.6rem;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
 // Shifts tab
 .shiftsTab { padding: 1rem; }
 .shiftsTitle { margin-bottom: 1rem; color: #1a2e4a; font-size: 1rem; }
