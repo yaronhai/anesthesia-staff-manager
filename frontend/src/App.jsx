@@ -63,6 +63,7 @@ export default function App() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const searchRef = useRef(null);
   const [reportFields, setReportFields] = useState({
     name: true, id_number: true, job: true, employment_type: true,
     phone: true, email: true, status: true, branch_type: false,
@@ -293,6 +294,19 @@ export default function App() {
     clearTimeout(inactivityTimer.current);
     inactivityTimer.current = setTimeout(() => handleLogout(), INACTIVITY_TIMEOUT);
   }, []);
+
+  useEffect(() => {
+    function handleSlash(e) {
+      if (e.key !== '/' || activeTab !== 'workers' || !searchRef.current) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      e.preventDefault();
+      searchRef.current.focus();
+      searchRef.current.select();
+    }
+    window.addEventListener('keydown', handleSlash);
+    return () => window.removeEventListener('keydown', handleSlash);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!authToken) return;
@@ -734,13 +748,19 @@ export default function App() {
         <>
           <div className="filters">
             <button onClick={handleAdd} className={`btn-primary ${appStyles.addWorkerBtn}`} title="הוסף עובד">＋</button>
-            <input
-              type="text"
-              placeholder="חיפוש לפי שם / ת.ז. / אימייל / טלפון"
-              value={filterSearch}
-              onChange={e => setFilterSearch(e.target.value)}
-              className={appStyles.searchInput}
-            />
+            <div className={appStyles.searchWrap}>
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="חיפוש לפי שם / ת.ז. / אימייל / טלפון"
+                value={filterSearch}
+                onChange={e => setFilterSearch(e.target.value)}
+                className={appStyles.searchInput}
+              />
+              {filterSearch && (
+                <button className={appStyles.searchClear} onClick={() => { setFilterSearch(''); searchRef.current?.focus(); }} tabIndex={-1} title="נקה חיפוש">✕</button>
+              )}
+            </div>
             <select value={filterJobId} onChange={e => setFilterJobId(e.target.value)}>
               <option value="">כל התפקידים</option>
               {config.jobs.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
