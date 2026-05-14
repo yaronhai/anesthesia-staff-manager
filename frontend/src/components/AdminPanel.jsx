@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import RolesManagement from './RolesManagement';
+import TrainingGapsPanel from './TrainingGapsPanel';
 import styles from '../styles/AdminPanel.module.scss';
 
 function isoToDdMmYyyy(iso) {
@@ -525,6 +526,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     activities: 'סוגי פעילות מגדירים סוגי עבודה ספציפיים שניתן להרשות לעובדים (לדוג׳ אנסתזיה כללית, ספינל). הרשאות אלו מיועדות לעובדים בנפרד ומשפיעות על הצעות השיבוץ האוטומטיות. רמת הקושי (1–3) קובעת את מורכבות הפעילות: עובד שהורשה לרמה גבוהה יותר יוצע תחילה לפעילויות ברמה זו; במקרה של חוסר, עובד ברמה גבוהה יכול לשמש גם ברמות נמוכות יותר (overqualified), אך הצעה כזו מקבלת עדיפות נמוכה יותר.',
     eventTypes: 'סוגי אירועים מגדירים קטגוריות לאירועי מחלקה (לדוג׳ ישיבת צוות, ערב גיבוש). ניתן להוסיף סוגים מותאמים אישית בנוסף לסוגי הברירת מחדל.',
     templateGroups: 'קבוצות תבניות מאפשרות לאגד תבניות שיבוצים לקטגוריות (לדוג׳ ימי חול, סופ"ש). ניתן לשייך כל תבנית לקבוצה בעת יצירתה או עריכתה.',
+    trainingGaps: 'ניתוח פערי הכשרה: סוגי פעילות עם מעט מורשים, אתרים חסרי כיסוי, ועובדים ללא הרשאות פעילות כלל — כלי תכנון לניהול הכשרות.',
   };
 
   function TabDescription({ tabKey }) {
@@ -547,6 +549,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     { key: 'templateGroups', label: 'קבוצות תבניות' },
     { key: 'shifts', label: 'שעות משמרות' },
     { key: 'lockSettings', label: 'נעילת סידור' },
+    { key: 'trainingGaps', label: 'פערי הכשרה' },
   ];
 
   return (
@@ -1500,6 +1503,13 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 
                   </>
                 )}
+              </div>
+            )}
+
+            {activeTab === 'trainingGaps' && (
+              <div>
+                <TabDescription tabKey="trainingGaps" />
+                <TrainingGapsPanel authToken={authToken} branchId={localBranchId} isSuperAdmin={isSuperAdmin} />
               </div>
             )}
 

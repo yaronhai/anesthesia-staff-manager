@@ -3204,6 +3204,89 @@ app.delete('/api/config/activity-type-groups/:id', requireAdmin, async (req, res
   }
 });
 
+// ── Training Gap Detection ───────────────────────────────────────────────────
+app.get('/api/staffing/training-gaps', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    if (!branchId) return res.status(400).json({ error: 'נדרש מזהה סניף' });
+
+    const actGaps = await query(`
+      SELECT
+        at.id                                      AS activity_type_id,
+        at.name                                    AS activity_type_name,
+        atg.name                                   AS group_name,
+        COUNT(DISTINCT waa.worker_id)::int         AS authorized_count
+      FROM activity_types at
+      LEFT JOIN activity_type_groups atg ON atg.id = at.group_id
+      LEFT JOIN worker_activity_authorizations waa ON waa.activity_type_id = at.id
+      LEFT JOIN workers w ON w.id = waa.worker_id
+        AND w.primary_branch_id = $1
+        AND w.is_active = TRUE
+      WHERE at.branch_id = $1
+      GROUP BY at.id, at.name, atg.name
+      ORDER BY authorized_count ASC, at.name
+    `, [branchId]);
+
+    const siteGaps = await query(`
+      WITH pairs AS (
+        SELECT DISTINCT ssa.site_id, ssa.activity_type_id
+        FROM site_shift_activities ssa
+        JOIN sites s ON s.id = ssa.site_id AND s.branch_id = $1
+        WHERE ssa.activity_type_id IS NOT NULL
+      )
+      SELECT
+        s.id                                       AS site_id,
+        s.name                                     AS site_name,
+        sg.name                                    AS site_group_name,
+        at.id                                      AS activity_type_id,
+        at.name                                    AS activity_type_name,
+        COALESCE(COUNT(DISTINCT w.id)::int, 0)    AS eligible_count
+      FROM pairs
+      JOIN sites s ON s.id = pairs.site_id
+      LEFT JOIN site_groups sg ON sg.id = s.group_id
+      JOIN activity_types at ON at.id = pairs.activity_type_id
+      LEFT JOIN worker_activity_authorizations waa ON waa.activity_type_id = pairs.activity_type_id
+      LEFT JOIN workers w ON w.id = waa.worker_id
+        AND w.primary_branch_id = $1
+        AND w.is_active = TRUE
+        AND (
+          NOT EXISTS (SELECT 1 FROM site_allowed_jobs saj WHERE saj.site_id = pairs.site_id)
+          OR EXISTS (SELECT 1 FROM site_allowed_jobs saj
+                     WHERE saj.site_id = pairs.site_id AND saj.job_id = w.job_id)
+        )
+      GROUP BY s.id, s.name, sg.name, at.id, at.name
+      ORDER BY eligible_count ASC, s.name
+    `, [branchId]);
+
+    const noAuth = await query(`
+      SELECT w.id, w.first_name, w.family_name, jt.name AS job_name
+      FROM workers w
+      LEFT JOIN job_titles jt ON jt.id = w.job_id
+      WHERE w.primary_branch_id = $1
+        AND w.is_active = TRUE
+        AND NOT EXISTS (
+          SELECT 1 FROM worker_activity_authorizations waa WHERE waa.worker_id = w.id
+        )
+      ORDER BY w.family_name, w.first_name
+    `, [branchId]);
+
+    function severity(n) {
+      if (n < 2)  return 'critical';
+      if (n <= 4) return 'warning';
+      return 'ok';
+    }
+
+    res.json({
+      activityGaps:       actGaps.rows.map(r => ({ ...r, severity: severity(r.authorized_count) })),
+      siteGaps:           siteGaps.rows.map(r => ({ ...r, severity: severity(r.eligible_count) })),
+      workersWithoutAuth: noAuth.rows,
+    });
+  } catch (err) {
+    console.error('GET training-gaps error:', err);
+    res.status(500).json({ error: 'שגיאה בטעינת פערי הכשרה' });
+  }
+});
+
 // Worker site assignments endpoints
 app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
   try {
