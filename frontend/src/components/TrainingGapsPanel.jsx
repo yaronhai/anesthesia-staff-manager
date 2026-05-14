@@ -157,10 +157,10 @@ export default function TrainingGapsPanel({ authToken, branchId, isSuperAdmin, c
         ) : (
           <ul className={styles.workerList}>
             {workersWithoutAuth.map(w => (
-              <li key={w.id} className={styles.workerItem} onClick={() => setEditingWorker(w)}>
+              <li key={w.id} className={styles.workerItem}>
                 <span className={styles.workerName}>{w.family_name} {w.first_name}</span>
                 {w.job_name && <span className={styles.workerJob}>{w.job_name}</span>}
-                <span className={styles.workerEditHint}>עריכת הרשאות ←</span>
+                <button className={styles.workerEditBtn} onClick={() => setEditingWorker(w)}>🔑 הרשאות</button>
               </li>
             ))}
           </ul>
