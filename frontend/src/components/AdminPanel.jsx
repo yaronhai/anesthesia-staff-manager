@@ -1509,7 +1509,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
             {activeTab === 'trainingGaps' && (
               <div>
                 <TabDescription tabKey="trainingGaps" />
-                <TrainingGapsPanel authToken={authToken} branchId={localBranchId} isSuperAdmin={isSuperAdmin} />
+                <TrainingGapsPanel authToken={authToken} branchId={localBranchId} isSuperAdmin={isSuperAdmin} config={config} />
               </div>
             )}
 

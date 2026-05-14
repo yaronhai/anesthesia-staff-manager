@@ -156,6 +156,7 @@
 }
 
 .workerItem {
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -167,7 +168,23 @@
   }
 }
 
-.workerName { font-size: 0.88rem; font-weight: 600; color: #1e293b; }
+.workerName { font-size: 0.88rem; font-weight: 600; color: #1e293b; flex: 1; }
+
+.workerEditHint {
+  font-size: 0.75rem;
+  color: #3b82f6;
+  opacity: 0;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  .workerItem:hover & { opacity: 1; }
+}
+
+.workerItem:hover {
+  background: #f0f9ff;
+  border-radius: 4px;
+  margin: 0 -0.4rem;
+  padding: 0.3rem 0.4rem;
+}
 .workerJob  {
   font-size: 0.78rem;
   color: #64748b;
