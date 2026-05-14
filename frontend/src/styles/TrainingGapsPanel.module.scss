@@ -165,15 +165,36 @@
   &:last-child {
     border-bottom: none;
   }
+
+  &:hover {
+    background: #f0f9ff;
+    border-radius: 4px;
+    margin: 0 -0.4rem;
+    padding: 0.3rem 0.4rem;
+  }
 }
 
-.workerName { font-size: 0.88rem; font-weight: 600; color: #1e293b; }
-.workerJob  {
+.workerName { font-size: 0.88rem; font-weight: 600; color: #1e293b; flex: 1; }
+
+.workerJob {
   font-size: 0.78rem;
   color: #64748b;
   background: #f1f5f9;
   border-radius: 4px;
   padding: 0.1rem 0.4rem;
+}
+
+.workerEditBtn {
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { background: #dbeafe; }
 }
 
 // ── Severity badges ───────────────────────────────────────────────────────

@@ -142,7 +142,7 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
   );
 }
 
-function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
+export function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
   return (
     <div className="form-overlay" onClick={onClose}>
       <div className="detail-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>

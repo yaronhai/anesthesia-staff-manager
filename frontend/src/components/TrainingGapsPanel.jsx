@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import styles from '../styles/TrainingGapsPanel.module.scss';
+import { WorkerActivityAuthorizations } from './WorkerList';
 
 const SEVERITY_LABEL = {
   critical: 'קריטי',
@@ -15,10 +16,11 @@ function SeverityBadge({ severity }) {
   );
 }
 
-export default function TrainingGapsPanel({ authToken, branchId, isSuperAdmin }) {
+export default function TrainingGapsPanel({ authToken, branchId, isSuperAdmin, config }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [editingWorker, setEditingWorker] = useState(null);
 
   useEffect(() => {
     if (!branchId && !isSuperAdmin) return;
@@ -45,6 +47,11 @@ export default function TrainingGapsPanel({ authToken, branchId, isSuperAdmin })
     }
   }
 
+  function closeAuthModal() {
+    setEditingWorker(null);
+    fetchGaps();
+  }
+
   if (loading) return <div className={styles.loading}>טוען נתונים...</div>;
   if (error)   return <div className={styles.errorMsg}>{error}</div>;
   if (!data)   return null;
@@ -57,6 +64,15 @@ export default function TrainingGapsPanel({ authToken, branchId, isSuperAdmin })
 
   return (
     <div className={styles.panel}>
+
+      {editingWorker && (
+        <WorkerActivityAuthorizations
+          worker={editingWorker}
+          authToken={authToken}
+          config={config || {}}
+          onClose={closeAuthModal}
+        />
+      )}
 
       {/* ── Section 1: Activity coverage ─────────────────────────────── */}
       <section className={styles.section}>
@@ -144,6 +160,7 @@ export default function TrainingGapsPanel({ authToken, branchId, isSuperAdmin })
               <li key={w.id} className={styles.workerItem}>
                 <span className={styles.workerName}>{w.family_name} {w.first_name}</span>
                 {w.job_name && <span className={styles.workerJob}>{w.job_name}</span>}
+                <button className={styles.workerEditBtn} onClick={() => setEditingWorker(w)}>🔑 הרשאות</button>
               </li>
             ))}
           </ul>
