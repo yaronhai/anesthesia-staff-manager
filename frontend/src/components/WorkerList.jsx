@@ -339,7 +339,7 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
   );
 }
 
-export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin, roles = [], onOpenMessage, currentUserLevel }) {
+export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin, roles = [], onOpenMessage, currentUserRole }) {
   const [viewing, setViewing] = useState(null);
   const [sortField, setSortField] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
@@ -369,10 +369,13 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
   }
 
   function canEditWorker(w) {
-    if (!currentUserLevel) return true;
-    const workerRole = roles.find(r => r.name === w.classification);
-    const workerLevel = workerRole?.level ?? 999;
-    return currentUserLevel < workerLevel;
+    if (currentUserRole === 'master') return true;
+    const myRole = roles.find(r => r.name === currentUserRole);
+    if (!myRole) return true;
+    const levelA = roles.find(r => r.name === w.user_role)?.level ?? 999;
+    const levelB = roles.find(r => r.name === w.classification)?.level ?? 999;
+    const workerLevel = Math.min(levelA, levelB);
+    return myRole.level < workerLevel;
   }
 
   function handleSort(field) {

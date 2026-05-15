@@ -806,11 +806,14 @@ async function runMigrations() {
     await query(`
       INSERT INTO roles (name, display_name, level, tier, is_protected)
       VALUES
-        ('superadmin', 'מנהל ראשי', 100, 'superadmin', TRUE),
-        ('admin',      'מנהל סניף', 200, 'admin',      TRUE),
-        ('user',       'משתמש',     300, 'user',       TRUE)
+        ('master',     'מנהל מערכת', 1,   'master',     TRUE),
+        ('superadmin', 'מנהל ראשי',  100, 'superadmin', TRUE),
+        ('admin',      'מנהל סניף',  200, 'admin',      TRUE),
+        ('user',       'משתמש',      300, 'user',       TRUE)
       ON CONFLICT (name) DO NOTHING
     `);
+    // Ensure the bootstrap admin user always has master role
+    await query(`UPDATE users SET role='master' WHERE username=$1 AND role != 'master'`, [process.env.ADMIN_USERNAME || 'admin']);
 
     // Seed תורנים/כוננים site groups for every branch
     await query(`

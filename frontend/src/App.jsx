@@ -78,8 +78,10 @@ export default function App() {
     phone: 'טלפון', email: 'אימייל', status: 'סטטוס', branch_type: 'שיוך לסניף',
   };
 
-  const isSuperAdmin = (currentUser?.role_tier ?? currentUser?.role) === 'superadmin';
-  const isAdmin = ['admin', 'superadmin'].includes(currentUser?.role_tier ?? currentUser?.role);
+  const effectiveRole = currentUser?.role_tier ?? currentUser?.role;
+  const isMaster = effectiveRole === 'master';
+  const isSuperAdmin = isMaster || effectiveRole === 'superadmin';
+  const isAdmin = isMaster || ['admin', 'superadmin'].includes(effectiveRole);
 
   // Build query string for branch-scoped API calls
   function branchParam() {
@@ -852,6 +854,7 @@ export default function App() {
             isSuperAdmin={isSuperAdmin}
             currentBranchId={selectedBranchId}
             roles={roles}
+            currentUserRole={currentUser?.role}
             onOpenMessage={userId => { setMessagingInitialUserId(userId); setActiveTab('messages'); }}
           />
         </>

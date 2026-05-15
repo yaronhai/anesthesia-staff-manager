@@ -824,7 +824,7 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
   const [permanentModalWorkerId, setPermanentModalWorkerId] = useState(null);
   const [lockStatus, setLockStatus] = useState(null);
 
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+  const isAdmin = ['admin','superadmin','master'].includes(currentUser?.role);
   const shifts = config.shift_types || [];
   const prefs = config.preference_types || [];
 

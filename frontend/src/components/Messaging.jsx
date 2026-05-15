@@ -35,7 +35,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId, i
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+  const isAdmin = ['admin','superadmin','master'].includes(currentUser?.role);
   const isWorker = currentUser?.role === 'user';
 
   async function fetchContacts() {

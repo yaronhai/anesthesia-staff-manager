@@ -87,7 +87,7 @@ export default function RolesManagement({ roles, authToken, onRolesChange }) {
           </tr>
         </thead>
         <tbody>
-          {roles.map(role => (
+          {roles.filter(role => role.tier !== 'master').map(role => (
             <tr key={role.id} className={styles.tr}>
               {editingId === role.id ? (
                 <>

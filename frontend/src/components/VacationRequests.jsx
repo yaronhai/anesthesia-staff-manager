@@ -604,7 +604,7 @@ function AdminView({ requests, onDecide, onDelete, token, statusFilter, onStatus
 }
 
 export default function VacationRequests({ currentUser, token, selectedBranchId, workers }) {
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+  const isAdmin = ['admin','superadmin','master'].includes(currentUser?.role);
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
