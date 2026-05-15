@@ -159,31 +159,6 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .btn-activity-type { background: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%); border-bottom-color: #6ee7b7; color: #065f46; }
 .btn-activity-type:hover { background: linear-gradient(180deg, #a7f3d0 0%, #6ee7b7 100%); }
 
-.tip {
-  position: relative;
-  cursor: default;
-  &::after {
-    content: attr(data-tip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    right: 50%;
-    transform: translateX(50%);
-    background: #1e293b;
-    color: #f8fafc;
-    font-size: 0.75rem;
-    font-weight: 500;
-    white-space: nowrap;
-    padding: 0.3rem 0.6rem;
-    border-radius: 6px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s;
-    z-index: 9999;
-    direction: rtl;
-  }
-  &:hover::after { opacity: 1; }
-}
-
 .btn-link {
   background: none;
   color: #2563eb;
