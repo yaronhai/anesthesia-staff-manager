@@ -1,8 +1,16 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/WorkerList.module.scss';
 import PhotoCropModal from './PhotoCropModal';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 const UPLOADS_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
 const resolvePhotoUrl = url => !url ? null : url.startsWith('data:') ? url : UPLOADS_BASE + url;
+
+function waLink(phone) {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  const intl = digits.startsWith('0') ? '972' + digits.slice(1) : digits;
+  return `whatsapp://send?phone=${intl}`;
+}
 
 function WorkerAuthButton({ worker, authToken, config }) {
   const [showModal, setShowModal] = useState(false);
@@ -143,12 +151,14 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
 }
 
 export function WorkerActivityAuthorizations({ worker, authToken, config, onClose }) {
+  const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className="detail-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-        <div className="settings-header">
+    <div className={overlayClass} onClick={close}>
+      <div className="detail-modal" ref={modalRef} style={{ maxWidth: '500px', ...modalStyle }} onClick={e => e.stopPropagation()}>
+        <div className="settings-header" {...dragHandleProps}>
           <h2>הרשאות לפעילויות — {worker.family_name} {worker.first_name}</h2>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
         </div>
         <WorkerAuthorizationsPanel worker={worker} authToken={authToken} config={config} />
         <div className="form-actions">
@@ -159,7 +169,8 @@ export function WorkerActivityAuthorizations({ worker, authToken, config, onClos
   );
 }
 
-function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin, roles = [] }) {
+function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin, roles = [], canEdit }) {
+  const { modalRef: detailRef, dragHandleProps: detailDrag, modalStyle: detailStyle, overlayClass: detailOverlay, reset: detailReset } = useDraggableModal();
   const independentTypeIds = new Set(
     (config.employment_types || []).filter(t => t.is_independent).map(t => t.id)
   );
@@ -209,19 +220,20 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
     return `${d}/${m}/${y}`;
   }
 
+  const closeDetail = () => { onClose(); detailReset(); };
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className="detail-modal" onClick={e => e.stopPropagation()}>
-        <div className="settings-header">
+    <div className={detailOverlay} onClick={closeDetail}>
+      <div className="detail-modal" ref={detailRef} style={detailStyle} onClick={e => e.stopPropagation()}>
+        <div className="settings-header" {...detailDrag}>
           <h2>{worker.title} {worker.family_name} {worker.first_name}</h2>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={closeDetail}>✕</button>
         </div>
         <div className={styles.detailPhotoWrap}>
           {photoUrl
             ? <img src={resolvePhotoUrl(photoUrl)} alt="" className={styles.detailPhoto} />
             : <div className={styles.detailPhotoPlaceholder}>{(worker.first_name?.[0] || '?').toUpperCase()}</div>
           }
-          {(isSuperAdmin || worker.is_primary_branch !== false) && (
+          {(isSuperAdmin || worker.is_primary_branch !== false) && canEdit && (
             <>
               <div className={styles.photoActions}>
                 <button type="button" className={styles.changePhotoLink} onClick={() => fileInputRef.current?.click()}>
@@ -318,7 +330,7 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
         </div>
         <div className="form-actions">
           <button className="btn-secondary" onClick={onClose}>סגור</button>
-          {(isSuperAdmin || worker.is_primary_branch !== false) && (
+          {(isSuperAdmin || worker.is_primary_branch !== false) && canEdit && (
             <button className="btn-primary" onClick={() => { onClose(); onEdit(worker); }}>עריכה</button>
           )}
         </div>
@@ -327,7 +339,7 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
   );
 }
 
-export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin, roles = [] }) {
+export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin, roles = [], onOpenMessage, currentUserLevel }) {
   const [viewing, setViewing] = useState(null);
   const [sortField, setSortField] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
@@ -354,6 +366,13 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
   function isAdminRole(classification) {
     const role = roles.find(r => r.name === classification);
     return role ? role.tier !== 'user' : classification === 'admin' || classification === 'superadmin';
+  }
+
+  function canEditWorker(w) {
+    if (!currentUserLevel) return true;
+    const workerRole = roles.find(r => r.name === w.classification);
+    const workerLevel = workerRole?.level ?? 999;
+    return currentUserLevel < workerLevel;
   }
 
   function handleSort(field) {
@@ -396,6 +415,7 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
       config={config}
       isSuperAdmin={isSuperAdmin}
       roles={roles}
+      canEdit={canEditWorker(viewing)}
     />
   );
 
@@ -411,8 +431,10 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
                   {w.title} {w.family_name} {w.first_name}
                 </span>
                 <span className="worker-card-id">{w.id_number || '—'}</span>
-                {w.phone && <span className="worker-card-id">{w.phone}</span>}
-                {w.email && <span className="worker-card-id">{w.email}</span>}
+                {w.phone && <a href={waLink(w.phone)} target="_blank" rel="noreferrer" className={styles.waLink}>{w.phone}</a>}
+                {w.email && (
+                  <a href={`mailto:${w.email}`}>{w.email}</a>
+                )}
                 <span className="worker-card-badges">
                   {w.is_active === false && <span className="badge badge-inactive">לא פעיל</span>}
                   {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
@@ -424,8 +446,8 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
                 <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
                 {(isSuperAdmin || w.is_primary_branch !== false) && (
                   <>
-                    <button onClick={() => onEditAuth(w)} className="btn-auth" title="הרשאות">🔑</button>
-                    <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
+                    {canEditWorker(w) && <button onClick={() => onEditAuth(w)} className="btn-auth" title="הרשאות">🔑</button>}
+                    {canEditWorker(w) && <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>}
                     <button onClick={() => {
                       if (window.confirm(`לאפס סיסמא של ${w.family_name} ${w.first_name}?`)) {
                         onResetPassword(w.id);
@@ -462,22 +484,30 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
             {sorted.map(w => (
               <tr key={w.id} className={w.is_active === false ? 'worker-row-inactive' : ''}>
                 <td>{w.title}</td>
-                <td>
+                <td
+                  onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
+                  title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
+                  style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
+                >
                   <strong>{w.family_name}</strong>
                   {w.is_active === false && <span className={`badge badge-inactive ${styles.badgeMargin}`}>לא פעיל</span>}
                   {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
                     <span className={`badge badge-normal ${styles.borrowedBadge}`} title={`סניף ראשי: ${w.primary_branch_name}`}>מושאל</span>
                   )}
                 </td>
-                <td><strong>{w.first_name}</strong></td>
-                <td>{w.phone || '—'}</td>
-                <td>{w.email || '—'}</td>
+                <td
+                  onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
+                  title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
+                  style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
+                ><strong>{w.first_name}</strong></td>
+                <td>{w.phone ? <a href={waLink(w.phone)} target="_blank" rel="noreferrer" className={styles.waLink}>{w.phone}</a> : '—'}</td>
+                <td>{w.email ? <a href={`mailto:${w.email}`}>{w.email}</a> : '—'}</td>
                 <td>
                   <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
                   {(isSuperAdmin || w.is_primary_branch !== false) && (
                     <>
-                        <button onClick={() => onEditAuth(w)} className="btn-auth" title="הרשאות">🔑</button>
-                    <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
+                      {canEditWorker(w) && <button onClick={() => onEditAuth(w)} className="btn-auth" title="הרשאות">🔑</button>}
+                      {canEditWorker(w) && <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>}
                       <button onClick={() => {
                         if (window.confirm(`לאפס סיסמא של ${w.family_name} ${w.first_name}?`)) {
                           onResetPassword(w.id);
@@ -519,7 +549,11 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
           {sorted.map(w => (
             <tr key={w.id} className={w.is_active === false ? 'worker-row-inactive' : ''}>
               <td>{w.title}</td>
-              <td>
+              <td
+                onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
+                title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
+                style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
+              >
                 <strong>{w.family_name}</strong>
                 {w.is_active === false && <span className={`badge badge-inactive ${styles.badgeMargin}`}>לא פעיל</span>}
                 {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
@@ -531,8 +565,16 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
                   </span>
                 )}
               </td>
-              <td><strong>{w.first_name}</strong></td>
-              <td>{w.id_number || '—'}</td>
+              <td
+                onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
+                title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
+                style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
+              ><strong>{w.first_name}</strong></td>
+              <td
+                onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
+                title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
+                style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
+              >{w.id_number || '—'}</td>
               <td>
                 <span className={`badge ${isAdminRole(w.classification) ? 'badge-admin' : 'badge-normal'}`}>
                   {getRoleLabel(w.classification)}
@@ -544,14 +586,14 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
                   {w.employment_type}
                 </span>
               </td>
-              <td>{w.phone || '—'}</td>
-              <td>{w.email || '—'}</td>
+              <td>{w.phone ? <a href={waLink(w.phone)} target="_blank" rel="noreferrer" className={styles.waLink}>{w.phone}</a> : '—'}</td>
+              <td>{w.email ? <a href={`mailto:${w.email}`}>{w.email}</a> : '—'}</td>
               <td>
                 <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
                 {(isSuperAdmin || w.is_primary_branch !== false) && (
                   <>
-                    <button onClick={() => onEditAuth(w)} className="btn-auth" title="הרשאות">🔑</button>
-                    <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>
+                    {canEditWorker(w) && <button onClick={() => onEditAuth(w)} className="btn-auth" title="הרשאות">🔑</button>}
+                    {canEditWorker(w) && <button onClick={() => onEdit(w)} className="btn-edit" title="עריכה">✏️</button>}
                     <button onClick={() => {
                       if (window.confirm(`לאפס סיסמא של ${w.family_name} ${w.first_name}?`)) {
                         onResetPassword(w.id);

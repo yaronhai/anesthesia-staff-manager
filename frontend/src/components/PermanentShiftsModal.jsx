@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from '../styles/PermanentShiftsModal.module.scss';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const PREF_CYCLE = [null, 'can', 'prefer', 'cannot'];
@@ -76,6 +77,8 @@ function nextSundayDate() {
 }
 
 export default function PermanentShiftsModal({ token, config, isAdmin, workers, onClose, viewDate, branchId: propBranchId }) {
+  const { modalRef, dragHandleProps, modalStyle, dragged, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   const shifts = config.shift_types || [];
   const prefs = config.preference_types || [];
 
@@ -233,11 +236,11 @@ export default function PermanentShiftsModal({ token, config, isAdmin, workers, 
   }
 
   return (
-    <div className={styles.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className={styles.modal}>
-        <div className={styles.header}>
+    <div className={`${styles.overlay}${dragged ? ' form-overlay--transparent' : ''}`} onClick={e => e.target === e.currentTarget && close()}>
+      <div className={styles.modal} ref={modalRef} style={modalStyle}>
+        <div className={styles.header} {...dragHandleProps}>
           <h3 className={styles.title}>משמרות קבועות</h3>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
+          <button className={styles.closeBtn} onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
         </div>
 
         {isAdmin && (

@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/Messaging.module.scss';
 
 const GENERAL_CHAT_ID = 'general';
+const ADMIN_CHAT_ID = 'admin-chat';
 const ALLOWED_EXTS = /\.(jpe?g|png|gif|webp|mp4|webm|mov|pdf|docx?|xlsx?|txt)$/i;
 
-export default function Messaging({ authToken, currentUser, workers, branchId }) {
+export default function Messaging({ authToken, currentUser, workers, branchId, initialUserId, onInitialUserConsumed }) {
   const [conversations, setConversations] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -24,6 +25,8 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   const checkLandscape = () => window.innerWidth < 900 && window.innerHeight < 500;
   const [isMobile, setIsMobile] = useState(checkMobile);
   const [isLandscape, setIsLandscape] = useState(checkLandscape);
+  const [isAdminChatMember, setIsAdminChatMember] = useState(false);
+  const [adminGroupMessages, setAdminGroupMessages] = useState([]);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -87,6 +90,24 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     }
   }
 
+  async function fetchAdminGroupMessages() {
+    try {
+      const res = await fetch('/api/admin-chat/group', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) setAdminGroupMessages(await res.json());
+    } catch {}
+  }
+
+  async function fetchIsAdminChatMember() {
+    try {
+      const res = await fetch('/api/admin-chat/is-member', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) { const d = await res.json(); setIsAdminChatMember(d.isMember); }
+    } catch {}
+  }
+
   async function handleFileSelect(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -133,14 +154,17 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     setDraftLinkPreview(null);
     setDraftLinkDismissed(false);
     setLoading(true);
+    const isAdminChat = selectedUserId === ADMIN_CHAT_ID;
+    const url = isAdminChat ? '/api/admin-chat/group' : `/api/messages/group?branch_id=${branchId}`;
     try {
-      const res = await fetch(`/api/messages/group?branch_id=${branchId}`, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ content, ...(attachment || {}) }),
       });
       if (res.ok) {
-        await fetchGroupMessages();
+        if (isAdminChat) await fetchAdminGroupMessages();
+        else await fetchGroupMessages();
       } else {
         setDraft(content);
         setPendingAttachment(attachment);
@@ -279,6 +303,9 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
     const sidurIdx = sorted.findIndex(c => c.display_name === 'סידור עבודה');
     if (sidurIdx >= 0) sorted.splice(sidurIdx + 1, 0, generalEntry);
     else sorted.unshift(generalEntry);
+    if (isAdminChatMember) {
+      sorted.unshift({ id: ADMIN_CHAT_ID, display_name: 'צ\'ט מנהלים', isAdminChat: true });
+    }
     return sorted;
   })();
 
@@ -289,16 +316,38 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
   }, [mergedContacts.length, isWorker, selectedUserId, isMobile]);
 
   useEffect(() => {
+    if (initialUserId) {
+      setSelectedUserId(initialUserId);
+      onInitialUserConsumed?.();
+    }
+  }, [initialUserId]);
+
+  useEffect(() => {
     fetchConversations();
     fetchContacts();
     fetchGroupMessages();
+    fetchIsAdminChatMember();
     const interval = setInterval(fetchConversations, 3000);
     const groupInterval = setInterval(fetchGroupMessages, 3000);
-    return () => { clearInterval(interval); clearInterval(groupInterval); };
+    const memberInterval = setInterval(fetchIsAdminChatMember, 15000);
+    return () => { clearInterval(interval); clearInterval(groupInterval); clearInterval(memberInterval); };
   }, [authToken]);
 
   useEffect(() => {
-    if (selectedUserId && selectedUserId !== GENERAL_CHAT_ID) {
+    if (!isAdminChatMember && selectedUserId === ADMIN_CHAT_ID) {
+      setSelectedUserId(null);
+    }
+  }, [isAdminChatMember]);
+
+  useEffect(() => {
+    if (!isAdminChatMember) return;
+    fetchAdminGroupMessages();
+    const interval = setInterval(fetchAdminGroupMessages, 3000);
+    return () => clearInterval(interval);
+  }, [isAdminChatMember, authToken]);
+
+  useEffect(() => {
+    if (selectedUserId && selectedUserId !== GENERAL_CHAT_ID && selectedUserId !== ADMIN_CHAT_ID) {
       fetchMessages(selectedUserId);
       const interval = setInterval(() => fetchMessages(selectedUserId), 3000);
       return () => clearInterval(interval);
@@ -371,6 +420,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
           const conversation = conversations.find(c => c.partner_id === contact.id);
           const isSidur = contact.display_name === 'סידור עבודה';
           const isGeneralChat = contact.isGeneralChat === true;
+          const isAdminChatContact = contact.isAdminChat === true;
           const isSelected = selectedUserId === contact.id;
           return (
             <button
@@ -379,7 +429,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
               onClick={() => setSelectedUserId(contact.id)}
               style={{
                 '--contact-bg': isSelected ? '#1e40af' : 'white',
-                '--contact-color': isSelected ? 'white' : isGeneralChat ? '#065f46' : isSidur ? '#7f1d1d' : '#1e40af',
+                '--contact-color': isSelected ? 'white' : isAdminChatContact ? '#7c3aed' : isGeneralChat ? '#065f46' : isSidur ? '#7f1d1d' : '#1e40af',
                 '--contact-btn-padding': isMobile ? '0.6rem 0.75rem' : isLandscape ? '0.2rem 0.3rem' : '0.3rem 0.4rem',
                 '--contact-font': isMobile ? '0.9rem' : isLandscape ? '0.65rem' : '0.7rem',
               }}
@@ -423,6 +473,8 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                 )}
                 {selectedUserId === GENERAL_CHAT_ID
                   ? 'צ\'ט כללי'
+                  : selectedUserId === ADMIN_CHAT_ID
+                  ? 'צ\'ט מנהלים'
                   : selectedConversation?.partner_name || (() => {
                       const worker = workers.find(w => w.user_id === selectedUserId);
                       return worker ? `${worker.first_name} ${worker.family_name}` : selectedConversation?.partner_username || 'שיחה';
@@ -435,7 +487,43 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
               </div>
 
               <div className={styles.messagesList}>
-                {selectedUserId === GENERAL_CHAT_ID ? (
+                {selectedUserId === ADMIN_CHAT_ID ? (
+                  adminGroupMessages.length === 0 ? (
+                    <p className={styles.messagesEmpty}>אין הודעות עדיין</p>
+                  ) : (() => {
+                    const items = [];
+                    let lastDate = null;
+                    adminGroupMessages.forEach(msg => {
+                      const date = new Date(msg.created_at);
+                      const dateKey = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+                      if (dateKey !== lastDate) {
+                        lastDate = dateKey;
+                        items.push(
+                          <div key={`date-${dateKey}`} className={styles.dateDivider}>
+                            <div className={styles.dateLine} />
+                            <span className={styles.dateLabel}>{dateKey}</span>
+                            <div className={styles.dateLine} />
+                          </div>
+                        );
+                      }
+                      const isOwn = msg.sender_id === currentUser.id;
+                      const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                      items.push(
+                        <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
+                          <div
+                            className={styles.msgBubble}
+                            style={{ '--bubble-bg': isOwn ? '#e0f2fe' : '#fef9c3', '--bubble-font': '0.7rem', '--bubble-weight': 'normal' }}
+                          >
+                            <span className={styles.msgSenderName}>{isOwn ? 'אני' : msg.sender_name}</span>
+                            <span className={styles.msgTime}>{timeStr}</span>
+                            {msg.content && <span className={styles.msgContent}>{msg.content}</span>}
+                          </div>
+                        </div>
+                      );
+                    });
+                    return items;
+                  })()
+                ) : selectedUserId === GENERAL_CHAT_ID ? (
                   groupMessages.length === 0 ? (
                     <p className={styles.messagesEmpty}>אין הודעות עדיין</p>
                   ) : (() => {
@@ -563,7 +651,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId })
                 </div>
               )}
 
-              <form className={styles.inputForm} onSubmit={selectedUserId === GENERAL_CHAT_ID ? sendGroupMessage : sendMessage}>
+              <form className={styles.inputForm} onSubmit={selectedUserId === GENERAL_CHAT_ID || selectedUserId === ADMIN_CHAT_ID ? sendGroupMessage : sendMessage}>
                 <input
                   type="file"
                   ref={fileInputRef}

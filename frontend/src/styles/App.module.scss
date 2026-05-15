@@ -402,6 +402,8 @@
   .reportBtn { margin-right: 0; }
   .addWorkerBtn { font-size: 1rem; padding: 0.25rem 0.45rem; flex-shrink: 0; }
   .workerCount { order: 99; width: 100%; margin-right: 0; padding: 0.2rem 0.4rem 0; border-top: 1px solid #e2e8f0; }
+  .headerTitleCol { display: none; }
+  .headerUserInfo { max-width: 120px; overflow-wrap: break-word; word-break: break-word; }
 }
 
 /* ── Phone landscape ── */

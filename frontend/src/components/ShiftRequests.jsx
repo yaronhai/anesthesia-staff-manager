@@ -1,11 +1,13 @@
 ﻿import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import styles from '../styles/ShiftRequests.module.scss';
 import PermanentShiftsModal from './PermanentShiftsModal';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
                 'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 const WEEK_HEADERS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const DAYS_HE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+const SHIFT_ICONS = { morning: '☀️', evening: '🌙', oncall: '📞', night: '⭐' };
 
 function toDateStr(year, month, day) {
   return `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -81,6 +83,8 @@ function DayCell({ day, dateStr, dayRequests, isToday, onClick, dayOfWeek, shift
 
 // ── Day editor modal ─────────────────────────────────────────────────────────
 function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, prefs, branchId, permanentDayEntries, isLocked, restrictedShiftKeys = new Set() }) {
+  const { modalRef, dragHandleProps, modalStyle, dragged, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   const dow = DAYS_HE[new Date(dateStr).getDay()];
   const [d, m, y] = [
     parseInt(dateStr.split('-')[2]),
@@ -119,61 +123,58 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
   }
 
   return (
-    <div className="day-editor-backdrop">
-      <div className="day-editor">
-        <div className="day-editor-header">
-          <h3>יום {dow}, {String(d).padStart(2,'0')}/{String(m).padStart(2,'0')}/{y}{isLocked ? ' 🔒' : ''}</h3>
-          <button className="btn-close" onClick={onClose}>✕</button>
-        </div>
-        {isLocked && (
-          <div className="vacation-conflict-msg">הסידור לתקופה זו נעול — לא ניתן לערוך בקשות.</div>
-        )}
+    <div className={`day-editor-backdrop${dragged ? ' day-editor-backdrop--transparent' : ''}`} onClick={close}>
+      <div className="day-editor" ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
 
-        <table className="pref-table">
-          <thead>
-            <tr>
-              <th></th>
-              {prefs.map(p => (
-                <th key={p.key}>
-                  <span className={`pref-label pref-${p.key}`}>{p.label_he}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
+        <div className="day-editor-header" {...dragHandleProps}>
+          <h3>יום {dow}, {String(d).padStart(2,'0')}/{String(m).padStart(2,'0')}/{y}{isLocked ? ' 🔒' : ''}</h3>
+          <button className="day-editor-close" onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
+        </div>
+
+        <div className="day-editor-body">
+          {isLocked && (
+            <div className="vacation-conflict-msg">הסידור לתקופה זו נעול — לא ניתן לערוך בקשות.</div>
+          )}
+
+          <div className="pref-col-headers">
+            {prefs.map(p => (
+              <span key={p.key} className={`pref-col-label pref-col-label--${p.key}`}>{p.label_he}</span>
+            ))}
+          </div>
+
+          <div className="shift-rows">
             {shifts.map(s => {
               const req = dayRequests.find(r => r.shift_type === s.key);
               const permPref = permanentDayEntries?.[s.key];
               const isRestricted = restrictedShiftKeys.has(s.key);
               return (
-                <tr key={s.key} className={isRestricted ? styles.restrictedShiftRow : ''}>
-                  <td className="pref-shift-label">
-                    {s.label_he}
-                    {isRestricted && <span className={styles.restrictedBadge}>נדרשת הרשאה</span>}
-                  </td>
-                  {prefs.map(p => {
-                    const isActive = req?.preference_type === p.key;
-                    const isGhost = !req && permPref === p.key;
-                    return (
-                      <td key={p.key} className="pref-btn-cell">
+                <div key={s.key} className={`shift-row shift-row--${s.key}${isRestricted ? ' shift-row--restricted' : ''}`}>
+                  <div className="shift-row__label">
+                    <span className="shift-row__icon">{s.icon || SHIFT_ICONS[s.key] || '🕐'}</span>
+                    <span className={`shift-row__name shift-row__name--${s.key}`}>{s.label_he}</span>
+                  </div>
+                  <div className="shift-row__prefs">
+                    {prefs.map(p => {
+                      const isActive = req?.preference_type === p.key;
+                      const isGhost = !req && permPref === p.key;
+                      return (
                         <button
+                          key={p.key}
                           className={`pref-toggle pref-${p.key}${isActive ? ' active' : ''}${isGhost ? ` ${styles.ghostToggle}` : ''}`}
                           onClick={() => !isRestricted && setPref(s.key, p.key)}
                           disabled={isRestricted}
                           title={isRestricted ? `אינך מורשה/ת לבקש ${s.label_he}` : `${s.label_he} — ${p.label_he}${isGhost ? ' (ברירת מחדל)' : ''}`}
                         />
-                      </td>
-                    );
-                  })}
-                </tr>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
-          </tbody>
-        </table>
+          </div>
 
-        {error && (
-          <div className="vacation-conflict-msg">{error}</div>
-        )}
+          {error && <div className="vacation-conflict-msg">{error}</div>}
+        </div>
 
         <div className="day-editor-legend">
           {prefs.map(p => (
@@ -189,6 +190,7 @@ function DayEditor({ dateStr, dayRequests, token, onClose, onRefresh, shifts, pr
             </span>
           )}
         </div>
+
       </div>
     </div>
   );
@@ -385,6 +387,9 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   const [cellError, setCellError] = useState(null);
   const [vacationWarning, setVacationWarning] = useState(null);
   const [blockedWorkerMsg, setBlockedWorkerMsg] = useState(null);
+  const dragBlocked  = useDraggableModal();
+  const dragVacation = useDraggableModal();
+  const dragEditor   = useDraggableModal();
   const bodyWrapRef = useRef(null);
   const headerWrapRef = useRef(null);
 
@@ -696,11 +701,11 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
       </div>
 
       {blockedWorkerMsg && (
-        <div className="admin-editor-overlay" onClick={() => setBlockedWorkerMsg(null)}>
-          <div className={`admin-editor-modal ${styles.alertModalCenter}`} onClick={e => e.stopPropagation()}>
-            <div className="admin-editor-header">
+        <div className={`admin-editor-overlay${dragBlocked.dragged ? ' admin-editor-overlay--transparent' : ''}`} onClick={() => { setBlockedWorkerMsg(null); dragBlocked.reset(); }}>
+          <div className={`admin-editor-modal ${styles.alertModalCenter}`} ref={dragBlocked.modalRef} style={dragBlocked.modalStyle} onClick={e => e.stopPropagation()}>
+            <div className="admin-editor-header" {...dragBlocked.dragHandleProps}>
               <h3>עובד חסום</h3>
-              <button className="btn-close" onClick={() => setBlockedWorkerMsg(null)}>✕</button>
+              <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setBlockedWorkerMsg(null); dragBlocked.reset(); }}>✕</button>
             </div>
             <div className={styles.alertPadIcon}>⛔</div>
             <div className={styles.alertRedText}>{blockedWorkerMsg} אינו/ה מורשה/ת להגיש בקשות משמרת.</div>
@@ -712,11 +717,11 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
       )}
 
       {vacationWarning && (
-        <div className="admin-editor-overlay" onClick={() => setVacationWarning(null)}>
-          <div className={`admin-editor-modal ${styles.alertModalCenter}`} onClick={e => e.stopPropagation()}>
-            <div className="admin-editor-header">
+        <div className={`admin-editor-overlay${dragVacation.dragged ? ' admin-editor-overlay--transparent' : ''}`} onClick={() => { setVacationWarning(null); dragVacation.reset(); }}>
+          <div className={`admin-editor-modal ${styles.alertModalCenter}`} ref={dragVacation.modalRef} style={dragVacation.modalStyle} onClick={e => e.stopPropagation()}>
+            <div className="admin-editor-header" {...dragVacation.dragHandleProps}>
               <h3>חופש מאושר</h3>
-              <button className="btn-close" onClick={() => setVacationWarning(null)}>✕</button>
+              <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setVacationWarning(null); dragVacation.reset(); }}>✕</button>
             </div>
             <div className={styles.alertGrayText}>{vacationWarning.message}</div>
             <div className={styles.alertRow}>
@@ -728,11 +733,11 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
       )}
 
       {editingCell && (
-        <div className="admin-editor-overlay" onClick={() => setEditingCell(null)}>
-          <div className="admin-editor-modal" onClick={e => e.stopPropagation()}>
-            <div className="admin-editor-header">
-              <h3>עריכה: {rows.find(r => r.userId === editingCell.userId)?.name} - יום {editingCell.day}</h3>
-              <button className="btn-close" onClick={() => setEditingCell(null)}>✕</button>
+        <div className={`admin-editor-overlay${dragEditor.dragged ? ' admin-editor-overlay--transparent' : ''}`} onClick={() => { setEditingCell(null); dragEditor.reset(); }}>
+          <div className="admin-editor-modal" ref={dragEditor.modalRef} style={dragEditor.modalStyle} onClick={e => e.stopPropagation()}>
+            <div className="admin-editor-header" {...dragEditor.dragHandleProps}>
+              <h3>עריכה: {rows.find(r => r.userId === editingCell.userId)?.name} — {String(editingCell.day).padStart(2,'0')}/{String(month+1).padStart(2,'0')}/{year}</h3>
+              <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setEditingCell(null); dragEditor.reset(); }}>✕</button>
             </div>
             <div className="admin-editor-content">
               {(() => {
@@ -761,8 +766,11 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               {shifts.map(s => {
                 const dayData = requestMap[editingCell.userId]?.[editingCell.day] || {};
                 return (
-                  <div key={s.key} className="editor-shift-row-large">
-                    <span className="editor-shift-label-large">{s.label_he}</span>
+                  <div key={s.key} className={`editor-shift-row-large shift-row--${s.key}`}>
+                    <span className="editor-shift-label-large">
+                      <span className="shift-row__icon">{SHIFT_ICONS[s.key] || '🕐'}</span>
+                      <span className={`shift-row__name--${s.key}`}>{s.label_he}</span>
+                    </span>
                     <div className="editor-pref-buttons">
                       {prefs.map(p => {
                         const isActive = dayData[s.key]?.pref === p.key;

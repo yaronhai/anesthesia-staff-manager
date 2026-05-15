@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useDraggableModal } from './hooks/useDraggableModal';
 const UPLOADS_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
 
 function urlBase64ToUint8Array(base64String) {
@@ -24,6 +25,7 @@ import EventsManagement from './components/EventsManagement';
 import MonthlyReport from './components/MonthlyReport';
 import UserProfile from './components/UserProfile';
 import ProfileChangeRequests from './components/ProfileChangeRequests';
+import ManagersChat from './components/ManagersChat';
 import logoAssuta from './assets/logo-assuta.png';
 import './styles/App.scss';
 import appStyles from './styles/App.module.scss';
@@ -55,8 +57,10 @@ export default function App() {
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [messagingInitialUserId, setMessagingInitialUserId] = useState(null);
   const [roles, setRoles] = useState([]);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const { modalRef: changePwRef, dragHandleProps: changePwDrag, modalStyle: changePwStyle, dragged: changePwDragged, reset: changePwReset } = useDraggableModal();
   const [showProfile, setShowProfile] = useState(false);
   const [pendingProfileCount, setPendingProfileCount] = useState(0);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
@@ -711,11 +715,14 @@ export default function App() {
       </header>
 
       {showChangePassword && (
-        <div className="modal-overlay">
+        <div className={`modal-overlay${changePwDragged ? ' modal-overlay--transparent' : ''}`} onClick={() => { setShowChangePassword(false); changePwReset(); }}>
           <ChangePasswordModal
             token={authToken}
-            onSuccess={() => setShowChangePassword(false)}
-            onClose={() => setShowChangePassword(false)}
+            onSuccess={() => { setShowChangePassword(false); changePwReset(); }}
+            onClose={() => { setShowChangePassword(false); changePwReset(); }}
+            modalRef={changePwRef}
+            modalStyle={changePwStyle}
+            dragHandleProps={changePwDrag}
           />
         </div>
       )}
@@ -845,6 +852,7 @@ export default function App() {
             isSuperAdmin={isSuperAdmin}
             currentBranchId={selectedBranchId}
             roles={roles}
+            onOpenMessage={userId => { setMessagingInitialUserId(userId); setActiveTab('messages'); }}
           />
         </>
       )}
@@ -893,7 +901,14 @@ export default function App() {
       )}
 
       {activeTab === 'messages' && selectedBranchId && (
-        <Messaging authToken={authToken} currentUser={currentUser} workers={workers} branchId={selectedBranchId} />
+        <Messaging
+          authToken={authToken}
+          currentUser={currentUser}
+          workers={workers}
+          branchId={selectedBranchId}
+          initialUserId={messagingInitialUserId}
+          onInitialUserConsumed={() => setMessagingInitialUserId(null)}
+        />
       )}
 
       {activeTab === 'report' && isAdmin && selectedBranchId && (
@@ -943,6 +958,13 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {isSuperAdmin && !selectedBranchId && (
+        <ManagersChat
+          authToken={authToken}
+          currentUser={currentUser}
+        />
       )}
     </div>
   );

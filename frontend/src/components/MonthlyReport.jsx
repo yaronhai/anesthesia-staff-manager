@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
 import styles from '../styles/MonthlyReport.module.scss';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
 const WEEK_HEADERS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
@@ -28,6 +29,7 @@ export default function MonthlyReport({ token, config, isAdmin, branchId }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [requests, setRequests] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
+  const { modalRef: dayRef, dragHandleProps: dayDrag, modalStyle: dayStyle, dragged: dayDragged, reset: dayReset } = useDraggableModal();
   const [fulfillmentStats, setFulfillmentStats] = useState([]);
 
   const month = viewDate.getMonth();
@@ -256,11 +258,11 @@ export default function MonthlyReport({ token, config, isAdmin, branchId }) {
         const dayName = WEEK_HEADERS[new Date(y, m - 1, d).getDay()];
 
         return (
-          <div className="daily-report-overlay" onClick={() => setSelectedDay(null)}>
-            <div className="daily-report-modal" onClick={e => e.stopPropagation()}>
-              <div className="daily-report-header">
+          <div className={`daily-report-overlay${dayDragged ? ' daily-report-overlay--transparent' : ''}`} onClick={() => { setSelectedDay(null); dayReset(); }}>
+            <div className="daily-report-modal" ref={dayRef} style={dayStyle} onClick={e => e.stopPropagation()}>
+              <div className="daily-report-header" {...dayDrag}>
                 <h3>{dayName}, {String(d).padStart(2, '0')}/{String(m).padStart(2, '0')}/{y}</h3>
-                <button className="btn-close" onClick={() => setSelectedDay(null)}>✕</button>
+                <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setSelectedDay(null); dayReset(); }}>✕</button>
               </div>
 
               <div className="daily-report-content">

@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
 import styles from '../styles/VacationRequests.module.scss';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
@@ -71,6 +72,8 @@ function sortRows(rows, { key, dir }) {
 }
 
 function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
+  const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
@@ -137,11 +140,11 @@ function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
   };
 
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className="worker-form" onClick={(e) => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
+    <div className={overlayClass} onClick={close}>
+      <div className="worker-form" ref={modalRef} style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalHeader} {...dragHandleProps}>
           <h3 className={styles.modalHeading}>{isAdmin ? 'הגשת בקשת חופשה עבור עובד' : 'הגשת בקשת חופשה'}</h3>
-          <button onClick={onClose} className={styles.modalCloseBtn}>✕</button>
+          <button onMouseDown={e => e.stopPropagation()} onClick={close} className={styles.modalCloseBtn}>✕</button>
         </div>
         <form onSubmit={handleSubmit}>
           {isAdmin && (
@@ -237,6 +240,8 @@ function NewRequestModal({ onClose, onSuccess, token, isAdmin }) {
 }
 
 function AdminDecisionModal({ request, onClose, onSuccess, token }) {
+  const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   const [decision, setDecision] = useState('');
   const [approvedStart, setApprovedStart] = useState(formatDateHe(request.start_date));
   const [approvedEnd, setApprovedEnd] = useState(formatDateHe(request.end_date));
@@ -290,11 +295,11 @@ function AdminDecisionModal({ request, onClose, onSuccess, token }) {
   };
 
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className={`worker-form ${styles.maxWidth500}`} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
+    <div className={overlayClass} onClick={close}>
+      <div className={`worker-form ${styles.maxWidth500}`} ref={modalRef} style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalHeader} {...dragHandleProps}>
           <h3 className={styles.modalHeading}>{request.status === 'pending' ? 'קבלת החלטה על בקשה' : 'עריכת החלטה'}</h3>
-          <button onClick={onClose} className={styles.modalCloseBtn}>✕</button>
+          <button onMouseDown={e => e.stopPropagation()} onClick={close} className={styles.modalCloseBtn}>✕</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className={styles.fieldGroup}>

@@ -227,6 +227,20 @@ function requireSuperAdmin(req, res, next) {
   });
 }
 
+function requireAdminChatAccess(req, res, next) {
+  requireAuth(req, res, async () => {
+    try {
+      const r = await query('SELECT 1 FROM admin_chat_members WHERE user_id = $1', [req.user.id]);
+      if (r.rows.length > 0) return next();
+      const tier = req.user.role_tier ?? req.user.role;
+      if (tier === 'superadmin') return next();
+      return res.status(403).json({ error: 'אין גישה לצ\'ט מנהלים' });
+    } catch (e) {
+      return res.status(500).json({ error: 'שגיאת שרת' });
+    }
+  });
+}
+
 function getEffectiveBranchId(req) {
   const tier = req.user.role_tier ?? req.user.role;
   if (tier === 'superadmin') {
@@ -1482,6 +1496,8 @@ app.get('/api/vacation-requests', requireAuth, async (req, res) => {
     } else {
       // admin always scoped to their own branch, all_branches ignored
       branchId = req.user.branch_id ?? null;
+      // admin without branch_id should not see any requests
+      if (!branchId) return res.json([]);
     }
 
     if (['admin', 'superadmin'].includes(tier)) {
@@ -2944,6 +2960,7 @@ app.get('/api/messages/attachments', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'שגיאה בטעינת קבצים' });
   }
 });
+
 
 app.delete('/api/messages/attachment/:id', requireAuth, async (req, res) => {
   try {
@@ -5306,6 +5323,144 @@ app.get('/api/profile/change-requests/pending-count', requireAdmin, async (req, 
 });
 
 // ── End Profile ───────────────────────────────────────────────────────────────
+
+// ── Admin Chat ────────────────────────────────────────────────────────────────
+
+app.get('/api/admin-chat/members', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT u.id AS user_id, u.username, u.role, u.worker_id,
+              w.family_name, w.first_name
+       FROM admin_chat_members acm
+       JOIN users u ON acm.user_id = u.id
+       LEFT JOIN workers w ON u.worker_id = w.id
+       ORDER BY w.family_name NULLS LAST, w.first_name NULLS LAST`
+    );
+    res.json(result.rows);
+  } catch (e) {
+    console.error('Admin chat members error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת חברי הצ\'ט' });
+  }
+});
+
+app.post('/api/admin-chat/members', requireSuperAdmin, async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ error: 'user_id נדרש' });
+    await query(
+      `INSERT INTO admin_chat_members (user_id, added_by) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
+      [user_id, req.user.id]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Add admin chat member error:', e);
+    res.status(500).json({ error: 'שגיאה בהוספת חבר' });
+  }
+});
+
+app.delete('/api/admin-chat/members/:userId', requireSuperAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    await query(`DELETE FROM admin_chat_members WHERE user_id = $1`, [userId]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Remove admin chat member error:', e);
+    res.status(500).json({ error: 'שגיאה בהסרת חבר' });
+  }
+});
+
+app.get('/api/admin-chat/search-users', requireAdmin, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.json([]);
+    const result = await query(
+      `SELECT u.id AS user_id, u.username, u.role,
+              w.family_name, w.first_name
+       FROM users u
+       LEFT JOIN workers w ON u.worker_id = w.id
+       WHERE u.id <> $1
+         AND (
+           w.family_name ILIKE $2 OR w.first_name ILIKE $2
+           OR (w.family_name || ' ' || w.first_name) ILIKE $2
+           OR (w.first_name || ' ' || w.family_name) ILIKE $2
+           OR u.username ILIKE $2
+         )
+       ORDER BY w.family_name NULLS LAST, w.first_name NULLS LAST
+       LIMIT 10`,
+      [req.user.id, `%${q}%`]
+    );
+    res.json(result.rows);
+  } catch (e) {
+    console.error('Search users error:', e);
+    res.status(500).json({ error: 'שגיאה בחיפוש' });
+  }
+});
+
+app.get('/api/admin-chat/is-member', requireAuth, async (req, res) => {
+  try {
+    const r = await query('SELECT 1 FROM admin_chat_members WHERE user_id = $1', [req.user.id]);
+    res.json({ isMember: r.rows.length > 0 });
+  } catch (e) {
+    res.json({ isMember: false });
+  }
+});
+
+app.get('/api/admin-chat/group', requireAdminChatAccess, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT agm.id, agm.sender_id, agm.content, agm.created_at,
+              agm.file_url, agm.file_name, agm.file_type, agm.file_size,
+              agm.link_url, agm.link_title, agm.link_image, agm.link_description,
+              TO_CHAR(agm.created_at AT TIME ZONE 'Asia/Jerusalem', 'HH24:MI') AS time_display,
+              CASE WHEN w.id IS NOT NULL THEN w.family_name || ' ' || w.first_name ELSE u.username END AS sender_name
+       FROM admin_group_messages agm
+       JOIN users u ON agm.sender_id = u.id
+       LEFT JOIN workers w ON u.worker_id = w.id
+       ORDER BY agm.created_at ASC
+       LIMIT 200`
+    );
+    res.json(result.rows);
+  } catch (e) {
+    console.error('Get admin group messages error:', e);
+    res.status(500).json({ error: 'שגיאה בטעינת הצ\'ט' });
+  }
+});
+
+app.post('/api/admin-chat/group', requireAdminChatAccess, async (req, res) => {
+  try {
+    const { content, file_url, file_name, file_type, file_size, link_url, link_title, link_image, link_description } = req.body;
+    const trimmedContent = content?.trim() || '';
+    if (!trimmedContent && !file_url && !link_url) return res.status(400).json({ error: 'הודעה נדרשת' });
+    const result = await query(
+      `INSERT INTO admin_group_messages
+         (sender_id, content, file_url, file_name, file_type, file_size, link_url, link_title, link_image, link_description)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [req.user.id, trimmedContent, file_url || null, file_name || null, file_type || null, file_size || null,
+       link_url || null, link_title || null, link_image || null, link_description || null]
+    );
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error('Send admin group message error:', e);
+    res.status(500).json({ error: 'שגיאה בשליחת הודעה' });
+  }
+});
+
+app.get('/api/admin-chat/unread', requireAdminChatAccess, async (req, res) => {
+  try {
+    const lastSeen = req.query.last_seen;
+    if (!lastSeen) return res.json({ count: 0 });
+    const result = await query(
+      `SELECT COUNT(*) AS count FROM admin_group_messages
+       WHERE created_at > $1 AND sender_id <> $2`,
+      [lastSeen, req.user.id]
+    );
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (e) {
+    res.json({ count: 0 });
+  }
+});
+
+// ── End Admin Chat ─────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 5001;
 

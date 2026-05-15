@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import styles from '../styles/ProfileChangeRequests.module.scss';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 const STATUS_LABEL = {
   pending:  { label: 'ממתין',  color: '#d97706' },
@@ -28,6 +29,7 @@ function FieldDiff({ label, current, requested }) {
 }
 
 export default function ProfileChangeRequests({ authToken, onDecision }) {
+  const { modalRef, dragHandleProps, modalStyle, dragged, reset } = useDraggableModal();
   const [requests, setRequests]  = useState([]);
   const [filter, setFilter]      = useState('pending');
   const [decisionModal, setModal] = useState(null);
@@ -135,11 +137,11 @@ export default function ProfileChangeRequests({ authToken, onDecision }) {
       )}
 
       {decisionModal && (
-        <div className={styles.overlay} onClick={e => e.target === e.currentTarget && setModal(null)}>
-          <div className={styles.decisionModal}>
-            <div className={styles.decisionHeader}>
+        <div className={`${styles.overlay}${dragged ? ' form-overlay--transparent' : ''}`} onClick={e => e.target === e.currentTarget && (setModal(null), reset())}>
+          <div className={styles.decisionModal} ref={modalRef} style={modalStyle}>
+            <div className={styles.decisionHeader} {...dragHandleProps}>
               <h4 style={{ margin: 0 }}>החלטה עבור {decisionModal.current_first_name} {decisionModal.current_family_name}</h4>
-              <button className={styles.closeBtn} onClick={() => setModal(null)}>✕</button>
+              <button className={styles.closeBtn} onMouseDown={e => e.stopPropagation()} onClick={() => { setModal(null); reset(); }}>✕</button>
             </div>
             {error && <div className={styles.errorMsg}>{error}</div>}
             <label className={styles.notesLabel}>הערת מנהל (אופציונלי)</label>
