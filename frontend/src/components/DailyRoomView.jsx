@@ -1,27 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useDraggableModal } from '../hooks/useDraggableModal';
-
-function Tip({ text, children }) {
-  const [rect, setRect] = useState(null);
-  return (
-    <span style={{ display: 'inline-flex' }}
-      onMouseEnter={e => setRect(e.currentTarget.getBoundingClientRect())}
-      onMouseLeave={() => setRect(null)}>
-      {children}
-      {rect && createPortal(
-        <span style={{
-          position: 'fixed', left: rect.left + rect.width / 2, top: rect.bottom + 6,
-          transform: 'translateX(-50%)', background: '#1e293b', color: '#f8fafc',
-          fontSize: '0.73rem', fontWeight: 500, padding: '0.28rem 0.6rem',
-          borderRadius: '6px', whiteSpace: 'nowrap', zIndex: 99999,
-          pointerEvents: 'none', direction: 'rtl', boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-        }}>{text}</span>,
-        document.body
-      )}
-    </span>
-  );
-}
 
 const GROUP_PALETTE = ['#7c3aed', '#0369a1', '#0e7490', '#b45309', '#15803d', '#be185d', '#6d28d9', '#b45309'];
 const PALETTE_BG    = ['#f5f3ff', '#eff6ff', '#f0fdfa', '#fffbeb', '#f0fdf4', '#fdf2f8', '#f5f3ff', '#fffbeb'];
@@ -1562,39 +1540,37 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           </div>
         )}
         {!isMobile && (
-          <Tip text={`סה"כ: ${totalFilled} שיבוצים מאויישים מתוך ${totalSlots}`}>
-            <span style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-              {totalFilled}/{totalSlots}
-            </span>
-          </Tip>
+          <span title={`סה"כ: ${totalFilled} שיבוצים מאויישים מתוך ${totalSlots}`} style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+            {totalFilled}/{totalSlots}
+          </span>
         )}
-        <Tip text={totalMissing === 0 ? 'כל השיבוצים מאוישים' : `${totalMissing} שיבוצים חסרים מתוך ${totalSlots} סה"כ`}>
-          <span style={{
+        <span
+          title={totalMissing === 0 ? 'כל השיבוצים מאוישים' : `${totalMissing} שיבוצים חסרים מתוך ${totalSlots} סה"כ`}
+          style={{
             padding: isMobile ? '0.1rem 0.3rem' : '0.1rem 0.4rem', borderRadius: '10px',
             fontSize: isMobile ? '0.68rem' : '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
             background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
             color:      totalMissing === 0 ? '#166534' : '#991b1b',
           }}>
-            {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
-          </span>
-        </Tip>
+          {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
+        </span>
         {shiftStats.map(s => {
           const chipBg     = s.missing === 0 ? '#dcfce7' : s.filled === 0 ? '#fef2f2' : '#fef9e7';
           const chipColor  = s.missing === 0 ? '#166534' : s.filled === 0 ? '#991b1b' : '#92400e';
           const chipBorder = s.missing === 0 ? '#86efac' : s.filled === 0 ? '#fca5a5' : '#fde68a';
           return (
-            <Tip key={s.key} text={`${s.label}: ${s.filled} מאויש מתוך ${s.total}${s.missing > 0 ? ` — ${s.missing} חסרים` : ' — מלא'}`}>
-              <div style={{
+            <div key={s.key}
+              title={`${s.label}: ${s.filled} מאויש מתוך ${s.total}${s.missing > 0 ? ` — ${s.missing} חסרים` : ' — מלא'}`}
+              style={{
                 display: 'flex', alignItems: 'center', gap: '0.15rem',
                 background: chipBg, border: `1px solid ${chipBorder}`,
                 borderRadius: '6px', padding: isMobile ? '0.1rem 0.25rem' : '0.15rem 0.45rem',
                 fontSize: isMobile ? '0.65rem' : '0.78rem', fontWeight: 600, color: chipColor,
                 whiteSpace: 'nowrap',
               }}>
-                <span>{s.label}</span>
-                <span>{s.filled}/{s.total}</span>
-              </div>
-            </Tip>
+              <span>{s.label}</span>
+              <span>{s.filled}/{s.total}</span>
+            </div>
           );
         })}
       </div>
