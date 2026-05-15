@@ -4,13 +4,28 @@ import { useDraggableModal } from '../hooks/useDraggableModal';
 
 function Tip({ text, children }) {
   const [pos, setPos] = useState(null);
+  const tipRef = useRef(null);
+
+  useEffect(() => {
+    if (!tipRef.current || !pos) return;
+    const r = tipRef.current.getBoundingClientRect();
+    if (r.right > window.innerWidth - 8) {
+      tipRef.current.style.left = (window.innerWidth - 8 - r.width) + 'px';
+      tipRef.current.style.transform = 'none';
+    }
+    if (r.left < 8) {
+      tipRef.current.style.left = '8px';
+      tipRef.current.style.transform = 'none';
+    }
+  }, [pos]);
+
   return (
     <div style={{ display: 'contents' }}
-      onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setPos({ x: r.left + r.width / 2, y: r.bottom }); }}
+      onMouseEnter={e => { const r = e.currentTarget.firstElementChild.getBoundingClientRect(); setPos({ x: r.left + r.width / 2, y: r.bottom }); }}
       onMouseLeave={() => setPos(null)}>
       {children}
       {pos && createPortal(
-        <div style={{
+        <div ref={tipRef} style={{
           position: 'fixed', left: pos.x, top: pos.y + 6,
           transform: 'translateX(-50%)',
           background: '#fffde7', color: '#333', border: '1px solid #ccc',
