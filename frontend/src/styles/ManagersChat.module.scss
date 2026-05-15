@@ -14,13 +14,17 @@
   color: white;
   font-size: 1.4rem;
   border: none;
-  cursor: pointer;
+  cursor: grab;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   transition: background 0.15s;
+
+  &:active {
+    cursor: grabbing;
+  }
 
   &:hover {
     background: #1e40af;
@@ -64,6 +68,48 @@
     left: 0.5rem;
     bottom: 4rem;
   }
+}
+
+.resizeE, .resizeS, .resizeSE {
+  position: absolute;
+  z-index: 10;
+}
+
+.resizeE {
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.resizeS {
+  bottom: 0;
+  left: 5px;
+  right: 5px;
+  height: 5px;
+  cursor: ns-resize;
+}
+
+.resizeSE {
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  border-radius: 0 0 12px 0;
+}
+
+.resizeSE::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid #cbd5e1;
+  border-bottom: 2px solid #cbd5e1;
+  border-radius: 0 0 2px 0;
 }
 
 .panelHeader {
@@ -284,6 +330,39 @@
 
 .msgRow {
   display: flex;
+}
+
+.msgWrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+
+  .msgDeleteBtn {
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+
+  &:hover .msgDeleteBtn {
+    opacity: 1;
+  }
+}
+
+.msgDeleteBtn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.1rem 0.25rem;
+  line-height: 1;
+  border-radius: 4px;
+  flex-shrink: 0;
+  align-self: center;
+
+  &:hover {
+    color: #dc2626;
+    background: #fee2e2;
+  }
 }
 
 .msgRowOwn {

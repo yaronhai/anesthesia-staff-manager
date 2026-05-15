@@ -897,10 +897,17 @@ async function runMigrations() {
       INSERT INTO admin_chat_members (user_id, added_by)
       SELECT u.id, u.id
       FROM users u JOIN roles r ON r.name = u.role
-      WHERE r.tier IN ('admin','superadmin')
+      WHERE r.tier IN ('superadmin')
       ON CONFLICT (user_id) DO NOTHING
     `);
     await query(`CREATE INDEX IF NOT EXISTS idx_group_messages_channel ON group_messages(branch_id, channel, created_at DESC)`);
+    await query(`
+      DELETE FROM admin_chat_members
+      WHERE user_id IN (
+        SELECT u.id FROM users u JOIN roles r ON r.name = u.role WHERE r.tier = 'admin'
+      )
+      AND added_by = user_id
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS admin_chat_members (

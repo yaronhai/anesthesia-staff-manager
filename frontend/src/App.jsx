@@ -65,6 +65,7 @@ export default function App() {
   const [pendingProfileCount, setPendingProfileCount] = useState(0);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [isAdminChatMember, setIsAdminChatMember] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const searchRef = useRef(null);
@@ -92,6 +93,19 @@ export default function App() {
   function authHeaders() {
     return { Authorization: `Bearer ${authToken}` };
   }
+
+  useEffect(() => {
+    if (!currentUser || !authToken || isSuperAdmin || !isAdmin) return;
+    function checkMembership() {
+      fetch('/api/admin-chat/is-member', { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : { isMember: false })
+        .then(d => setIsAdminChatMember(!!d.isMember))
+        .catch(() => {});
+    }
+    checkMembership();
+    const interval = setInterval(checkMembership, 10000);
+    return () => clearInterval(interval);
+  }, [currentUser, authToken]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -963,10 +977,11 @@ export default function App() {
         </div>
       )}
 
-      {isSuperAdmin && !selectedBranchId && (
+      {(isSuperAdmin || isAdminChatMember) && (
         <ManagersChat
           authToken={authToken}
           currentUser={currentUser}
+          canManageMembers={isSuperAdmin}
         />
       )}
     </div>

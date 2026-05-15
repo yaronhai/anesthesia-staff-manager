@@ -3,7 +3,7 @@ import styles from '../styles/ManagersChat.module.scss';
 
 const ALLOWED_EXTS = /\.(jpe?g|png|gif|webp|mp4|webm|mov|pdf|docx?|xlsx?|txt)$/i;
 
-export default function ManagersChat({ authToken, currentUser }) {
+export default function ManagersChat({ authToken, currentUser, canManageMembers = false }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('group');
   const [members, setMembers] = useState([]);
@@ -16,7 +16,14 @@ export default function ManagersChat({ authToken, currentUser }) {
   const [attachUploading, setAttachUploading] = useState(false);
   const [draftLinkPreview, setDraftLinkPreview] = useState(null);
   const [draftLinkDismissed, setDraftLinkDismissed] = useState(false);
-  const [groupLastSeen, setGroupLastSeen] = useState(null);
+  const lastSeenKey = `mgr-chat-last-seen-${currentUser?.id}`;
+  const [groupLastSeen, setGroupLastSeenState] = useState(
+    () => localStorage.getItem(`mgr-chat-last-seen-${currentUser?.id}`) || null
+  );
+  function setGroupLastSeen(ts) {
+    setGroupLastSeenState(ts);
+    if (ts) localStorage.setItem(lastSeenKey, ts);
+  }
   const [groupUnread, setGroupUnread] = useState(0);
   const [showMembersStrip, setShowMembersStrip] = useState(false);
   const [addSearch, setAddSearch] = useState('');
@@ -32,10 +39,22 @@ export default function ManagersChat({ authToken, currentUser }) {
 
   const messagesEndRef = useRef(null);
   const panelRef = useRef(null);
+  const floatBtnRef = useRef(null);
   const dragState = useRef(null);
   const fileInputRef = useRef(null);
   const linkPreviewTimerRef = useRef(null);
+  const openRef = useRef(false);
+  const tabRef = useRef('group');
   const [panelPos, setPanelPos] = useState(null);
+  const [panelSize, setPanelSize] = useState({ width: 420, height: 580 });
+  const resizeDragState = useRef(null);
+  const [btnPos, setBtnPos] = useState(null);
+  const btnDragState = useRef(null);
+  const btnDidDrag = useRef(false);
+
+  // sync refs immediately on every render — not via useEffect
+  openRef.current = open;
+  tabRef.current = tab;
 
   const authHeaders = () => ({ Authorization: `Bearer ${authToken}` });
 
@@ -52,7 +71,7 @@ export default function ManagersChat({ authToken, currentUser }) {
       if (res.ok) {
         const msgs = await res.json();
         setGroupMessages(msgs);
-        if (open && tab === 'group' && msgs.length > 0) {
+        if (openRef.current && msgs.length > 0) {
           setGroupLastSeen(msgs[msgs.length - 1].created_at);
           setGroupUnread(0);
         }
@@ -72,7 +91,7 @@ export default function ManagersChat({ authToken, currentUser }) {
   }
 
   async function fetchGroupUnread() {
-    if (!groupLastSeen) return;
+    if (!groupLastSeen || openRef.current) return;
     try {
       const res = await fetch(
         `/api/admin-chat/unread?last_seen=${encodeURIComponent(groupLastSeen)}`,
@@ -91,7 +110,13 @@ export default function ManagersChat({ authToken, currentUser }) {
       if (res.ok) {
         const all = await res.json();
         const hidden = getHidden();
-        setPrivateConversations(all.filter(c => !hidden.has(String(c.partner_id))));
+        const filtered = all.filter(c =>
+          !hidden.has(String(c.partner_id)) || Number(c.unread_count) > 0
+        );
+        setPrivateConversations(openRef.current
+          ? filtered.map(c => ({ ...c, unread_count: 0 }))
+          : filtered
+        );
       }
     } catch {}
   }
@@ -197,6 +222,17 @@ export default function ManagersChat({ authToken, currentUser }) {
     setDraftLinkDismissed(false);
   }
 
+  async function deleteGroupMessage(msgId) {
+    if (!window.confirm('למחוק הודעה זו?')) return;
+    try {
+      const res = await fetch(`/api/admin-chat/group/${msgId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (res.ok) await fetchGroupMessages();
+    } catch {}
+  }
+
   async function sendGroupMessage(e) {
     e.preventDefault();
     const content = draft.trim();
@@ -252,8 +288,9 @@ export default function ManagersChat({ authToken, currentUser }) {
     fetchMembers();
     fetchGroupMessages();
     fetchPrivateConversations();
-    const interval = setInterval(fetchGroupMessages, 3000);
-    return () => clearInterval(interval);
+    const groupInterval = setInterval(fetchGroupMessages, 3000);
+    const privateInterval = setInterval(fetchPrivateConversations, 5000);
+    return () => { clearInterval(groupInterval); clearInterval(privateInterval); };
   }, [authToken]);
 
   useEffect(() => {
@@ -274,16 +311,31 @@ export default function ManagersChat({ authToken, currentUser }) {
   }, [authToken, groupLastSeen]);
 
   useEffect(() => {
-    if (open && tab === 'group') {
-      setGroupUnread(0);
-      if (groupMessages.length > 0)
-        setGroupLastSeen(groupMessages[groupMessages.length - 1].created_at);
-    }
-  }, [open, tab]);
+    if (!open) return;
+    // openRef.current is already true (set synchronously in render)
+    fetchGroupMessages(); // sets groupLastSeen + resets groupUnread
+    setPrivateConversations(prev => {
+      prev.filter(c => Number(c.unread_count) > 0).forEach(c => {
+        fetch(`/api/messages/read/${c.partner_id}`, { method: 'POST', headers: authHeaders() }).catch(() => {});
+      });
+      return prev.map(c => ({ ...c, unread_count: 0 }));
+    });
+  }, [open]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [groupMessages, privateMessages]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleOutsideClick(e) {
+      if (panelRef.current?.contains(e.target)) return;
+      if (floatBtnRef.current?.contains(e.target)) return;
+      handleToggle();
+    }
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [open]);
 
   useEffect(() => {
     const URL_RE = /https?:\/\/[^\s"'<>\]]+/i;
@@ -309,6 +361,37 @@ export default function ManagersChat({ authToken, currentUser }) {
     }, 600);
     return () => clearTimeout(linkPreviewTimerRef.current);
   }, [draft, authToken]);
+
+  function handleResizeMouseDown(e, direction) {
+    e.preventDefault();
+    e.stopPropagation();
+    const bottomAnchored = !panelPos;
+    resizeDragState.current = {
+      direction,
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: panelSize.width,
+      startH: panelSize.height,
+      bottomAnchored,
+    };
+    function onMove(ev) {
+      const { direction, startX, startY, startW, startH, bottomAnchored } = resizeDragState.current;
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      const dyH = bottomAnchored ? -dy : dy;
+      setPanelSize(prev => ({
+        width:  direction.includes('e') ? Math.max(300, startW + dx) : prev.width,
+        height: direction.includes('s') ? Math.max(300, startH + dyH) : prev.height,
+      }));
+    }
+    function onUp() {
+      resizeDragState.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
 
   function handlePanelMouseDown(e) {
     if (!e.target.closest(`.${styles.panelHeader}`)) return;
@@ -340,6 +423,36 @@ export default function ManagersChat({ authToken, currentUser }) {
     dragState.current = null;
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
+  }
+
+  function handleBtnMouseDown(e) {
+    e.preventDefault();
+    btnDidDrag.current = false;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origLeft = btnPos ? btnPos.left : null;
+    const origBottom = btnPos ? btnPos.bottom : null;
+    btnDragState.current = { startX, startY, origLeft, origBottom };
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!btnDidDrag.current && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      btnDidDrag.current = true;
+      const base = btnPos || { left: 24, bottom: 24 };
+      setBtnPos({
+        left: (origLeft ?? base.left) + dx,
+        bottom: (origBottom ?? base.bottom) - dy,
+      });
+    }
+
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
 
   function handleToggle() {
@@ -410,16 +523,26 @@ export default function ManagersChat({ authToken, currentUser }) {
         );
       }
       const isOwn = msg.sender_id === currentUser.id;
+      const canDelete = isGroup && (isOwn || canManageMembers);
       const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
       const hasExtra = !!msg.file_url || !!msg.link_url;
       items.push(
         <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
-          <div className={`${styles.msgBubble} ${hasExtra ? styles.msgBubbleCol : ''}`}>
-            {isGroup && !isOwn && <span className={styles.msgSender}>{msg.sender_name}</span>}
-            {msg.content && <span className={styles.msgContent}>{msg.content}</span>}
-            {renderAttachment(msg)}
-            {renderLinkPreview(msg)}
-            <span className={styles.msgTime}>{timeStr}</span>
+          <div className={styles.msgWrap}>
+            <div className={`${styles.msgBubble} ${hasExtra ? styles.msgBubbleCol : ''}`}>
+              {isGroup && !isOwn && <span className={styles.msgSender}>{msg.sender_name}</span>}
+              {msg.content && <span className={styles.msgContent}>{msg.content}</span>}
+              {renderAttachment(msg)}
+              {renderLinkPreview(msg)}
+              <span className={styles.msgTime}>{timeStr}</span>
+            </div>
+            {canDelete && (
+              <button
+                className={styles.msgDeleteBtn}
+                title="מחק הודעה"
+                onClick={() => deleteGroupMessage(msg.id)}
+              >🗑</button>
+            )}
           </div>
         </div>
       );
@@ -484,12 +607,20 @@ export default function ManagersChat({ authToken, currentUser }) {
     );
   }
 
-  const panelStyle = panelPos
-    ? { position: 'fixed', left: panelPos.left, top: panelPos.top, bottom: 'unset', right: 'unset' }
+  const panelStyle = {
+    width: panelSize.width,
+    height: panelSize.height,
+    ...(panelPos
+      ? { position: 'fixed', left: panelPos.left, top: panelPos.top, bottom: 'unset', right: 'unset' }
+      : {}),
+  };
+
+  const wrapperStyle = btnPos
+    ? { left: btnPos.left, bottom: btnPos.bottom, top: 'unset', right: 'unset' }
     : {};
 
   return (
-    <div className={styles.wrapper}>
+    <div className={styles.wrapper} style={wrapperStyle}>
       {open && (
         <div
           className={styles.panel}
@@ -515,6 +646,10 @@ export default function ManagersChat({ authToken, currentUser }) {
               onClick={() => setTab('private')}
             >
               שיחות אישיות
+              {(() => {
+                const n = privateConversations.reduce((sum, c) => sum + (Number(c.unread_count) || 0), 0);
+                return n > 0 ? <span className={styles.tabBadge}>{n}</span> : null;
+              })()}
             </button>
           </div>
 
@@ -532,20 +667,24 @@ export default function ManagersChat({ authToken, currentUser }) {
                   {members.map(m => (
                     <span key={m.user_id} className={styles.memberChip}>
                       {getMemberName(m)}
-                      <button
-                        className={styles.chipRemoveBtn}
-                        title="הסר מהקבוצה"
-                        onClick={e => { e.stopPropagation(); removeMember(m.user_id); }}
-                      >×</button>
+                      {canManageMembers && (
+                        <button
+                          className={styles.chipRemoveBtn}
+                          title="הסר מהקבוצה"
+                          onClick={e => { e.stopPropagation(); removeMember(m.user_id); }}
+                        >×</button>
+                      )}
                     </span>
                   ))}
-                  <button
-                    className={styles.addChipBtn}
-                    onClick={e => { e.stopPropagation(); setShowAddSearch(s => !s); }}
-                  >+ הוסף</button>
+                  {canManageMembers && (
+                    <button
+                      className={styles.addChipBtn}
+                      onClick={e => { e.stopPropagation(); setShowAddSearch(s => !s); }}
+                    >+ הוסף</button>
+                  )}
                 </div>
               )}
-              {showMembersStrip && showAddSearch && (
+              {canManageMembers && showMembersStrip && showAddSearch && (
                 <div className={styles.addSearchInline}>
                   <input
                     className={styles.input}
@@ -653,14 +792,26 @@ export default function ManagersChat({ authToken, currentUser }) {
               {renderInputArea(sendPrivateMessage, 'הודעה...')}
             </>
           )}
+
+          <div className={styles.resizeE}  onMouseDown={e => handleResizeMouseDown(e, 'e')} />
+          <div className={styles.resizeS}  onMouseDown={e => handleResizeMouseDown(e, 's')} />
+          <div className={styles.resizeSE} onMouseDown={e => handleResizeMouseDown(e, 'se')} />
         </div>
       )}
 
-      <button className={styles.floatBtn} onClick={handleToggle} title="צ'ט מנהלים">
+      <button
+        ref={floatBtnRef}
+        className={styles.floatBtn}
+        onMouseDown={handleBtnMouseDown}
+        onClick={() => { if (!btnDidDrag.current) handleToggle(); }}
+        title="צ'ט מנהלים"
+      >
         👔
-        {!open && groupUnread > 0 && (
-          <span className={styles.floatBadge}>{groupUnread}</span>
-        )}
+        {!open && (() => {
+          const privateUnread = privateConversations.reduce((sum, c) => sum + (Number(c.unread_count) || 0), 0);
+          const total = groupUnread + privateUnread;
+          return total > 0 ? <span className={styles.floatBadge}>{total}</span> : null;
+        })()}
       </button>
     </div>
   );

@@ -5328,7 +5328,7 @@ app.get('/api/profile/change-requests/pending-count', requireAdmin, async (req, 
 
 // ── Admin Chat ────────────────────────────────────────────────────────────────
 
-app.get('/api/admin-chat/members', requireSuperAdmin, async (req, res) => {
+app.get('/api/admin-chat/members', requireAdminChatAccess, async (req, res) => {
   try {
     const result = await query(
       `SELECT u.id AS user_id, u.username, u.role, u.worker_id,
@@ -5409,6 +5409,8 @@ app.get('/api/admin-chat/is-member', requireAuth, async (req, res) => {
 
 app.get('/api/admin-chat/group', requireAdminChatAccess, async (req, res) => {
   try {
+    const tier = req.user.role_tier ?? req.user.role;
+    const isSuperAdmin = ['superadmin', 'master'].includes(tier);
     const result = await query(
       `SELECT agm.id, agm.sender_id, agm.content, agm.created_at,
               agm.file_url, agm.file_name, agm.file_type, agm.file_size,
@@ -5418,8 +5420,12 @@ app.get('/api/admin-chat/group', requireAdminChatAccess, async (req, res) => {
        FROM admin_group_messages agm
        JOIN users u ON agm.sender_id = u.id
        LEFT JOIN workers w ON u.worker_id = w.id
+       WHERE ($1 OR agm.created_at >= (
+         SELECT created_at FROM admin_chat_members WHERE user_id = $2
+       ))
        ORDER BY agm.created_at ASC
-       LIMIT 200`
+       LIMIT 200`,
+      [isSuperAdmin, req.user.id]
     );
     res.json(result.rows);
   } catch (e) {
@@ -5447,13 +5453,29 @@ app.post('/api/admin-chat/group', requireAdminChatAccess, async (req, res) => {
   }
 });
 
+app.delete('/api/admin-chat/group/:id', requireAdminChatAccess, async (req, res) => {
+  try {
+    const msgId = parseInt(req.params.id);
+    const tier = req.user.role_tier ?? req.user.role;
+    const isSuperAdmin = ['superadmin', 'master'].includes(tier);
+    const check = await query('SELECT sender_id FROM admin_group_messages WHERE id = $1', [msgId]);
+    if (!check.rows.length) return res.status(404).json({ error: 'הודעה לא נמצאה' });
+    if (!isSuperAdmin && check.rows[0].sender_id !== req.user.id)
+      return res.status(403).json({ error: 'אין הרשאה למחוק הודעה זו' });
+    await query('DELETE FROM admin_group_messages WHERE id = $1', [msgId]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'שגיאה במחיקת הודעה' });
+  }
+});
+
 app.get('/api/admin-chat/unread', requireAdminChatAccess, async (req, res) => {
   try {
     const lastSeen = req.query.last_seen;
     if (!lastSeen) return res.json({ count: 0 });
     const result = await query(
       `SELECT COUNT(*) AS count FROM admin_group_messages
-       WHERE created_at > $1 AND sender_id <> $2`,
+       WHERE date_trunc('milliseconds', created_at) > $1::timestamptz AND sender_id <> $2`,
       [lastSeen, req.user.id]
     );
     res.json({ count: parseInt(result.rows[0].count) });
