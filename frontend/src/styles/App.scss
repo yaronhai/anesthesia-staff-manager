@@ -417,9 +417,11 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   background: #f8fafc;
   border-radius: 14px;
   padding: 0;
-  width: min(860px, 95vw);
+  width: min(940px, 96vw);
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.15);
   border: 1px solid #e2e8f0;
 }
@@ -428,9 +430,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  flex-shrink: 0;
   background: linear-gradient(135deg, #1a2e4a 0%, #243b5e 100%);
   padding: 0.9rem 1.25rem;
   border-radius: 14px 14px 0 0;

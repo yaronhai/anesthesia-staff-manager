@@ -541,18 +541,18 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
   }
 
   const tabs = [
-    ...(isSuperAdmin ? [{ key: 'branches', label: 'סניפים' }] : []),
-    ...(isSuperAdmin ? [{ key: 'hierarchy', label: 'היררכיה' }] : []),
-    { key: 'groups', label: 'קבוצות אתרים' },
-    { key: 'jobs', label: 'תפקידים' },
-    { key: 'empTypes', label: 'סוגי העסקה' },
-    { key: 'honorifics', label: 'תארים' },
-    { key: 'activities', label: 'סוגי פעילות' },
-    { key: 'eventTypes', label: 'סוגי אירועים' },
-    { key: 'templateGroups', label: 'קבוצות תבניות' },
-    { key: 'shifts', label: 'שעות משמרות' },
-    { key: 'lockSettings', label: 'נעילת סידור' },
-    { key: 'trainingGaps', label: 'פערי הכשרה' },
+    ...(isSuperAdmin ? [{ key: 'branches', label: 'סניפים', section: 'מערכת' }] : []),
+    ...(isSuperAdmin ? [{ key: 'hierarchy', label: 'היררכיה', section: 'מערכת' }] : []),
+    { key: 'groups', label: 'קבוצות אתרים', section: 'ניהול' },
+    { key: 'jobs', label: 'תפקידים', section: 'ניהול' },
+    { key: 'empTypes', label: 'סוגי העסקה', section: 'ניהול' },
+    { key: 'honorifics', label: 'תארים', section: 'ניהול' },
+    { key: 'activities', label: 'סוגי פעילות', section: 'פעילות' },
+    { key: 'eventTypes', label: 'סוגי אירועים', section: 'פעילות' },
+    { key: 'templateGroups', label: 'קבוצות תבניות', section: 'פעילות' },
+    { key: 'shifts', label: 'שעות משמרות', section: 'הגדרות' },
+    { key: 'lockSettings', label: 'נעילת סידור', section: 'הגדרות' },
+    { key: 'trainingGaps', label: 'פערי הכשרה', section: 'הגדרות' },
   ];
 
   const closeMain = () => { onClose(); mainReset(); };
@@ -577,17 +577,26 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
         </div>
 
         <div className={styles.modalFlex}>
-          {/* Tab bar */}
+          {/* Tab sidebar */}
           <div className={styles.tabBar}>
-            {tabs.map(tab => (
-              <button
-                key={tab.key}
-                className={`${styles.tabBtn}${activeTab === tab.key ? ` ${styles.tabBtnActive}` : ''}`}
-                onClick={() => setActiveTab(tab.key)}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {tabs.map((tab, i) => {
+              const showSection = i === 0 || tabs[i - 1].section !== tab.section;
+              return (
+                <div key={tab.key}>
+                  {showSection && (
+                    <div className={`${styles.tabSectionLabel}${i > 0 ? ` ${styles.tabSectionLabelBorder}` : ''}`}>
+                      {tab.section}
+                    </div>
+                  )}
+                  <button
+                    className={`${styles.tabBtn}${activeTab === tab.key ? ` ${styles.tabBtnActive}` : ''}`}
+                    onClick={() => setActiveTab(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           {/* Content */}
