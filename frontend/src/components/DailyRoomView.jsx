@@ -1712,6 +1712,20 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         <div className="loading">טוען...</div>
       ) : (
         <>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', padding: '0.3rem 1rem', borderBottom: '1px solid #e5e7eb', background: '#f9fafb', fontSize: '0.72rem', color: '#555' }}>
+            <span style={{ fontWeight: 600 }}>מקרא:</span>
+            {[
+              { bg: '#d1d5db', label: 'ריק' },
+              { bg: '#e5e7eb', label: 'ללא סוג פעילות' },
+              { bg: '#fee2e2', label: 'לא מכוסה' },
+              { bg: '#dcfce7', label: 'מכוסה' },
+            ].map(({ bg, label }) => (
+              <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '1rem', height: '1rem', borderRadius: '3px', background: bg, border: '1px solid #d1d5db', display: 'inline-block', flexShrink: 0 }} />
+                {label}
+              </span>
+            ))}
+          </div>
           <div className="room-view-body">
             <div className="room-view-main">
             {/* Group tabs + תורנות/כוננות tabs */}
@@ -1912,14 +1926,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     const isCovered = hasActivity
                       ? isTimeRangeCovered(shiftAssignments, defaultStart, defaultEnd)
                       : false;
-
-                    let shiftBgColor = shiftAssignments.length > 0 ? '#dcfce7' : '#e5e7eb';
+                    const isCardEmpty = !hasActivity && shiftAssignments.length === 0;
+                    let shiftBgColor = isCardEmpty ? '#d1d5db' : hasActivity && !isCovered ? '#fee2e2' : hasActivity && isCovered ? '#dcfce7' : '#e5e7eb';
 
                     return (
                       <div
                         key={site.id}
                         className="site-square"
-                        style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}` }}
+                        style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : accentBg }}
                         onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}
                       >
                         <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
@@ -2009,11 +2023,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       const hasActivity = !!activity?.activity_type_id;
                       const defaultStart = shiftDefaults[shiftKey]?.default_start || (isNight ? nightStart : '00:00');
                       const defaultEnd   = shiftDefaults[shiftKey]?.default_end   || (isNight ? nightEnd  : '23:59');
-                      const shiftBgColor = shiftAssignments.length > 0 ? '#dcfce7' : '#e5e7eb';
+                      const isCoveredAll = hasActivity ? isTimeRangeCovered(shiftAssignments, defaultStart, defaultEnd) : false;
+                      const isCardEmptyAll = !hasActivity && shiftAssignments.length === 0;
+                      const shiftBgColor = isCardEmptyAll ? '#d1d5db' : hasActivity && !isCoveredAll ? '#fee2e2' : hasActivity && isCoveredAll ? '#dcfce7' : '#e5e7eb';
                       const groupBg = groupBgMap[site.group_id] || '#ffffff';
-                      const isCardEmpty = !hasActivity && shiftAssignments.length === 0;
                       return (
-                        <div key={`${shiftKey}-${site.id}`} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }} onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}>
+                        <div key={`${shiftKey}-${site.id}`} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmptyAll ? '#d1d5db' : accentBg, borderTop: `3px solid ${accentColor}` }} onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}>
                           <div className="site-square-title" style={{fontSize:fs(0.78)}}>{site.name}</div>
                           <div className="site-square-shift" style={{background: shiftBgColor, padding:`${0.3*scale}rem`, borderRadius:'3px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>{isNight?'⭐':'📞'}</span>{times.start_time&&<span style={{fontSize:fs(0.6),color:accentColor,fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(times.start_time)}{times.end_time?`–${formatTime24(times.end_time)}`:''}</span>}</div>
@@ -2219,10 +2234,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           <h3 style={{color: ctxAccent}}>{ctxLabel}</h3>
                           <ShiftHeaderTimes site={site} shiftType={ctxShift} accentColor={ctxAccent} />
                         </div>
-                        <button className="shift-card__add-btn" style={{background: ctxBorder, color: ctxAccent}} onClick={() => openAddModalInSite(site.id, ctxShift)}>+ הוסף</button>
+                        <button className="shift-card__add-btn" style={{background: ctxBorder, color: ctxAccent}} onClick={() => openAddModalInSite(site.id, ctxShift)}>+ שיבוץ עובד</button>
                       </div>
                       <div className="shift-card__body">
-                        <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideActivityType={true} hideHeader={true}/>
+                        <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideHeader={true}/>
                       </div>
                     </div>
                   </div>

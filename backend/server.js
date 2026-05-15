@@ -3913,7 +3913,7 @@ app.post('/api/site-shift-activities', requireAdmin, async (req, res) => {
     if (!site_id || !date || !shift_type) {
       return res.status(400).json({ error: 'שדות חסרים' });
     }
-    if (!['morning', 'evening', 'night'].includes(shift_type)) {
+    if (!['morning', 'evening', 'night', 'oncall'].includes(shift_type)) {
       return res.status(400).json({ error: 'סוג משמרת לא תקין' });
     }
 
