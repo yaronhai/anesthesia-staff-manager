@@ -1694,6 +1694,21 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 <span className="room-shift-times-sep" />
               </span>
             ))}
+            <span style={{ flex: 1 }} />
+            <span style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', fontSize: '0.72rem', color: '#555' }}>
+              <span style={{ fontWeight: 600 }}>מקרא:</span>
+              {[
+                { bg: '#d1d5db', label: 'ריק' },
+                { bg: '#e5e7eb', label: 'ללא סוג פעילות' },
+                { bg: '#fee2e2', label: 'לא מכוסה' },
+                { bg: '#dcfce7', label: 'מכוסה' },
+              ].map(({ bg, label }) => (
+                <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ width: '0.85rem', height: '0.85rem', borderRadius: '3px', background: bg, border: '1px solid #d1d5db', display: 'inline-block', flexShrink: 0 }} />
+                  {label}
+                </span>
+              ))}
+            </span>
           </div>
         )}
       </div>
@@ -1712,20 +1727,6 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         <div className="loading">טוען...</div>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', padding: '0.3rem 1rem', borderBottom: '1px solid #e5e7eb', background: '#f9fafb', fontSize: '0.72rem', color: '#555' }}>
-            <span style={{ fontWeight: 600 }}>מקרא:</span>
-            {[
-              { bg: '#d1d5db', label: 'ריק' },
-              { bg: '#e5e7eb', label: 'ללא סוג פעילות' },
-              { bg: '#fee2e2', label: 'לא מכוסה' },
-              { bg: '#dcfce7', label: 'מכוסה' },
-            ].map(({ bg, label }) => (
-              <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <span style={{ width: '1rem', height: '1rem', borderRadius: '3px', background: bg, border: '1px solid #d1d5db', display: 'inline-block', flexShrink: 0 }} />
-                {label}
-              </span>
-            ))}
-          </div>
           <div className="room-view-body">
             <div className="room-view-main">
             {/* Group tabs + תורנות/כוננות tabs */}
