@@ -376,7 +376,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       const [staffRes, shiftRes, vacRes] = await Promise.all([
         fetch(`/api/staffing/month-view?${params}`, { headers: { Authorization: `Bearer ${authToken}` } }),
         fetch(`/api/shift-requests/admin/all-with-workers?${params}`, { headers: { Authorization: `Bearer ${authToken}` } }),
-        fetch(`/api/vacation-requests?status=approved`, { headers: { Authorization: `Bearer ${authToken}` } }),
+        fetch(`/api/vacation-requests?status=approved${branchId ? `&branch_id=${branchId}` : ''}`, { headers: { Authorization: `Bearer ${authToken}` } }),
       ]);
       if (staffRes.ok) {
         const d = await staffRes.json();
@@ -874,8 +874,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
 
   function getVacationWorkersForDate() {
+    const workerIds = new Set(workers.map(w => w.id));
     return vacations
-      .filter(v => v.approved_start <= dateStr && v.approved_end >= dateStr)
+      .filter(v => v.approved_start <= dateStr && v.approved_end >= dateStr && workerIds.has(v.worker_id))
       .map(v => {
         const worker = workers.find(w => w.id === v.worker_id);
         return {
