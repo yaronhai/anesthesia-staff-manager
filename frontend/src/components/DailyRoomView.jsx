@@ -1406,7 +1406,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   >{activity.activity_name}</span>
                 ) : (
                   <button
-                    className="btn-secondary"
+                    className="btn-secondary btn-activity-type"
                     onClick={() => { setInlineEditingActivity(editKey); setInlineActivityTypeId(null); setInlineActivityGroupFilter(''); }}
                     style={{padding: '0.1rem 0.35rem', fontSize: '0.72rem'}}
                   >+ סוג פעילות</button>
@@ -2192,7 +2192,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         <h3>{shiftDefaults.morning?.label_he}</h3>
                         <ShiftHeaderTimes site={site} shiftType="morning" accentColor="#92400e" />
                       </div>
-                      <button className="shift-card__add-btn shift-card__add-btn--morning" onClick={() => openAddModalInSite(site.id, 'morning')}>+ הוסף</button>
+                      <button className="shift-card__add-btn shift-card__add-btn--morning" onClick={() => openAddModalInSite(site.id, 'morning')}>+ שיבוץ עובד</button>
                     </div>
                     <div className="shift-card__body">
                       <ShiftSection site={site} shiftType="morning" label={shiftDefaults.morning?.label_he} hideHeader={true}/>
@@ -2206,7 +2206,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         <h3>{shiftDefaults.evening?.label_he}</h3>
                         <ShiftHeaderTimes site={site} shiftType="evening" accentColor="#0369a1" />
                       </div>
-                      <button className="shift-card__add-btn shift-card__add-btn--evening" onClick={() => openAddModalInSite(site.id, 'evening')}>+ הוסף</button>
+                      <button className="shift-card__add-btn shift-card__add-btn--evening" onClick={() => openAddModalInSite(site.id, 'evening')}>+ שיבוץ עובד</button>
                     </div>
                     <div className="shift-card__body">
                       <ShiftSection site={site} shiftType="evening" label={shiftDefaults.evening?.label_he} hideHeader={true}/>

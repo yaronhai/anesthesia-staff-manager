@@ -156,6 +156,8 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .btn-secondary:hover { background: linear-gradient(180deg, #e5e7eb 0%, #d1d5db 100%); box-shadow: 0 4px 9px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.7); }
 .btn-secondary:active { transform: translateY(2px); border-bottom-width: 1px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
 .btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.btn-activity-type { background: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%); border-bottom-color: #6ee7b7; color: #065f46; }
+.btn-activity-type:hover { background: linear-gradient(180deg, #a7f3d0 0%, #6ee7b7 100%); }
 
 .btn-link {
   background: none;

@@ -7,6 +7,8 @@ export function useDraggableModal() {
 
   function onDragStart(e) {
     if (e.button !== 0) return;
+    const tag = e.target.tagName.toLowerCase();
+    if (['select', 'input', 'button', 'textarea', 'a', 'label'].includes(tag)) return;
     const modal = modalRef.current;
     if (!modal) return;
     const rect = modal.getBoundingClientRect();
