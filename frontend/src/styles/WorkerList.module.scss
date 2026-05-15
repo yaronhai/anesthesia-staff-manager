@@ -175,3 +175,130 @@
 }
 .actAllAuthorized { color: #666; margin: 0; }
 .actUngroupedLabel { --group-label-color: #94a3b8; }
+
+// Clickable cell (double-click to message)
+.clickableCell {
+  cursor: pointer;
+}
+
+// WorkerColumnSettings modal
+.colSettingsBody {
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.colSettingsSection { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.colSettingsSectionTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a2e4a;
+  margin: 0;
+}
+
+.colSettingsHint {
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.nameFormatList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.nameFormatOption {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  input { cursor: pointer; }
+}
+
+.colOrderList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.colOrderItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: grab;
+  user-select: none;
+  &:active { cursor: grabbing; }
+}
+
+.colOrderItemHidden {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  opacity: 0.6;
+}
+
+.colVisibleCheck {
+  cursor: pointer;
+  accent-color: #2563eb;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.colDragHandle {
+  color: #94a3b8;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.colOrderLabel {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #1a2e4a;
+}
+
+.colOrderLabelHidden {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.colOrderArrows {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.colArrowBtn {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: #374151;
+  line-height: 1.2;
+  &:hover:not(:disabled) { background: #e5e7eb; }
+  &:disabled { opacity: 0.3; cursor: default; }
+}
+
+.colSettingsNote {
+  font-size: 0.76rem;
+  color: #6b7280;
+  margin: 0.25rem 0 0;
+}
+
+@media (max-width: 480px) {
+  .colSettingsBody { padding: 0.5rem 0.6rem; }
+}

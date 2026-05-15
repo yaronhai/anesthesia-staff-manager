@@ -2,6 +2,7 @@
 import styles from '../styles/WorkerList.module.scss';
 import PhotoCropModal from './PhotoCropModal';
 import { useDraggableModal } from '../hooks/useDraggableModal';
+import { COLUMN_LABELS, DEFAULT_COLUMN_ORDER, DEFAULT_NAME_FORMAT } from './WorkerColumnSettings';
 const UPLOADS_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
 const resolvePhotoUrl = url => !url ? null : url.startsWith('data:') ? url : UPLOADS_BASE + url;
 
@@ -339,7 +340,27 @@ function WorkerDetail({ worker, onClose, onEdit, authToken, config, isSuperAdmin
   );
 }
 
-export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin, roles = [], onOpenMessage, currentUserRole }) {
+export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onResetPassword, authToken, config, isSuperAdmin, currentBranchId, isAdmin, roles = [], onOpenMessage, currentUserRole, columnPrefs, fontSize = 1 }) {
+  const hiddenCols = new Set(columnPrefs?.hidden_columns || []);
+  const colOrder = (columnPrefs?.column_order || DEFAULT_COLUMN_ORDER).filter(c => !hiddenCols.has(c));
+  const nameFormat = columnPrefs?.name_format || DEFAULT_NAME_FORMAT;
+
+  function getWorkerName(w) {
+    switch (nameFormat) {
+      case 'first_family': return `${w.first_name || ''} ${w.family_name || ''}`.trim();
+      case 'family_only':  return w.family_name || '';
+      case 'first_only':   return w.first_name || '';
+      default:             return `${w.family_name || ''} ${w.first_name || ''}`.trim();
+    }
+  }
+
+  function nameSortField() {
+    switch (nameFormat) {
+      case 'first_family':
+      case 'first_only': return 'first_name';
+      default:           return 'family_name';
+    }
+  }
   const [viewing, setViewing] = useState(null);
   const [sortField, setSortField] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
@@ -422,16 +443,18 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
     />
   );
 
+  const fontStyle = { fontSize: `${fontSize}rem` };
+
   if (isMobile) {
     return (
       <>
         {detailModal}
-        <div className="worker-card-list">
+        <div className="worker-card-list" style={fontStyle}>
           {sorted.map(w => (
             <div key={w.id} className={`worker-card${w.is_active === false ? ' worker-card-inactive' : ''}`}>
               <div className="worker-card-info">
                 <span className="worker-card-name">
-                  {w.title} {w.family_name} {w.first_name}
+                  {w.title} {getWorkerName(w)}
                 </span>
                 <span className="worker-card-id">{w.id_number || '—'}</span>
                 {w.phone && <a href={waLink(w.phone)} target="_blank" rel="noreferrer" className={styles.waLink}>{w.phone}</a>}
@@ -468,43 +491,22 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
   }
 
   if (isLandscape) {
+    const landscapeCols = colOrder.filter(c => ['title', 'name', 'phone', 'email'].includes(c));
     return (
       <>
         {detailModal}
-        <div className="worker-table-wrap">
+        <div className="worker-table-wrap" style={fontStyle}>
         <table className="worker-table">
           <thead>
             <tr>
-              <SortTh field="title">תואר</SortTh>
-              <SortTh field="family_name">שם משפחה</SortTh>
-              <SortTh field="first_name">שם פרטי</SortTh>
-              <th>טלפון</th>
-              <SortTh field="email">אימייל</SortTh>
+              {landscapeCols.map(colId => renderColHeader(colId))}
               <th>פעולות</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map(w => (
               <tr key={w.id} className={w.is_active === false ? 'worker-row-inactive' : ''}>
-                <td>{w.title}</td>
-                <td
-                  onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
-                  title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
-                  style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
-                >
-                  <strong>{w.family_name}</strong>
-                  {w.is_active === false && <span className={`badge badge-inactive ${styles.badgeMargin}`}>לא פעיל</span>}
-                  {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
-                    <span className={`badge badge-normal ${styles.borrowedBadge}`} title={`סניף ראשי: ${w.primary_branch_name}`}>מושאל</span>
-                  )}
-                </td>
-                <td
-                  onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
-                  title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
-                  style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
-                ><strong>{w.first_name}</strong></td>
-                <td>{w.phone ? <a href={waLink(w.phone)} target="_blank" rel="noreferrer" className={styles.waLink}>{w.phone}</a> : '—'}</td>
-                <td>{w.email ? <a href={`mailto:${w.email}`}>{w.email}</a> : '—'}</td>
+                {landscapeCols.map(colId => renderColCell(colId, w))}
                 <td>
                   <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
                   {(isSuperAdmin || w.is_primary_branch !== false) && (
@@ -529,68 +531,84 @@ export default function WorkerList({ workers, onEdit, onEditAuth, onDelete, onRe
     );
   }
 
+  function renderColHeader(colId) {
+    switch (colId) {
+      case 'title':           return <SortTh key={colId} field="title">{COLUMN_LABELS.title}</SortTh>;
+      case 'name':            return <SortTh key={colId} field={nameSortField()}>{COLUMN_LABELS.name}</SortTh>;
+      case 'id_number':       return <SortTh key={colId} field="id_number">{COLUMN_LABELS.id_number}</SortTh>;
+      case 'classification':  return <SortTh key={colId} field="classification">{COLUMN_LABELS.classification}</SortTh>;
+      case 'job':             return <SortTh key={colId} field="job">{COLUMN_LABELS.job}</SortTh>;
+      case 'employment_type': return <SortTh key={colId} field="employment_type">{COLUMN_LABELS.employment_type}</SortTh>;
+      case 'phone':           return <th key={colId}>{COLUMN_LABELS.phone}</th>;
+      case 'email':           return <SortTh key={colId} field="email">{COLUMN_LABELS.email}</SortTh>;
+      case 'personal_email':  return <SortTh key={colId} field="personal_email">{COLUMN_LABELS.personal_email}</SortTh>;
+      default:                return null;
+    }
+  }
+
+  function renderColCell(colId, w) {
+    const msgProps = w.user_id && onOpenMessage
+      ? { onDoubleClick: () => onOpenMessage(w.user_id), title: 'לחץ פעמיים לפתיחת הודעות', className: styles.clickableCell }
+      : {};
+    switch (colId) {
+      case 'title':
+        return <td key={colId}>{w.title}</td>;
+      case 'name':
+        return (
+          <td key={colId} {...msgProps}>
+            <strong>{getWorkerName(w)}</strong>
+            {w.is_active === false && <span className={`badge badge-inactive ${styles.badgeMargin}`}>לא פעיל</span>}
+            {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
+              <span className={`badge badge-normal ${styles.borrowedBadge}`} title={`סניף ראשי: ${w.primary_branch_name}`}>מושאל</span>
+            )}
+          </td>
+        );
+      case 'id_number':
+        return <td key={colId} {...msgProps}>{w.id_number || '—'}</td>;
+      case 'classification':
+        return (
+          <td key={colId}>
+            <span className={`badge ${isAdminRole(w.classification) ? 'badge-admin' : 'badge-normal'}`}>
+              {getRoleLabel(w.classification)}
+            </span>
+          </td>
+        );
+      case 'job':
+        return <td key={colId}>{w.job}</td>;
+      case 'employment_type':
+        return (
+          <td key={colId}>
+            <span className={`badge ${independentTypeIds.has(w.employment_type_id) ? 'badge-self' : 'badge-normal'}`}>
+              {w.employment_type}
+            </span>
+          </td>
+        );
+      case 'phone':
+        return <td key={colId}>{w.phone ? <a href={waLink(w.phone)} target="_blank" rel="noreferrer" className={styles.waLink}>{w.phone}</a> : '—'}</td>;
+      case 'email':
+        return <td key={colId}>{w.email ? <a href={`mailto:${w.email}`}>{w.email}</a> : '—'}</td>;
+      case 'personal_email':
+        return <td key={colId}>{w.personal_email ? <a href={`mailto:${w.personal_email}`}>{w.personal_email}</a> : '—'}</td>;
+      default:
+        return null;
+    }
+  }
+
   return (
     <>
       {detailModal}
-      <div className="worker-table-wrap">
+      <div className="worker-table-wrap" style={fontStyle}>
       <table className="worker-table">
         <thead>
           <tr>
-            <SortTh field="title">תואר</SortTh>
-            <SortTh field="family_name">שם משפחה</SortTh>
-            <SortTh field="first_name">שם פרטי</SortTh>
-            <SortTh field="id_number">ת.ז.</SortTh>
-            <SortTh field="classification">סיווג</SortTh>
-            <SortTh field="job">תפקיד</SortTh>
-            <SortTh field="employment_type">סוג העסקה</SortTh>
-            <th>טלפון</th>
-            <SortTh field="email">אימייל</SortTh>
+            {colOrder.map(colId => renderColHeader(colId))}
             <th>פעולות</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map(w => (
             <tr key={w.id} className={w.is_active === false ? 'worker-row-inactive' : ''}>
-              <td>{w.title}</td>
-              <td
-                onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
-                title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
-                style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
-              >
-                <strong>{w.family_name}</strong>
-                {w.is_active === false && <span className={`badge badge-inactive ${styles.badgeMargin}`}>לא פעיל</span>}
-                {currentBranchId && w.primary_branch_id && w.primary_branch_id !== currentBranchId && (
-                  <span
-                    className={`badge badge-normal ${styles.borrowedBadge}`}
-                    title={`סניף ראשי: ${w.primary_branch_name}`}
-                  >
-                    מושאל
-                  </span>
-                )}
-              </td>
-              <td
-                onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
-                title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
-                style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
-              ><strong>{w.first_name}</strong></td>
-              <td
-                onDoubleClick={() => w.user_id && onOpenMessage?.(w.user_id)}
-                title={w.user_id && onOpenMessage ? 'לחץ פעמיים לפתיחת הודעות' : undefined}
-                style={w.user_id && onOpenMessage ? { cursor: 'pointer' } : undefined}
-              >{w.id_number || '—'}</td>
-              <td>
-                <span className={`badge ${isAdminRole(w.classification) ? 'badge-admin' : 'badge-normal'}`}>
-                  {getRoleLabel(w.classification)}
-                </span>
-              </td>
-              <td>{w.job}</td>
-              <td>
-                <span className={`badge ${independentTypeIds.has(w.employment_type_id) ? 'badge-self' : 'badge-normal'}`}>
-                  {w.employment_type}
-                </span>
-              </td>
-              <td>{w.phone ? <a href={waLink(w.phone)} target="_blank" rel="noreferrer" className={styles.waLink}>{w.phone}</a> : '—'}</td>
-              <td>{w.email ? <a href={`mailto:${w.email}`}>{w.email}</a> : '—'}</td>
+              {colOrder.map(colId => renderColCell(colId, w))}
               <td>
                 <button onClick={() => setViewing(w)} className="btn-view" title="צפייה">👁</button>
                 {(isSuperAdmin || w.is_primary_branch !== false) && (

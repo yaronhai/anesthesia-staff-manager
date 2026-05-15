@@ -26,6 +26,7 @@ import MonthlyReport from './components/MonthlyReport';
 import UserProfile from './components/UserProfile';
 import ProfileChangeRequests from './components/ProfileChangeRequests';
 import ManagersChat from './components/ManagersChat';
+import WorkerColumnSettings, { DEFAULT_COLUMN_ORDER, DEFAULT_NAME_FORMAT } from './components/WorkerColumnSettings';
 import logoAssuta from './assets/logo-assuta.png';
 import './styles/App.scss';
 import appStyles from './styles/App.module.scss';
@@ -65,6 +66,11 @@ export default function App() {
   const [pendingProfileCount, setPendingProfileCount] = useState(0);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showColumnSettings, setShowColumnSettings] = useState(false);
+  const [workerFontSize, setWorkerFontSize] = useState(1);
+  const scaleUp = () => setWorkerFontSize(s => Math.min(+(s + 0.1).toFixed(1), 1.4));
+  const scaleDown = () => setWorkerFontSize(s => Math.max(+(s - 0.1).toFixed(1), 0.6));
+  const [columnPrefs, setColumnPrefs] = useState({ name_format: DEFAULT_NAME_FORMAT, column_order: DEFAULT_COLUMN_ORDER, hidden_columns: [] });
   const [isAdminChatMember, setIsAdminChatMember] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -110,6 +116,7 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     fetchRoles();
+    if (isAdmin) fetchColumnPrefs();
     if (isSuperAdmin) {
       fetchBranches();
       setActiveTab('overview');
@@ -234,6 +241,24 @@ export default function App() {
     if (res.ok) {
       setWorkers(await res.json());
     }
+  }
+
+  async function fetchColumnPrefs() {
+    try {
+      const res = await fetch('/api/users/column-preferences', { headers: authHeaders() });
+      if (res.ok) setColumnPrefs(await res.json());
+    } catch {}
+  }
+
+  async function saveColumnPrefs(prefs) {
+    setColumnPrefs(prefs);
+    try {
+      await fetch('/api/users/column-preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(prefs),
+      });
+    } catch {}
   }
 
   async function handleSave(data) {
@@ -770,7 +795,7 @@ export default function App() {
       {activeTab === 'workers' && isAdmin && selectedBranchId && (
         <>
           <div className="filters">
-            <button onClick={handleAdd} className={`btn-primary ${appStyles.addWorkerBtn}`} title="הוסף עובד">＋</button>
+            <button onClick={handleAdd} className={`btn-primary ${appStyles.addWorkerBtn}`}>הוסף עובד</button>
             <div className={appStyles.searchWrap}>
               <input
                 ref={searchRef}
@@ -809,6 +834,9 @@ export default function App() {
               </button>
             )}
             <button className={`btn-secondary ${appStyles.reportBtn}`} onClick={() => setShowReportModal(true)} title='דו"ח עובדים'>🖨</button>
+            <button className={`btn-secondary ${appStyles.reportBtn}`} onClick={() => setShowColumnSettings(true)} title='הגדרות עמודות — בחר אילו עמודות יוצגו בטבלה ובאיזה סדר'>☰</button>
+            <button className={`btn-secondary ${appStyles.zoomBtn}`} onClick={scaleUp} title="הגדל טקסט" disabled={workerFontSize >= 1.4}>+</button>
+            <button className={`btn-secondary ${appStyles.zoomBtn}`} onClick={scaleDown} title="הקטן טקסט" disabled={workerFontSize <= 0.6}>−</button>
             <span className={appStyles.workerCount}>{[
               filterSearch ? `"${filterSearch}"` : null,
               filterJobId ? config.jobs.find(j => j.id === Number(filterJobId))?.name : null,
@@ -870,6 +898,8 @@ export default function App() {
             roles={roles}
             currentUserRole={currentUser?.role}
             onOpenMessage={userId => { setMessagingInitialUserId(userId); setActiveTab('messages'); }}
+            columnPrefs={columnPrefs}
+            fontSize={workerFontSize}
           />
         </>
       )}
@@ -975,6 +1005,14 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {showColumnSettings && (
+        <WorkerColumnSettings
+          prefs={columnPrefs}
+          onSave={saveColumnPrefs}
+          onClose={() => setShowColumnSettings(false)}
+        />
       )}
 
       {(isSuperAdmin || isAdminChatMember) && (

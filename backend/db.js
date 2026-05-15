@@ -415,6 +415,12 @@ async function initializeSchema() {
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(endpoint)
       );
+
+      CREATE TABLE IF NOT EXISTS user_column_preferences (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        name_format VARCHAR(20) NOT NULL DEFAULT 'family_first',
+        column_order JSONB NOT NULL DEFAULT '["title","name","id_number","classification","job","employment_type","phone","email","personal_email"]'
+      );
     `);
     await query(`
       ALTER TABLE employment_types ADD COLUMN IF NOT EXISTS is_independent BOOLEAN DEFAULT FALSE NOT NULL;
@@ -944,6 +950,8 @@ async function runMigrations() {
     await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS link_title TEXT`);
     await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS link_image TEXT`);
     await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS link_description TEXT`);
+
+    await query(`ALTER TABLE user_column_preferences ADD COLUMN IF NOT EXISTS hidden_columns JSONB NOT NULL DEFAULT '[]'`);
 
     console.log('✓ Migrations complete');
   } catch (error) {

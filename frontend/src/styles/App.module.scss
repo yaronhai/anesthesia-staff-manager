@@ -60,8 +60,9 @@
   padding: 0 3px;
 }
 .roomsTab { display: var(--rooms-display, none); }
-.addWorkerBtn { white-space: nowrap; font-size: 1.3rem; padding: 0.35rem 0.7rem; line-height: 1; }
+.addWorkerBtn { white-space: nowrap; font-size: 0.82rem; padding: 0.28rem 0.6rem; line-height: 1; }
 .reportBtn { margin-right: 1rem; white-space: nowrap; background: #e2e8f0; color: #334155; border-color: #b0bac7; font-size: 1.3rem; padding: 0.3rem 0.6rem; line-height: 1; }
+.zoomBtn { white-space: nowrap; background: #e2e8f0; color: #334155; border-color: #b0bac7; font-size: 1rem; padding: 0.28rem 0.55rem; line-height: 1; font-weight: 600; &:disabled { opacity: 0.35; cursor: default; } }
 .searchWrap {
   position: relative;
   display: flex;

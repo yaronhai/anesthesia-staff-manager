@@ -5180,6 +5180,40 @@ app.delete('/api/workers/:id/photo', requireAuth, requireAdmin, async (req, res)
   }
 });
 
+const DEFAULT_COLUMN_ORDER = ['title','name','id_number','classification','job','employment_type','phone','email','personal_email'];
+
+app.get('/api/users/column-preferences', requireAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT name_format, column_order, hidden_columns FROM user_column_preferences WHERE user_id=$1', [req.user.id]);
+    if (result.rows.length === 0) {
+      return res.json({ name_format: 'family_first', column_order: DEFAULT_COLUMN_ORDER, hidden_columns: [] });
+    }
+    const row = result.rows[0];
+    res.json({ name_format: row.name_format, column_order: row.column_order, hidden_columns: row.hidden_columns || [] });
+  } catch (e) {
+    res.status(500).json({ error: 'שגיאה בטעינת העדפות' });
+  }
+});
+
+app.put('/api/users/column-preferences', requireAuth, async (req, res) => {
+  try {
+    const { name_format, column_order, hidden_columns } = req.body;
+    const validFormats = ['family_first', 'first_family', 'family_only', 'first_only'];
+    if (!validFormats.includes(name_format)) return res.status(400).json({ error: 'פורמט שם לא תקין' });
+    if (!Array.isArray(column_order)) return res.status(400).json({ error: 'סדר עמודות לא תקין' });
+    if (!Array.isArray(hidden_columns)) return res.status(400).json({ error: 'שדות מוסתרים לא תקינים' });
+    await query(
+      `INSERT INTO user_column_preferences (user_id, name_format, column_order, hidden_columns)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id) DO UPDATE SET name_format=$2, column_order=$3, hidden_columns=$4`,
+      [req.user.id, name_format, JSON.stringify(column_order), JSON.stringify(hidden_columns)]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'שגיאה בשמירת העדפות' });
+  }
+});
+
 app.post('/api/profile/photo', requireAuth, async (req, res) => {
   try {
     const workerId = req.user.worker_id;
