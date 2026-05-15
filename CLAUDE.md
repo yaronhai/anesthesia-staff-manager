@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Mobile-first responsive design**: Every new UI element must be fully usable on mobile screens in both portrait and landscape orientations. Use CSS media queries in `.module.scss` files, flexible layouts (flexbox/grid), and avoid fixed pixel widths that break on small screens.
 - **No inline styles**: All styling must go in `.module.scss` or `.scss` files. Never use `style={{}}` attributes in JSX.
 - **SCSS only**: All styling files must use `.scss` extension. Never create `.css` files; convert any existing `.css` files to `.scss`.
+- **Draggable modals**: Every modal/popup window must support drag-and-drop repositioning. Use the pattern from `DailyRoomView.jsx` (`site-detail-modal`): track drag state with `useRef` + `useState(null)` for position, add `onMouseDown` to the modal header to start dragging, listen to `mousemove`/`mouseup` on `window`, apply `top`/`left` inline when dragged (overriding the centered CSS), and switch the overlay to `form-overlay--transparent` while a position is set so it doesn't block the view. Reset position to `null` when the modal closes or reopens.
 
 ### Architecture
 - **Backend**: Single-file Express app (server.js, 700+ lines) with PostgreSQL database

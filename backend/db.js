@@ -806,11 +806,14 @@ async function runMigrations() {
     await query(`
       INSERT INTO roles (name, display_name, level, tier, is_protected)
       VALUES
-        ('superadmin', 'מנהל ראשי', 100, 'superadmin', TRUE),
-        ('admin',      'מנהל סניף', 200, 'admin',      TRUE),
-        ('user',       'משתמש',     300, 'user',       TRUE)
+        ('master',     'מנהל מערכת', 1,   'master',     TRUE),
+        ('superadmin', 'מנהל ראשי',  100, 'superadmin', TRUE),
+        ('admin',      'מנהל סניף',  200, 'admin',      TRUE),
+        ('user',       'משתמש',      300, 'user',       TRUE)
       ON CONFLICT (name) DO NOTHING
     `);
+    // Ensure the bootstrap admin user always has master role
+    await query(`UPDATE users SET role='master' WHERE username=$1 AND role != 'master'`, [process.env.ADMIN_USERNAME || 'admin']);
 
     // Seed תורנים/כוננים site groups for every branch
     await query(`
@@ -876,6 +879,64 @@ async function runMigrations() {
         UNIQUE(endpoint)
       )
     `);
+
+    await query(`ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'general'`);
+
+    await query(`ALTER TABLE admin_chat_members DROP COLUMN IF EXISTS branch_id`);
+    await query(`
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_chat_members_user_id_branch_id_key') THEN
+          ALTER TABLE admin_chat_members DROP CONSTRAINT admin_chat_members_user_id_branch_id_key;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_chat_members_user_id_key') THEN
+          ALTER TABLE admin_chat_members ADD CONSTRAINT admin_chat_members_user_id_key UNIQUE (user_id);
+        END IF;
+      END $$
+    `);
+    await query(`
+      INSERT INTO admin_chat_members (user_id, added_by)
+      SELECT u.id, u.id
+      FROM users u JOIN roles r ON r.name = u.role
+      WHERE r.tier IN ('admin','superadmin')
+      ON CONFLICT (user_id) DO NOTHING
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_group_messages_channel ON group_messages(branch_id, channel, created_at DESC)`);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS admin_chat_members (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        added_by INTEGER NOT NULL REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id)
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS admin_group_messages (
+        id SERIAL PRIMARY KEY,
+        sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        file_url TEXT,
+        file_name TEXT,
+        file_type TEXT,
+        file_size INTEGER,
+        link_url TEXT,
+        link_title TEXT,
+        link_image TEXT,
+        link_description TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_admin_group_messages_time ON admin_group_messages(created_at DESC)`);
+    await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS file_url TEXT`);
+    await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS file_name TEXT`);
+    await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS file_type TEXT`);
+    await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS file_size INTEGER`);
+    await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS link_url TEXT`);
+    await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS link_title TEXT`);
+    await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS link_image TEXT`);
+    await query(`ALTER TABLE admin_group_messages ADD COLUMN IF NOT EXISTS link_description TEXT`);
 
     console.log('✓ Migrations complete');
   } catch (error) {

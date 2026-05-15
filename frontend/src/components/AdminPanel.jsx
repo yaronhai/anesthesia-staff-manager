@@ -2,6 +2,7 @@
 import RolesManagement from './RolesManagement';
 import TrainingGapsPanel from './TrainingGapsPanel';
 import styles from '../styles/AdminPanel.module.scss';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 function isoToDdMmYyyy(iso) {
   if (!iso) return '';
@@ -31,6 +32,8 @@ function DatePickerField({ value, onChange }) {
 }
 
 export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, branches = [], onConfigChange, onBranchesChange, onClose, roles = [], onRolesChange, initialTab, onLockChange }) {
+  const { modalRef: mainRef, dragHandleProps: mainDrag, modalStyle: mainStyle, overlayClass: mainOverlay, reset: mainReset } = useDraggableModal();
+  const { modalRef: fairRef, dragHandleProps: fairDrag, modalStyle: fairStyle, overlayClass: fairOverlay, reset: fairReset } = useDraggableModal();
   const [newJob, setNewJob] = useState('');
   const [newEmpType, setNewEmpType] = useState('');
   const [newHonorific, setNewHonorific] = useState('');
@@ -552,10 +555,11 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     { key: 'trainingGaps', label: 'פערי הכשרה' },
   ];
 
+  const closeMain = () => { onClose(); mainReset(); };
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className="settings-modal" onClick={e => e.stopPropagation()}>
-        <div className="settings-header">
+    <div className={mainOverlay} onClick={closeMain}>
+      <div className="settings-modal" ref={mainRef} style={mainStyle} onClick={e => e.stopPropagation()}>
+        <div className="settings-header" {...mainDrag}>
           <h2>הגדרות רשימות</h2>
           {isSuperAdmin && branches.length > 0 && (
             <select
@@ -569,7 +573,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
               ))}
             </select>
           )}
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={closeMain}>✕</button>
         </div>
 
         <div className={styles.modalFlex}>
@@ -848,11 +852,11 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
             )}
 
             {fairnessReport && (
-              <div className="form-overlay" onClick={() => setFairnessReport(null)}>
-                <div className={`settings-modal ${styles.fairnessModal}`} onClick={e => e.stopPropagation()}>
-                  <div className="settings-header">
+              <div className={fairOverlay} onClick={() => { setFairnessReport(null); fairReset(); }}>
+                <div className={`settings-modal ${styles.fairnessModal}`} ref={fairRef} style={fairStyle} onClick={e => e.stopPropagation()}>
+                  <div className="settings-header" {...fairDrag}>
                     <h2>⚖️ טבלת צדק</h2>
-                    <button className="btn-close" onClick={() => setFairnessReport(null)}>✕</button>
+                    <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setFairnessReport(null); fairReset(); }}>✕</button>
                   </div>
                   <div className={styles.fairnessContent}>
                     {fairnessReport.sites.length === 0 ? (
@@ -1521,6 +1525,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
 }
 
 function SiteAllowedJobsModal({ site, authToken, config, onClose }) {
+  const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
   const [allowedJobs, setAllowedJobs] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -1561,12 +1566,13 @@ function SiteAllowedJobsModal({ site, authToken, config, onClose }) {
   const allowedIds = new Set(allowedJobs.map(j => j.job_id));
   const availableJobs = (config.jobs || []).filter(j => !allowedIds.has(j.id));
 
+  const closeAllowed = () => { onClose(); reset(); };
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className={`detail-modal ${styles.allowedJobsModal}`} onClick={e => e.stopPropagation()}>
-        <div className="settings-header">
+    <div className={overlayClass} onClick={closeAllowed}>
+      <div className={`detail-modal ${styles.allowedJobsModal}`} ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
+        <div className="settings-header" {...dragHandleProps}>
           <h2>תפקידים מורשים — {site.name}</h2>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={closeAllowed}>✕</button>
         </div>
         <div className={styles.allowedJobsContent}>
           {loading ? <p>טוען...</p> : (

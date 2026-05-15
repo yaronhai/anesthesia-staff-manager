@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function ChangePasswordModal({ token, onSuccess, onClose }) {
+export default function ChangePasswordModal({ token, onSuccess, onClose, modalRef, modalStyle, dragHandleProps }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -29,8 +29,8 @@ export default function ChangePasswordModal({ token, onSuccess, onClose }) {
   }
 
   return (
-    <div className="login-box">
-      <h2>שינוי סיסמא</h2>
+    <div className="login-box" ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
+      <h2 {...(dragHandleProps || {})} style={{ cursor: dragHandleProps ? 'grab' : undefined }}>שינוי סיסמא</h2>
       <form onSubmit={handleSubmit} className="login-form">
         <div className="form-group">
           <label>סיסמא חדשה</label>

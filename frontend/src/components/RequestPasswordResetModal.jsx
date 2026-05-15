@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 export default function RequestPasswordResetModal({ currentUser, onClose }) {
+  const { modalRef, dragHandleProps, modalStyle, dragged, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
@@ -30,9 +33,9 @@ export default function RequestPasswordResetModal({ currentUser, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="login-box" onClick={e => e.stopPropagation()}>
-        <h2>איפוס סיסמא</h2>
+    <div className={`modal-overlay${dragged ? ' modal-overlay--transparent' : ''}`} onClick={close}>
+      <div className="login-box" ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
+        <h2 {...dragHandleProps} style={{ cursor: 'grab' }}>איפוס סיסמא</h2>
         {sent ? (
           <div className="forgot-sent">
             <p>קישור לאיפוס הסיסמא נשלח אל {currentUser.email}</p>

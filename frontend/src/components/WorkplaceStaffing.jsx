@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import styles from '../styles/WorkplaceStaffing.module.scss';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 export default function WorkplaceStaffing({ config, authToken }) {
   const [viewDate, setViewDate] = useState(new Date());
@@ -7,6 +8,7 @@ export default function WorkplaceStaffing({ config, authToken }) {
   const [siteAssignments, setSiteAssignments] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [editingCell, setEditingCell] = useState(null);
+  const { modalRef: cellDragRef, dragHandleProps: cellDragHandle, modalStyle: cellDragStyle, overlayClass: cellOverlayClass, reset: resetCellDrag } = useDraggableModal();
   const [editingAssignment, setEditingAssignment] = useState({ site_id: null, position_id: null, notes: '' });
   const [loading, setLoading] = useState(false);
   const [eventIndicators, setEventIndicators] = useState({});
@@ -281,11 +283,11 @@ export default function WorkplaceStaffing({ config, authToken }) {
       )}
 
       {editingCell && (
-        <div className="form-overlay" onClick={() => setEditingCell(null)}>
-          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className={cellOverlayClass} onClick={() => { setEditingCell(null); resetCellDrag(); }}>
+          <div className="assignment-modal" ref={cellDragRef} style={cellDragStyle} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" {...cellDragHandle}>
               <h3>עריכת התמנייה</h3>
-              <button className="btn-close" onClick={() => setEditingCell(null)}>✕</button>
+              <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setEditingCell(null); resetCellDrag(); }}>✕</button>
             </div>
 
             <div className="modal-body">

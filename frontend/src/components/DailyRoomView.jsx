@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 const GROUP_PALETTE = ['#7c3aed', '#0369a1', '#0e7490', '#b45309', '#15803d', '#be185d', '#6d28d9', '#b45309'];
 const PALETTE_BG    = ['#f5f3ff', '#eff6ff', '#f0fdfa', '#fffbeb', '#f0fdf4', '#fdf2f8', '#f5f3ff', '#fffbeb'];
@@ -196,9 +197,21 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
   // Modal for site details
   const [selectedSiteId, setSelectedSiteId] = useState(null);
+  const [modalPos, setModalPos] = useState(null); // {x, y} when dragged; null = centered
+  const modalDragRef = useRef(null);
   const [siteActivityTypes, setSiteActivityTypes] = useState({}); // Map of site_id -> activity_type_id
   const [siteShiftTimes, setSiteShiftTimes] = useState({}); // Map of "site_id-shift_type" -> { start_time, end_time }
   const [editingShiftTimes, setEditingShiftTimes] = useState(null); // { site_id, shift_type, start_time, end_time } - for modal editing
+  const dragShiftTimes    = useDraggableModal();
+  const dragAssignment    = useDraggableModal();
+  const dragSaveTemplate  = useDraggableModal();
+  const dragTemplateSel   = useDraggableModal();
+  const dragTemplateMgr   = useDraggableModal();
+  const dragEditTemplate  = useDraggableModal();
+  const dragCreateTpl     = useDraggableModal();
+  const dragSuggestion    = useDraggableModal();
+  const dragSendModal     = useDraggableModal();
+  const dragFairness      = useDraggableModal();
   const [inlineEditingShift, setInlineEditingShift] = useState(null); // "site_id-shift_type" for inline time editing
   const [inlineEditTimes, setInlineEditTimes] = useState({ start_time: '', end_time: '' });
   const [inlineEditingActivity, setInlineEditingActivity] = useState(null); // "site_id-shift_type" for inline activity editing
@@ -1560,6 +1573,26 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     );
   })();
 
+  function onModalDragStart(e) {
+    if (e.button !== 0) return;
+    const rect = e.currentTarget.closest('.site-detail-modal').getBoundingClientRect();
+    modalDragRef.current = { startX: e.clientX - rect.left, startY: e.clientY - rect.top };
+    e.preventDefault();
+
+    function onMove(ev) {
+      setModalPos({
+        x: ev.clientX - modalDragRef.current.startX,
+        y: ev.clientY - modalDragRef.current.startY,
+      });
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
   return (
     <>
     <div className="room-view-container">
@@ -1733,7 +1766,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       key={site.id}
                       className="site-square"
                       style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }}
-                      onClick={() => setSelectedSiteId(site.id)}
+                      onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}
                     >
                       <div className="site-square-title" style={{fontSize: fs(0.78), color: '#8B0000', fontWeight: 700}}>{site.name}</div>
                       <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: morningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
@@ -1842,7 +1875,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         key={site.id}
                         className="site-square"
                         style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}` }}
-                        onClick={() => setSelectedSiteId(site.id)}
+                        onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}
                       >
                         <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
                         <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: shiftBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
@@ -1904,7 +1937,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     let morningBgColor = isCardEmpty ? '#d1d5db' : hasMorningActivity && !morningCovered ? '#fee2e2' : hasMorningActivity && morningCovered ? '#dcfce7' : '#e5e7eb';
                     let eveningBgColor = isCardEmpty ? '#d1d5db' : hasEveningActivity && !eveningCovered ? '#fee2e2' : hasEveningActivity && eveningCovered ? '#dcfce7' : '#e5e7eb';
                     return (
-                      <div key={site.id} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }} onClick={() => setSelectedSiteId(site.id)}>
+                      <div key={site.id} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }} onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}>
                         <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
                         <div className="site-square-shift" style={{background: morningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px'}}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>☀️</span>{morningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#92400e',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(morningTimes.start_time)}{morningTimes.end_time?`–${formatTime24(morningTimes.end_time)}`:''}</span>}</div>
@@ -1935,7 +1968,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       const groupBg = groupBgMap[site.group_id] || '#ffffff';
                       const isCardEmpty = !hasActivity && shiftAssignments.length === 0;
                       return (
-                        <div key={`${shiftKey}-${site.id}`} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }} onClick={() => setSelectedSiteId(site.id)}>
+                        <div key={`${shiftKey}-${site.id}`} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }} onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}>
                           <div className="site-square-title" style={{fontSize:fs(0.78)}}>{site.name}</div>
                           <div className="site-square-shift" style={{background: shiftBgColor, padding:`${0.3*scale}rem`, borderRadius:'3px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>{isNight?'⭐':'📞'}</span>{times.start_time&&<span style={{fontSize:fs(0.6),color:accentColor,fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(times.start_time)}{times.end_time?`–${formatTime24(times.end_time)}`:''}</span>}</div>
@@ -2027,28 +2060,27 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       if (!site) return null;
 
       return (
-        <div className="form-overlay" onClick={() => setSelectedSiteId(null)}>
+        <div className={`form-overlay${modalPos ? ' form-overlay--transparent' : ''}`} onClick={() => { setSelectedSiteId(null); setModalPos(null); }}>
           <div
-            className="report-modal"
+            className="site-detail-modal"
             onClick={e => e.stopPropagation()}
-            style={{ maxWidth: '900px', width: '95vw' }}
+            style={modalPos ? { top: modalPos.y, left: modalPos.x, transform: 'none' } : undefined}
           >
-            <div className="report-header">
-              <h2>{site.name} — {dateLabel}</h2>
-              <button className="btn-close" onClick={() => setSelectedSiteId(null)}>✕</button>
+            <div className="site-detail-header" onMouseDown={onModalDragStart} style={{cursor: 'grab'}}>
+              <div className="site-detail-header__title">
+                <span className="site-detail-header__icon">🏥</span>
+                <div>
+                  <h2>{site.name}</h2>
+                  <span className="site-detail-header__date">{dateLabel}</span>
+                </div>
+              </div>
+              <button className="site-detail-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setSelectedSiteId(null); setModalPos(null); }}>✕</button>
             </div>
 
-            <div style={{
-              flex: 1,
-              overflow: 'auto',
-              padding: isMobile ? '0.75rem' : '1.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: isMobile ? '0.75rem' : '1.5rem'
-            }}>
+            <div className="site-detail-body">
               {addingToShiftInSite && addingToShiftInSite.site_id === site.id ? (
-                <div style={{background: '#f9fafb', padding: isMobile ? '0.75rem' : '1.5rem', borderRadius: '8px', border: '1px solid #d1d5db'}}>
-                  <h3 style={{marginBottom: isMobile ? '0.5rem' : '1rem', color: '#1a2e4a', fontSize: isMobile ? '0.95rem' : '1rem'}}>הוסף שיבוץ — {shiftDefaults[addingToShiftInSite.shift_type]?.label_he || addingToShiftInSite.shift_type}</h3>
+                <div className="site-add-worker-form">
+                  <h3 className="site-add-worker-form__title">הוסף שיבוץ — {shiftDefaults[addingToShiftInSite.shift_type]?.label_he || addingToShiftInSite.shift_type}</h3>
 
                   <div style={{marginBottom: '1rem', padding: '0.75rem', background: '#fff', borderRadius: '6px'}}>
                     <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem'}}>
@@ -2134,49 +2166,51 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 const ctxLabel = shiftDefaults[ctxShift]?.label_he || (isNight ? 'תורנות' : 'כוננות');
                 const ctxIcon = shiftDefaults[ctxShift]?.icon || (isNight ? '⭐' : '📞');
                 return (
-                  <div style={{ background: ctxBg, padding: '1.5rem', borderRadius: '12px', border: `2px solid ${ctxBorder}`, boxShadow: `0 4px 12px rgba(0,0,0,0.08)` }}>
-                    <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: `2px solid ${ctxBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-                      <h3 style={{margin: 0, color: ctxAccent, fontSize: '1.1rem', fontWeight: 600}}>{ctxIcon} {ctxLabel}</h3>
-                      <ShiftHeaderTimes site={site} shiftType={ctxShift} accentColor={ctxAccent} />
-                      <button onClick={() => openAddModalInSite(site.id, ctxShift)} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: ctxBorder, color: ctxAccent, border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
+                  <div className="shift-cards-stack">
+                    <div className="shift-card">
+                      <div className="shift-card__header" style={{background: ctxBg, borderBottom: `2px solid ${ctxBorder}`}}>
+                        <div className="shift-card__header-left">
+                          <span className="shift-card__icon">{ctxIcon}</span>
+                          <h3 style={{color: ctxAccent}}>{ctxLabel}</h3>
+                          <ShiftHeaderTimes site={site} shiftType={ctxShift} accentColor={ctxAccent} />
+                        </div>
+                        <button className="shift-card__add-btn" style={{background: ctxBorder, color: ctxAccent}} onClick={() => openAddModalInSite(site.id, ctxShift)}>+ הוסף</button>
+                      </div>
+                      <div className="shift-card__body">
+                        <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideActivityType={true} hideHeader={true}/>
+                      </div>
                     </div>
-                    <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideActivityType={true} hideHeader={true}/>
                   </div>
                 );
               })() : (() => {
-                console.log('Rendering grid with isMobile:', isMobile);
                 return (
-                <div style={{display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '0.75rem' : '2rem'}}>
-                  <div style={{
-                    order: 1,
-                    background: 'linear-gradient(135deg, #fef9e7 0%, #fef5d9 100%)',
-                    padding: isMobile ? '0.75rem' : '1.5rem',
-                    borderRadius: '12px',
-                    border: '2px solid #fbbf24',
-                    boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)'
-                  }}>
-                    <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-                      <h3 style={{margin: 0, color: '#b45309', fontSize: '1.1rem', fontWeight: 600}}>☀️ {shiftDefaults.morning?.label_he}</h3>
-                      <ShiftHeaderTimes site={site} shiftType="morning" accentColor="#92400e" />
-                      <button onClick={() => openAddModalInSite(site.id, 'morning')} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: '#fbbf24', color: '#92400e', border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
+                <div className="shift-cards-stack">
+                  <div className="shift-card shift-card--morning">
+                    <div className="shift-card__header shift-card__header--morning">
+                      <div className="shift-card__header-left">
+                        <span className="shift-card__icon">☀️</span>
+                        <h3>{shiftDefaults.morning?.label_he}</h3>
+                        <ShiftHeaderTimes site={site} shiftType="morning" accentColor="#92400e" />
+                      </div>
+                      <button className="shift-card__add-btn shift-card__add-btn--morning" onClick={() => openAddModalInSite(site.id, 'morning')}>+ הוסף</button>
                     </div>
-                    <ShiftSection site={site} shiftType="morning" label={shiftDefaults.morning?.label_he} hideHeader={true}/>
+                    <div className="shift-card__body">
+                      <ShiftSection site={site} shiftType="morning" label={shiftDefaults.morning?.label_he} hideHeader={true}/>
+                    </div>
                   </div>
 
-                  <div style={{
-                    order: 2,
-                    background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-                    padding: isMobile ? '0.75rem' : '1.5rem',
-                    borderRadius: '12px',
-                    border: '2px solid #7dd3fc',
-                    boxShadow: '0 4px 12px rgba(125, 211, 252, 0.1)'
-                  }}>
-                    <div style={{marginBottom: '0.5rem', paddingBottom: '0.75rem', borderBottom: '2px solid #7dd3fc', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-                      <h3 style={{margin: 0, color: '#0369a1', fontSize: '1.1rem', fontWeight: 600}}>🌙 {shiftDefaults.evening?.label_he}</h3>
-                      <ShiftHeaderTimes site={site} shiftType="evening" accentColor="#0369a1" />
-                      <button onClick={() => openAddModalInSite(site.id, 'evening')} style={{fontSize: '0.95rem', fontWeight: 700, padding: '0.5rem 1rem', background: '#7dd3fc', color: '#0369a1', border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'}}>הוסף עובד</button>
+                  <div className="shift-card shift-card--evening">
+                    <div className="shift-card__header shift-card__header--evening">
+                      <div className="shift-card__header-left">
+                        <span className="shift-card__icon">🌙</span>
+                        <h3>{shiftDefaults.evening?.label_he}</h3>
+                        <ShiftHeaderTimes site={site} shiftType="evening" accentColor="#0369a1" />
+                      </div>
+                      <button className="shift-card__add-btn shift-card__add-btn--evening" onClick={() => openAddModalInSite(site.id, 'evening')}>+ הוסף</button>
                     </div>
-                    <ShiftSection site={site} shiftType="evening" label={shiftDefaults.evening?.label_he} hideHeader={true}/>
+                    <div className="shift-card__body">
+                      <ShiftSection site={site} shiftType="evening" label={shiftDefaults.evening?.label_he} hideHeader={true}/>
+                    </div>
                   </div>
                 </div>
               );
@@ -2189,11 +2223,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
     {/* Edit shift times modal */}
     {editingShiftTimes && (
-      <div className="form-overlay" onClick={() => setEditingShiftTimes(null)}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '400px'}}>
-          <div className="modal-header">
+      <div className={dragShiftTimes.overlayClass} onClick={() => { setEditingShiftTimes(null); dragShiftTimes.reset(); }}>
+        <div className="assignment-modal" ref={dragShiftTimes.modalRef} style={{maxWidth: '400px', ...dragShiftTimes.modalStyle}} onClick={e => e.stopPropagation()}>
+          <div className="modal-header" {...dragShiftTimes.dragHandleProps}>
             <h3>ערוך שעות משמרת</h3>
-            <button className="btn-close" onClick={() => setEditingShiftTimes(null)}>✕</button>
+            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setEditingShiftTimes(null); dragShiftTimes.reset(); }}>✕</button>
           </div>
           <div className="modal-body">
             <div className="modal-info">
@@ -2238,11 +2272,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
     {/* Edit assignment modal (for editing existing assignments) */}
     {editingAssignment && (
-      <div className="form-overlay" onClick={() => setEditingAssignment(null)}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
+      <div className={dragAssignment.overlayClass} onClick={() => { setEditingAssignment(null); dragAssignment.reset(); }}>
+        <div className="assignment-modal" ref={dragAssignment.modalRef} style={dragAssignment.modalStyle} onClick={e => e.stopPropagation()}>
+          <div className="modal-header" {...dragAssignment.dragHandleProps}>
             <h3>עריכת שעות שיבוץ</h3>
-            <button className="btn-close" onClick={() => setEditingAssignment(null)}>✕</button>
+            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setEditingAssignment(null); dragAssignment.reset(); }}>✕</button>
           </div>
           <div className="modal-body">
             <div className="modal-info">
@@ -2292,11 +2326,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
     {/* Save current as template modal */}
     {showSaveAsTemplate && (
-      <div className="form-overlay" onClick={() => setShowSaveAsTemplate(false)}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '360px'}}>
-          <div className="modal-header">
+      <div className={dragSaveTemplate.overlayClass} onClick={() => { setShowSaveAsTemplate(false); dragSaveTemplate.reset(); }}>
+        <div className="assignment-modal" ref={dragSaveTemplate.modalRef} style={{maxWidth: '360px', ...dragSaveTemplate.modalStyle}} onClick={e => e.stopPropagation()}>
+          <div className="modal-header" {...dragSaveTemplate.dragHandleProps}>
             <h3>שמור כתבנית</h3>
-            <button className="btn-close" onClick={() => setShowSaveAsTemplate(false)}>✕</button>
+            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setShowSaveAsTemplate(false); dragSaveTemplate.reset(); }}>✕</button>
           </div>
           <div className="modal-body">
             <p style={{color: '#666', fontSize: '0.9rem', marginBottom: '1rem'}}>
@@ -2368,11 +2402,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         ));
       const hasUngrouped = templates.some(t => !t.group_id);
       return (
-        <div className="form-overlay" onClick={() => setShowTemplateSelector(false)}>
-          <div className="assignment-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className={dragTemplateSel.overlayClass} onClick={() => { setShowTemplateSelector(false); dragTemplateSel.reset(); }}>
+          <div className="assignment-modal" ref={dragTemplateSel.modalRef} style={dragTemplateSel.modalStyle} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" {...dragTemplateSel.dragHandleProps}>
               <h3>בחר תבנית</h3>
-              <button className="btn-close" onClick={() => setShowTemplateSelector(false)}>✕</button>
+              <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setShowTemplateSelector(false); dragTemplateSel.reset(); }}>✕</button>
             </div>
             <div className="modal-body">
               {templates.length === 0 ? (
@@ -2421,11 +2455,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         ));
       };
       return (
-        <div className="form-overlay" onClick={() => setShowTemplateManager(false)}>
-          <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px', width: '95vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-            <div className="modal-header" style={{ padding: '0.4rem 0.75rem' }}>
+        <div className={dragTemplateMgr.overlayClass} onClick={() => { setShowTemplateManager(false); dragTemplateMgr.reset(); }}>
+          <div className="assignment-modal" ref={dragTemplateMgr.modalRef} style={{ maxWidth: '700px', width: '95vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', ...dragTemplateMgr.modalStyle }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ padding: '0.4rem 0.75rem', cursor: 'grab' }} {...dragTemplateMgr.dragHandleProps}>
               <h3 style={{ fontSize: '0.9rem', margin: 0 }}>ערוך תבניות</h3>
-              <button className="btn-close" onClick={() => setShowTemplateManager(false)}>✕</button>
+              <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setShowTemplateManager(false); dragTemplateMgr.reset(); }}>✕</button>
             </div>
             <div className="modal-body" style={{ display: 'flex', gap: '0.75rem', flex: 1, minHeight: 0, overflow: 'hidden', padding: '0.5rem 0.75rem' }}>
               {/* Templates by group */}
@@ -2452,9 +2486,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
     {/* Edit Template modal */}
     {editTemplateId && (
-      <div className="form-overlay" onClick={() => setEditTemplateId(null)}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '750px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-          <div className="modal-header" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+      <div className={dragEditTemplate.overlayClass} onClick={() => { setEditTemplateId(null); dragEditTemplate.reset(); }}>
+        <div className="assignment-modal" ref={dragEditTemplate.modalRef} style={{ maxWidth: '750px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', ...dragEditTemplate.modalStyle }} onClick={e => e.stopPropagation()}>
+          <div className="modal-header" style={{ gap: '0.5rem', flexWrap: 'wrap', cursor: 'grab' }} {...dragEditTemplate.dragHandleProps}>
             <input
               value={editTemplateName}
               onChange={e => setEditTemplateName(e.target.value)}
@@ -2468,7 +2502,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               <option value="">ללא קבוצה</option>
               {templateGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
-            <button className="btn-close" onClick={() => setEditTemplateId(null)}>✕</button>
+            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setEditTemplateId(null); dragEditTemplate.reset(); }}>✕</button>
           </div>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             <TemplateItemsEditor key={editTemplateId} config={config} items={editTemplateItems} onChange={setEditTemplateItems} />
@@ -2485,11 +2519,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
     {/* Create New Template modal */}
     {showCreateTemplate && (
-      <div className="form-overlay" onClick={() => setShowCreateTemplate(false)}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '750px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-          <div className="modal-header">
+      <div className={dragCreateTpl.overlayClass} onClick={() => { setShowCreateTemplate(false); dragCreateTpl.reset(); }}>
+        <div className="assignment-modal" ref={dragCreateTpl.modalRef} style={{ maxWidth: '750px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', ...dragCreateTpl.modalStyle }} onClick={e => e.stopPropagation()}>
+          <div className="modal-header" {...dragCreateTpl.dragHandleProps}>
             <h3>צור תבנית חדשה</h3>
-            <button className="btn-close" onClick={() => setShowCreateTemplate(false)}>✕</button>
+            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setShowCreateTemplate(false); dragCreateTpl.reset(); }}>✕</button>
           </div>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -2529,11 +2563,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
     {/* Suggestion modal */}
     {suggestionModal && (
-      <div className="form-overlay" onClick={() => setSuggestionModal(null)}>
-        <div className="assignment-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto'}}>
-          <div className="modal-header" style={{padding: '0.6rem 1rem'}}>
+      <div className={dragSuggestion.overlayClass} onClick={() => { setSuggestionModal(null); dragSuggestion.reset(); }}>
+        <div className="assignment-modal" ref={dragSuggestion.modalRef} style={{maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto', ...dragSuggestion.modalStyle}} onClick={e => e.stopPropagation()}>
+          <div className="modal-header" style={{padding: '0.6rem 1rem', cursor: 'grab'}} {...dragSuggestion.dragHandleProps}>
             <h3 style={{fontSize: '0.95rem'}}>הצעות שיבוץ אוטומטי ל-{dateLabel}</h3>
-            <button className="btn-close" onClick={() => setSuggestionModal(null)}>✕</button>
+            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setSuggestionModal(null); dragSuggestion.reset(); }}>✕</button>
           </div>
           <div className="modal-body" style={{padding: '0.5rem 0.75rem'}}>
             <details style={{marginBottom: '0.6rem', padding: '0.4rem', backgroundColor: '#f0f9ff', borderRadius: '4px', border: '1px solid #bfdbfe', fontSize: '0.75rem', lineHeight: 1.4, color: '#1e40af'}}>
@@ -2657,11 +2691,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     {showReportPreview && <ReportPreview />}
 
     {showSendModal && (
-      <div className="form-overlay" onClick={() => setShowSendModal(false)}>
-        <div className="settings-modal" onClick={e => e.stopPropagation()} style={{ direction: 'rtl', maxWidth: 500 }}>
-          <div className="settings-header">
+      <div className={dragSendModal.overlayClass} onClick={() => { setShowSendModal(false); dragSendModal.reset(); }}>
+        <div className="settings-modal" ref={dragSendModal.modalRef} style={{ direction: 'rtl', maxWidth: 500, ...dragSendModal.modalStyle }} onClick={e => e.stopPropagation()}>
+          <div className="settings-header" {...dragSendModal.dragHandleProps}>
             <h2>💬 שלח תוכנית יום</h2>
-            <button className="btn-close" onClick={() => { setShowSendModal(false); setSendResult(null); }}>✕</button>
+            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setShowSendModal(false); setSendResult(null); dragSendModal.reset(); }}>✕</button>
           </div>
           <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {!sendResult ? (
@@ -2744,11 +2778,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     )}
 
     {fairnessReport && (
-      <div className="form-overlay" onClick={() => setFairnessReport(null)}>
-        <div className="settings-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700, direction: 'rtl' }}>
-          <div className="settings-header">
+      <div className={dragFairness.overlayClass} onClick={() => { setFairnessReport(null); dragFairness.reset(); }}>
+        <div className="settings-modal" ref={dragFairness.modalRef} style={{ maxWidth: 700, direction: 'rtl', ...dragFairness.modalStyle }} onClick={e => e.stopPropagation()}>
+          <div className="settings-header" {...dragFairness.dragHandleProps}>
             <h2>⚖️ טבלת צדק</h2>
-            <button className="btn-close" onClick={() => setFairnessReport(null)}>✕</button>
+            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setFairnessReport(null); dragFairness.reset(); }}>✕</button>
           </div>
           <div style={{ padding: '1rem 1.25rem', overflowX: 'auto' }}>
             {fairnessReport.sites.length === 0 ? (

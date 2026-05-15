@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import styles from '../styles/EventsManagement.module.scss';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 
 export default function EventsManagement({ workers, config, authToken, currentUser, selectedBranchId }) {
   const [events, setEvents] = useState([]);
@@ -532,6 +533,8 @@ function AddSessionInline({ eventId, authToken, onAdded }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function InviteesModal({ invitees, workers, onSave, onClose }) {
+  const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   const attendedIds = new Set(invitees.filter(i => i.attended).map(i => i.worker_id));
   const [selected, setSelected] = useState(new Set(invitees.map(i => i.worker_id)));
   const [search, setSearch] = useState('');
@@ -564,11 +567,11 @@ function InviteesModal({ invitees, workers, onSave, onClose }) {
   const notInvited = filtered.filter(w => !selected.has(w.id));
 
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className={`assignment-modal ${styles.inviteesModal}`} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
+    <div className={overlayClass} onClick={close}>
+      <div className={`assignment-modal ${styles.inviteesModal}`} ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
+        <div className="modal-header" {...dragHandleProps}>
           <h3>ניהול מוזמנים ({selected.size})</h3>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
         </div>
         <div className="modal-body">
           <div className={styles.inviteesToolbar}>
@@ -619,6 +622,8 @@ function InviteesModal({ invitees, workers, onSave, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EventFormModal({ event, config, authToken, selectedBranchId, onSave, onClose }) {
+  const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   const [form, setForm] = useState({
     name: event?.name || '',
     event_type_id: event?.event_type_id || '',
@@ -669,11 +674,11 @@ function EventFormModal({ event, config, authToken, selectedBranchId, onSave, on
   const eventTypes = config?.event_types || [];
 
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className={`assignment-modal ${styles.eventFormModal}`} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
+    <div className={overlayClass} onClick={close}>
+      <div className={`assignment-modal ${styles.eventFormModal}`} ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
+        <div className="modal-header" {...dragHandleProps}>
           <h3>{event ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
         </div>
         <div className={`modal-body ${styles.eventFormBody}`}>
           <div className={styles.formRow2}>
@@ -730,12 +735,14 @@ function EventFormModal({ event, config, authToken, selectedBranchId, onSave, on
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ConflictModal({ conflicts, sessionId, onResolve, onClose }) {
+  const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className={`assignment-modal ${styles.conflictModal}`} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
+    <div className={overlayClass} onClick={close}>
+      <div className={`assignment-modal ${styles.conflictModal}`} ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
+        <div className="modal-header" {...dragHandleProps}>
           <h3>ניגוד לוז — נדרש מחליף</h3>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
         </div>
         <div className="modal-body">
           {conflicts.map(conflict => (
@@ -784,6 +791,8 @@ function ConflictModal({ conflicts, sessionId, onResolve, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PredictModal({ eventId, authToken, result, onResult, onClose }) {
+  const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('07:00');
   const [endTime, setEndTime] = useState('08:00');
@@ -805,11 +814,11 @@ function PredictModal({ eventId, authToken, result, onResult, onClose }) {
   }
 
   return (
-    <div className="form-overlay" onClick={onClose}>
-      <div className={`assignment-modal ${styles.predictModal}`} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
+    <div className={overlayClass} onClick={close}>
+      <div className={`assignment-modal ${styles.predictModal}`} ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
+        <div className="modal-header" {...dragHandleProps}>
           <h3>חיזוי סשן חדש</h3>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
         </div>
         <div className="modal-body">
           <p className={styles.predictInfo}>כמה מוזמנים שעדיין לא השתתפו יכולים להגיע לסשן חדש?</p>
