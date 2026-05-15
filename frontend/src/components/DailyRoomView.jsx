@@ -1540,16 +1540,22 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           </div>
         )}
         {!isMobile && (
-          <span style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+          <span
+            className="tip"
+            data-tip={`סה"כ: ${totalFilled} שיבוצים מאויישים מתוך ${totalSlots}`}
+            style={{ fontWeight: 600, color: '#1a2e4a', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
             {totalFilled}/{totalSlots}
           </span>
         )}
-        <span style={{
-          padding: isMobile ? '0.1rem 0.3rem' : '0.1rem 0.4rem', borderRadius: '10px',
-          fontSize: isMobile ? '0.68rem' : '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
-          background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
-          color:      totalMissing === 0 ? '#166534' : '#991b1b',
-        }}>
+        <span
+          className="tip"
+          data-tip={totalMissing === 0 ? 'כל השיבוצים מאוישים' : `${totalMissing} שיבוצים חסרים מתוך ${totalSlots} סה"כ`}
+          style={{
+            padding: isMobile ? '0.1rem 0.3rem' : '0.1rem 0.4rem', borderRadius: '10px',
+            fontSize: isMobile ? '0.68rem' : '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
+            background: totalMissing === 0 ? '#dcfce7' : '#fef2f2',
+            color:      totalMissing === 0 ? '#166534' : '#991b1b',
+          }}>
           {totalMissing === 0 ? '✓ מלא' : `${totalMissing} חסרים`}
         </span>
         {shiftStats.map(s => {
@@ -1557,13 +1563,16 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           const chipColor  = s.missing === 0 ? '#166534' : s.filled === 0 ? '#991b1b' : '#92400e';
           const chipBorder = s.missing === 0 ? '#86efac' : s.filled === 0 ? '#fca5a5' : '#fde68a';
           return (
-            <div key={s.key} style={{
-              display: 'flex', alignItems: 'center', gap: '0.15rem',
-              background: chipBg, border: `1px solid ${chipBorder}`,
-              borderRadius: '6px', padding: isMobile ? '0.1rem 0.25rem' : '0.15rem 0.45rem',
-              fontSize: isMobile ? '0.65rem' : '0.78rem', fontWeight: 600, color: chipColor,
-              whiteSpace: 'nowrap',
-            }}>
+            <div key={s.key}
+              className="tip"
+              data-tip={`${s.label}: ${s.filled} מאויש מתוך ${s.total}${s.missing > 0 ? ` — ${s.missing} חסרים` : ' — מלא'}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.15rem',
+                background: chipBg, border: `1px solid ${chipBorder}`,
+                borderRadius: '6px', padding: isMobile ? '0.1rem 0.25rem' : '0.15rem 0.45rem',
+                fontSize: isMobile ? '0.65rem' : '0.78rem', fontWeight: 600, color: chipColor,
+                whiteSpace: 'nowrap',
+              }}>
               <span>{s.label}</span>
               <span>{s.filled}/{s.total}</span>
             </div>
