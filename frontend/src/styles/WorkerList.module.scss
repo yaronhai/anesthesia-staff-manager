@@ -119,11 +119,23 @@
   border: 1px solid #bfdbfe;
   border-radius: 6px;
   padding: 7px 10px;
+  margin-bottom: 0.75rem;
   font-size: 0.8rem;
   color: #1e40af;
-  margin-bottom: 0.75rem;
-  p { margin-bottom: 0.35rem; &:last-child { margin-bottom: 0; } }
   line-height: 1.5;
+  p { margin-bottom: 0.35rem; &:last-child { margin-bottom: 0; } }
+}
+.authNotePreview { margin-bottom: 0; }
+.authNoteMore {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #0369a1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  &:hover { color: #075985; }
 }
 .authSection { margin-bottom: 0.75rem; }
 .authSectionTitle {
@@ -148,6 +160,44 @@
 .authRemoveBtn {
   padding: 0.1rem 0.35rem;
   font-size: 0.75rem;
+}
+.authItemControls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.prioritySliderWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 90px;
+}
+.prioritySlider {
+  width: 100%;
+  height: 4px;
+  cursor: grab;
+  accent-color: #0369a1;
+  &:active { cursor: grabbing; }
+}
+.priorityTicks {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 2px;
+}
+.priorityTick {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  line-height: 1;
+  user-select: none;
+}
+.priorityTickActive {
+  font-size: 0.65rem;
+  color: #0369a1;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
 }
 .authEmpty { color: #666; margin: 0; }
 

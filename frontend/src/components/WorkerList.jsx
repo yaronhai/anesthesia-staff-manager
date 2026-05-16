@@ -36,6 +36,7 @@ function WorkerAuthButton({ worker, authToken, config }) {
 export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
   const [authorizations, setAuthorizations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
 
   useEffect(() => {
     fetchAuthorizations();
@@ -81,6 +82,22 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
     }
   }
 
+  async function updatePriority(activityTypeId, priority) {
+    try {
+      const res = await fetch(`/api/workers/${worker.id}/activity-authorizations/${activityTypeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ priority: Number(priority) }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setAuthorizations(prev => prev.map(a => a.activity_type_id === activityTypeId ? { ...a, priority: updated.priority } : a));
+      }
+    } catch (err) {
+      console.error('Error updating priority:', err);
+    }
+  }
+
   const authorizedIds = new Set(authorizations.map(a => a.activity_type_id));
   const availableActivities = (config.activity_types || []).filter(at => !authorizedIds.has(at.id));
   const actGroups = config.activity_type_groups || [];
@@ -123,8 +140,20 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
   return (
     <div className={styles.authModalContent}>
       <div className={styles.authNote}>
-        <p>הרשאות פעילות קובעות לאילו סוגי עבודה העובד מוסמך. הן משפיעות על <strong>הצעות השיבוץ האוטומטי</strong> — רק עובדים עם הרשאה מתאימה יוצעו לפעילות נתונה. עובד ברמת קושי גבוהה יותר יוצע תחילה; במקרה חוסר, עובד ברמה גבוהה עשוי לשמש גם ברמות נמוכות יותר (overqualified) אך בעדיפות נמוכה.</p>
-        <p>הרשאה בקבוצת <strong>תורנים</strong> מאפשרת לעובד להגיש בקשת משמרת תורנות. הרשאה בקבוצת <strong>כוננים</strong> — משמרת כוננות.</p>
+        <p className={styles.authNotePreview}>
+          הרשאות פעילות קובעות לאילו סוגי עבודה העובד מוסמך והן משפיעות על <strong>הצעות השיבוץ האוטומטי</strong>.{' '}
+          {!noteOpen && (
+            <button className={styles.authNoteMore} onClick={() => setNoteOpen(true)}>קרא עוד ▼</button>
+          )}
+        </p>
+        {noteOpen && (
+          <>
+            <p>רק עובדים עם הרשאה מתאימה יוצעו לפעילות נתונה. עובד ברמת קושי גבוהה יותר יוצע תחילה; במקרה חוסר, עובד ברמה גבוהה עשוי לשמש גם ברמות נמוכות יותר (overqualified) אך בעדיפות נמוכה.</p>
+            <p>הרשאה בקבוצת <strong>תורנים</strong> מאפשרת לעובד להגיש בקשת משמרת תורנות. הרשאה בקבוצת <strong>כוננים</strong> — משמרת כוננות.</p>
+            <p><strong>עדיפות שיבוץ (1–5):</strong> קובעת את הנטייה לשבץ את העובד לפעילות זו ביחס לפעילויות אחרות שהוא מורשה להן. ערך <strong>5</strong> — פריוריטי גבוה לפעילות זו; ערך <strong>1</strong> — יוצע רק אם אין מתאימים אחרים. ברירת מחדל: <strong>3</strong>. הסקאלה משפיעה על ההסתברות — לא על הזכאות עצמה.</p>
+            <button className={styles.authNoteMore} onClick={() => setNoteOpen(false)}>סגור ▲</button>
+          </>
+        )}
       </div>
       {loading ? <p>טוען...</p> : (
         <>
@@ -135,7 +164,23 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
                 {authorizations.map(auth => (
                   <div key={auth.activity_type_id} className={styles.authItem}>
                     <span>{auth.name}</span>
-                    <button className={`btn-remove ${styles.authRemoveBtn}`} onClick={() => removeAuthorization(auth.activity_type_id)}>✕</button>
+                    <div className={styles.authItemControls}>
+                      <div className={styles.prioritySliderWrap} title="עדיפות שיבוץ: 1=נמוכה, 5=גבוהה">
+                        <input
+                          type="range"
+                          min="1" max="5" step="1"
+                          value={auth.priority ?? 3}
+                          onChange={e => updatePriority(auth.activity_type_id, e.target.value)}
+                          className={styles.prioritySlider}
+                        />
+                        <div className={styles.priorityTicks}>
+                          {[1,2,3,4,5].map(n => (
+                            <span key={n} className={(auth.priority ?? 3) === n ? styles.priorityTickActive : styles.priorityTick}>{n}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <button className={`btn-remove ${styles.authRemoveBtn}`} onClick={() => removeAuthorization(auth.activity_type_id)}>✕</button>
+                    </div>
                   </div>
                 ))}
               </div>

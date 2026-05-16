@@ -990,7 +990,7 @@ app.get('/api/workers/:id/activity-authorizations', requireAuth, async (req, res
       if (selfCheck.rows.length === 0) return res.status(403).json({ error: 'אין הרשאה' });
     }
     const res_query = await query(`
-      SELECT waa.id, waa.activity_type_id, at.name, at.group_id, atg.name AS group_name
+      SELECT waa.id, waa.activity_type_id, waa.priority, at.name, at.group_id, atg.name AS group_name
       FROM worker_activity_authorizations waa
       JOIN activity_types at ON waa.activity_type_id = at.id
       LEFT JOIN activity_type_groups atg ON at.group_id = atg.id
@@ -1006,17 +1006,18 @@ app.get('/api/workers/:id/activity-authorizations', requireAuth, async (req, res
 
 app.post('/api/workers/:id/activity-authorizations', requireAdmin, async (req, res) => {
   try {
-    const { activity_type_id } = req.body;
+    const { activity_type_id, priority = 3 } = req.body;
     if (!activity_type_id) return res.status(400).json({ error: 'סוג פעילות חובה' });
+    if (priority < 1 || priority > 5) return res.status(400).json({ error: 'עדיפות חייבת להיות בין 1 ל-5' });
 
     try {
       await query(`
-        INSERT INTO worker_activity_authorizations (worker_id, activity_type_id)
-        VALUES ($1, $2)
-      `, [req.params.id, activity_type_id]);
+        INSERT INTO worker_activity_authorizations (worker_id, activity_type_id, priority)
+        VALUES ($1, $2, $3)
+      `, [req.params.id, activity_type_id, priority]);
 
       const res_query = await query(`
-        SELECT waa.id, waa.activity_type_id, at.name
+        SELECT waa.id, waa.activity_type_id, waa.priority, at.name
         FROM worker_activity_authorizations waa
         JOIN activity_types at ON waa.activity_type_id = at.id
         WHERE waa.worker_id = $1
@@ -1043,7 +1044,7 @@ app.delete('/api/workers/:id/activity-authorizations/:activityTypeId', requireAd
     `, [req.params.id, req.params.activityTypeId]);
 
     const res_query = await query(`
-      SELECT waa.id, waa.activity_type_id, at.name
+      SELECT waa.id, waa.activity_type_id, waa.priority, at.name
       FROM worker_activity_authorizations waa
       JOIN activity_types at ON waa.activity_type_id = at.id
       WHERE waa.worker_id = $1
@@ -1053,6 +1054,26 @@ app.delete('/api/workers/:id/activity-authorizations/:activityTypeId', requireAd
   } catch (error) {
     console.error('Delete worker activity authorization error:', error);
     res.status(500).json({ error: 'שגיאה בהסרת הרשאה' });
+  }
+});
+
+app.put('/api/workers/:id/activity-authorizations/:activityTypeId', requireAdmin, async (req, res) => {
+  try {
+    const { priority } = req.body;
+    if (!priority || priority < 1 || priority > 5) return res.status(400).json({ error: 'עדיפות חייבת להיות בין 1 ל-5' });
+
+    const updated = await query(`
+      UPDATE worker_activity_authorizations
+      SET priority = $1
+      WHERE worker_id = $2 AND activity_type_id = $3
+      RETURNING *
+    `, [priority, req.params.id, req.params.activityTypeId]);
+
+    if (updated.rows.length === 0) return res.status(404).json({ error: 'הרשאה לא נמצאה' });
+    res.json(updated.rows[0]);
+  } catch (error) {
+    console.error('Update activity authorization priority error:', error);
+    res.status(500).json({ error: 'שגיאה בעדכון עדיפות' });
   }
 });
 
@@ -3531,16 +3552,19 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
 
     // Fetch activity authorizations for all workers who requested shifts
     const workerIds = [...new Set(shiftsRes.rows.map(r => r.worker_id))];
-    const workerAuthSet = new Map(); // worker_id -> Set<activity_type_id>
+    const workerAuthSet = new Map();    // worker_id -> Set<activity_type_id>
+    const workerAuthPriority = new Map(); // worker_id -> Map<activity_type_id, priority>
     if (workerIds.length > 0) {
       const placeholders = workerIds.map((_, i) => `$${i + 1}`).join(', ');
       const authRes = await query(
-        `SELECT worker_id, activity_type_id FROM worker_activity_authorizations WHERE worker_id IN (${placeholders})`,
+        `SELECT worker_id, activity_type_id, priority FROM worker_activity_authorizations WHERE worker_id IN (${placeholders})`,
         workerIds
       );
       authRes.rows.forEach(r => {
         if (!workerAuthSet.has(r.worker_id)) workerAuthSet.set(r.worker_id, new Set());
         workerAuthSet.get(r.worker_id).add(r.activity_type_id);
+        if (!workerAuthPriority.has(r.worker_id)) workerAuthPriority.set(r.worker_id, new Map());
+        workerAuthPriority.get(r.worker_id).set(r.activity_type_id, r.priority ?? 3);
       });
     }
 
@@ -3628,7 +3652,8 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       const shiftWorkers = (availableByShift[shift] || [])
         .filter(w => !workerAssigned.has(`${w.worker_id}-${shift}`));
 
-      // adjacency[slotIdx] = sorted array of eligible workerIdx (prefer first, then by overqualification gap, then fairness)
+      // adjacency[slotIdx] = sorted array of eligible workerIdx, ordered by composite score (lower = better):
+      //   score = preference_penalty(prefer=0,can=1) + (5-priority)*0.4 + overqualGap*0.3 + fairnessCount*0.05
       let adjacency = shiftSlots.map(slot => {
         const slotLevel = activityLevels.get(slot.activity_type_id) ?? 1;
         return shiftWorkers
@@ -3638,15 +3663,17 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             const authOk = !slot.activity_type_id || (workerAuths != null && workerAuths.has(slot.activity_type_id));
             const workerLevel = workerMaxLevel.get(w.worker_id) ?? 1;
             const overqualGap = Math.max(0, workerLevel - slotLevel);
-            return { idx, preferFirst: w.preference_type === 'prefer' ? 0 : 1, overqualGap, eligible: jobOk && authOk };
+            const priority = slot.activity_type_id
+              ? (workerAuthPriority.get(w.worker_id)?.get(slot.activity_type_id) ?? 3)
+              : 3;
+            const score = (w.preference_type === 'prefer' ? 0 : 1)
+              + (5 - priority) * 0.4
+              + overqualGap * 0.3
+              + (fairnessCountByWorker.get(w.worker_id) ?? 0) * 0.05;
+            return { idx, score, eligible: jobOk && authOk };
           })
           .filter(e => e.eligible)
-          .sort((a, b) => {
-            if (a.preferFirst !== b.preferFirst) return a.preferFirst - b.preferFirst;
-            if (a.overqualGap !== b.overqualGap) return a.overqualGap - b.overqualGap;
-            return (fairnessCountByWorker.get(shiftWorkers[a.idx].worker_id) ?? 0)
-                 - (fairnessCountByWorker.get(shiftWorkers[b.idx].worker_id) ?? 0);
-          })
+          .sort((a, b) => a.score - b.score)
           .map(e => e.idx);
       });
 

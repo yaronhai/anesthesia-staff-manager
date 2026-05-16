@@ -953,6 +953,8 @@ async function runMigrations() {
 
     await query(`ALTER TABLE user_column_preferences ADD COLUMN IF NOT EXISTS hidden_columns JSONB NOT NULL DEFAULT '[]'`);
 
+    await query(`ALTER TABLE worker_activity_authorizations ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 3 CHECK (priority BETWEEN 1 AND 5)`);
+
     console.log('✓ Migrations complete');
   } catch (error) {
     console.error('Error running migrations:', error);
