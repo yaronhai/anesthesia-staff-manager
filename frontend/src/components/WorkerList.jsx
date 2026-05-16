@@ -102,9 +102,14 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
   const availableActivities = (config.activity_types || []).filter(at => !authorizedIds.has(at.id));
   const actGroups = config.activity_type_groups || [];
 
+  async function addGroupAuthorizations(groupId) {
+    const items = availableActivities.filter(at => at.group_id === groupId);
+    for (const at of items) await addAuthorization(at.id);
+  }
+
   function renderActivityButton(at) {
     return (
-      <button key={at.id} className={styles.activityBtn} onClick={() => addAuthorization(at.id)}>
+      <button type="button" key={at.id} className={styles.activityBtn} onClick={() => addAuthorization(at.id)}>
         {at.name}
       </button>
     );
@@ -121,7 +126,12 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
       if (!items.length) return;
       sections.push(
         <div key={group.id}>
-          <div className={styles.actGroupLabel}>{group.name}</div>
+          <div className={styles.actGroupLabelRow}>
+            <span className={styles.actGroupLabel}>{group.name}</span>
+            <button type="button" className={styles.actGroupSelectAll} onClick={() => addGroupAuthorizations(group.id)}>
+              + הוסף קבוצה
+            </button>
+          </div>
           <div className={styles.actGroupItems}>{items.map(renderActivityButton)}</div>
         </div>
       );
@@ -130,7 +140,9 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
     if (ungrouped.length > 0)
       sections.push(
         <div key="ungrouped">
-          <div className={`${styles.actGroupLabel} ${styles.actUngroupedLabel}`}>ללא קבוצה</div>
+          <div className={styles.actGroupLabelRow}>
+            <span className={`${styles.actGroupLabel} ${styles.actUngroupedLabel}`}>ללא קבוצה</span>
+          </div>
           <div className={styles.actGroupItems}>{ungrouped.map(renderActivityButton)}</div>
         </div>
       );
@@ -143,7 +155,7 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
         <p className={styles.authNotePreview}>
           הרשאות פעילות קובעות לאילו סוגי עבודה העובד מוסמך והן משפיעות על <strong>הצעות השיבוץ האוטומטי</strong>.{' '}
           {!noteOpen && (
-            <button className={styles.authNoteMore} onClick={() => setNoteOpen(true)}>קרא עוד ▼</button>
+            <button type="button" className={styles.authNoteMore} onClick={() => setNoteOpen(true)}>קרא עוד ▼</button>
           )}
         </p>
         {noteOpen && (
@@ -151,7 +163,7 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
             <p>רק עובדים עם הרשאה מתאימה יוצעו לפעילות נתונה. עובד ברמת קושי גבוהה יותר יוצע תחילה; במקרה חוסר, עובד ברמה גבוהה עשוי לשמש גם ברמות נמוכות יותר (overqualified) אך בעדיפות נמוכה.</p>
             <p>הרשאה בקבוצת <strong>תורנים</strong> מאפשרת לעובד להגיש בקשת משמרת תורנות. הרשאה בקבוצת <strong>כוננים</strong> — משמרת כוננות.</p>
             <p><strong>עדיפות שיבוץ (1–5):</strong> קובעת את הנטייה לשבץ את העובד לפעילות זו ביחס לפעילויות אחרות שהוא מורשה להן. ערך <strong>5</strong> — פריוריטי גבוה לפעילות זו; ערך <strong>1</strong> — יוצע רק אם אין מתאימים אחרים. ברירת מחדל: <strong>3</strong>. הסקאלה משפיעה על ההסתברות — לא על הזכאות עצמה.</p>
-            <button className={styles.authNoteMore} onClick={() => setNoteOpen(false)}>סגור ▲</button>
+            <button type="button" className={styles.authNoteMore} onClick={() => setNoteOpen(false)}>סגור ▲</button>
           </>
         )}
       </div>
@@ -179,7 +191,7 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
                           ))}
                         </div>
                       </div>
-                      <button className={`btn-remove ${styles.authRemoveBtn}`} onClick={() => removeAuthorization(auth.activity_type_id)}>✕</button>
+                      <button type="button" className={`btn-remove ${styles.authRemoveBtn}`} onClick={() => removeAuthorization(auth.activity_type_id)}>✕</button>
                     </div>
                   </div>
                 ))}
