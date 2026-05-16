@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import styles from '../styles/ShiftRequests.module.scss';
 import PermanentShiftsModal from './PermanentShiftsModal';
+import WorkerShiftModal from './WorkerShiftModal';
+import DayStaffingModal from './DayStaffingModal';
 import { useDraggableModal } from '../hooks/useDraggableModal';
 
 const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
@@ -387,6 +389,9 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   const [cellError, setCellError] = useState(null);
   const [vacationWarning, setVacationWarning] = useState(null);
   const [blockedWorkerMsg, setBlockedWorkerMsg] = useState(null);
+  const [workerModal, setWorkerModal] = useState(null); // { id, userId, name, job }
+  const [workerModalRefreshKey, setWorkerModalRefreshKey] = useState(0);
+  const [dayModal, setDayModal] = useState(null); // null | { day }
   const dragBlocked  = useDraggableModal();
   const dragVacation = useDraggableModal();
   const dragEditor   = useDraggableModal();
@@ -494,6 +499,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
       }
     }
     await onRefresh();
+    if (workerModal) setWorkerModalRefreshKey(k => k + 1);
   }
 
   const rows = workers.map(w => ({
@@ -584,8 +590,9 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                   return (
                     <th
                       key={d}
-                      className={`admin-grid-day-col${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}${locked ? ` ${styles.lockedDayCol}` : ''}${reopened ? ` ${styles.reopenedDayCol}` : ''}`}
+                      className={`admin-grid-day-col admin-grid-day-col--clickable${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}${locked ? ` ${styles.lockedDayCol}` : ''}${reopened ? ` ${styles.reopenedDayCol}` : ''}`}
                       style={sd && !isWeekend ? { '--sd-header-bg': sd.color + '44', background: 'var(--sd-header-bg)' } : undefined}
+                      onClick={() => setDayModal({ day: d })}
                     >
                       <div>{d}</div>
                       <div className="admin-grid-day-letter">{DAYS_HE[dow]}</div>
@@ -607,7 +614,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
             {primaryJobGroups.map(job => ([
               ...primaryJobMap[job].map(row => (
                 <tr key={row.userId}>
-                  <td className="admin-grid-name-col">{row.name}</td>
+                  <td className="admin-grid-name-col admin-grid-name-col--clickable" onClick={() => setWorkerModal({ id: row.id, userId: row.userId, name: row.name, job: row.job })}><div className="admin-grid-name-inner">{row.name}</div></td>
                   {days.map(d => {
                     const dayData = requestMap[row.userId]?.[d] || {};
                     const dow = new Date(year, month, d).getDay();
@@ -652,10 +659,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               ...borrowedJobGroups.map(job => ([
                 ...borrowedJobMap[job].map(row => (
                   <tr key={row.userId}>
-                    <td className="admin-grid-name-col">
-                      {row.name}
-                      <span className={styles.borrowedTag}> מושאל</span>
-                    </td>
+                    <td className="admin-grid-name-col admin-grid-name-col--clickable" onClick={() => setWorkerModal({ id: row.id, userId: row.userId, name: row.name, job: row.job })}><div className="admin-grid-name-inner">{row.name}<span className={styles.borrowedTag}> מושאל</span></div></td>
                     {days.map(d => {
                       const dayData = requestMap[row.userId]?.[d] || {};
                       const dow = new Date(year, month, d).getDay();
@@ -699,6 +703,41 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
           </table>
         </div>
       </div>
+
+      {dayModal && (
+        <DayStaffingModal
+          day={dayModal.day}
+          year={year}
+          month={month}
+          token={token}
+          branchId={branchId}
+          workers={workers}
+          requestMap={requestMap}
+          vacations={vacations}
+          shifts={shifts}
+          prefs={prefs}
+          onClose={() => setDayModal(null)}
+        />
+      )}
+
+      {workerModal && (
+        <WorkerShiftModal
+          worker={workerModal}
+          token={token}
+          branchId={branchId}
+          shifts={shifts}
+          prefs={prefs}
+          vacations={vacations}
+          initialYear={year}
+          initialMonth={month}
+          refreshKey={workerModalRefreshKey}
+          onClose={() => setWorkerModal(null)}
+          onEditDay={(userId, day) => {
+            setCellError(null);
+            setEditingCell({ userId, day });
+          }}
+        />
+      )}
 
       {blockedWorkerMsg && (
         <div className={`admin-editor-overlay${dragBlocked.dragged ? ' admin-editor-overlay--transparent' : ''}`} onClick={() => { setBlockedWorkerMsg(null); dragBlocked.reset(); }}>
