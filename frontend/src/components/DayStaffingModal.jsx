@@ -144,6 +144,61 @@ export default function DayStaffingModal({
 
   function handleClose() { onClose(); reset(); }
 
+  // ── Chart ──────────────────────────────────────────────────────────────────
+
+  function renderChart() {
+    const chartData = shifts.map(s => {
+      const avail = workers.filter(w => {
+        const req = requestMap[w.user_id]?.[day]?.[s.key];
+        return req && (req.pref === 'can' || req.pref === 'prefer');
+      }).length;
+      const assigned = dayAssignments.filter(a => a.shift_type === s.key).length;
+      return { key: s.key, label: s.label_he, avail, assigned };
+    });
+
+    const maxVal = Math.max(1, ...chartData.map(d => Math.max(d.avail, d.assigned, 1)));
+
+    return (
+      <div className={styles.chart}>
+        <div className={styles.chartLegend}>
+          <span className={styles.legendAvail}>■ יכול / מועדף</span>
+          <span className={styles.legendAssign}>■ שובצו לאתרים</span>
+        </div>
+        {chartData.map(d => {
+          const availPct  = Math.round((d.avail    / maxVal) * 100);
+          const assignPct = Math.round((d.assigned / maxVal) * 100);
+          const isActive  = activeShift === d.key;
+          return (
+            <div
+              key={d.key}
+              className={`${styles.chartRow}${isActive ? ' ' + styles.chartRowActive : ''}`}
+              onClick={() => setActiveShift(d.key)}
+            >
+              <div className={styles.chartLabel}>
+                <span>{SHIFT_ICONS[d.key]}</span>
+                <span>{d.label}</span>
+              </div>
+              <div className={styles.chartBars}>
+                <div className={styles.barRow}>
+                  <div className={styles.barTrack}>
+                    <div className={styles.barAvail} style={{ '--bar-pct': availPct + '%' }} />
+                  </div>
+                  <span className={styles.barCount}>{d.avail}</span>
+                </div>
+                <div className={styles.barRow}>
+                  <div className={styles.barTrack}>
+                    <div className={styles.barAssign} style={{ '--bar-pct': assignPct + '%' }} />
+                  </div>
+                  <span className={styles.barCount}>{d.assigned}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   // ── Render sections ────────────────────────────────────────────────────────
 
   function renderSummaryStrip(shiftKey) {
@@ -325,6 +380,9 @@ export default function DayStaffingModal({
             ✕
           </button>
         </div>
+
+        {/* Chart — shown after load */}
+        {!loading && renderChart()}
 
         {/* Shift tabs */}
         <div className={styles.tabs}>
