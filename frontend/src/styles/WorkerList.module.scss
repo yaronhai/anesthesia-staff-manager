@@ -212,9 +212,6 @@
   font-size: 0.82rem;
 }
 .actGroupLabelRow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   margin-top: 0.4rem;
   margin-bottom: 0.2rem;
 }
@@ -222,17 +219,13 @@
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--group-label-color, #7f1d1d);
-}
-.actGroupSelectAll {
-  font-size: 0.7rem;
-  padding: 1px 6px;
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
-  border-radius: 4px;
-  color: #7f1d1d;
+  background: none;
+  border: none;
+  padding: 0;
   cursor: pointer;
-  white-space: nowrap;
-  &:hover { background: #fecaca; }
+  text-align: right;
+  text-decoration: underline dotted;
+  &:hover { opacity: 0.75; }
 }
 .actGroupItems {
   display: flex;

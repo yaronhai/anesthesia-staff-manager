@@ -127,9 +127,8 @@ export function WorkerAuthorizationsPanel({ worker, authToken, config }) {
       sections.push(
         <div key={group.id}>
           <div className={styles.actGroupLabelRow}>
-            <span className={styles.actGroupLabel}>{group.name}</span>
-            <button type="button" className={styles.actGroupSelectAll} onClick={() => addGroupAuthorizations(group.id)}>
-              + בחר קבוצה
+            <button type="button" className={styles.actGroupLabel} title="בחר את כל הקבוצה" onClick={() => addGroupAuthorizations(group.id)}>
+              {group.name}
             </button>
           </div>
           <div className={styles.actGroupItems}>{items.map(renderActivityButton)}</div>
