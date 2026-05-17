@@ -693,7 +693,7 @@ app.get('/api/workers', requireAuth, async (req, res) => {
                     w.first_name, w.family_name,
                     w.job_id, j.name AS job,
                     w.employment_type_id, e.name AS employment_type,
-                    w.phone, w.email, w.notes,
+                    w.phone, w.email, w.personal_email, w.notes,
                     w.id_number, w.classification, w.can_submit_requests,
                     COALESCE((SELECT BOOL_OR(wb2.is_active) FROM worker_branches wb2 WHERE wb2.worker_id = w.id), TRUE) AS is_active,
                     w.primary_branch_id, pb.name AS primary_branch_name,
@@ -714,7 +714,7 @@ app.get('/api/workers', requireAuth, async (req, res) => {
                w.first_name, w.family_name,
                w.job_id, j.name AS job,
                w.employment_type_id, e.name AS employment_type,
-               w.phone, w.email, w.notes,
+               w.phone, w.email, w.personal_email, w.notes,
                w.id_number, w.classification, w.can_submit_requests, wb.is_active,
                w.primary_branch_id, pb.name AS primary_branch_name,
                w.created_at, u.id AS user_id, u.role AS user_role,
@@ -5144,16 +5144,24 @@ app.post('/api/profile/change-request', requireAuth, async (req, res) => {
     if (existingRes.rows.length) return res.status(409).json({ error: 'יש כבר בקשה ממתינה לאישור' });
 
     const { honorific_id, first_name, family_name, phone, personal_email, birth_date } = req.body;
+
+    const workerRes = await query(
+      'SELECT first_name, family_name, phone, personal_email, birth_date, honorific_id, primary_branch_id FROM workers WHERE id=$1',
+      [workerId]
+    );
+    const orig = workerRes.rows[0] || {};
+
     const r = await query(
       `INSERT INTO profile_change_requests
-         (worker_id, requested_by_user_id, honorific_id, first_name, family_name, phone, personal_email, birth_date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+         (worker_id, requested_by_user_id, honorific_id, first_name, family_name, phone, personal_email, birth_date,
+          orig_honorific_id, orig_first_name, orig_family_name, orig_phone, orig_personal_email, orig_birth_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
       [workerId, req.user.id, honorific_id || null, first_name || null, family_name || null,
-       phone || null, personal_email || null, birth_date || null]
+       phone || null, personal_email || null, birth_date || null,
+       orig.honorific_id || null, orig.first_name || null, orig.family_name || null,
+       orig.phone || null, orig.personal_email || null,
+       orig.birth_date ? orig.birth_date.toISOString().slice(0, 10) : null]
     );
-
-    // Notify admin(s) via in-app message
-    const workerRes = await query('SELECT first_name, family_name, primary_branch_id FROM workers WHERE id=$1', [workerId]);
     const worker = workerRes.rows[0];
     const branchId = worker?.primary_branch_id ?? req.user.branch_id;
     if (branchId) {
@@ -5280,13 +5288,14 @@ app.get('/api/profile/change-requests', requireAdmin, async (req, res) => {
              pcr.phone, pcr.personal_email, pcr.birth_date, pcr.photo_url, pcr.admin_notes,
              pcr.created_at, pcr.decided_at,
              w.first_name AS current_first_name, w.family_name AS current_family_name,
-             w.phone AS current_phone, w.personal_email AS current_personal_email,
-             w.birth_date AS current_birth_date, w.honorific_id AS current_honorific_id,
-             w.photo_url AS current_photo_url,
-             h.name AS current_honorific_name
+             COALESCE(pcr.orig_first_name,    w.first_name)    AS orig_first_name,
+             COALESCE(pcr.orig_family_name,   w.family_name)   AS orig_family_name,
+             COALESCE(pcr.orig_phone,         w.phone)         AS orig_phone,
+             COALESCE(pcr.orig_personal_email,w.personal_email)AS orig_personal_email,
+             COALESCE(pcr.orig_birth_date,    w.birth_date::TEXT) AS orig_birth_date,
+             COALESCE(pcr.orig_honorific_id,  w.honorific_id)  AS orig_honorific_id
       FROM profile_change_requests pcr
       JOIN workers w ON w.id = pcr.worker_id
-      LEFT JOIN honorifics h ON h.id = w.honorific_id
     `;
     const params = [];
     const conditions = [];
@@ -5305,6 +5314,17 @@ app.get('/api/profile/change-requests', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error('Get profile change requests error:', e);
     res.status(500).json({ error: 'שגיאה בטעינת בקשות' });
+  }
+});
+
+app.delete('/api/profile/change-requests/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await query('DELETE FROM profile_change_requests WHERE id=$1 RETURNING id', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'בקשה לא נמצאה' });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Delete profile change request error:', e);
+    res.status(500).json({ error: 'שגיאה במחיקה' });
   }
 });
 

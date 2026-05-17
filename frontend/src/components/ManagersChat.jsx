@@ -86,6 +86,9 @@ export default function ManagersChat({ authToken, currentUser, canManageMembers 
       if (res.ok) {
         setPrivateMessages(await res.json());
         await fetch(`/api/messages/read/${userId}`, { method: 'POST', headers: authHeaders() });
+        setPrivateConversations(prev =>
+          prev.map(c => c.partner_id === userId ? { ...c, unread_count: 0 } : c)
+        );
       }
     } catch {}
   }
@@ -113,10 +116,7 @@ export default function ManagersChat({ authToken, currentUser, canManageMembers 
         const filtered = all.filter(c =>
           !hidden.has(String(c.partner_id)) || Number(c.unread_count) > 0
         );
-        setPrivateConversations(openRef.current
-          ? filtered.map(c => ({ ...c, unread_count: 0 }))
-          : filtered
-        );
+        setPrivateConversations(filtered);
       }
     } catch {}
   }
@@ -312,14 +312,7 @@ export default function ManagersChat({ authToken, currentUser, canManageMembers 
 
   useEffect(() => {
     if (!open) return;
-    // openRef.current is already true (set synchronously in render)
-    fetchGroupMessages(); // sets groupLastSeen + resets groupUnread
-    setPrivateConversations(prev => {
-      prev.filter(c => Number(c.unread_count) > 0).forEach(c => {
-        fetch(`/api/messages/read/${c.partner_id}`, { method: 'POST', headers: authHeaders() }).catch(() => {});
-      });
-      return prev.map(c => ({ ...c, unread_count: 0 }));
-    });
+    fetchGroupMessages();
   }, [open]);
 
   useEffect(() => {
@@ -728,6 +721,9 @@ export default function ManagersChat({ authToken, currentUser, canManageMembers 
                     onClick={() => { setPrivateUserId(c.partner_id); setPrivateMessages([]); setShowPrivateSearch(false); }}
                   >
                     {c.partner_name || c.partner_username}
+                    {Number(c.unread_count) > 0 && (
+                      <span className={styles.tabBadge}>{c.unread_count}</span>
+                    )}
                   </button>
                   <button
                     className={styles.removeBtn}

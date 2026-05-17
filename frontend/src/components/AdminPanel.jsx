@@ -530,6 +530,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     eventTypes: 'סוגי אירועים מגדירים קטגוריות לאירועי מחלקה (לדוג׳ ישיבת צוות, ערב גיבוש). ניתן להוסיף סוגים מותאמים אישית בנוסף לסוגי הברירת מחדל.',
     templateGroups: 'קבוצות תבניות מאפשרות לאגד תבניות שיבוצים לקטגוריות (לדוג׳ ימי חול, סופ"ש). ניתן לשייך כל תבנית לקבוצה בעת יצירתה או עריכתה.',
     trainingGaps: 'ניתוח פערי הכשרה: סוגי פעילות עם מעט מורשים, אתרים חסרי כיסוי, ועובדים ללא הרשאות פעילות כלל — כלי תכנון לניהול הכשרות.',
+    autoSuggest: 'תיעוד האלגוריתם שמניע את כפתור "🤖 הצע שיבוצים" — איך המערכת בוחרת ומדרגת עובדים לכל משבצת.',
   };
 
   function TabDescription({ tabKey }) {
@@ -553,6 +554,7 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
     { key: 'shifts', label: 'שעות משמרות', section: 'הגדרות' },
     { key: 'lockSettings', label: 'נעילת סידור', section: 'הגדרות' },
     { key: 'trainingGaps', label: 'פערי הכשרה', section: 'הגדרות' },
+    { key: 'autoSuggest', label: 'שיבוץ אוטומטי', section: 'הגדרות' },
   ];
 
   const closeMain = () => { onClose(); mainReset(); };
@@ -1523,6 +1525,67 @@ export default function AdminPanel({ config, authToken, branchId, isSuperAdmin, 
               <div>
                 <TabDescription tabKey="trainingGaps" />
                 <TrainingGapsPanel authToken={authToken} branchId={localBranchId} isSuperAdmin={isSuperAdmin} config={config} />
+              </div>
+            )}
+
+            {activeTab === 'autoSuggest' && (
+              <div className={styles.algoTab}>
+                <TabDescription tabKey="autoSuggest" />
+
+                <div className={styles.algoSection}>
+                  <div className={styles.algoSectionTitle}>שלב 1 — איסוף נתונים</div>
+                  <ul className={styles.algoList}>
+                    <li>עובדים שהגישו בקשת משמרת <span className={styles.algoTag}>can</span> / <span className={styles.algoTag}>prefer</span> לתאריך הנבחר</li>
+                    <li>משבצות פתוחות — פעילויות מוגדרות ללא עובד משובץ</li>
+                    <li>הרשאות עובדים לסוגי פעילות ורמת עדיפות (1–5)</li>
+                    <li>הגבלות תפקידים מורשים לכל אתר</li>
+                    <li>ספירת שיבוצים היסטוריים לאתרי הגינות (⚖️)</li>
+                  </ul>
+                </div>
+
+                <div className={styles.algoSection}>
+                  <div className={styles.algoSectionTitle}>שלב 2 — ניקוד (ציון נמוך = עדיפות גבוהה)</div>
+                  <div className={styles.algoFormula}>
+                    ציון = העדפה + עדיפות + overqualification + היסטוריית הגינות
+                  </div>
+                  <ul className={styles.algoList}>
+                    <li><strong>העדפה:</strong> 0 אם <span className={styles.algoTag}>prefer</span> · 1 אם <span className={styles.algoTag}>can</span></li>
+                    <li><strong>עדיפות:</strong> (5 − עדיפות) × 0.4 &nbsp;(טווח 0–2)</li>
+                    <li><strong>Overqualification:</strong> פער רמות × 0.3 &nbsp;(כשעובד ברמה גבוהה ממלא משבצת פשוטה)</li>
+                    <li><strong>הגינות:</strong> מספר שיבוצים קודמים לאתרי ⚖️ × 0.05</li>
+                  </ul>
+                  <div className={styles.algoNote}>עובד ללא הרשאה לפעילות, או שתפקידו לא מורשה לאתר — פסול לחלוטין ולא מקבל ציון.</div>
+                </div>
+
+                <div className={styles.algoSection}>
+                  <div className={styles.algoSectionTitle}>שלב 3 — התאמה מקסימלית (Bipartite Matching)</div>
+                  <ul className={styles.algoList}>
+                    <li>כל סוג משמרת (בוקר / ערב / לילה / כוננות) מטופל בנפרד</li>
+                    <li>משבצות ממוינות לפי <strong>מספר מועמדים עולה</strong> — המוגבלות ביותר מקבלות עדיפות</li>
+                    <li>אלגוריתם <strong>DFS עם נתיבי הגדלה</strong> (Augmenting Paths) — מבטיח מקסימום שיבוצים</li>
+                    <li>עובד לא יכול להיות משובץ פעמיים באותה משמרת</li>
+                  </ul>
+                </div>
+
+                <div className={styles.algoSection}>
+                  <div className={styles.algoSectionTitle}>שלב 4 — פלט</div>
+                  <ul className={styles.algoList}>
+                    <li><strong>הצעות:</strong> זוגות עובד–משבצת עם פירוט העדפה, עדיפות, ומדד הגינות</li>
+                    <li><strong>משבצות לא מאוישות:</strong> כולל סיבה — חסרת הרשאה / תפקיד לא מורשה / כל העובדים המורשים תפוסים</li>
+                    <li>בדיקת בטיחות סופית — פסילת הצעות שנוצרו בינתיים ב-DB</li>
+                  </ul>
+                </div>
+
+                <div className={styles.algoSection}>
+                  <div className={styles.algoSectionTitle}>זרימת משתמש</div>
+                  <div className={styles.algoFlow}>
+                    <span className={styles.algoFlowStep}>לחיצה על 🤖 הצע שיבוצים</span>
+                    <span className={styles.algoFlowArrow}>←</span>
+                    <span className={styles.algoFlowStep}>בחירת הצעות בצ׳קבוקסים</span>
+                    <span className={styles.algoFlowArrow}>←</span>
+                    <span className={styles.algoFlowStep}>אישור ושמירה ב-DB</span>
+                  </div>
+                </div>
               </div>
             )}
 

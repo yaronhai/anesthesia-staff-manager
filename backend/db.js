@@ -462,6 +462,15 @@ async function initializeSchema() {
         END IF;
       END $$;
     `);
+    await query(`
+      ALTER TABLE profile_change_requests
+        ADD COLUMN IF NOT EXISTS orig_first_name    TEXT,
+        ADD COLUMN IF NOT EXISTS orig_family_name   TEXT,
+        ADD COLUMN IF NOT EXISTS orig_phone         TEXT,
+        ADD COLUMN IF NOT EXISTS orig_personal_email TEXT,
+        ADD COLUMN IF NOT EXISTS orig_birth_date    TEXT,
+        ADD COLUMN IF NOT EXISTS orig_honorific_id  INTEGER
+    `);
     console.log('✓ Database schema initialized');
   } catch (error) {
     console.error('Error initializing schema:', error);

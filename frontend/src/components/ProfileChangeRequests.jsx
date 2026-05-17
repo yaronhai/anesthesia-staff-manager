@@ -8,6 +8,15 @@ const STATUS_LABEL = {
   rejected: { label: 'נדחה',   color: '#dc2626' },
 };
 
+const FIELD_LABELS = {
+  first_name:     'שם פרטי',
+  family_name:    'שם משפחה',
+  phone:          'טלפון',
+  personal_email: 'אימייל אישי',
+  birth_date:     'תאריך לידה',
+  honorific_id:   'תואר',
+};
+
 function formatDate(d) {
   if (!d) return '';
   const s = d.slice(0, 10);
@@ -15,23 +24,38 @@ function formatDate(d) {
   return `${dd}/${m.padStart(2, '0')}/${y}`;
 }
 
-function FieldDiff({ label, current, requested }) {
+function getChangedFields(r) {
+  const diff = (requested, orig) =>
+    requested !== null && requested !== undefined &&
+    String(requested ?? '') !== String(orig ?? '');
+  const fields = [];
+  if (diff(r.first_name,     r.orig_first_name))     fields.push('שם פרטי');
+  if (diff(r.family_name,    r.orig_family_name))    fields.push('שם משפחה');
+  if (diff(r.phone,          r.orig_phone))          fields.push('טלפון');
+  if (diff(r.personal_email, r.orig_personal_email)) fields.push('אימייל אישי');
+  if (diff(r.birth_date,     r.orig_birth_date))     fields.push('תאריך לידה');
+  if (diff(r.honorific_id,   r.orig_honorific_id))   fields.push('תואר');
+  return fields;
+}
+
+function FieldDiff({ label, orig, requested }) {
   if (requested === null || requested === undefined) return null;
-  const changed = String(current ?? '') !== String(requested ?? '');
+  if (String(requested ?? '') === String(orig ?? '')) return null;
   return (
-    <tr className={changed ? styles.changedRow : ''}>
+    <tr className={styles.changedRow}>
       <td className={styles.diffLabel}>{label}</td>
-      <td className={styles.diffCurrent}>{current || '—'}</td>
+      <td className={styles.diffCurrent}>{orig || '—'}</td>
       <td className={styles.diffArrow}>←</td>
       <td className={styles.diffRequested}>{requested || '—'}</td>
     </tr>
   );
 }
 
-export default function ProfileChangeRequests({ authToken, onDecision }) {
+export default function ProfileChangeRequests({ authToken, branchId, isSuperAdmin, onDecision }) {
   const { modalRef, dragHandleProps, modalStyle, dragged, reset } = useDraggableModal();
   const [requests, setRequests]  = useState([]);
   const [filter, setFilter]      = useState('pending');
+  const [expandedId, setExpandedId] = useState(null);
   const [decisionModal, setModal] = useState(null);
   const [adminNotes, setNotes]   = useState('');
   const [saving, setSaving]      = useState(false);
@@ -40,11 +64,22 @@ export default function ProfileChangeRequests({ authToken, onDecision }) {
   const headers = () => ({ Authorization: `Bearer ${authToken}` });
 
   async function load(status = filter) {
-    const res = await fetch(`/api/profile/change-requests?status=${status}`, { headers: headers() });
+    const params = new URLSearchParams({ status });
+    if (branchId) params.set('branch_id', branchId);
+    const res = await fetch(`/api/profile/change-requests?${params}`, { headers: headers() });
     if (res.ok) setRequests(await res.json());
   }
 
-  useEffect(() => { load(filter); }, [filter]);
+  useEffect(() => { load(filter); }, [filter, branchId]);
+
+  async function handleDelete(id) {
+    if (!window.confirm('למחוק בקשה זו לצמיתות?')) return;
+    const res = await fetch(`/api/profile/change-requests/${id}`, {
+      method: 'DELETE',
+      headers: headers(),
+    });
+    if (res.ok) load(filter);
+  }
 
   async function handleDecision(decision) {
     setSaving(true); setError('');
@@ -85,54 +120,65 @@ export default function ProfileChangeRequests({ authToken, onDecision }) {
         <div className={styles.empty}>אין בקשות</div>
       ) : (
         <div className={styles.list}>
-          {requests.map(r => (
-            <div key={r.id} className={styles.card}>
-              <div className={styles.cardTop}>
-                <div className={styles.cardName}>
-                  {r.current_first_name} {r.current_family_name}
-                </div>
-                <div className={styles.cardMeta}>
+          {requests.map(r => {
+            const changedFields = getChangedFields(r);
+            const isExpanded = expandedId === r.id;
+            return (
+              <div key={r.id} className={styles.card}>
+                <div
+                  className={styles.row}
+                  onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                >
+                  <span className={styles.rowName}>
+                    {r.current_family_name} {r.current_first_name}
+                  </span>
+                  <span className={styles.rowFields}>
+                    {changedFields.length > 0 ? changedFields.join(', ') : 'ללא שינוי'}
+                  </span>
+                  <span className={styles.rowDate}>{formatDate(r.created_at)}</span>
                   <span
                     className={styles.statusBadge}
                     style={{ background: STATUS_LABEL[r.status]?.color }}
                   >
                     {STATUS_LABEL[r.status]?.label}
                   </span>
-                  <span className={styles.dateText}>{formatDate(r.created_at)}</span>
+                  {r.status === 'pending' && (
+                    <button
+                      className={`btn btn-sm btn-primary ${styles.rowBtn}`}
+                      onClick={e => { e.stopPropagation(); setModal(r); setNotes(''); setError(''); }}
+                    >
+                      החלטה
+                    </button>
+                  )}
+                  {isSuperAdmin && (
+                    <button
+                      className={styles.deleteBtn}
+                      title="מחק בקשה"
+                      onClick={e => { e.stopPropagation(); handleDelete(r.id); }}
+                    >🗑</button>
+                  )}
+                  <span className={styles.expandArrow}>{isExpanded ? '▲' : '▼'}</span>
                 </div>
+
+                {isExpanded && (
+                  <div className={styles.expandedBody}>
+                    <table className={styles.diffTable}>
+                      <tbody>
+                        <FieldDiff label="שם פרטי"    orig={r.orig_first_name}                   requested={r.first_name} />
+                        <FieldDiff label="שם משפחה"   orig={r.orig_family_name}                  requested={r.family_name} />
+                        <FieldDiff label="טלפון"       orig={r.orig_phone}                        requested={r.phone} />
+                        <FieldDiff label="אימייל אישי" orig={r.orig_personal_email}               requested={r.personal_email} />
+                        <FieldDiff label="תאריך לידה"  orig={formatDate(r.orig_birth_date)}       requested={r.birth_date ? formatDate(r.birth_date) : null} />
+                      </tbody>
+                    </table>
+                    {r.admin_notes && (
+                      <div className={styles.adminNotes}>הערת מנהל: {r.admin_notes}</div>
+                    )}
+                  </div>
+                )}
               </div>
-
-              <table className={styles.diffTable}>
-                <thead>
-                  <tr>
-                    <th>שדה</th>
-                    <th>נוכחי</th>
-                    <th></th>
-                    <th className={styles.reqHead}>מבוקש</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <FieldDiff label="שם פרטי"    current={r.current_first_name}      requested={r.first_name} />
-                  <FieldDiff label="שם משפחה"   current={r.current_family_name}     requested={r.family_name} />
-                  <FieldDiff label="טלפון"       current={r.current_phone}           requested={r.phone} />
-                  <FieldDiff label="אימייל אישי" current={r.current_personal_email}  requested={r.personal_email} />
-                  <FieldDiff label="תאריך לידה"  current={formatDate(r.current_birth_date)} requested={r.birth_date ? formatDate(r.birth_date) : null} />
-                </tbody>
-              </table>
-
-              {r.admin_notes && (
-                <div className={styles.adminNotes}>הערת מנהל: {r.admin_notes}</div>
-              )}
-
-              {r.status === 'pending' && (
-                <div className={styles.cardActions}>
-                  <button className="btn btn-sm btn-primary" onClick={() => { setModal(r); setNotes(''); setError(''); }}>
-                    קבל החלטה
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -140,7 +186,7 @@ export default function ProfileChangeRequests({ authToken, onDecision }) {
         <div className={`${styles.overlay}${dragged ? ' form-overlay--transparent' : ''}`} onClick={e => e.target === e.currentTarget && (setModal(null), reset())}>
           <div className={styles.decisionModal} ref={modalRef} style={modalStyle}>
             <div className={styles.decisionHeader} {...dragHandleProps}>
-              <h4 style={{ margin: 0 }}>החלטה עבור {decisionModal.current_first_name} {decisionModal.current_family_name}</h4>
+              <h4 style={{ margin: 0 }}>החלטה עבור {decisionModal.current_family_name} {decisionModal.current_first_name}</h4>
               <button className={styles.closeBtn} onMouseDown={e => e.stopPropagation()} onClick={() => { setModal(null); reset(); }}>✕</button>
             </div>
             {error && <div className={styles.errorMsg}>{error}</div>}

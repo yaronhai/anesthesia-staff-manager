@@ -144,7 +144,7 @@ export default function App() {
     fetchPendingProfileCount();
     const interval = setInterval(fetchPendingProfileCount, 30000);
     return () => clearInterval(interval);
-  }, [currentUser, authToken, isAdmin]);
+  }, [currentUser, authToken, isAdmin, selectedBranchId]);
 
   useEffect(() => {
     if (!currentUser?.worker_id || !authToken) return;
@@ -210,7 +210,8 @@ export default function App() {
   async function fetchPendingProfileCount() {
     if (!authToken) return;
     try {
-      const res = await fetch('/api/profile/change-requests/pending-count', { headers: authHeaders() });
+      const params = selectedBranchId ? `?branch_id=${selectedBranchId}` : '';
+      const res = await fetch(`/api/profile/change-requests/pending-count${params}`, { headers: authHeaders() });
       if (res.ok) {
         const d = await res.json();
         setPendingProfileCount(d.count || 0);
@@ -624,11 +625,6 @@ export default function App() {
                 <span className={appStyles.hamburgerLine} />
                 <span className={appStyles.hamburgerLine} />
                 <span className={appStyles.hamburgerLine} />
-                {(unreadMessages > 0 || pendingProfileCount > 0) && (
-                  <span className={appStyles.hamburgerBadge}>
-                    {unreadMessages + pendingProfileCount}
-                  </span>
-                )}
               </button>
               {isSuperAdmin && (
                 <select
@@ -975,7 +971,9 @@ export default function App() {
       {activeTab === 'profile-requests' && isAdmin && selectedBranchId && (
         <ProfileChangeRequests
           authToken={authToken}
-          onDecision={fetchPendingProfileCount}
+          branchId={selectedBranchId}
+          isSuperAdmin={isSuperAdmin}
+          onDecision={() => { fetchPendingProfileCount(); fetchWorkers(); }}
         />
       )}
 

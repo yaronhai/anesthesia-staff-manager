@@ -62,17 +62,24 @@ export default function UserProfile({ authToken, currentUser, config, onClose, o
     e.preventDefault();
     setError(''); setSuccess('');
     setSaving(true);
+    const orig = {
+      honorific_id:   profile.honorific_id ?? '',
+      first_name:     profile.first_name   ?? '',
+      family_name:    profile.family_name  ?? '',
+      phone:          profile.phone        ?? '',
+      personal_email: profile.personal_email ?? '',
+      birth_date:     profile.birth_date ? profile.birth_date.slice(0, 10) : '',
+    };
+    const changed = {};
+    for (const key of Object.keys(orig)) {
+      if (String(form[key] ?? '') !== String(orig[key] ?? '')) {
+        changed[key] = form[key] || null;
+      }
+    }
     const res = await fetch('/api/profile/change-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers() },
-      body: JSON.stringify({
-        honorific_id:   form.honorific_id   || null,
-        first_name:     form.first_name     || null,
-        family_name:    form.family_name    || null,
-        phone:          form.phone          || null,
-        personal_email: form.personal_email || null,
-        birth_date:     form.birth_date     || null,
-      }),
+      body: JSON.stringify(changed),
     });
     setSaving(false);
     if (res.ok) {
