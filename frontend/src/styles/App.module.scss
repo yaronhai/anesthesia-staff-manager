@@ -120,12 +120,14 @@
   font-size: 0.93rem;
   padding: 5px 10px;
   border-radius: 6px;
-  border: none;
-  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(15, 35, 65, 0.55);
   color: #fff;
   cursor: pointer;
   font-weight: 500;
   max-width: 150px;
+  -webkit-appearance: none;
+  appearance: none;
   option { color: #1a2e4a; background: #fff; }
 }
 .hamburgerBtn {

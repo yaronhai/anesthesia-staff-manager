@@ -899,7 +899,10 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 }
 .admin-grid-header-wrap {
   flex-shrink: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
 .admin-grid-body-wrap {
   flex: 1;
