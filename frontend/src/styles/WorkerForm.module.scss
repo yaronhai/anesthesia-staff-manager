@@ -1,12 +1,45 @@
+// Override global worker-form padding/gap
 .form {
-  gap: 0.2rem !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  min-width: 520px;
+  max-width: 640px;
+  max-height: 88vh;
+  border-radius: 12px !important;
+  overflow: hidden;
+
+  // Better inputs across the whole form
+  :global(input),
+  :global(select),
+  :global(textarea) {
+    padding: 0.42rem 0.65rem !important;
+    font-size: 0.86rem !important;
+    border-radius: 6px !important;
+    border: 1.5px solid #d1d5db !important;
+    transition: border-color 0.15s, box-shadow 0.15s !important;
+
+    &:focus {
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12) !important;
+    }
+  }
+
+  :global(label) {
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+    gap: 0.25rem !important;
+  }
 }
 
-.tabPendingSave {
-  color: #64748b;
-  font-size: 0.85rem;
-  padding: 1rem 0.5rem;
-  text-align: center;
+/* ── Header ──────────────────────────────────────────── */
+.header {
+  background: linear-gradient(135deg, #1a2e4a 0%, #2d4f7a 100%);
+  padding: 1rem 1.25rem 0;
+  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
 }
 
 .titleRow {
@@ -14,76 +47,158 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  margin-bottom: 0.75rem;
+
+  h2 {
+    color: #ffffff !important;
+    font-size: 1rem;
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
 }
 
+.form .activeToggle,
 .activeToggle {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.8rem;
+  gap: 0.35rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #7f1d1d;
+  color: #ffffff !important;
   white-space: nowrap;
   flex-shrink: 0;
   cursor: pointer;
-  input { cursor: pointer; }
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 20px;
+  padding: 0.2rem 0.65rem;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(255, 255, 255, 0.2); }
+  input { cursor: pointer; accent-color: #60a5fa; }
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .workerNameInTitle {
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: #7f1d1d;
+  color: #ffffff !important;
+  letter-spacing: 0.01em;
 }
 
+.workerIdInTitle {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: #bfdbfe;
+}
+
+/* ── Tabs ─────────────────────────────────────────────── */
 .tabs {
   display: flex;
   gap: 0;
-  border-bottom: 2px solid #e5e7eb;
-  margin-bottom: 0.6rem;
+  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .tab {
-  padding: 0.35rem 0.9rem;
-  font-size: 0.78rem;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.8rem;
   font-weight: 500;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  background: none;
-  color: #6b7280;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #93c5fd;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
-  &:hover { color: #111827; }
+  letter-spacing: 0.01em;
+
+  &:hover { color: #e0f2fe; }
 }
 
 .tabActive {
-  color: #7f1d1d;
-  border-bottom-color: #7f1d1d;
+  color: white;
+  border-bottom-color: #60a5fa;
   font-weight: 700;
+}
+
+/* ── Scrollable body ─────────────────────────────────── */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.1rem 1.25rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
 }
 
 .tabContent {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.75rem;
+
+  // Override global form-row gap
+  :global(.form-row),
+  :global(.form-row-3) {
+    gap: 0.65rem;
+  }
 }
 
+.tabPendingSave {
+  color: #64748b;
+  font-size: 0.85rem;
+  padding: 2rem 0.5rem;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── Footer ──────────────────────────────────────────── */
+.footer {
+  border-top: 1px solid #e5e7eb;
+  padding: 0.7rem 1.25rem;
+  background: #f9fafb;
+  border-radius: 0 0 12px 12px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  :global(.form-actions) {
+    margin: 0;
+    padding: 0;
+  }
+
+  :global(.error-msg) {
+    margin: 0;
+  }
+}
+
+/* ── Photo section ───────────────────────────────────── */
 .photoRow {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  padding: 0.5rem 0 0.4rem;
-  border-bottom: 1px solid #f3f4f6;
-  margin-bottom: 0.3rem;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
 .photoPreview {
   flex-shrink: 0;
-  width: 62px;
-  height: 62px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   overflow: hidden;
-  border: 2px solid #e5e7eb;
+  border: 3px solid white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
 }
 
 .photoImg {
@@ -98,112 +213,183 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f3f4f6;
-  color: #6b7280;
-  font-size: 1.5rem;
-  font-weight: 600;
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  color: #1d4ed8;
+  font-size: 1.6rem;
+  font-weight: 700;
 }
 
 .photoActions {
   display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .cameraCaptureBtn {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   cursor: pointer;
-  opacity: 0.75;
+  opacity: 0.8;
   line-height: 1;
-  &:hover { opacity: 1; }
+  padding: 0.28rem 0.45rem;
+  border-radius: 6px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s;
+  &:hover { opacity: 1; background: #e5e7eb; }
 }
 
 .photoUploadBtn {
-  display: inline-block;
-  padding: 0.28rem 0.7rem;
-  font-size: 0.76rem;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
   background: #eff6ff;
   color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-  border-radius: 5px;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s;
-  &:hover { background: #dbeafe; }
+  transition: background 0.15s, border-color 0.15s;
+  &:hover { background: #dbeafe; border-color: #93c5fd; }
 }
 
 .photoDeleteBtn {
-  padding: 0.22rem 0.7rem;
-  font-size: 0.74rem;
-  background: #fee2e2;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  background: #fff1f2;
   color: #b91c1c;
-  border: 1px solid #fecaca;
-  border-radius: 5px;
+  border: 1.5px solid #fecaca;
+  border-radius: 6px;
   cursor: pointer;
-  &:hover { background: #fecaca; }
+  transition: background 0.15s;
+  &:hover { background: #fee2e2; }
 }
 
-.branchAssignSection {
-  margin-top: 0.35rem;
-  border-top: 1px solid #e5e7eb;
-  padding-top: 0.35rem;
-}
-.branchAssignTitle { font-weight: 600; margin-bottom: 0.25rem; font-size: 0.78rem; }
-.branchAssignEmpty { color: #9ca3af; font-size: 0.76rem; }
-.branchRow {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.2rem;
-}
-.branchName { flex: 1; font-size: 0.78rem; }
-.activeLabel {
-  font-size: 0.74rem;
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  cursor: pointer;
-}
-.removeBtn {
-  padding: 1px 6px;
-  font-size: 0.72rem;
-  background: #fee2e2;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  color: #b91c1c;
-  &:disabled { opacity: 0.35; cursor: not-allowed; }
-}
-.addBranchRow {
-  display: flex;
-  gap: 0.4rem;
-  margin-top: 0.25rem;
-}
-.addBranchSelect {
-  font-size: 0.76rem;
-  flex: 1;
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid #d1d5db;
-}
+/* ── Branch tab ──────────────────────────────────────── */
 .branchNote {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
-  border-radius: 6px;
-  padding: 7px 10px;
-  font-size: 0.8rem;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.79rem;
   color: #1e40af;
-  margin-bottom: 0.75rem;
-  p { margin-bottom: 0.35rem; &:last-child { margin-bottom: 0; } }
-  line-height: 1.5;
+  line-height: 1.55;
+
+  p { margin-bottom: 0.3rem; &:last-child { margin-bottom: 0; } }
 }
 
-.canSubmitRow { margin-top: 0.3rem; }
+.branchAssignEmpty {
+  color: #9ca3af;
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.branchRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 0.3rem;
+}
+
+.branchName {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.activeLabel {
+  font-size: 0.76rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  color: #374151;
+}
+
+.removeBtn {
+  padding: 0.18rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  cursor: pointer;
+  color: #b91c1c;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) { background: #fecaca; }
+  &:disabled { opacity: 0.35; cursor: not-allowed; }
+}
+
+.addBranchRow {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.addBranchSelect {
+  font-size: 0.8rem;
+  flex: 1;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  border: 1.5px solid #d1d5db;
+  color: #374151;
+  background: white;
+
+  &:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  }
+}
+
+/* ── Can-submit row ──────────────────────────────────── */
+.canSubmitRow {
+  padding: 0.5rem 0.75rem;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
 .canSubmitLabel {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.76rem;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 500;
   cursor: pointer;
   user-select: none;
+  color: #374151;
+
+  input { cursor: pointer; accent-color: #3b82f6; }
+}
+
+/* ── Mobile ──────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .form {
+    min-width: unset;
+    max-width: 100vw;
+    max-height: 100dvh;
+    border-radius: 0 !important;
+  }
+
+  .header { border-radius: 0; }
+
+  .tab { padding: 0.45rem 0.7rem; font-size: 0.74rem; }
+
+  .photoActions { flex-direction: column; align-items: flex-start; }
 }

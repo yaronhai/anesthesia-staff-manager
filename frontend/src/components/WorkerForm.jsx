@@ -176,33 +176,40 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
   return (
     <div className="form-overlay">
       <form className={`worker-form ${styles.form}`} onSubmit={handleSubmit}>
-        <div className={styles.titleRow}>
-          <h2>
-            {initial ? 'עריכת עובד' : 'הוספת עובד'}
-            {(form.first_name || form.family_name) && (
-              <span className={styles.workerNameInTitle}> - {[honorifics.find(h => h.id == form.honorific_id)?.name, form.family_name, form.first_name].filter(Boolean).join(' ')}{form.id_number ? ` (${form.id_number})` : ''}</span>
+        <div className={styles.header}>
+          <div className={styles.titleRow}>
+            <div className={styles.titleBlock}>
+              <h2>{initial ? 'עריכת עובד' : 'הוספת עובד'}</h2>
+              {(form.first_name || form.family_name) && (
+                <div className={styles.workerNameInTitle}>
+                  {[honorifics.find(h => h.id == form.honorific_id)?.name, form.family_name, form.first_name].filter(Boolean).join(' ')}
+                  {form.id_number ? <span className={styles.workerIdInTitle}> | {form.id_number}</span> : ''}
+                </div>
+              )}
+            </div>
+            {!isSelfEdit && initial?.id && (
+              <label className={styles.activeToggle}>
+                <input type="checkbox" name="is_active" checked={form.is_active !== false} onChange={handleChange} />
+                פעיל
+              </label>
             )}
-          </h2>
-          {!isSelfEdit && initial?.id && (
-            <label className={styles.activeToggle}>
-              <input type="checkbox" name="is_active" checked={form.is_active !== false} onChange={handleChange} />
-              פעיל
-            </label>
-          )}
+          </div>
+
+          <div className={styles.tabs}>
+            {visibleTabs.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                className={`${styles.tab} ${activeTab === t.key ? styles.tabActive : ''}`}
+                onClick={() => setActiveTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className={styles.tabs}>
-          {visibleTabs.map(t => (
-            <button
-              key={t.key}
-              type="button"
-              className={`${styles.tab} ${activeTab === t.key ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <div className={styles.body}>
 
         {activeTab === 'personal' && (
           <div className={styles.tabContent}>
@@ -402,6 +409,8 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           </div>
         )}
 
+        </div>{/* end .body */}
+
         {cropSrc && (
           <PhotoCropModal
             imageUrl={cropSrc}
@@ -410,11 +419,12 @@ export default function WorkerForm({ initial, config, onSave, onCancel, isSuperA
           />
         )}
 
-        {saveError && <p className="error-msg">{saveError}</p>}
-
-        <div className="form-actions">
-          <button type="button" onClick={onCancel} className="btn-secondary">ביטול</button>
-          <button type="submit" className="btn-primary">שמור</button>
+        <div className={styles.footer}>
+          {saveError && <p className="error-msg">{saveError}</p>}
+          <div className="form-actions">
+            <button type="button" onClick={onCancel} className="btn-secondary">ביטול</button>
+            <button type="submit" className="btn-primary">שמור</button>
+          </div>
         </div>
       </form>
     </div>
