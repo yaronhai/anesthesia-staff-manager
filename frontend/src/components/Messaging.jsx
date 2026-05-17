@@ -156,6 +156,27 @@ export default function Messaging({ authToken, currentUser, workers, branchId, i
     }
   }
 
+  async function respondToApproval(approvalId, approved) {
+    try {
+      const res = await fetch(`/api/shift-approvals/${approvalId}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ approved }),
+      });
+      if (!res.ok) return;
+      setMessages(prev => prev.map(m =>
+        m.approval_request_id === approvalId
+          ? { ...m, approval_status: approved ? 'approved' : 'rejected' }
+          : m
+      ));
+      if (selectedUserId && selectedUserId !== GENERAL_CHAT_ID) {
+        await fetchMessages(selectedUserId);
+      }
+    } catch (err) {
+      console.error('respondToApproval error:', err);
+    }
+  }
+
   async function sendMessage(e) {
     e.preventDefault();
     if ((!draft.trim() && !pendingAttachment) || !selectedUserId || loading) return;
@@ -504,10 +525,11 @@ export default function Messaging({ authToken, currentUser, workers, branchId, i
                       const isSidur = msg.sender_username === 'system_sidur';
                       const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
                       const hasAttachment = !!msg.file_url || !!msg.link_url;
+                      const isApprovalMsg = msg.message_type === 'shift_approval';
                       items.push(
                         <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
                           <div
-                            className={`${styles.msgBubble} ${hasAttachment ? styles.msgBubbleCol : ''}`}
+                            className={`${styles.msgBubble} ${hasAttachment ? styles.msgBubbleCol : ''}${isApprovalMsg ? ` ${styles.approvalMsgBubble}` : ''}`}
                             style={{
                               '--bubble-bg': isOwn ? '#e0f2fe' : '#ede9fe',
                               '--bubble-font': isSidur ? '1rem' : '0.7rem',
@@ -516,9 +538,24 @@ export default function Messaging({ authToken, currentUser, workers, branchId, i
                             }}
                           >
                             <span className={styles.msgTime}>{timeStr}</span>
-                            {msg.content && <span className={styles.msgContent}>{msg.content}</span>}
+                            {msg.content && <span className={`${styles.msgContent}${isApprovalMsg ? ` ${styles.approvalMsgContent}` : ''}`}>{msg.content}</span>}
                             {renderAttachment(msg)}
                             {renderLinkPreview(msg)}
+                            {isApprovalMsg && (
+                              msg.approval_status === 'pending' && !isOwn ? (
+                                <div className={styles.approvalButtons}>
+                                  <button className={styles.approvalBtnApprove} onClick={() => respondToApproval(msg.approval_request_id, true)}>✅ כן, אני מאשר/ת</button>
+                                  <button className={styles.approvalBtnReject} onClick={() => respondToApproval(msg.approval_request_id, false)}>❌ לא, אני דוחה</button>
+                                </div>
+                              ) : (
+                                <div className={styles.approvalStatus}>
+                                  {msg.approval_status === 'approved' && <span className={styles.approvalStatusApproved}>✅ אושר</span>}
+                                  {msg.approval_status === 'rejected' && <span className={styles.approvalStatusRejected}>❌ נדחה</span>}
+                                  {msg.approval_status === 'cancelled' && <span className={styles.approvalStatusCancelled}>⬜ בוטל</span>}
+                                  {msg.approval_status === 'pending' && isOwn && <span className={styles.approvalStatusPending}>⏳ ממתין לתשובת העובד</span>}
+                                </div>
+                              )
+                            )}
                           </div>
                         </div>
                       );

@@ -384,7 +384,7 @@ function UserCalendar({ requests, viewDate, token, onRefresh, shifts, prefs, bra
 }
 
 // ── Admin grid view ──────────────────────────────────────────────────────────
-function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, shifts, prefs, branchId, specialDays, lockStatus }) {
+function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, shifts, prefs, branchId, specialDays, lockStatus, currentUser }) {
   const [editingCell, setEditingCell] = useState(null);
   const [cellError, setCellError] = useState(null);
   const [vacationWarning, setVacationWarning] = useState(null);
@@ -392,6 +392,8 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   const [workerModal, setWorkerModal] = useState(null); // { id, userId, name, job }
   const [workerModalRefreshKey, setWorkerModalRefreshKey] = useState(0);
   const [dayModal, setDayModal] = useState(null); // null | { day }
+  const [pendingChange, setPendingChange] = useState(null); // { userId, day, shiftKey, prefKey, dateStr, existingId, oldPref, pendingApprovalId }
+  const [approvalNote, setApprovalNote] = useState('');
   const dragBlocked  = useDraggableModal();
   const dragVacation = useDraggableModal();
   const dragEditor   = useDraggableModal();
@@ -456,34 +458,51 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
     if (!requestMap[r.user_id]) requestMap[r.user_id] = {};
     const d = parseInt(r.date.split('-')[2]);
     if (!requestMap[r.user_id][d]) requestMap[r.user_id][d] = {};
-    requestMap[r.user_id][d][r.shift_type] = { id: r.id, pref: r.preference_type, adminModified: r.admin_modified, workerOriginalPref: r.worker_original_pref };
+    requestMap[r.user_id][d][r.shift_type] = { id: r.id, pref: r.preference_type, adminModified: r.admin_modified, workerOriginalPref: r.worker_original_pref, pendingApprovalId: r.pending_approval_id };
   });
 
   async function setPref(userId, day, shiftKey, prefKey) {
     setCellError(null);
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const existing = requestMap[userId]?.[day]?.[shiftKey];
+    const isAdminChange = currentUser && Number(userId) !== currentUser.id;
+    const isDeleteAction = prefKey === '' || (existing && existing.pref === prefKey);
+    const hasAction = existing || prefKey !== '';
 
-    if (existing && existing.pref === prefKey) {
-      const res = await fetch(`/api/shift-requests/${existing.id}`, {
+    if (isAdminChange && hasAction) {
+      if (existing?.pendingApprovalId) {
+        setCellError('בקשת אישור ממתינה לתגובת העובד. לא ניתן לשנות כרגע.');
+        return;
+      }
+      setPendingChange({ userId, day, shiftKey, prefKey, dateStr, existingId: existing?.id || null, oldPref: existing?.pref || null, isDeleteAction: isDeleteAction && !!existing });
+      return;
+    }
+
+    await doSetPref(userId, day, shiftKey, prefKey, dateStr, existing, false);
+  }
+
+  async function doSetPref(userId, day, shiftKey, prefKey, dateStr, existing, skipAdminModified) {
+    const res_existing = existing;
+    if (res_existing && res_existing.pref === prefKey) {
+      const res = await fetch(`/api/shift-requests/${res_existing.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setCellError(data.error || 'שגיאה במחיקת הבקשה');
-        return;
+        return false;
       }
     } else if (prefKey === '') {
-      if (existing) {
-        const res = await fetch(`/api/shift-requests/${existing.id}`, {
+      if (res_existing) {
+        const res = await fetch(`/api/shift-requests/${res_existing.id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           setCellError(data.error || 'שגיאה במחיקת הבקשה');
-          return;
+          return false;
         }
       }
     } else {
@@ -495,9 +514,114 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setCellError(data.error || 'שגיאה בשמירת הבקשה');
+        return false;
+      }
+      if (!skipAdminModified) {
+        await onRefresh();
+        if (workerModal) setWorkerModalRefreshKey(k => k + 1);
+        return true;
+      }
+      return res.ok ? await res.json() : null;
+    }
+    await onRefresh();
+    if (workerModal) setWorkerModalRefreshKey(k => k + 1);
+    return true;
+  }
+
+  async function handleApprovalConfirm(sendToWorker) {
+    if (!pendingChange) return;
+    const { userId, day, shiftKey, prefKey, dateStr, existingId, oldPref, isDeleteAction } = pendingChange;
+
+    if (!sendToWorker) {
+      setCellError(null);
+      if (isDeleteAction && existingId) {
+        // Direct delete without notifying worker
+        const res = await fetch(`/api/shift-requests/${existingId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setCellError(data.error || 'שגיאה במחיקת הבקשה');
+          return;
+        }
+      } else {
+        // Direct change without notifying worker
+        const res = await fetch('/api/shift-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, user_id: userId, branch_id: branchId, force_override: false }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setCellError(data.error || 'שגיאה בשמירת הבקשה');
+          return;
+        }
+      }
+      setPendingChange(null);
+      await onRefresh();
+      if (workerModal) setWorkerModalRefreshKey(k => k + 1);
+      return;
+    }
+
+    if (isDeleteAction && existingId) {
+      // Deletion: don't delete yet — just create approval request so worker can confirm
+      const approvalRes = await fetch('/api/shift-approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          worker_id: userId,
+          date: dateStr,
+          shift_type: shiftKey,
+          old_preference: oldPref || null,
+          new_preference: 'delete',
+          admin_note: approvalNote.trim() || null,
+          branch_id: branchId,
+          shift_request_id: existingId,
+        }),
+      });
+      if (!approvalRes.ok) {
+        const data = await approvalRes.json().catch(() => ({}));
+        setCellError(data.error || 'שגיאה בשליחת בקשת אישור');
+        return;
+      }
+    } else {
+      // Change: save new preference first, then create approval
+      const saveRes = await fetch('/api/shift-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ date: dateStr, shift_type: shiftKey, preference_type: prefKey, user_id: userId, branch_id: branchId, force_override: false }),
+      });
+      if (!saveRes.ok) {
+        const data = await saveRes.json().catch(() => ({}));
+        setCellError(data.error || 'שגיאה בשמירת הבקשה');
+        return;
+      }
+      const savedShift = await saveRes.json();
+
+      const approvalRes = await fetch('/api/shift-approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          worker_id: userId,
+          date: dateStr,
+          shift_type: shiftKey,
+          old_preference: oldPref || null,
+          new_preference: prefKey,
+          admin_note: approvalNote.trim() || null,
+          branch_id: branchId,
+          shift_request_id: savedShift.id,
+        }),
+      });
+      if (!approvalRes.ok) {
+        const data = await approvalRes.json().catch(() => ({}));
+        setCellError(data.error || 'שגיאה בשליחת בקשת אישור');
         return;
       }
     }
+
+    setPendingChange(null);
+    setApprovalNote('');
     await onRefresh();
     if (workerModal) setWorkerModalRefreshKey(k => k + 1);
   }
@@ -644,7 +768,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                           {shifts.map(s => {
                             const req = dayData[s.key];
                             return req
-                              ? <span key={s.key} className={`cell-pill pref-${req.pref}${req.adminModified && req.workerOriginalPref ? ` ${styles.adminModifiedPill}` : ''}`}>{s.label_short}</span>
+                              ? <span key={s.key} className={`cell-pill pref-${req.pref}${req.pendingApprovalId ? ` ${styles.pendingApprovalPill}` : req.adminModified ? ` ${styles.adminModifiedPill}` : ''}`}>{s.label_short}{req.pendingApprovalId ? <span className={styles.pendingDot} title="ממתין לאישור עובד">⏳</span> : null}</span>
                               : null;
                           })}
                         </div>
@@ -688,7 +812,7 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
                           <div className="admin-cell-pills">
                             {shifts.map(s => {
                               const req = dayData[s.key];
-                              return req ? <span key={s.key} className={`cell-pill pref-${req.pref}${req.adminModified && req.workerOriginalPref ? ` ${styles.adminModifiedPill}` : ''}`}>{s.label_short}</span> : null;
+                              return req ? <span key={s.key} className={`cell-pill pref-${req.pref}${req.pendingApprovalId ? ` ${styles.pendingApprovalPill}` : req.adminModified ? ` ${styles.adminModifiedPill}` : ''}`}>{s.label_short}{req.pendingApprovalId ? <span className={styles.pendingDot} title="ממתין לאישור עובד">⏳</span> : null}</span> : null;
                             })}
                           </div>
                           {vac && <span className="vac-badge">חופש</span>}
@@ -781,21 +905,29 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
             <div className="admin-editor-content">
               {(() => {
                 const cellData = requestMap[editingCell.userId]?.[editingCell.day] || {};
-                const overrides = shifts.filter(s => cellData[s.key]?.adminModified && cellData[s.key]?.workerOriginalPref);
-                if (overrides.length === 0) return null;
+                const adminShifts = shifts.filter(s => cellData[s.key]?.adminModified);
+                if (adminShifts.length === 0) return null;
                 return (
                   <div className={styles.adminOverrideNotice}>
                     <div className={styles.adminOverrideTitle}>שינוי מנהל</div>
-                    {overrides.map(s => {
+                    {adminShifts.map(s => {
                       const entry = cellData[s.key];
-                      const origPref = prefs.find(p => p.key === entry.workerOriginalPref);
                       const currPref = prefs.find(p => p.key === entry.pref);
+                      if (entry.workerOriginalPref) {
+                        const origPref = prefs.find(p => p.key === entry.workerOriginalPref);
+                        return (
+                          <div key={s.key} className={styles.adminOverrideRow}>
+                            <span className={styles.adminOverrideShift}>{s.label_he}:</span>
+                            <span>{origPref?.label_he || entry.workerOriginalPref}</span>
+                            <span className={styles.adminOverrideArrow}>←</span>
+                            <span>{currPref?.label_he || entry.pref}</span>
+                          </div>
+                        );
+                      }
                       return (
                         <div key={s.key} className={styles.adminOverrideRow}>
                           <span className={styles.adminOverrideShift}>{s.label_he}:</span>
-                          <span>{origPref?.label_he || entry.workerOriginalPref}</span>
-                          <span className={styles.adminOverrideArrow}>←</span>
-                          <span>{currPref?.label_he || entry.pref}</span>
+                          <span>נוסף ע"י מנהל ({currPref?.label_he || entry.pref})</span>
                         </div>
                       );
                     })}
@@ -842,6 +974,53 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
         </div>
       </div>
       )}
+
+      {pendingChange && (() => {
+        const { isDeleteAction } = pendingChange;
+        const workerRow = rows.find(r => r.userId === pendingChange.userId);
+        const workerName = workerRow?.name || '';
+        const shiftLabel = shifts.find(s => s.key === pendingChange.shiftKey)?.label_he || pendingChange.shiftKey;
+        const oldPrefLabel = pendingChange.oldPref ? (prefs.find(p => p.key === pendingChange.oldPref)?.label_he || pendingChange.oldPref) : null;
+        const newPrefLabel = !isDeleteAction ? (prefs.find(p => p.key === pendingChange.prefKey)?.label_he || pendingChange.prefKey) : null;
+        const [py, pm, pd] = pendingChange.dateStr.split('-');
+        const dateFormatted = `${pd}/${pm}/${py}`;
+        return (
+          <div className={styles.approvalOverlay} onClick={() => { setPendingChange(null); setApprovalNote(''); }}>
+            <div className={styles.approvalPopup} onClick={e => e.stopPropagation()}>
+              <div className={styles.approvalPopupHeader}>{isDeleteAction ? 'ביטול בקשת משמרת' : 'שינוי בקשת משמרת'}</div>
+              <div className={styles.approvalPopupBody}>
+                <div className={styles.approvalWorkerName}>{workerName}</div>
+                <div className={styles.approvalDetail}>
+                  <span>{dateFormatted}</span>
+                  <span className={styles.approvalSep}>|</span>
+                  <span>{shiftLabel}</span>
+                </div>
+                <div className={styles.approvalChange}>
+                  {oldPrefLabel && <><span className={`pref-toggle pref-${pendingChange.oldPref} active small`} /><span>{oldPrefLabel}</span></>}
+                  {isDeleteAction
+                    ? <><span className={styles.approvalArrow}>←</span><span className={styles.approvalDeleteLabel}>ביטול ❌</span></>
+                    : <><span className={styles.approvalArrow}>←</span><span className={`pref-toggle pref-${pendingChange.prefKey} active small`} /><span>{newPrefLabel}</span></>
+                  }
+                </div>
+                <div className={styles.approvalQuestion}>{isDeleteAction ? 'האם לשלוח לעובד הודעה על ביטול המשמרת?' : 'האם לשלוח לעובד בקשת אישור לשינוי?'}</div>
+                <textarea
+                  className={styles.approvalNoteInput}
+                  placeholder="הודעה אישית לעובד (אופציונלי)"
+                  value={approvalNote}
+                  onChange={e => setApprovalNote(e.target.value)}
+                  rows={2}
+                  maxLength={300}
+                />
+              </div>
+              <div className={styles.approvalPopupActions}>
+                <button className={`btn-primary ${styles.approvalBtnYes}`} onClick={() => handleApprovalConfirm(true)}>כן, שלח לעובד</button>
+                <button className="btn-secondary" onClick={() => handleApprovalConfirm(false)}>{isDeleteAction ? 'לא, בטל בעצמי' : 'לא, שנה בעצמי'}</button>
+                <button className="btn-secondary" onClick={() => { setPendingChange(null); setApprovalNote(''); setCellError(null); }}>ביטול</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
@@ -1045,13 +1224,13 @@ export default function ShiftRequests({ currentUser, token, config, selectedBran
             <button className="btn-secondary btn-sm" onClick={nextMonth} title="חודש קדימה">›</button>
             <span className="month-year-label">
               {MONTHS[month]} {year}
-              {lockStatus?.is_locked && lockStatus.locked_period_label && ` 🔒`}
+              {lockStatus?.is_locked && lockStatus.lock_mode !== 'weekly' && lockStatus.locked_period_label && ` 🔒`}
             </span>
             <button className="btn-secondary btn-sm" onClick={prevMonth} title="חודש אחורה">‹</button>
             <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">«</button>
           </div>
         </div>
-        <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} specialDays={config.special_days || []} lockStatus={lockStatus} />
+        <AdminGrid workers={filteredWorkers} requests={requests} vacations={vacations} token={token} viewDate={viewDate} onRefresh={fetchRequests} shifts={shifts} prefs={prefs} branchId={effectiveBranchId} specialDays={config.special_days || []} lockStatus={lockStatus} currentUser={currentUser} />
         <div className={`shift-admin-legend ${styles.legendRow}`}>
           {prefs.map(p => (
             <span key={p.key} className={styles.legendItem}>

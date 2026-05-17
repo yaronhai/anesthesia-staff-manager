@@ -527,3 +527,56 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+// Shift approval messages
+.approvalMsgBubble {
+  border: 1.5px solid #f59e0b;
+  background: #fffbeb !important;
+}
+
+.approvalMsgContent {
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
+.approvalButtons {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.approvalBtnApprove {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { background: #15803d; }
+}
+
+.approvalBtnReject {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { background: #b91c1c; }
+}
+
+.approvalStatus {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.approvalStatusApproved { color: #16a34a; }
+.approvalStatusRejected { color: #dc2626; }
+.approvalStatusCancelled { color: #6b7280; }
+.approvalStatusPending { color: #d97706; }

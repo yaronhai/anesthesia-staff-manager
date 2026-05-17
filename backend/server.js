@@ -1102,7 +1102,7 @@ app.get('/api/shift-requests', requireAuth, async (req, res) => {
       const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
       const sql = `
         SELECT sr.id, sr.user_id, sr.date, sr.shift_type, sr.preference_type, sr.branch_id,
-               sr.admin_modified, sr.worker_original_pref,
+               sr.admin_modified, sr.worker_original_pref, sr.pending_approval_id,
                u.username, u.worker_id, w.first_name, w.family_name
         FROM shift_requests sr
         JOIN users u ON sr.user_id = u.id
@@ -1459,50 +1459,6 @@ app.post('/api/permanent-shifts/apply', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('POST permanent-shifts/apply error:', err);
     res.status(500).json({ error: 'שגיאה במילוי בקשות' });
-  }
-});
-
-// ── Fulfillment Stats ────────────────────────────────────────────────────────
-
-app.get('/api/fulfillment-stats', requireAdmin, async (req, res) => {
-  try {
-    const { month, year, branch_id } = req.query;
-    if (!month || !year) return res.status(400).json({ error: 'month/year חסרים' });
-    const datePrefix = `${year}-${String(month).padStart(2, '0')}-`;
-    const params = [datePrefix + '%'];
-    let branchFilter = '';
-    if (branch_id) {
-      branchFilter = ` AND s.branch_id = $${params.length + 1}`;
-      params.push(parseInt(branch_id));
-    }
-    const result = await query(
-      `SELECT
-         w.id          AS worker_id,
-         w.first_name,
-         w.family_name,
-         COUNT(wsa.id)                                                   AS total_assignments,
-         COUNT(CASE WHEN sr.preference_type = 'prefer'  THEN 1 END)     AS pref_prefer,
-         COUNT(CASE WHEN sr.preference_type = 'can'     THEN 1 END)     AS pref_can,
-         COUNT(CASE WHEN sr.preference_type = 'cannot'  THEN 1 END)     AS pref_cannot,
-         COUNT(CASE WHEN sr.id IS NULL                  THEN 1 END)     AS pref_none
-       FROM worker_site_assignments wsa
-       JOIN workers w  ON w.id = wsa.worker_id
-       JOIN sites   s  ON s.id = wsa.site_id
-       JOIN users   u  ON u.worker_id = w.id
-       LEFT JOIN shift_requests sr
-              ON sr.user_id    = u.id
-             AND sr.date       = wsa.date
-             AND sr.shift_type = wsa.shift_type
-             AND (sr.branch_id = s.branch_id OR sr.branch_id IS NULL)
-       WHERE wsa.date LIKE $1${branchFilter}
-       GROUP BY w.id, w.first_name, w.family_name
-       ORDER BY w.family_name, w.first_name`,
-      params
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('GET fulfillment-stats error:', err);
-    res.status(500).json({ error: 'שגיאה בטעינת נתוני התחשבות' });
   }
 });
 
@@ -2800,12 +2756,15 @@ app.get('/api/messages/with/:user_id', requireAuth, async (req, res) => {
       SELECT m.id, m.sender_id, m.recipient_id, m.content, m.read_at, m.branch_id,
              m.file_url, m.file_name, m.file_type, m.file_size,
              m.link_url, m.link_title, m.link_image, m.link_description,
+             m.message_type, m.approval_request_id,
+             sar.status as approval_status,
              u.username as sender_username, uw.username as recipient_username,
              TO_CHAR(m.created_at AT TIME ZONE 'Asia/Jerusalem', 'HH24:MI') as time_display,
              m.created_at
       FROM messages m
       JOIN users u ON m.sender_id = u.id
       JOIN users uw ON m.recipient_id = uw.id
+      LEFT JOIN shift_approval_requests sar ON sar.id = m.approval_request_id
       WHERE (m.sender_id = $1 AND m.recipient_id = $2)
          OR (m.sender_id = $2 AND m.recipient_id = $1)
     `;
@@ -3020,6 +2979,210 @@ app.delete('/api/messages/attachment/:id', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Delete attachment error:', e);
     res.status(500).json({ error: 'שגיאה במחיקת קובץ' });
+  }
+});
+
+// ── Shift Approval Requests ──────────────────────────────────────────────────
+
+app.post('/api/shift-approvals', requireAuth, async (req, res) => {
+  try {
+    const isAdmin = ['admin', 'superadmin', 'master'].includes(req.user.role_tier ?? req.user.role);
+    if (!isAdmin) return res.status(403).json({ error: 'אין הרשאה' });
+
+    const { worker_id, date, shift_type, old_preference, new_preference, branch_id, shift_request_id, admin_note } = req.body;
+    if (!worker_id || !date || !shift_type || !new_preference) {
+      return res.status(400).json({ error: 'שדות חסרים' });
+    }
+
+    const isDeleteRequest = new_preference === 'delete';
+
+    const shiftRes = await query('SELECT label_he FROM shift_types WHERE key = $1', [shift_type]);
+    const shiftLabel = shiftRes.rows[0]?.label_he || shift_type;
+    const oldPrefLabel = old_preference
+      ? ((await query('SELECT label_he FROM preference_types WHERE key = $1', [old_preference])).rows[0]?.label_he || old_preference)
+      : null;
+
+    const adminRes = await query(
+      `SELECT CASE WHEN w.id IS NOT NULL THEN w.family_name || ' ' || w.first_name ELSE u.username END AS name
+       FROM users u LEFT JOIN workers w ON u.worker_id = w.id WHERE u.id = $1`,
+      [req.user.id]
+    );
+    const adminName = adminRes.rows[0]?.name || 'מנהל';
+
+    const [y, m, d] = date.split('-');
+    const dateFormatted = `${d}/${m}/${y}`;
+
+    let msgContent;
+    const notePart = admin_note?.trim() ? `\n💬 ${admin_note.trim()}` : '';
+    if (isDeleteRequest) {
+      const oldPart = oldPrefLabel ? ` (${oldPrefLabel})` : '';
+      msgContent = `מנהל ${adminName} מבקש לבטל את בקשת המשמרת שלך:\n📅 ${dateFormatted} | ${shiftLabel}${oldPart}${notePart}\nהאם אתה מאשר את הביטול?`;
+    } else {
+      const newPrefRes = await query('SELECT label_he FROM preference_types WHERE key = $1', [new_preference]);
+      const newPrefLabel = newPrefRes.rows[0]?.label_he || new_preference;
+      const oldPrefPart = oldPrefLabel ? ` | ${oldPrefLabel} ←` : ' |';
+      msgContent = `מנהל ${adminName} מבקש לשנות את בקשת המשמרת שלך:\n📅 ${dateFormatted} | ${shiftLabel}${oldPrefPart} ${newPrefLabel}${notePart}\nהאם אתה מאשר את השינוי?`;
+    }
+
+    const approvalRes = await query(
+      `INSERT INTO shift_approval_requests (admin_id, worker_id, shift_request_id, date, shift_type, old_preference, new_preference, branch_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [req.user.id, worker_id, shift_request_id || null, date, shift_type, old_preference || null, new_preference, branch_id || null]
+    );
+    const approval = approvalRes.rows[0];
+
+    const msgRes = await query(
+      `INSERT INTO messages (sender_id, recipient_id, content, branch_id, message_type, approval_request_id)
+       VALUES ($1, $2, $3, $4, 'shift_approval', $5) RETURNING id`,
+      [req.user.id, worker_id, msgContent, branch_id || null, approval.id]
+    );
+    const messageId = msgRes.rows[0].id;
+
+    await query('UPDATE shift_approval_requests SET message_id = $1 WHERE id = $2', [messageId, approval.id]);
+
+    if (shift_request_id) {
+      await query('UPDATE shift_requests SET pending_approval_id = $1 WHERE id = $2', [approval.id, shift_request_id]);
+    }
+
+    (async () => {
+      try {
+        const subs = await query('SELECT * FROM push_subscriptions WHERE user_id = $1', [worker_id]);
+        for (const sub of subs.rows) {
+          webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify({ title: isDeleteRequest ? 'בקשת אישור ביטול משמרת' : 'בקשת אישור שינוי משמרת', body: isDeleteRequest ? `מנהל ${adminName} מבקש לבטל משמרת` : `מנהל ${adminName} מבקש לשנות משמרת`, icon: '/logo-assuta.png', url: '/' })
+          ).catch(() => {
+            query('DELETE FROM push_subscriptions WHERE endpoint=$1', [sub.endpoint]).catch(() => {});
+          });
+        }
+      } catch {}
+    })();
+
+    res.json({ ...approval, message_id: messageId });
+  } catch (e) {
+    console.error('Create shift approval error:', e);
+    res.status(500).json({ error: 'שגיאה ביצירת בקשת אישור' });
+  }
+});
+
+app.post('/api/shift-approvals/:id/respond', requireAuth, async (req, res) => {
+  try {
+    const approvalId = parseInt(req.params.id);
+    const { approved } = req.body;
+    if (typeof approved !== 'boolean') return res.status(400).json({ error: 'שדה approved נדרש' });
+
+    const approvalRes = await query('SELECT * FROM shift_approval_requests WHERE id = $1', [approvalId]);
+    if (!approvalRes.rows.length) return res.status(404).json({ error: 'בקשת אישור לא נמצאה' });
+    const approval = approvalRes.rows[0];
+
+    if (approval.worker_id !== req.user.id) return res.status(403).json({ error: 'אין הרשאה' });
+    if (approval.status !== 'pending') return res.status(409).json({ error: 'הבקשה כבר טופלה' });
+
+    const newStatus = approved ? 'approved' : 'rejected';
+    await query('UPDATE shift_approval_requests SET status = $1, responded_at = NOW() WHERE id = $2', [newStatus, approvalId]);
+
+    if (approval.shift_request_id) {
+      const isDeletion = approval.new_preference === 'delete';
+      if (isDeletion) {
+        if (approved) {
+          await query('DELETE FROM shift_requests WHERE id = $1', [approval.shift_request_id]);
+        } else {
+          await query('UPDATE shift_requests SET pending_approval_id = NULL WHERE id = $1', [approval.shift_request_id]);
+        }
+      } else if (approved) {
+        await query(
+          'UPDATE shift_requests SET admin_modified = FALSE, worker_original_pref = NULL, pending_approval_id = NULL WHERE id = $1',
+          [approval.shift_request_id]
+        );
+      } else if (approval.old_preference) {
+        await query(
+          'UPDATE shift_requests SET preference_type = $1, admin_modified = FALSE, worker_original_pref = NULL, pending_approval_id = NULL WHERE id = $2',
+          [approval.old_preference, approval.shift_request_id]
+        );
+      } else {
+        await query('DELETE FROM shift_requests WHERE id = $1', [approval.shift_request_id]);
+      }
+    }
+
+    const workerRes = await query(
+      `SELECT CASE WHEN w.id IS NOT NULL THEN w.family_name || ' ' || w.first_name ELSE u.username END AS name
+       FROM users u LEFT JOIN workers w ON u.worker_id = w.id WHERE u.id = $1`,
+      [req.user.id]
+    );
+    const workerName = workerRes.rows[0]?.name || 'עובד';
+    const shiftRes = await query('SELECT label_he FROM shift_types WHERE key = $1', [approval.shift_type]);
+    const shiftLabel = shiftRes.rows[0]?.label_he || approval.shift_type;
+    const [y, m, d] = approval.date.split('-');
+    const dateFormatted = `${d}/${m}/${y}`;
+
+    const isDeletion = approval.new_preference === 'delete';
+    const notifContent = isDeletion
+      ? (approved
+        ? `✅ ${workerName} אישר/ה את ביטול המשמרת: ${dateFormatted} | ${shiftLabel}`
+        : `❌ ${workerName} דחה/תה את ביטול המשמרת: ${dateFormatted} | ${shiftLabel}`)
+      : (approved
+        ? `✅ ${workerName} אישר/ה את שינוי המשמרת: ${dateFormatted} | ${shiftLabel}`
+        : `❌ ${workerName} דחה/תה את שינוי המשמרת: ${dateFormatted} | ${shiftLabel}`);
+
+    await query(
+      `INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1, $2, $3, $4)`,
+      [req.user.id, approval.admin_id, notifContent, approval.branch_id || null]
+    );
+
+    (async () => {
+      try {
+        const subs = await query('SELECT * FROM push_subscriptions WHERE user_id = $1', [approval.admin_id]);
+        for (const sub of subs.rows) {
+          webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify({ title: approved ? '✅ שינוי משמרת אושר' : '❌ שינוי משמרת נדחה', body: notifContent, icon: '/logo-assuta.png', url: '/' })
+          ).catch(() => {
+            query('DELETE FROM push_subscriptions WHERE endpoint=$1', [sub.endpoint]).catch(() => {});
+          });
+        }
+      } catch {}
+    })();
+
+    res.json({ success: true, status: newStatus });
+  } catch (e) {
+    console.error('Respond to shift approval error:', e);
+    res.status(500).json({ error: 'שגיאה בעדכון בקשת אישור' });
+  }
+});
+
+app.delete('/api/shift-approvals/:id', requireAuth, async (req, res) => {
+  try {
+    const isAdmin = ['admin', 'superadmin', 'master'].includes(req.user.role_tier ?? req.user.role);
+    if (!isAdmin) return res.status(403).json({ error: 'אין הרשאה' });
+
+    const approvalId = parseInt(req.params.id);
+    const approvalRes = await query('SELECT * FROM shift_approval_requests WHERE id = $1', [approvalId]);
+    if (!approvalRes.rows.length) return res.status(404).json({ error: 'בקשת אישור לא נמצאה' });
+    const approval = approvalRes.rows[0];
+
+    if (approval.admin_id !== req.user.id) return res.status(403).json({ error: 'אין הרשאה' });
+    if (approval.status !== 'pending') return res.status(409).json({ error: 'הבקשה כבר טופלה' });
+
+    if (approval.shift_request_id) {
+      if (approval.new_preference === 'delete') {
+        // Deletion request cancelled — just clear pending flag, keep shift unchanged
+        await query('UPDATE shift_requests SET pending_approval_id = NULL WHERE id = $1', [approval.shift_request_id]);
+      } else if (approval.old_preference) {
+        await query(
+          'UPDATE shift_requests SET preference_type = $1, admin_modified = FALSE, worker_original_pref = NULL, pending_approval_id = NULL WHERE id = $2',
+          [approval.old_preference, approval.shift_request_id]
+        );
+      } else {
+        await query('DELETE FROM shift_requests WHERE id = $1', [approval.shift_request_id]);
+      }
+    }
+
+    await query('UPDATE shift_approval_requests SET status = $1 WHERE id = $2', ['cancelled', approvalId]);
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Cancel shift approval error:', e);
+    res.status(500).json({ error: 'שגיאה בביטול בקשת אישור' });
   }
 });
 

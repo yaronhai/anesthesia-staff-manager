@@ -964,6 +964,29 @@ async function runMigrations() {
 
     await query(`ALTER TABLE worker_activity_authorizations ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 3 CHECK (priority BETWEEN 1 AND 5)`);
 
+    // Shift approval requests feature
+    await query(`
+      CREATE TABLE IF NOT EXISTS shift_approval_requests (
+        id SERIAL PRIMARY KEY,
+        admin_id INTEGER NOT NULL REFERENCES users(id),
+        worker_id INTEGER NOT NULL REFERENCES users(id),
+        shift_request_id INTEGER REFERENCES shift_requests(id) ON DELETE SET NULL,
+        date TEXT NOT NULL,
+        shift_type TEXT NOT NULL,
+        old_preference TEXT,
+        new_preference TEXT NOT NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK(status IN ('pending','approved','rejected','cancelled')),
+        message_id INTEGER,
+        created_at TIMESTAMP DEFAULT NOW(),
+        responded_at TIMESTAMP
+      )
+    `);
+    await query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text'`);
+    await query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS approval_request_id INTEGER REFERENCES shift_approval_requests(id) ON DELETE SET NULL`);
+    await query(`ALTER TABLE shift_requests ADD COLUMN IF NOT EXISTS pending_approval_id INTEGER REFERENCES shift_approval_requests(id) ON DELETE SET NULL`);
+
     console.log('✓ Migrations complete');
   } catch (error) {
     console.error('Error running migrations:', error);

@@ -440,3 +440,125 @@
   flex-wrap: wrap;
   gap: 2px;
 }
+
+// Approval popup
+.approvalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.approvalPopup {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  padding: 24px 28px 20px;
+  min-width: 300px;
+  max-width: 400px;
+  direction: rtl;
+  text-align: right;
+}
+
+.approvalPopupHeader {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e3a5f;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+.approvalPopupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.approvalWorkerName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.approvalDetail {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.approvalSep {
+  color: #d1d5db;
+}
+
+.approvalChange {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.approvalArrow {
+  color: #9ca3af;
+  font-size: 1rem;
+}
+
+.approvalQuestion {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e3a5f;
+  margin-top: 4px;
+}
+
+.approvalPopupActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.approvalBtnYes {
+  background: #2563eb !important;
+  color: #fff !important;
+}
+
+// Pending approval pill
+.pendingApprovalPill {
+  opacity: 0.75;
+  outline: 2px dashed #f59e0b;
+}
+
+.pendingDot {
+  font-size: 0.65rem;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+
+.approvalDeleteLabel {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.approvalNoteInput {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  direction: rtl;
+  box-sizing: border-box;
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
+  }
+}
