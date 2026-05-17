@@ -26,6 +26,7 @@ import MonthlyReport from './components/MonthlyReport';
 import UserProfile from './components/UserProfile';
 import ProfileChangeRequests from './components/ProfileChangeRequests';
 import ManagersChat from './components/ManagersChat';
+import HelpModal from './components/HelpModal';
 import WorkerColumnSettings, { DEFAULT_COLUMN_ORDER, DEFAULT_NAME_FORMAT } from './components/WorkerColumnSettings';
 import logoAssuta from './assets/logo-assuta.png';
 import './styles/App.scss';
@@ -46,6 +47,7 @@ export default function App() {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [adminInitialTab, setAdminInitialTab] = useState(null);
   const [lockRefreshKey, setLockRefreshKey] = useState(0);
   const [config, setConfig] = useState({ jobs: [], employment_types: [], honorifics: [], site_groups: [], sites: [], activity_types: [], shift_types: [], preference_types: [] });
@@ -713,6 +715,10 @@ export default function App() {
                     {unreadMessages > 0 && <span className={appStyles.navBadge}>{unreadMessages}</span>}
                   </button>
                 )}
+                <div className={appStyles.navDivider} />
+                <button className={appStyles.navItem} onClick={() => { setShowHelp(true); setMenuOpen(false); }}>
+                  📖 מדריך
+                </button>
               </div>
             )}
         </div>
@@ -766,6 +772,10 @@ export default function App() {
             dragHandleProps={changePwDrag}
           />
         </div>
+      )}
+
+      {showHelp && (
+        <HelpModal isAdmin={isAdmin} onClose={() => setShowHelp(false)} />
       )}
 
       {showSettings && isAdmin && (
