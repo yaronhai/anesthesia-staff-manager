@@ -41,7 +41,8 @@ export default function MonthlyReport({ token, config, isAdmin, branchId }) {
 
   const fetchRequests = useCallback(async () => {
     try {
-      const res = await fetch(`/api/shift-requests?month=${month + 1}&year=${year}`, {
+      const branchQ = branchId ? `&branch_id=${branchId}` : '';
+      const res = await fetch(`/api/shift-requests?month=${month + 1}&year=${year}${branchQ}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -49,7 +50,7 @@ export default function MonthlyReport({ token, config, isAdmin, branchId }) {
     } catch (err) {
       console.error('Failed to fetch shift requests:', err);
     }
-  }, [month, year, token]);
+  }, [month, year, token, branchId]);
 
   const fetchFulfillment = useCallback(async () => {
     if (!isAdmin) return;

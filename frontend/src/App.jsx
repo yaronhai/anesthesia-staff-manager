@@ -147,10 +147,13 @@ export default function App() {
   }, [currentUser, authToken, isAdmin, selectedBranchId]);
 
   useEffect(() => {
-    if (!currentUser?.worker_id || !authToken) return;
+    if (!currentUser?.worker_id || !authToken) {
+      setProfilePhotoUrl(null);
+      return;
+    }
     fetch('/api/profile', { headers: authHeaders() })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.worker?.photo_url) setProfilePhotoUrl(d.worker.photo_url); })
+      .then(d => { setProfilePhotoUrl(d?.worker?.photo_url || null); })
       .catch(() => {});
   }, [currentUser, authToken]);
 
@@ -326,6 +329,7 @@ export default function App() {
     localStorage.removeItem('currentUser');
     setAuthToken(null);
     setCurrentUser(null);
+    setProfilePhotoUrl(null);
     setActiveTab('workers');
     setBranches([]);
     setSelectedBranchId(null);
