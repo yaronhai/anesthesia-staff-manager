@@ -61,6 +61,20 @@ export const T = {
       defaultDesc: 'ניתן להגדיר תבנית חוזרת לכל יום בשבוע — היא תחול אוטומטית על חודשים עתידיים.',
       h3Lock: 'מצב נעילה',
       lockDesc: 'כאשר הסידור נעול לא ניתן לשנות בקשות. הלוח מציג הודעת נעילה עם תאריך הפתיחה הצפוי. מנהל יכול לפתוח "חלון חריגה" זמני.',
+      h3Approval: 'אישור שינויים על-ידי עובד',
+      approvalWorkerItems: [
+        'כאשר מנהל משנה או מבטל בקשת משמרת שלך, ייתכן שתישלח אליך בקשת אישור',
+        'תקבל/י הודעת צ\'אט עם פרטי השינוי',
+        'לחץ/י "✅ כן, אני מאשר/ת" לאישור — השינוי יישמר',
+        'לחץ/י "❌ לא, אני דוחה" לדחייה — הבקשה תחזור להעדפה המקורית',
+        'תא המשמרת מציג ⏳ עד לתגובתך',
+      ],
+      approvalAdminItems: [
+        'בחר/י "כן, שלח לעובד" — הודעה נשלחת לצ\'אט עם כפתורי אישור/דחייה',
+        'בחר/י "לא, שנה/בטל בעצמי" — השינוי נשמר ומסומן כ"שינוי מנהל" ללא הודעה',
+        'ניתן להוסיף הודעה אישית שתצורף לפנייה',
+        'תקבל/י הודעת צ\'אט ברגע שהעובד יענה',
+      ],
     },
 
     vacations: {
@@ -92,6 +106,13 @@ export const T = {
       contentItems: ['טקסט חופשי', 'תמונות (JPG, PNG)', 'מסמכים (PDF, Word)', 'סרטונים', 'קישורים — מוצגת תצוגה מקדימה אוטומטית'],
       h3Badge: 'תג הודעות שלא נקראו',
       badgeDesc: 'אייקון ההודעות (💬) בתפריט מציג ספירה של הודעות שלא נקראו.',
+      h3ShiftApproval: 'אישורי שינויי משמרות',
+      shiftApprovalItems: [
+        'כאשר מנהל שולח בקשת אישור לשינוי משמרת, היא מופיעה כהודעה מודגשת מיוחדת',
+        'לחץ/י "✅ כן, אני מאשר/ת" או "❌ לא, אני דוחה" ישירות בצ\'אט',
+        'לאחר מענה, הכפתורים מוחלפים בתווית סטטוס (אושר / נדחה)',
+        'המנהל מקבל הודעה אוטומטית עם תשובתך',
+      ],
     },
 
     workers: {
@@ -288,6 +309,20 @@ export const T = {
       defaultDesc: 'You can set a repeating pattern for each day of the week — it will apply automatically to future months.',
       h3Lock: 'Lock Mode',
       lockDesc: 'When the schedule is locked, shift requests cannot be changed. The calendar shows a lock message with the expected opening date. A manager can open a temporary "override window".',
+      h3Approval: 'Worker Shift Change Approval',
+      approvalWorkerItems: [
+        'When a manager changes or cancels your shift request, an approval request may be sent to you',
+        'You will receive a chat message with the details of the change',
+        'Click "✅ Yes, I approve" to accept — the change will be saved',
+        'Click "❌ No, I reject" to decline — the request reverts to your original preference',
+        'The shift cell displays ⏳ until you respond',
+      ],
+      approvalAdminItems: [
+        'Choose "Yes, send to worker" — a message with approve/reject buttons is sent to the chat',
+        'Choose "No, change/cancel myself" — the change is saved and marked as "Admin Modified" with no notification',
+        'You can add a personal note that will be attached to the request',
+        'You will receive a chat notification as soon as the worker responds',
+      ],
     },
 
     vacations: {
@@ -319,6 +354,13 @@ export const T = {
       contentItems: ['Free text', 'Images (JPG, PNG)', 'Documents (PDF, Word)', 'Videos', 'Links — automatic preview is displayed'],
       h3Badge: 'Unread Message Badge',
       badgeDesc: 'The messages icon (💬) in the menu shows a count of unread messages.',
+      h3ShiftApproval: 'Shift Change Approvals',
+      shiftApprovalItems: [
+        'When a manager sends a shift-change approval request, it appears as a special highlighted message',
+        'Click "✅ Yes, I approve" or "❌ No, I reject" directly in the chat',
+        'Once responded, the buttons are replaced by a status label (Approved / Rejected)',
+        'The admin receives an automatic notification message with your response',
+      ],
     },
 
     workers: {
@@ -515,6 +557,20 @@ export const T = {
       defaultDesc: 'يمكنك تعيين نمط متكرر لكل يوم من أيام الأسبوع — سيُطبَّق تلقائياً على الأشهر القادمة.',
       h3Lock: 'وضع القفل',
       lockDesc: 'عند قفل الجدول لا يمكن تعديل الطلبات. يعرض التقويم رسالة قفل مع تاريخ الفتح المتوقع. يستطيع المدير فتح "نافذة استثناء" مؤقتة.',
+      h3Approval: 'موافقة الموظف على التغييرات',
+      approvalWorkerItems: [
+        'عندما يغيّر المدير أو يلغي طلب وردية خاصاً بك، قد تُرسَل إليك طلب موافقة',
+        'ستصلك رسالة دردشة تتضمن تفاصيل التغيير',
+        'انقر "✅ نعم، أوافق" للقبول — سيُحفظ التغيير',
+        'انقر "❌ لا، أرفض" للرفض — يعود الطلب إلى تفضيلك الأصلي',
+        'تعرض خلية الوردية ⏳ حتى تُجيب',
+      ],
+      approvalAdminItems: [
+        'اختر "نعم، أرسل للموظف" — تُرسَل رسالة بأزرار موافقة/رفض إلى الدردشة',
+        'اختر "لا، غيّر/ألغِ بنفسي" — يُحفظ التغيير ويُعلَّم كـ"تعديل مدير" دون إشعار',
+        'يمكنك إضافة ملاحظة شخصية تُرفق بالطلب',
+        'ستصلك إشعار دردشة فور رد الموظف',
+      ],
     },
 
     vacations: {
@@ -546,6 +602,13 @@ export const T = {
       contentItems: ['نص حر', 'صور (JPG, PNG)', 'مستندات (PDF, Word)', 'مقاطع فيديو', 'روابط — تُعرض معاينة تلقائية'],
       h3Badge: 'شارة الرسائل غير المقروءة',
       badgeDesc: 'تعرض أيقونة الرسائل (💬) في القائمة عدد الرسائل غير المقروءة.',
+      h3ShiftApproval: 'موافقات تغيير الوردية',
+      shiftApprovalItems: [
+        'عندما يُرسل المدير طلب موافقة على تغيير وردية، يظهر كرسالة مميزة مظللة',
+        'انقر "✅ نعم، أوافق" أو "❌ لا، أرفض" مباشرةً في الدردشة',
+        'بعد الرد، تُستبدل الأزرار بتسمية الحالة (تمت الموافقة / مرفوض)',
+        'يتلقى المدير رسالة تلقائية بردك',
+      ],
     },
 
     workers: {
@@ -742,6 +805,20 @@ export const T = {
       defaultDesc: 'Puedes configurar un patrón recurrente para cada día de la semana — se aplicará automáticamente a los meses futuros.',
       h3Lock: 'Modo de Bloqueo',
       lockDesc: 'Cuando el horario está bloqueado, no se pueden cambiar las solicitudes. El calendario muestra un mensaje de bloqueo con la fecha esperada de apertura. Un gerente puede abrir una "ventana de excepción" temporal.',
+      h3Approval: 'Aprobación de Cambios por el Empleado',
+      approvalWorkerItems: [
+        'Cuando un gerente cambia o cancela tu solicitud de turno, puede enviarte una solicitud de aprobación',
+        'Recibirás un mensaje de chat con los detalles del cambio',
+        'Haz clic en "✅ Sí, apruebo" para aceptar — el cambio se guardará',
+        'Haz clic en "❌ No, rechazo" para declinar — la solicitud vuelve a tu preferencia original',
+        'La celda del turno muestra ⏳ hasta que respondas',
+      ],
+      approvalAdminItems: [
+        'Elige "Sí, enviar al empleado" — se envía un mensaje con botones de aprobar/rechazar al chat',
+        'Elige "No, cambiar/cancelar yo mismo" — el cambio se guarda y se marca como "Modificado por admin" sin notificación',
+        'Puedes añadir una nota personal que se adjuntará a la solicitud',
+        'Recibirás una notificación por chat en cuanto el empleado responda',
+      ],
     },
 
     vacations: {
@@ -773,6 +850,13 @@ export const T = {
       contentItems: ['Texto libre', 'Imágenes (JPG, PNG)', 'Documentos (PDF, Word)', 'Videos', 'Enlaces — se muestra una vista previa automática'],
       h3Badge: 'Indicador de Mensajes No Leídos',
       badgeDesc: 'El ícono de mensajes (💬) en el menú muestra el recuento de mensajes no leídos.',
+      h3ShiftApproval: 'Aprobaciones de Cambio de Turno',
+      shiftApprovalItems: [
+        'Cuando un gerente envía una solicitud de aprobación de cambio de turno, aparece como un mensaje especial resaltado',
+        'Haz clic en "✅ Sí, apruebo" o "❌ No, rechazo" directamente en el chat',
+        'Una vez respondido, los botones son reemplazados por una etiqueta de estado (Aprobado / Rechazado)',
+        'El gerente recibe un mensaje automático con tu respuesta',
+      ],
     },
 
     workers: {
@@ -969,6 +1053,20 @@ export const T = {
       defaultDesc: 'Vous pouvez définir un modèle récurrent pour chaque jour de la semaine — il s\'appliquera automatiquement aux mois futurs.',
       h3Lock: 'Mode Verrouillage',
       lockDesc: 'Lorsque le planning est verrouillé, les demandes ne peuvent pas être modifiées. Le calendrier affiche un message de verrouillage avec la date d\'ouverture prévue. Un responsable peut ouvrir une "fenêtre d\'exception" temporaire.',
+      h3Approval: 'Approbation des Changements par l\'Employé',
+      approvalWorkerItems: [
+        'Lorsqu\'un responsable modifie ou annule votre demande de garde, une demande d\'approbation peut vous être envoyée',
+        'Vous recevrez un message de chat avec les détails du changement',
+        'Cliquez sur "✅ Oui, j\'approuve" pour accepter — le changement sera enregistré',
+        'Cliquez sur "❌ Non, je refuse" pour décliner — la demande revient à votre préférence d\'origine',
+        'La cellule de garde affiche ⏳ jusqu\'à votre réponse',
+      ],
+      approvalAdminItems: [
+        'Choisissez "Oui, envoyer à l\'employé" — un message avec boutons approuver/refuser est envoyé dans le chat',
+        'Choisissez "Non, modifier/annuler moi-même" — le changement est enregistré et marqué "Modifié par l\'admin" sans notification',
+        'Vous pouvez ajouter une note personnelle qui sera jointe à la demande',
+        'Vous recevrez une notification par chat dès que l\'employé aura répondu',
+      ],
     },
 
     vacations: {
@@ -1000,6 +1098,13 @@ export const T = {
       contentItems: ['Texte libre', 'Images (JPG, PNG)', 'Documents (PDF, Word)', 'Vidéos', 'Liens — un aperçu automatique est affiché'],
       h3Badge: 'Badge Messages Non Lus',
       badgeDesc: 'L\'icône des messages (💬) dans le menu affiche le nombre de messages non lus.',
+      h3ShiftApproval: 'Approbations de Changement de Garde',
+      shiftApprovalItems: [
+        'Lorsqu\'un responsable envoie une demande d\'approbation de changement de garde, elle apparaît comme un message spécial mis en évidence',
+        'Cliquez sur "✅ Oui, j\'approuve" ou "❌ Non, je refuse" directement dans le chat',
+        'Après réponse, les boutons sont remplacés par un libellé de statut (Approuvé / Refusé)',
+        'Le responsable reçoit un message automatique avec votre réponse',
+      ],
     },
 
     workers: {

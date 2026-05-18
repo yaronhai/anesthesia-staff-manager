@@ -117,6 +117,9 @@ export default function HelpModal({ isAdmin, onClose }) {
               <p>{t.shifts.defaultDesc}</p>
               <h3>{t.shifts.h3Lock}</h3>
               <p>{t.shifts.lockDesc}</p>
+              <h3>{t.shifts.h3Approval}</h3>
+              <ul>{t.shifts.approvalWorkerItems.map((x, i) => <li key={i}>{x}</li>)}</ul>
+              <ul>{t.shifts.approvalAdminItems.map((x, i) => <li key={i}>{x}</li>)}</ul>
             </section>
 
             {/* ── Vacation Requests ── */}
@@ -142,6 +145,8 @@ export default function HelpModal({ isAdmin, onClose }) {
               <ul>{t.messages.contentItems.map((x, i) => <li key={i}>{x}</li>)}</ul>
               <h3>{t.messages.h3Badge}</h3>
               <p>{t.messages.badgeDesc}</p>
+              <h3>{t.messages.h3ShiftApproval}</h3>
+              <ul>{t.messages.shiftApprovalItems.map((x, i) => <li key={i}>{x}</li>)}</ul>
             </section>
 
             {/* ══ ADMIN SECTIONS ══ */}

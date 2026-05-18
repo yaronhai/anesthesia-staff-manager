@@ -16,11 +16,17 @@ function StatCard({ label, value, sub, color }) {
 
 const checkLandscape = () => window.innerWidth < 900 && window.innerHeight < 500;
 
+const CARD_MIN = 80;
+const CARD_MAX = 420;
+const CARD_STEP = 40;
+const CARD_BASE = 200;
+
 export default function Dashboard({ authToken, onSelectBranch }) {
   const [branches, setBranches] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isLandscape, setIsLandscape] = useState(checkLandscape);
+  const [cardSize, setCardSize] = useState(200);
 
   useEffect(() => {
     const onResize = () => setIsLandscape(checkLandscape());
@@ -56,11 +62,27 @@ export default function Dashboard({ authToken, onSelectBranch }) {
 
       {/* Branches */}
       <section>
-        <h3 className={styles.sectionTitle}>סניפים</h3>
+        <div className={styles.sectionHeader}>
+          <h3 className={styles.sectionTitle}>סניפים</h3>
+          <div className={styles.sizeControls}>
+            <button
+              className={styles.sizeBtn}
+              onClick={() => setCardSize(s => Math.min(s + CARD_STEP, CARD_MAX))}
+              disabled={cardSize >= CARD_MAX}
+              title="הגדל כרטיסיות"
+            >+</button>
+            <button
+              className={styles.sizeBtn}
+              onClick={() => setCardSize(s => Math.max(s - CARD_STEP, CARD_MIN))}
+              disabled={cardSize <= CARD_MIN}
+              title="הקטן כרטיסיות"
+            >−</button>
+          </div>
+        </div>
         {branches.length === 0 ? (
           <p className={styles.branchesEmpty}>אין סניפים.</p>
         ) : (
-          <div className={styles.branchesGrid}>
+          <div className={styles.branchesGrid} style={{ '--branch-min': `${cardSize}px`, '--card-scale': cardSize / CARD_BASE }}>
             {branches.map(b => (
               <button key={b.id} className={styles.branchCard} onClick={() => onSelectBranch(b.id)}>
                 <div className={styles.branchCardMain}>
@@ -73,7 +95,7 @@ export default function Dashboard({ authToken, onSelectBranch }) {
                 </div>
                 {b.emp_type_breakdown?.length > 0 && (
                   <div className={styles.branchPieWrap}>
-                    <PieChart3D items={b.emp_type_breakdown.map(t => ({ name: t.name, value: t.count }))} small />
+                    <PieChart3D items={b.emp_type_breakdown.map(t => ({ name: t.name, value: t.count }))} small zoom={cardSize / CARD_BASE} />
                   </div>
                 )}
               </button>

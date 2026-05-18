@@ -9,7 +9,7 @@ function darken(hex) {
   return `rgb(${r},${g},${b})`;
 }
 
-export default function PieChart3D({ items, small = false, tiny = false, showAll = false, legend = false }) {
+export default function PieChart3D({ items, small = false, tiny = false, showAll = false, legend = false, zoom = 1 }) {
   const total = items.reduce((s, d) => s + d.value, 0);
   if (!total) return null;
 
@@ -63,7 +63,7 @@ export default function PieChart3D({ items, small = false, tiny = false, showAll
   const sortedSlices = [...slices].sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
 
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} style={{ '--pie-zoom': zoom }}>
       <svg width={W} height={H} className={styles.svg}>
         <ellipse cx={cx} cy={cy + dep} rx={rx} ry={ry} fill="rgba(0,0,0,0.08)" />
         {sides.map((s, i) => <path key={i} d={s.path} fill={s.color} />)}

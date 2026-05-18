@@ -14,6 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **SCSS only**: All styling files must use `.scss` extension. Never create `.css` files; convert any existing `.css` files to `.scss`.
 - **Draggable modals**: Every modal/popup window must support drag-and-drop repositioning. Use the pattern from `DailyRoomView.jsx` (`site-detail-modal`): track drag state with `useRef` + `useState(null)` for position, add `onMouseDown` to the modal header to start dragging, listen to `mousemove`/`mouseup` on `window`, apply `top`/`left` inline when dragged (overriding the centered CSS), and switch the overlay to `form-overlay--transparent` while a position is set so it doesn't block the view. Reset position to `null` when the modal closes or reopens.
 
+- **Help guide updates**: After every significant project change (new feature, changed workflow, new UI element), update `frontend/src/components/helpTranslations.js` in **all 5 languages** (he, en, ar, es, fr) and update `HelpModal.jsx` to render any new fields.
+
 ### Architecture
 - **Backend**: Single-file Express app (server.js, 700+ lines) with PostgreSQL database
 - **Frontend**: React 18 + Vite, tab-based UI without routing

@@ -1,36 +1,45 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import styles from '../styles/MonthlyReport.module.scss';
 import { useDraggableModal } from '../hooks/useDraggableModal';
 
 const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
 const WEEK_HEADERS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const SHIFT_ICON = { morning: '☀️', evening: '🌙', night: '🌃', oncall: '📟' };
+const shiftIcon = key => SHIFT_ICON[key] ?? '🔔';
 
 function buildCalendarWeeks(year, month) {
   const weeks = [];
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
 
-  let week = Array(firstDay).fill(null);
+  let week = [];
+  for (let i = firstDay - 1; i >= 0; i--) {
+    week.push({ day: prevMonthDays - i, current: false });
+  }
   for (let day = 1; day <= daysInMonth; day++) {
-    week.push(day);
-    if (week.length === 7) {
-      weeks.push(week);
-      week = [];
-    }
+    week.push({ day, current: true });
+    if (week.length === 7) { weeks.push(week); week = []; }
   }
   if (week.length > 0) {
-    while (week.length < 7) week.push(null);
+    let next = 1;
+    while (week.length < 7) week.push({ day: next++, current: false });
     weeks.push(week);
   }
   return weeks;
 }
 
-export default function MonthlyReport({ token, config, isAdmin, branchId }) {
+const todayStr = (() => {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+})();
+
+export default function MonthlyReport({ token, config, branchId }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [requests, setRequests] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const { modalRef: dayRef, dragHandleProps: dayDrag, modalStyle: dayStyle, dragged: dayDragged, reset: dayReset } = useDraggableModal();
-  const [fulfillmentStats, setFulfillmentStats] = useState([]);
 
   const month = viewDate.getMonth();
   const year = viewDate.getFullYear();
@@ -52,23 +61,9 @@ export default function MonthlyReport({ token, config, isAdmin, branchId }) {
     }
   }, [month, year, token, branchId]);
 
-  const fetchFulfillment = useCallback(async () => {
-    if (!isAdmin) return;
-    try {
-      const branchQ = branchId ? `&branch_id=${branchId}` : '';
-      const res = await fetch(`/api/fulfillment-stats?month=${month + 1}&year=${year}${branchQ}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setFulfillmentStats(await res.json());
-    } catch (err) {
-      console.error('Failed to fetch fulfillment stats:', err);
-    }
-  }, [month, year, token, isAdmin, branchId]);
-
   useEffect(() => {
     fetchRequests();
-    fetchFulfillment();
-  }, [fetchRequests, fetchFulfillment]);
+  }, [fetchRequests]);
 
   function prevMonth() {
     setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
@@ -111,42 +106,34 @@ export default function MonthlyReport({ token, config, isAdmin, branchId }) {
 
   return (
     <div className="report-container">
-      <div className={`report-header ${styles.header}`}>
+      <div className={styles.header}>
         <div className={styles.navRow}>
-          <button onClick={prevMonth} className="btn-secondary btn-sm">← קודם</button>
+          <button onClick={prevMonth} className={styles.navBtn}>← קודם</button>
           <h2 className={styles.monthTitle}>{MONTHS[month]} {year}</h2>
-          <button onClick={nextMonth} className="btn-secondary btn-sm">הבא →</button>
+          <button onClick={nextMonth} className={styles.navBtn}>הבא →</button>
+          <button onClick={() => setViewDate(new Date())} className={styles.navBtn}>היום</button>
         </div>
-
-        <div className={styles.controls}>
-          <button onClick={() => window.print()} className="btn-primary btn-sm">🖨️ הדפסה</button>
-          <div className={styles.legend}>
-            {prefTypes.filter(p => p.key !== 'cannot').map(p => (
-              <div key={p.key} className={styles.legendItem}>
-                <div
-                  className={styles.legendSwatch}
-                  style={{ '--swatch-bg': p.key === 'prefer' ? '#16a34a' : '#0369a1' }}
-                />
-                <span>{p.label_he}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <button onClick={() => window.print()} className={styles.printBtn}>🖨️</button>
       </div>
 
-      <div className={`calendar-wrapper ${styles.calendarWrapper}`}>
-        <div className={`calendar-row header ${styles.calendarHeaderRow}`}>
+      <div className="calendar-wrapper">
+        <div className="calendar-row header">
           {WEEK_HEADERS.map(day => (
             <div key={day} className="calendar-header-cell">{day}</div>
           ))}
         </div>
 
         {weeks.map((week, weekIdx) => (
-          <div key={weekIdx} className={`calendar-row ${styles.calendarWeekRow}`}>
-            {week.map((day, dayIdx) => {
+          <div key={weekIdx} className="calendar-row">
+            {week.map(({ day, current }, dayIdx) => {
               const uniqueKey = `week-${weekIdx}-day-${dayIdx}`;
-              if (day === null) {
-                return <div key={uniqueKey} className="calendar-cell empty"></div>;
+
+              if (!current) {
+                return (
+                  <div key={uniqueKey} className={`calendar-cell ${styles.calendarCellOther}`}>
+                    <div className={styles.dayHeaderOther}>{day}</div>
+                  </div>
+                );
               }
 
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -156,24 +143,32 @@ export default function MonthlyReport({ token, config, isAdmin, branchId }) {
               return (
                 <div
                   key={uniqueKey}
-                  className={`calendar-cell ${styles.calendarCell}`}
-                  style={{
-                    '--cell-border': isSelected ? '3px solid #1a2e4a' : 'none',
-                    '--cell-bg': isSelected ? '#e0f2fe' : 'white',
-                  }}
+                  className={`calendar-cell ${styles.calendarCell}${isSelected ? ` ${styles.calendarCellSelected}` : ''}`}
                   onClick={() => setSelectedDay(dateStr)}
                 >
-                  <div className={`day-header ${styles.dayHeader}`}>{day}</div>
+                  <div className={`day-header ${styles.dayHeader}${dateStr === todayStr ? ` ${styles.dayHeaderToday}` : ''}`}>{day}</div>
 
                   {reportShifts.map(st => (
                     <div key={st.key} className={styles.shiftBlock}>
                       <div className={styles.shiftLabel}>{st.label_he}</div>
-                      {dayData[st.key].prefer.map((name, i) => (
-                        <div key={`${st.key}-p-${i}`} className={styles.preferName}>{name}</div>
-                      ))}
-                      {dayData[st.key].can.map((name, i) => (
-                        <div key={`${st.key}-c-${i}`} className={styles.canName}>{name}</div>
-                      ))}
+                      {(() => {
+                        const all = [
+                          ...dayData[st.key].prefer.map(n => ({ n, cls: styles.preferName })),
+                          ...dayData[st.key].can.map(n => ({ n, cls: styles.canName })),
+                        ];
+                        const MAX = 3;
+                        const hidden = all.length - MAX;
+                        return (
+                          <>
+                            {all.slice(0, MAX).map(({ n, cls }, i) => (
+                              <div key={`${st.key}-${i}`} className={cls}>{n}</div>
+                            ))}
+                            {hidden > 0 && (
+                              <div className={styles.moreNames}>+{hidden} נוספים</div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -183,124 +178,104 @@ export default function MonthlyReport({ token, config, isAdmin, branchId }) {
         ))}
       </div>
 
-      {isAdmin && fulfillmentStats.length > 0 && (() => {
-        const totals = fulfillmentStats.reduce(
-          (acc, w) => {
-            acc.total += +w.total_assignments;
-            acc.prefer += +w.pref_prefer;
-            acc.can += +w.pref_can;
-            acc.cannot += +w.pref_cannot;
-            acc.none += +w.pref_none;
-            return acc;
-          },
-          { total: 0, prefer: 0, can: 0, cannot: 0, none: 0 }
-        );
-        const pct = (w) => w.total_assignments > 0
-          ? Math.round((+w.pref_prefer + +w.pref_can) / +w.total_assignments * 100)
-          : 0;
-        const totalPct = totals.total > 0
-          ? Math.round((totals.prefer + totals.can) / totals.total * 100)
-          : 0;
-        const rowClass = (p) => p >= 80 ? styles.rowGreen : p >= 50 ? styles.rowYellow : styles.rowRed;
-
-        return (
-          <div className={styles.fulfillmentSection}>
-            <h3 className={styles.fulfillmentTitle}>מדד התחשבות בבקשות</h3>
-            <p className={styles.fulfillmentHint}>
-              לכל עובד ששובץ בחודש זה — כמה שיבוצים תאמו את בקשתו
-            </p>
-            <table className={styles.fulfillmentTable}>
-              <thead>
-                <tr>
-                  <th>עובד</th>
-                  <th>שיבוצים</th>
-                  <th>מעדיף ✓</th>
-                  <th>יכול ✓</th>
-                  <th>לא יכול ✗</th>
-                  <th>ללא בקשה</th>
-                  <th>% התחשבות</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fulfillmentStats.map(w => {
-                  const p = pct(w);
-                  return (
-                    <tr key={w.worker_id} className={rowClass(p)}>
-                      <td>{w.first_name} {w.family_name}</td>
-                      <td>{w.total_assignments}</td>
-                      <td>{w.pref_prefer}</td>
-                      <td>{w.pref_can}</td>
-                      <td>{w.pref_cannot}</td>
-                      <td>{w.pref_none}</td>
-                      <td><strong>{p}%</strong></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className={styles.summaryRow}>
-                  <td>סה"כ</td>
-                  <td>{totals.total}</td>
-                  <td>{totals.prefer}</td>
-                  <td>{totals.can}</td>
-                  <td>{totals.cannot}</td>
-                  <td>{totals.none}</td>
-                  <td><strong>{totalPct}%</strong></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        );
-      })()}
 
       {selectedDay && (() => {
         const dayData = reportData[selectedDay];
         const [y, m, d] = selectedDay.split('-').map(Number);
         const dayName = WEEK_HEADERS[new Date(y, m - 1, d).getDay()];
+        const preferLabel = prefTypes.find(p => p.key === 'prefer')?.label_group_he || 'מעדיפים';
+        const canLabel = prefTypes.find(p => p.key === 'can')?.label_group_he || 'יכולים';
 
         return (
+          <>
           <div className={`daily-report-overlay${dayDragged ? ' daily-report-overlay--transparent' : ''}`} onClick={() => { setSelectedDay(null); dayReset(); }}>
             <div className="daily-report-modal" ref={dayRef} style={dayStyle} onClick={e => e.stopPropagation()}>
               <div className="daily-report-header" {...dayDrag}>
                 <h3>{dayName}, {String(d).padStart(2, '0')}/{String(m).padStart(2, '0')}/{y}</h3>
-                <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setSelectedDay(null); dayReset(); }}>✕</button>
+                <div className={styles.modalHeaderActions}>
+                  <button className={styles.printBtn} onMouseDown={e => e.stopPropagation()} onClick={() => {
+                    requestAnimationFrame(() => {
+                      document.body.classList.add('print-day-modal');
+                      window.print();
+                      document.body.classList.remove('print-day-modal');
+                    });
+                  }}>🖨️</button>
+                  <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setSelectedDay(null); dayReset(); }}>✕</button>
+                </div>
               </div>
 
-              <div className="daily-report-content">
-                {reportShifts.map(st => (
-                  <div key={st.key} className="daily-shift-section">
-                    <h4>{st.label_he}</h4>
-                    {dayData[st.key].prefer.length === 0 && dayData[st.key].can.length === 0 ? (
-                      <p className="empty-list">אין בקשות</p>
-                    ) : (
-                      <>
-                        {dayData[st.key].prefer.length > 0 && (
-                          <div className="daily-shift-group">
-                            <span className={`group-label ${styles.groupLabelPrefer}`}>{prefTypes.find(p => p.key === 'prefer')?.label_group_he || 'מעדיפים'}:</span>
-                            <div className="names-list">
-                              {dayData[st.key].prefer.map((name, i) => (
-                                <span key={`${st.key}-p-${i}`} className={`name-badge ${styles.badgePrefer}`}>{name}</span>
-                              ))}
+              <div className={styles.reportViewVisible}>
+                {reportShifts.map(st => {
+                  const prefer = dayData[st.key].prefer;
+                  const can = dayData[st.key].can;
+                  if (prefer.length === 0 && can.length === 0) return null;
+                  return (
+                    <div key={st.key} className={`${styles.printShiftBlock} ${styles[`shiftCard_${st.key}`] || ''}`}>
+                      <div className={`${styles.shiftCardHeader} ${styles[`shiftCardHeader_${st.key}`] || ''}`}>
+                        {shiftIcon(st.key)} {st.label_he}
+                      </div>
+                      <div className={styles.shiftCardCols}>
+                        {prefer.length > 0 && (
+                          <div className={styles.shiftCardCol}>
+                            <div className={`group-label ${styles.groupLabelPrefer}`}>{preferLabel}</div>
+                            <div className={styles.compactNames}>
+                              {prefer.map((name, i) => <span key={i} className={styles.nameRowPrefer}>{name}</span>)}
                             </div>
                           </div>
                         )}
-                        {dayData[st.key].can.length > 0 && (
-                          <div className="daily-shift-group">
-                            <span className={`group-label ${styles.groupLabelCan}`}>{prefTypes.find(p => p.key === 'can')?.label_group_he || 'יכולים'}:</span>
-                            <div className="names-list">
-                              {dayData[st.key].can.map((name, i) => (
-                                <span key={`${st.key}-c-${i}`} className={`name-badge ${styles.badgeCan}`}>{name}</span>
-                              ))}
+                        {can.length > 0 && (
+                          <div className={styles.shiftCardCol}>
+                            <div className={`group-label ${styles.groupLabelCan}`}>{canLabel}</div>
+                            <div className={styles.compactNames}>
+                              {can.map((name, i) => <span key={i} className={styles.nameRowCan}>{name}</span>)}
                             </div>
                           </div>
                         )}
-                      </>
-                    )}
-                  </div>
-                ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
+
+          {createPortal(
+            <div id="day-print-portal" className={styles.dayPrintPortal} dir="rtl">
+              <div className={styles.printTitle}>{dayName}, {String(d).padStart(2, '0')}/{String(m).padStart(2, '0')}/{y}</div>
+              {reportShifts.map(st => {
+                const prefer = dayData[st.key].prefer;
+                const can = dayData[st.key].can;
+                if (prefer.length === 0 && can.length === 0) return null;
+                return (
+                  <div key={st.key} className={styles.printShiftBlock}>
+                    <div className={`${styles.shiftCardHeader} ${styles[`shiftCardHeader_${st.key}`] || ''}`}>
+                      {shiftIcon(st.key)} {st.label_he}
+                    </div>
+                    <div className={styles.shiftCardCols}>
+                      {prefer.length > 0 && (
+                        <div className={styles.shiftCardCol}>
+                          <div className={`group-label ${styles.groupLabelPrefer}`}>{preferLabel}</div>
+                          <div className={styles.compactNames}>
+                            {prefer.map((name, i) => <span key={i} className={styles.nameRowPrefer}>{name}</span>)}
+                          </div>
+                        </div>
+                      )}
+                      {can.length > 0 && (
+                        <div className={styles.shiftCardCol}>
+                          <div className={`group-label ${styles.groupLabelCan}`}>{canLabel}</div>
+                          <div className={styles.compactNames}>
+                            {can.map((name, i) => <span key={i} className={styles.nameRowCan}>{name}</span>)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>,
+            document.body
+          )}
+          </>
         );
       })()}
     </div>

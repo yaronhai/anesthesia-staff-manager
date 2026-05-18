@@ -1,139 +1,492 @@
+// ── Header ───────────────────────────────────────────────────────────────────
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
+  padding: 0.15rem 0.75rem;
+  background: linear-gradient(135deg, #1a2e4a 0%, #2d4a6e 100%);
+  border-radius: 8px;
+  color: white;
 }
+
 .navRow {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
+
 .monthTitle {
   margin: 0;
-  color: #1a2e4a;
-  font-size: 1.25rem;
-  min-width: 150px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 700;
+  min-width: 110px;
   text-align: center;
 }
-.controls {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-.legend {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.8rem;
-  align-items: center;
-}
-.legendItem {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.legendSwatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  background: var(--swatch-bg);
+
+.navBtn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  border-radius: 5px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.12s;
+
+  &:hover { background: rgba(255,255,255,0.28); }
 }
 
-.calendarWrapper {
-  display: flex;
-  flex-direction: column;
-  border: 2px solid #1a2e4a;
-}
-.calendarHeaderRow {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  background: #1a2e4a;
-}
-.calendarWeekRow {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  border-bottom: 2px solid #1a2e4a;
-}
-.calendarCell {
-  padding: 0.15rem;
-  min-height: 50px;
+.printBtn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  border-radius: 5px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.75rem;
   cursor: pointer;
-  border: var(--cell-border, none);
-  background-color: var(--cell-bg, white);
+  transition: background 0.12s;
+
+  &:hover { background: rgba(255,255,255,0.28); }
 }
+
+// ── Calendar grid ─────────────────────────────────────────────────────────────
+// Layout, borders, and row styling are handled globally in App.scss
+
+.calendarCell {
+  cursor: pointer;
+  overflow-y: auto;
+  transition: background 0.12s;
+
+  &:hover { background: #eef6ff !important; }
+}
+
+.calendarCellOther {
+  background: #f8fafc !important;
+  cursor: default;
+  pointer-events: none;
+}
+
+.dayHeaderOther {
+  color: #c1c9d4;
+  font-weight: 400;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  border-radius: 50%;
+  margin-bottom: 0.12rem;
+  flex-shrink: 0;
+}
+
+.calendarCellSelected {
+  background: #dbeafe !important;
+  box-shadow: inset 0 0 0 2px #3b82f6;
+}
+
 .dayHeader {
   font-size: 0.7rem;
   font-weight: 700;
-  margin-bottom: 0.08rem;
-  padding-bottom: 0.05rem;
-  border-bottom: 1px solid #e2e8f0;
+  color: #374151;
+  margin-bottom: 0.12rem;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  line-height: 1;
+  flex-shrink: 0;
 }
-.shiftBlock { font-size: 0.5rem; margin-bottom: 0.1rem; }
+
+.dayHeaderToday {
+  color: #dc2626;
+  font-weight: 800;
+  border: 2.5px solid #dc2626;
+  border-radius: 52% 48% 46% 54% / 50% 54% 46% 50%;
+  transform: rotate(-4deg);
+  box-shadow: 1px 1px 0 rgba(220, 38, 38, 0.18);
+  width: 26px;
+  height: 26px;
+  background: #fef08a;
+}
+
+.shiftBlock {
+  font-size: 0.5rem;
+  margin-bottom: 0.08rem;
+  border-right: 2px solid #e2e8f0;
+  padding-right: 0.18rem;
+}
+
 .shiftLabel {
   font-weight: 700;
-  font-size: 0.48rem;
+  font-size: 0.46rem;
   text-transform: uppercase;
   margin-bottom: 0.04rem;
-  color: #4b5563;
-}
-.preferName { color: #16a34a; font-weight: 600; line-height: 1; margin-bottom: 0.01rem; }
-.canName { color: #0369a1; line-height: 1; margin-bottom: 0.01rem; }
-
-.groupLabelPrefer { color: #16a34a; font-weight: 700; }
-.groupLabelCan { color: #0369a1; font-weight: 700; }
-.badgePrefer { background: #dcfce7; color: #166534; border-color: #16a34a; }
-.badgeCan { background: #e0f2fe; color: #0c4a6e; border-color: #0369a1; }
-
-// ── Fulfillment stats table ──────────────────────────────────────────────────
-.fulfillmentSection {
-  margin-top: 1.5rem;
-  border-top: 2px solid #1a2e4a;
-  padding-top: 1rem;
-}
-
-.fulfillmentTitle {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1a2e4a;
-  margin: 0 0 0.25rem;
-}
-
-.fulfillmentHint {
-  font-size: 0.78rem;
   color: #64748b;
-  margin-bottom: 0.75rem;
+  letter-spacing: 0.03em;
 }
 
-.fulfillmentTable {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.82rem;
+.preferName {
+  color: #15803d;
+  font-weight: 600;
+  line-height: 1.15;
+  margin-bottom: 0.02rem;
+
+  &::before {
+    content: '▲ ';
+    font-size: 0.38rem;
+    opacity: 0.7;
+  }
+}
+
+.moreNames {
+  font-size: 0.44rem;
+  color: #94a3b8;
+  font-style: italic;
+  line-height: 1.2;
+  margin-top: 0.02rem;
+}
+
+.canName {
+  color: #1d4ed8;
+  line-height: 1.15;
+  margin-bottom: 0.02rem;
+
+  &::before {
+    content: '● ';
+    font-size: 0.35rem;
+    opacity: 0.6;
+  }
+}
+
+// ── Print portal (direct child of body, hidden on screen) ────────────────────
+.dayPrintPortal {
+  display: none;
+  padding: 1.5rem;
+  font-family: inherit;
   direction: rtl;
-
-  th, td {
-    padding: 0.35rem 0.5rem;
-    border: 1px solid #e2e8f0;
-    text-align: center;
-    white-space: nowrap;
-  }
-
-  th {
-    background: #1e293b;
-    color: #fff;
-    font-weight: 600;
-  }
-
-  td:first-child { text-align: right; }
 }
 
-.rowGreen { background: #f0fdf4; }
-.rowYellow { background: #fefce8; }
-.rowRed { background: #fff1f2; }
+// ── Report view ───────────────────────────────────────────────────────────────
+.reportViewVisible {
+  padding: 0.75rem 1.25rem 0.75rem 1rem;
+  overflow-y: auto;
+  max-height: 65vh;
 
-.summaryRow {
+  .printShiftBlock {
+    background: white !important;
+    border-right-color: #bbb !important;
+  }
+
+  .nameRowPrefer,
+  .nameRowCan {
+    color: #111 !important;
+    font-weight: normal !important;
+  }
+}
+
+.printShiftBlock {
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  break-inside: avoid;
+}
+
+@media print {
+  // Portal is shown via App.scss (body.print-day-modal > *:not(#day-print-portal) { display: none })
+  .printShiftBlock {
+    background: white !important;
+    break-inside: avoid;
+    margin-bottom: 0.75rem;
+    border-right: 3px solid #ccc !important;
+  }
+
+  .shiftCardHeader_morning,
+  .shiftCardHeader_evening,
+  .shiftCardHeader_oncall {
+    color: #111 !important;
+  }
+
+  .compactNames {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .nameRowPrefer,
+  .nameRowCan {
+    color: #111 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+}
+
+
+// ── Day modal header actions ──────────────────────────────────────────────────
+.modalHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.printBtn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(255,255,255,0.3); }
+}
+
+// ── Day modal ─────────────────────────────────────────────────────────────────
+.groupLabelPrefer { color: #15803d; font-weight: 700; }
+.groupLabelCan    { color: #1d4ed8; font-weight: 700; }
+.badgePrefer { background: #dcfce7; color: #14532d; border-color: #4ade80; }
+.badgeCan    { background: #dbeafe; color: #1e3a8a; border-color: #60a5fa; }
+
+.shiftCard {
+  border-radius: 6px;
+}
+
+// Morning — warm sunrise palette
+.shiftCard_morning {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-right: 5px solid #f59e0b;
+  border-top: 1px solid #fde68a;
+}
+
+// Evening — cool dusk palette
+.shiftCard_evening {
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border-right: 5px solid #6366f1;
+  border-top: 1px solid #c7d2fe;
+}
+
+// Night — deep blue
+.shiftCard_night {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-right: 5px solid #1d4ed8;
+  border-top: 1px solid #bfdbfe;
+}
+
+// On-call — purple
+.shiftCard_oncall {
+  background: linear-gradient(135deg, #faf5ff 0%, #ede9fe 100%);
+  border-right: 5px solid #7c3aed;
+  border-top: 1px solid #ddd6fe;
+}
+
+.shiftCardHeader {
+  font-size: 0.92rem;
   font-weight: 700;
-  background: #f1f5f9;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid rgba(0,0,0,0.09);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #1a2e4a;
+}
 
-  td { border-top: 2px solid #94a3b8; }
+.shiftCardHeader_morning {
+  color: #7c3a00;
+  background: #fff3cd;
+  padding: 0.18rem 0.45rem;
+  border-radius: 4px;
+  &::before { content: '☀️'; font-size: 0.9rem; }
+}
+
+.shiftCardHeader_evening {
+  color: #3730a3;
+  background: #e0e7ff;
+  padding: 0.18rem 0.45rem;
+  border-radius: 4px;
+  &::before { content: '🌙'; font-size: 0.9rem; }
+}
+
+.shiftCardHeader_night {
+  color: #1e3a5f;
+  background: #dbeafe;
+  padding: 0.18rem 0.45rem;
+  border-radius: 4px;
+  &::before { content: '🌃'; font-size: 0.9rem; }
+}
+
+.shiftCardHeader_oncall {
+  color: #4c1d95;
+  background: #ede9fe;
+  padding: 0.18rem 0.45rem;
+  border-radius: 4px;
+  &::before { content: '📟'; font-size: 0.9rem; }
+}
+
+.shiftCardCols {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.shiftCardCol {
+  width: 100%;
+}
+
+.compactNames {
+  columns: 4;
+  column-gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.nameRowPrefer {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #111;
+  line-height: 1.6;
+}
+
+.nameRowCan {
+  display: block;
+  font-size: 0.78rem;
+  color: #111;
+  line-height: 1.6;
+}
+
+
+// ── Print ─────────────────────────────────────────────────────────────────────
+@media print {
+  @page { size: A4 portrait; margin: 15mm 12mm; }
+
+  .dayPrintPortal {
+    font-size: 0.82rem !important;
+    line-height: 1.5 !important;
+  }
+
+  .printTitle {
+    font-size: 1.05rem !important;
+    margin-bottom: 0.6rem !important;
+    padding-bottom: 0.35rem !important;
+  }
+
+  .printShiftBlock {
+    background: white !important;
+    break-inside: avoid;
+    margin-bottom: 0.55rem !important;
+    padding: 0.4rem 0.65rem !important;
+    border-right: 3px solid #bbb !important;
+    border-radius: 0 !important;
+  }
+
+  .shiftCardHeader {
+    font-size: 0.86rem !important;
+    font-weight: 700 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    margin-bottom: 0.2rem !important;
+    padding-bottom: 0.15rem !important;
+  }
+
+  .shiftCardHeader_morning {
+    color: #7c3a00 !important;
+    background: #fff3cd !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    padding: 0.2rem 0.4rem !important;
+    border-radius: 3px !important;
+  }
+
+  .shiftCardHeader_evening {
+    color: #1e1a6e !important;
+    background: #e0e7ff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    padding: 0.2rem 0.4rem !important;
+    border-radius: 3px !important;
+  }
+
+  .shiftCardHeader_night {
+    color: #1e3a5f !important;
+    background: #dbeafe !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    padding: 0.2rem 0.4rem !important;
+    border-radius: 3px !important;
+  }
+
+  .shiftCardHeader_oncall {
+    color: #4c1d95 !important;
+    background: #ede9fe !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    padding: 0.2rem 0.4rem !important;
+    border-radius: 3px !important;
+  }
+
+  .shiftCardCols { gap: 0.4rem !important; }
+
+  .groupLabelPrefer,
+  .groupLabelCan {
+    font-size: 0.74rem !important;
+    margin-bottom: 0.1rem !important;
+  }
+
+  .compactNames {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr);
+    column-gap: 0.3rem !important;
+    margin-top: 0.05rem !important;
+  }
+
+  .nameRowPrefer,
+  .nameRowCan {
+    color: #111 !important;
+    font-size: 0.78rem !important;
+    font-weight: normal !important;
+    line-height: 1.5 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+  }
+}
+
+// ── Mobile ────────────────────────────────────────────────────────────────────
+@media (max-width: 600px) {
+  .header {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .monthTitle { font-size: 1rem; min-width: 120px; }
+
+  .controls { flex-direction: row; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+  .legend { gap: 0.5rem; font-size: 0.72rem; }
+
+  .calendarHint { font-size: 0.7rem; margin-bottom: 0.3rem; }
+
+  .dayHeader { width: 16px; height: 16px; font-size: 0.6rem; }
+
+  .dayHeaderToday { width: 18px; height: 18px; border-width: 2px; }
+
+  .shiftBlock { font-size: 0.44rem; }
+
+  .shiftLabel { font-size: 0.4rem; }
+
+  .preferName, .canName { font-size: 0.42rem; }
+
+  .moreNames { font-size: 0.38rem; }
+
 }
