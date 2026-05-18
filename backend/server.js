@@ -5150,11 +5150,15 @@ app.post('/api/events', requireAdmin, async (req, res) => {
 app.put('/api/events/:id', requireAdmin, async (req, res) => {
   try {
     const { name, event_type_id, description, branch_id } = req.body;
+    const existing = await query('SELECT branch_id FROM events WHERE id=$1', [req.params.id]);
+    if (!existing.rows.length) return res.status(404).json({ error: 'לא נמצא' });
+    const tier = req.user.role_tier ?? req.user.role;
+if (!['superadmin','master'].includes(tier) && req.user.branch_id !== null && existing.rows[0].branch_id !== null && existing.rows[0].branch_id !== req.user.branch_id)
+      return res.status(403).json({ error: 'אין הרשאה לערוך אירוע זה' });
     const result = await query(
       'UPDATE events SET name=$1, event_type_id=$2, description=$3, branch_id=$4 WHERE id=$5 RETURNING *',
       [name, event_type_id || null, description || null, branch_id ?? null, req.params.id]
     );
-    if (!result.rows.length) return res.status(404).json({ error: 'לא נמצא' });
     res.json(result.rows[0]);
   } catch (e) {
     console.error(e);
@@ -5164,6 +5168,11 @@ app.put('/api/events/:id', requireAdmin, async (req, res) => {
 
 app.delete('/api/events/:id', requireAdmin, async (req, res) => {
   try {
+    const existing = await query('SELECT branch_id FROM events WHERE id=$1', [req.params.id]);
+    if (!existing.rows.length) return res.status(404).json({ error: 'לא נמצא' });
+    const tier = req.user.role_tier ?? req.user.role;
+    if (!['superadmin','master'].includes(tier) && req.user.branch_id !== null && existing.rows[0].branch_id !== null && existing.rows[0].branch_id !== req.user.branch_id)
+      return res.status(403).json({ error: 'אין הרשאה למחוק אירוע זה' });
     await query('DELETE FROM events WHERE id=$1', [req.params.id]);
     res.status(204).send();
   } catch (e) {
@@ -5176,6 +5185,11 @@ app.delete('/api/events/:id', requireAdmin, async (req, res) => {
 
 app.post('/api/events/:id/sessions', requireAdmin, async (req, res) => {
   try {
+    const existing = await query('SELECT branch_id FROM events WHERE id=$1', [req.params.id]);
+    if (!existing.rows.length) return res.status(404).json({ error: 'לא נמצא' });
+    const tier = req.user.role_tier ?? req.user.role;
+    if (!['superadmin','master'].includes(tier) && req.user.branch_id !== null && existing.rows[0].branch_id !== null && existing.rows[0].branch_id !== req.user.branch_id)
+      return res.status(403).json({ error: 'אין הרשאה להוסיף סשן לאירוע זה' });
     const { session_date, start_time, end_time, max_capacity, location, notes } = req.body;
     const result = await query(
       'INSERT INTO event_sessions (event_id,session_date,start_time,end_time,max_capacity,location,notes) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
@@ -5190,6 +5204,11 @@ app.post('/api/events/:id/sessions', requireAdmin, async (req, res) => {
 
 app.put('/api/events/:id/sessions/:sid', requireAdmin, async (req, res) => {
   try {
+    const existing = await query('SELECT branch_id FROM events WHERE id=$1', [req.params.id]);
+    if (!existing.rows.length) return res.status(404).json({ error: 'לא נמצא' });
+    const tier = req.user.role_tier ?? req.user.role;
+    if (!['superadmin','master'].includes(tier) && req.user.branch_id !== null && existing.rows[0].branch_id !== null && existing.rows[0].branch_id !== req.user.branch_id)
+      return res.status(403).json({ error: 'אין הרשאה לערוך סשן זה' });
     const { session_date, start_time, end_time, max_capacity, location, notes, participant_pct } = req.body;
     const result = await query(
       'UPDATE event_sessions SET session_date=$1,start_time=$2,end_time=$3,max_capacity=$4,location=$5,notes=$6,participant_pct=$7 WHERE id=$8 AND event_id=$9 RETURNING *',
@@ -5205,6 +5224,11 @@ app.put('/api/events/:id/sessions/:sid', requireAdmin, async (req, res) => {
 
 app.delete('/api/events/:id/sessions/:sid', requireAdmin, async (req, res) => {
   try {
+    const existing = await query('SELECT branch_id FROM events WHERE id=$1', [req.params.id]);
+    if (!existing.rows.length) return res.status(404).json({ error: 'לא נמצא' });
+    const tier = req.user.role_tier ?? req.user.role;
+    if (!['superadmin','master'].includes(tier) && req.user.branch_id !== null && existing.rows[0].branch_id !== null && existing.rows[0].branch_id !== req.user.branch_id)
+      return res.status(403).json({ error: 'אין הרשאה למחוק סשן זה' });
     await query('DELETE FROM event_sessions WHERE id=$1 AND event_id=$2', [req.params.sid, req.params.id]);
     res.status(204).send();
   } catch (e) {

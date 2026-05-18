@@ -16,7 +16,8 @@ export default function EventsManagement({ workers, config, authToken, currentUs
   const [optimizing, setOptimizing] = useState(false);
   const [showInviteesModal, setShowInviteesModal] = useState(false);
 
-  const isAdmin = ['admin', 'superadmin'].includes(currentUser?.role_tier ?? currentUser?.role);
+  const effectiveRole = currentUser?.role_tier ?? currentUser?.role;
+  const isAdmin = effectiveRole === 'master' || ['admin', 'superadmin'].includes(effectiveRole);
 
   const fetchEvents = useCallback(async () => {
     try {
