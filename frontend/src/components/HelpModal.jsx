@@ -236,6 +236,12 @@ export default function HelpModal({ isAdmin, onClose }) {
                   <p>{t.events.predictDesc}</p>
                   <h3>{t.events.h3Optimize}</h3>
                   <p>{t.events.optimizeDesc}</p>
+                  {t.events.h3OptimizeAlgo && <>
+                    <h4>{t.events.h3OptimizeAlgo}</h4>
+                    <ol>{(t.events.optimizeAlgoSteps || []).map((x, i) => <li key={i}>{x}</li>)}</ol>
+                    <h4>{t.events.h3OptimizeLimits}</h4>
+                    <ul>{(t.events.optimizeLimitItems || []).map((x, i) => <li key={i}>{x}</li>)}</ul>
+                  </>}
                 </section>
 
                 {/* ── Settings ── */}

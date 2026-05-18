@@ -187,6 +187,14 @@ export const T = {
         'תפקיד העובד אינו ברשימת התפקידים המותרים לאתר',
         'לא הוגשה בקשת משמרת לאותו יום',
       ],
+      h3Coverage: 'כיסוי בזמן ישיבת צוות',
+      coverageDesc: 'כאשר עובד משובץ לסשן ישיבת צוות וגם לאתר באותה שעה — מופיע תג ⚠ ישיבה על השיבוץ שלו.',
+      coverageItems: [
+        'לחץ על תג ⚠ ישיבה לפתיחת חלון ניהול כיסוי',
+        'המערכת מציעה מחליפים מתאימים (לא בישיבה, מורשים לאתר)',
+        'בחר מחליף — הוא יאושר אוטומטית',
+        'בפרסום הסידור — המחליף והעובד המקורי מקבלים הודעה',
+      ],
     },
 
     specialDays: {
@@ -226,6 +234,19 @@ export const T = {
       predictDesc: 'הכנס תאריך + שעות היפותטיות — המערכת מחזירה מי מהמוזמנים יכול להגיע ומי יש לו קונפליקט.',
       h3Optimize: 'אופטימיזציה ⚡',
       optimizeDesc: 'חלוקה אוטומטית מקסימלית של עובדים בין מפגשים. המערכת מדווחת מי שובץ, מי לא ומדוע.',
+      h3OptimizeAlgo: 'איך האלגוריתם עובד',
+      optimizeAlgoSteps: [
+        'לכל מוזמן — מחשבים לכמה סשנים הוא זמין (ללא קונפליקט שיבוצי אתר)',
+        'מיון המוזמנים לפי גמישות עולה: מי שיכול ללכת למעט סשנים — מקבל עדיפות',
+        'לכל סשן (לפי סדר כרונולוגי) — ממלאים בעובדים הפחות גמישים שיכולים להגיע',
+        'כל עובד משובץ לסשן אחד בלבד',
+        'מי שזמין רק לסשן אחד לא "ייגנב" לסשן אחר',
+      ],
+      h3OptimizeLimits: 'מגבלות',
+      optimizeLimitItems: [
+        'לא מחשב מחדש שיבוצים קיימים',
+        'אלגוריתם חמדני — לא ערובה מוחלטת לשיבוץ גלובלי מקסימלי',
+      ],
     },
 
     settings: {
@@ -435,6 +456,14 @@ export const T = {
         'Worker\'s job is not in the site\'s allowed-job list',
         'No shift request was submitted for that day',
       ],
+      h3Coverage: 'Coverage During Team Meetings',
+      coverageDesc: 'When a worker is assigned to a team meeting session and also to a site at the same time, a ⚠ Meeting badge appears on their assignment.',
+      coverageItems: [
+        'Click the ⚠ Meeting badge to open the coverage management window',
+        'The system suggests suitable replacements (not in meeting, authorized for site)',
+        'Select a replacement — they are approved automatically',
+        'When the schedule is published — both the replacement and original worker receive a notification',
+      ],
     },
 
     specialDays: {
@@ -474,6 +503,19 @@ export const T = {
       predictDesc: 'Enter a hypothetical date + times — the system returns who among the invitees can attend and who has a conflict.',
       h3Optimize: 'Optimization ⚡',
       optimizeDesc: 'Automatically maximize worker distribution across sessions. The system reports who was assigned, who was not, and why.',
+      h3OptimizeAlgo: 'How the Algorithm Works',
+      optimizeAlgoSteps: [
+        'For each invitee — compute how many sessions they can attend (no site assignment conflict)',
+        'Sort invitees by flexibility ascending: those who can attend fewer sessions get priority',
+        'For each session (chronologically) — fill with the least-flexible eligible workers first',
+        'Each worker is assigned to at most one session',
+        'Workers available only for one session are never "stolen" by an earlier session',
+      ],
+      h3OptimizeLimits: 'Limitations',
+      optimizeLimitItems: [
+        'Does not recalculate existing assignments',
+        'Greedy algorithm — not an absolute guarantee of the global maximum assignment',
+      ],
     },
 
     settings: {
@@ -683,6 +725,14 @@ export const T = {
         'وظيفة الموظف ليست ضمن الوظائف المسموح بها للموقع',
         'لم يقدم الموظف طلب وردية لذلك اليوم',
       ],
+      h3Coverage: 'التغطية أثناء اجتماعات الفريق',
+      coverageDesc: 'عندما يُعيَّن موظف لجلسة اجتماع فريق وأيضاً لموقع في نفس الوقت — تظهر شارة ⚠ اجتماع على تعيينه.',
+      coverageItems: [
+        'انقر على شارة ⚠ اجتماع لفتح نافذة إدارة التغطية',
+        'يقترح النظام بدائل مناسبة (ليسوا في الاجتماع، مصرّح لهم للموقع)',
+        'اختر بديلاً — يتم الموافقة عليه تلقائياً',
+        'عند نشر الجدول — يتلقى كلا الطرفين إشعاراً',
+      ],
     },
 
     specialDays: {
@@ -722,6 +772,19 @@ export const T = {
       predictDesc: 'أدخل تاريخاً + أوقات افتراضية — يُعيد النظام قائمة بمن يستطيع الحضور ومن لديه تعارض.',
       h3Optimize: 'تحسين تلقائي ⚡',
       optimizeDesc: 'توزيع تلقائي أقصى للموظفين على الجلسات. يُبلّغ النظام عن المعيّنين وغير المعيّنين والأسباب.',
+      h3OptimizeAlgo: 'كيف يعمل الخوارزمي',
+      optimizeAlgoSteps: [
+        'لكل مدعو — يُحسب عدد الجلسات التي يمكنه حضورها (بلا تعارض مع مواقع العمل)',
+        'ترتيب المدعوّين تصاعدياً حسب المرونة: من يمكنه حضور جلسات أقل يحصل على الأولوية',
+        'لكل جلسة (بترتيب زمني) — تُملأ بالعمال الأقل مرونة المؤهلين للحضور',
+        'كل عامل يُعيَّن إلى جلسة واحدة فقط',
+        'من لا يتوفر إلا لجلسة واحدة لن يُسرق من جلسة أخرى',
+      ],
+      h3OptimizeLimits: 'القيود',
+      optimizeLimitItems: [
+        'لا يعيد حساب التعيينات الموجودة',
+        'خوارزمي جشع — لا يضمن ضماناً مطلقاً الحد الأقصى العالمي للتعيينات',
+      ],
     },
 
     settings: {
@@ -931,6 +994,14 @@ export const T = {
         'El cargo del empleado no está en la lista de cargos permitidos del sitio',
         'No se presentó solicitud de turno para ese día',
       ],
+      h3Coverage: 'Cobertura durante Reuniones de Equipo',
+      coverageDesc: 'Cuando un empleado está asignado a una sesión de reunión de equipo y también a un sitio al mismo tiempo, aparece un distintivo ⚠ Reunión en su asignación.',
+      coverageItems: [
+        'Haz clic en el distintivo ⚠ Reunión para abrir la ventana de gestión de cobertura',
+        'El sistema sugiere sustitutos adecuados (no en reunión, autorizados para el sitio)',
+        'Selecciona un sustituto — se aprueba automáticamente',
+        'Al publicar el horario — ambas partes reciben una notificación',
+      ],
     },
 
     specialDays: {
@@ -970,6 +1041,19 @@ export const T = {
       predictDesc: 'Ingresa una fecha + horarios hipotéticos — el sistema devuelve quién de los invitados puede asistir y quién tiene un conflicto.',
       h3Optimize: 'Optimización ⚡',
       optimizeDesc: 'Distribución automática máxima de empleados entre sesiones. El sistema informa quién fue asignado, quién no y por qué.',
+      h3OptimizeAlgo: 'Cómo funciona el algoritmo',
+      optimizeAlgoSteps: [
+        'Para cada invitado — se calcula a cuántas sesiones puede asistir (sin conflicto de asignación de sitio)',
+        'Se ordenan los invitados por flexibilidad ascendente: quienes pueden asistir a menos sesiones tienen prioridad',
+        'Para cada sesión (en orden cronológico) — se llenan con los trabajadores menos flexibles que pueden asistir',
+        'Cada trabajador se asigna a una sola sesión',
+        'Quienes solo pueden ir a una sesión no serán "robados" por una sesión anterior',
+      ],
+      h3OptimizeLimits: 'Limitaciones',
+      optimizeLimitItems: [
+        'No recalcula asignaciones existentes',
+        'Algoritmo voraz — no garantiza de forma absoluta la asignación global máxima',
+      ],
     },
 
     settings: {
@@ -1179,6 +1263,14 @@ export const T = {
         'Le poste de l\'employé n\'est pas dans la liste des postes autorisés du site',
         'Aucune demande de garde soumise pour ce jour',
       ],
+      h3Coverage: 'Couverture pendant les Réunions d\'Équipe',
+      coverageDesc: 'Lorsqu\'un employé est affecté à une session de réunion d\'équipe et aussi à un site en même temps, un badge ⚠ Réunion apparaît sur son affectation.',
+      coverageItems: [
+        'Cliquez sur le badge ⚠ Réunion pour ouvrir la fenêtre de gestion de couverture',
+        'Le système suggère des remplaçants adéquats (pas en réunion, autorisés pour le site)',
+        'Sélectionnez un remplaçant — il est approuvé automatiquement',
+        'À la publication du planning — les deux parties reçoivent une notification',
+      ],
     },
 
     specialDays: {
@@ -1218,6 +1310,19 @@ export const T = {
       predictDesc: 'Entrez une date + horaires hypothétiques — le système retourne qui parmi les invités peut assister et qui a un conflit.',
       h3Optimize: 'Optimisation ⚡',
       optimizeDesc: 'Distribution automatique maximale des employés entre les sessions. Le système indique qui a été affecté, qui ne l\'a pas été et pourquoi.',
+      h3OptimizeAlgo: 'Comment fonctionne l\'algorithme',
+      optimizeAlgoSteps: [
+        'Pour chaque invité — calcul du nombre de sessions auxquelles il peut assister (sans conflit d\'affectation de site)',
+        'Tri des invités par flexibilité croissante : ceux qui peuvent assister à moins de sessions ont la priorité',
+        'Pour chaque session (dans l\'ordre chronologique) — remplissage avec les travailleurs les moins flexibles pouvant y assister',
+        'Chaque travailleur est affecté à une seule session maximum',
+        'Ceux qui ne sont disponibles que pour une seule session ne seront pas "volés" par une autre',
+      ],
+      h3OptimizeLimits: 'Limitations',
+      optimizeLimitItems: [
+        'Ne recalcule pas les affectations existantes',
+        'Algorithme glouton — ne garantit pas de manière absolue l\'affectation globale maximale',
+      ],
     },
 
     settings: {

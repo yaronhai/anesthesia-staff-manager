@@ -205,6 +205,61 @@ function TemplateItemsEditor({ config, items, onChange }) {
   );
 }
 
+function DrvTimePickerInput({ value, onChange }) {
+  const [exactMode, setExactMode] = useState(false);
+  const [exactRaw, setExactRaw] = useState('');
+  const slots = Array.from({ length: 96 }, (_, i) => {
+    const h = Math.floor(i / 4);
+    const m = (i % 4) * 15;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  });
+  const nearest = (() => {
+    if (!value) return '00:00';
+    const [hh, mm] = value.split(':').map(Number);
+    const total = hh * 60 + mm;
+    const rounded = Math.round(total / 15) * 15;
+    const nh = Math.min(23, Math.floor(rounded / 60));
+    const nm = rounded % 60;
+    return `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+  })();
+  function commitExact(v) {
+    const match = v.match(/^(\d{1,2}):(\d{2})$/);
+    if (match) {
+      const nh = Math.min(23, parseInt(match[1]));
+      const nm = Math.min(59, parseInt(match[2]));
+      onChange(`${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`);
+    }
+    setExactMode(false);
+    setExactRaw('');
+  }
+  return (
+    <span className="drv-tp-wrap" dir="ltr">
+      {exactMode ? (
+        <input
+          className="drv-tp-exact"
+          value={exactRaw}
+          onChange={e => setExactRaw(e.target.value)}
+          onBlur={e => commitExact(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { setExactMode(false); setExactRaw(''); } }}
+          placeholder={value?.slice(0,5) || '--:--'}
+          maxLength={5}
+          autoFocus
+          dir="ltr"
+        />
+      ) : (
+        <>
+          <select value={value ? nearest : ''} onChange={e => onChange(e.target.value)} className="drv-tp-select">
+            <option value="">--:--</option>
+            {slots.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button type="button" className="drv-tp-exact-btn" title="הקלד שעה מדויקת"
+            onClick={() => { setExactRaw(value?.slice(0,5) || ''); setExactMode(true); }}>✎</button>
+        </>
+      )}
+    </span>
+  );
+}
+
 export default function DailyRoomView({ config, authToken, branchId }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [workers, setWorkers] = useState([]);
@@ -327,11 +382,17 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [suggestionModal, setSuggestionModal] = useState(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
 
+  // Coverage needs (event session ↔ site assignment conflicts)
+  const [coverageNeeds, setCoverageNeeds] = useState([]);
+  const [coverageModal, setCoverageModal] = useState(null); // { need } | null
+
   // Send schedule modal
   const [showSendModal, setShowSendModal] = useState(false);
   const [sendWorkerIds, setSendWorkerIds] = useState([]);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState(null);
+  const [previewMessages, setPreviewMessages] = useState(null); // null=selection, array=preview
+  const [expandedPreviewId, setExpandedPreviewId] = useState(null);
 
   // Site card size
   const [cardSize, setCardSize] = useState(148);
@@ -354,6 +415,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
   useEffect(() => { fetchAll(); }, [month, year, authToken, branchId]);
+  useEffect(() => { fetchCoverageNeeds(); }, [dateStr, authToken, branchId]);
 
   useEffect(() => {
     const handler = () => setIsMobile(checkMobile());
@@ -397,6 +459,56 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     }
   }
 
+  async function fetchCoverageNeeds() {
+    try {
+      const params = new URLSearchParams({ date: dateStr });
+      if (branchId) params.set('branch_id', branchId);
+      const res = await fetch(`/api/staffing/coverage-needs?${params}`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCoverageNeeds(data.needs || []);
+      }
+    } catch (err) {
+      console.error('Error fetching coverage needs:', err);
+    }
+  }
+
+  async function assignCoverage(need, workerId) {
+    try {
+      await fetch('/api/staffing/coverage-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({
+          original_assignment_id: need.original_assignment.id,
+          event_session_id: need.session.id,
+          coverage_worker_id: workerId,
+          coverage_from_time: need.session.start_time,
+          coverage_to_time: need.session.end_time,
+          branch_id: branchId || null,
+        }),
+      });
+      await fetchCoverageNeeds();
+      setCoverageModal(null);
+    } catch (err) {
+      alert('שגיאה בשיבוץ מחליף');
+    }
+  }
+
+  async function removeCoverage(coverageRequestId) {
+    try {
+      await fetch(`/api/staffing/coverage-requests/${coverageRequestId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      await fetchCoverageNeeds();
+      setCoverageModal(null);
+    } catch (err) {
+      alert('שגיאה בביטול כיסוי');
+    }
+  }
+
   async function fetchSuggestions() {
     setSuggestLoading(true);
     try {
@@ -437,11 +549,26 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     }
   }
 
-  async function sendSchedule() {
-    if (sendWorkerIds.length === 0) {
-      alert('בחר לפחות עובד אחד');
-      return;
+  async function previewSchedule() {
+    if (sendWorkerIds.length === 0) { alert('בחר לפחות עובד אחד'); return; }
+    setSending(true);
+    try {
+      const res = await fetch('/api/send-schedule-chat/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ date: dateStr, workerIds: sendWorkerIds }),
+      });
+      const data = await res.json();
+      if (res.ok) { setPreviewMessages(data); setExpandedPreviewId(null); }
+      else alert(`שגיאה: ${data.error || 'שגיאה בserver'}`);
+    } catch (err) {
+      alert(`שגיאה: ${err.message}`);
+    } finally {
+      setSending(false);
     }
+  }
+
+  async function sendSchedule() {
     setSending(true);
     setSendResult(null);
     try {
@@ -451,13 +578,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         body: JSON.stringify({ date: dateStr, workerIds: sendWorkerIds }),
       });
       const data = await res.json();
-      if (res.ok) {
-        setSendResult(data);
-      } else {
-        alert(`שגיאה: ${data.error || 'שגיאה בserver'}`);
-      }
+      if (res.ok) { setSendResult(data); setPreviewMessages(null); }
+      else alert(`שגיאה: ${data.error || 'שגיאה בserver'}`);
     } catch (err) {
-      console.error('Error sending schedule:', err);
       alert(`שגיאה בשליחת תוכנית: ${err.message}`);
     } finally {
       setSending(false);
@@ -489,8 +612,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     if (assignments.length === 0 || !defaultStart || !defaultEnd) return false;
     // Assignments with explicit times
     const withTimes = assignments.filter(a => a.start_time && a.end_time);
-    // Assignments without explicit times (assume full shift coverage)
-    const withoutTimes = assignments.filter(a => !a.start_time || !a.end_time);
+    // Assignments without any explicit times (assume full shift coverage)
+    const withoutTimes = assignments.filter(a => !a.start_time && !a.end_time);
 
     // If we have workers without explicit times, they cover the full shift
     if (withoutTimes.length > 0) return true;
@@ -545,9 +668,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
   function openEditModal(assignment) {
     setEditingAssignment(assignment);
+    const defaults = getSiteShiftTimes(assignment.site_id, assignment.shift_type);
     setEditTimes({
-      start_time: assignment.start_time || '',
-      end_time:   assignment.end_time   || '',
+      start_time: assignment.start_time || defaults.start_time || '',
+      end_time:   assignment.end_time   || defaults.end_time   || '',
       notes:      assignment.notes      || '',
     });
   }
@@ -857,6 +981,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     }
 
     setShowSendModal(true);
+    setPreviewMessages(null);
+    setExpandedPreviewId(null);
+    setSendResult(null);
     const todayAssignments = assignments.filter(a => a.date === dateStr);
     const workerIds = [...new Set(todayAssignments.map(a => a.worker_id))];
     setSendWorkerIds(workerIds);
@@ -1460,7 +1587,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             <div className="room-empty">אין שיבוצים</div>
           ) : (
             <div className="room-assignments-list">
-              {siteAssignments.map(a => (
+              {siteAssignments.map(a => {
+                const coverageNeed = coverageNeeds.find(n => n.original_assignment.id === a.id);
+                return (
                 <div key={a.id} className="room-assignment-row" onClick={() => openEditModal(a)}>
                   <span className="room-assignment-text">
                     {a.job_name} · <strong>{a.first_name} {a.family_name}</strong>
@@ -1468,13 +1597,25 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       {formatTime24(resolveTime(a, shiftType, 'start_time'))}–{formatTime24(resolveTime(a, shiftType, 'end_time'))}
                     </span>
                   </span>
+                  {coverageNeed && (
+                    <button
+                      className="coverage-badge"
+                      title={`ישיבת ${coverageNeed.session.event_name} ${coverageNeed.session.start_time}–${coverageNeed.session.end_time}`}
+                      onClick={e => { e.stopPropagation(); setCoverageModal({ need: coverageNeed }); }}
+                    >
+                      {coverageNeed.coverage_request?.status === 'approved'
+                        ? `↔ ${coverageNeed.coverage_request.coverage_worker_name}`
+                        : '⚠ ישיבה'}
+                    </button>
+                  )}
                   <button
                     className="btn-delete-small"
                     onClick={e => { e.stopPropagation(); deleteAssignment(a.id); }}
                     title="הסר שיבוץ"
                   >✕</button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1666,7 +1807,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           <button className="btn-secondary btn-sm" onClick={prevYear} title="שנה אחורה">‹‹‹</button>
           </div>{/* room-nav-row1 */}
           <div className="room-nav-row2">
-          <button onClick={fetchSuggestions} disabled={suggestLoading} title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות" className="room-nav-action-btn room-nav-suggest-btn" style={{opacity: suggestLoading ? 0.6 : 1, cursor: suggestLoading ? 'not-allowed' : 'pointer'}}>{isMobile ? '🤖' : '🤖 הצע שיבוצים'}</button>
+          <button onClick={fetchSuggestions} disabled={suggestLoading} title="הצע שיבוצים עובדים בהתאם לבקשות ולהרשאות" className={`room-nav-action-btn room-nav-suggest-btn${suggestLoading ? ' room-nav-suggest-btn--loading' : ''}`}>
+            {suggestLoading ? (isMobile ? '⏳' : '⏳ מחשב...') : (isMobile ? '🤖' : '🤖 הצע שיבוצים')}
+          </button>
           <button onClick={openSendModal} title="שלח תוכנית יומית בהודעה" className="room-nav-action-btn room-nav-send-btn">{isMobile ? '💬' : '💬 שלח תוכנית'}</button>
           <span style={{width: '1px', background: '#d1d5db', alignSelf: 'stretch', margin: '0 0.25rem'}} />
           <div style={{ display: 'flex', border: '1px solid #d1d5db', borderRadius: '8px', overflow: 'hidden', alignSelf: 'stretch' }}>
@@ -2122,7 +2265,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       if (!site) return null;
 
       return (
-        <div className={`form-overlay${modalPos ? ' form-overlay--transparent' : ''}`} onClick={() => { setSelectedSiteId(null); setModalPos(null); }}>
+        <div className={`form-overlay${modalPos ? ' form-overlay--transparent' : ''}`} onClick={() => { setSelectedSiteId(null); setModalPos(null); setAddingToShiftInSite(null); setNewAssignment({ worker_id: null }); }}>
           <div
             className="site-detail-modal"
             onClick={e => e.stopPropagation()}
@@ -2136,7 +2279,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   <span className="site-detail-header__date">{dateLabel}</span>
                 </div>
               </div>
-              <button className="site-detail-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setSelectedSiteId(null); setModalPos(null); }}>✕</button>
+              <button className="site-detail-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setSelectedSiteId(null); setModalPos(null); setAddingToShiftInSite(null); setNewAssignment({ worker_id: null }); }}>✕</button>
             </div>
 
             <div className="site-detail-body">
@@ -2335,38 +2478,55 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     {/* Edit assignment modal (for editing existing assignments) */}
     {editingAssignment && (
       <div className={dragAssignment.overlayClass} onClick={() => { setEditingAssignment(null); dragAssignment.reset(); }}>
-        <div className="assignment-modal" ref={dragAssignment.modalRef} style={dragAssignment.modalStyle} onClick={e => e.stopPropagation()}>
-          <div className="modal-header" {...dragAssignment.dragHandleProps}>
-            <h3>עריכת שעות שיבוץ</h3>
+        <div className="assignment-modal assign-edit-modal" ref={dragAssignment.modalRef} style={dragAssignment.modalStyle} onClick={e => e.stopPropagation()}>
+          <div className="modal-header assign-edit-header" {...dragAssignment.dragHandleProps}>
+            <div className="assign-edit-header-title">
+              <span className="assign-edit-icon">🕐</span>
+              <h3>עריכת שעות שיבוץ</h3>
+            </div>
             <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setEditingAssignment(null); dragAssignment.reset(); }}>✕</button>
           </div>
           <div className="modal-body">
-            <div className="modal-info">
-              <p><strong>עובד:</strong> {editingAssignment.first_name} {editingAssignment.family_name}</p>
-              <p><strong>תפקיד:</strong> {editingAssignment.job_name}</p>
-              <p><strong>אתר:</strong> {editingAssignment.site_name}</p>
+            <div className="assign-info-chips">
+              <span className="assign-chip">
+                <span className="chip-label">עובד</span>
+                <span className="chip-val">{editingAssignment.family_name} {editingAssignment.first_name}</span>
+              </span>
+              <span className="assign-chip">
+                <span className="chip-label">תפקיד</span>
+                <span className="chip-val">{editingAssignment.job_name}</span>
+              </span>
+              <span className="assign-chip">
+                <span className="chip-label">אתר</span>
+                <span className="chip-val">{editingAssignment.site_name}</span>
+              </span>
             </div>
-            <div className="form-group form-group-inline">
-              <div>
-                <label>שעת התחלה:</label>
-                <input
-                  type="time"
-                  value={editTimes.start_time}
-                  onChange={e => setEditTimes({ ...editTimes, start_time: e.target.value })}
-                />
+            <div className="assign-times-section">
+              <div className="assign-times-row">
+                <div className="assign-time-field">
+                  <label>שעת התחלה</label>
+                  <DrvTimePickerInput value={editTimes.start_time} onChange={v => setEditTimes({ ...editTimes, start_time: v })} />
+                </div>
+                <span className="assign-times-arrow">←</span>
+                <div className="assign-time-field">
+                  <label>שעת סיום</label>
+                  <DrvTimePickerInput value={editTimes.end_time} onChange={v => setEditTimes({ ...editTimes, end_time: v })} />
+                </div>
               </div>
-              <div>
-                <label>שעת סיום:</label>
-                <input
-                  type="time"
-                  value={editTimes.end_time}
-                  onChange={e => setEditTimes({ ...editTimes, end_time: e.target.value })}
-                />
-              </div>
+              {editingAssignment && (() => {
+                const def = getSiteShiftTimes(editingAssignment.site_id, editingAssignment.shift_type);
+                const isCustom = editTimes.start_time !== (def.start_time || '') || editTimes.end_time !== (def.end_time || '');
+                return isCustom ? (
+                  <button type="button" className="assign-clear-times"
+                    onClick={() => setEditTimes({ ...editTimes, start_time: def.start_time || '', end_time: def.end_time || '' })}>
+                    ↩ אפס לשעות ברירת מחדל
+                  </button>
+                ) : null;
+              })()}
+              <p className="room-edit-hint">השאר ריק לשימוש בשעות ברירת מחדל של המשמרת</p>
             </div>
-            <p className="room-edit-hint">השאר ריק לשימוש בשעות ברירת מחדל של המשמרת</p>
             <div className="form-group">
-              <label>הערות:</label>
+              <label>הערות</label>
               <input
                 type="text"
                 value={editTimes.notes}
@@ -2377,8 +2537,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           </div>
           <div className="modal-footer">
             <div>
-              <button className="btn-secondary" onClick={() => setEditingAssignment(null)}>ביטול</button>
-              <button className="btn-primary" onClick={saveEditTimes}>שמור</button>
+              <button className="btn-secondary" onClick={() => { setEditingAssignment(null); dragAssignment.reset(); }}>ביטול</button>
+              <button className="btn-primary" onClick={saveEditTimes}>שמור שינויים</button>
             </div>
           </div>
         </div>
@@ -2623,6 +2783,49 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       </div>
     )}
 
+    {/* Coverage modal */}
+    {coverageModal && (
+      <div className="form-overlay" onClick={() => setCoverageModal(null)}>
+        <div className="assignment-modal" style={{maxWidth: '420px'}} onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3 style={{fontSize: '0.95rem'}}>ניהול כיסוי — {coverageModal.need.original_assignment.worker_name}</h3>
+            <button className="btn-close" onClick={() => setCoverageModal(null)}>✕</button>
+          </div>
+          <div style={{padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem'}}>
+            <div style={{fontSize: '0.85rem', color: '#374151'}}>
+              <strong>ישיבה:</strong> {coverageModal.need.session.event_name}
+              &nbsp;{coverageModal.need.session.start_time}–{coverageModal.need.session.end_time}
+            </div>
+            <div style={{fontSize: '0.85rem', color: '#374151'}}>
+              <strong>אתר:</strong> {coverageModal.need.original_assignment.site_name}
+            </div>
+            {coverageModal.need.coverage_request?.status === 'approved' && (
+              <div className="coverage-assigned-row">
+                <span>מחליף: <strong>{coverageModal.need.coverage_request.coverage_worker_name}</strong></span>
+                <button className="btn-delete-small" onClick={() => removeCoverage(coverageModal.need.coverage_request.id)}>בטל</button>
+              </div>
+            )}
+            {coverageModal.need.suggestions.length > 0 ? (
+              <div>
+                <div style={{fontSize: '0.8rem', fontWeight: 600, color: '#1a2e4a', marginBottom: '0.3rem'}}>מחליפים מוצעים:</div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
+                  {coverageModal.need.suggestions.map(s => (
+                    <button
+                      key={s.worker_id}
+                      className="btn-secondary coverage-suggestion-btn"
+                      onClick={() => assignCoverage(coverageModal.need, s.worker_id)}
+                    >{s.worker_name}</button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{fontSize: '0.82rem', color: '#6b7280'}}>אין מחליפים זמינים לסשן זה.</div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
     {/* Suggestion modal */}
     {suggestionModal && (
       <div className={dragSuggestion.overlayClass} onClick={() => { setSuggestionModal(null); dragSuggestion.reset(); }}>
@@ -2753,56 +2956,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     {showReportPreview && <ReportPreview />}
 
     {showSendModal && (
-      <div className={dragSendModal.overlayClass} onClick={() => { setShowSendModal(false); dragSendModal.reset(); }}>
-        <div className="settings-modal" ref={dragSendModal.modalRef} style={{ direction: 'rtl', maxWidth: 500, ...dragSendModal.modalStyle }} onClick={e => e.stopPropagation()}>
+      <div className={dragSendModal.overlayClass} onClick={() => { setShowSendModal(false); setSendResult(null); setPreviewMessages(null); dragSendModal.reset(); }}>
+        <div className="settings-modal" ref={dragSendModal.modalRef} style={{ direction: 'rtl', maxWidth: 660, ...dragSendModal.modalStyle }} onClick={e => e.stopPropagation()}>
           <div className="settings-header" {...dragSendModal.dragHandleProps}>
             <h2>💬 שלח תוכנית יום</h2>
-            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setShowSendModal(false); setSendResult(null); dragSendModal.reset(); }}>✕</button>
+            <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setShowSendModal(false); setSendResult(null); setPreviewMessages(null); dragSendModal.reset(); }}>✕</button>
           </div>
           <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {!sendResult ? (
-              <>
-                <p style={{ fontSize: '0.9rem', color: '#6b7280' }}>תאריך: <strong>{dateStr}</strong></p>
-                <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 6, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {workers.length === 0 ? (
-                    <p style={{ fontSize: '0.85rem', color: '#999' }}>אין עובדים במערכת</p>
-                  ) : (
-                    <>
-                      <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button onClick={() => setSendWorkerIds(workers.map(w => w.id))} style={{ fontSize: '0.85rem', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                          בחר הכל
-                        </button>
-                        <button onClick={() => setSendWorkerIds([])} style={{ fontSize: '0.85rem', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                          בטל הכל
-                        </button>
-                      </div>
-                      {workers.map(w => (
-                        <label key={w.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', padding: '0.25rem' }}>
-                          <input
-                            type="checkbox"
-                            checked={sendWorkerIds.includes(w.id)}
-                            onChange={e => {
-                              if (e.target.checked) {
-                                setSendWorkerIds([...sendWorkerIds, w.id]);
-                              } else {
-                                setSendWorkerIds(sendWorkerIds.filter(id => id !== w.id));
-                              }
-                            }}
-                          />
-                          {w.first_name} {w.family_name} {w.user_id ? '' : '(אין חשבון)'}
-                        </label>
-                      ))}
-                    </>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button onClick={sendSchedule} disabled={sending || sendWorkerIds.length === 0} className="btn-primary" style={{ flex: 1 }}>
-                    {sending ? '...שולח' : '✓ שלח'}
-                  </button>
-                  <button onClick={() => setShowSendModal(false)} className="btn-secondary">ביטול</button>
-                </div>
-              </>
-            ) : (
+            {sendResult ? (
               <>
                 <div style={{ padding: '1rem', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, color: '#166534' }}>
                   <p style={{ margin: 0, fontWeight: 600 }}>✓ נשלח בהצלחה!</p>
@@ -2815,7 +2976,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     </ul>
                   </div>
                 )}
-                {sendResult.noAccount.length > 0 && (
+                {sendResult.noAccount?.length > 0 && (
                   <div>
                     <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ea580c' }}>ללא חשבון ({sendResult.noAccount.length}):</p>
                     <ul style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.5rem 0', paddingRight: '1.5rem' }}>
@@ -2823,7 +2984,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     </ul>
                   </div>
                 )}
-                {sendResult.failed.length > 0 && (
+                {sendResult.failed?.length > 0 && (
                   <div>
                     <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#dc2626' }}>כשל ({sendResult.failed.length}):</p>
                     <ul style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.5rem 0', paddingRight: '1.5rem' }}>
@@ -2831,7 +2992,72 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     </ul>
                   </div>
                 )}
-                <button onClick={() => { setShowSendModal(false); setSendResult(null); }} className="btn-secondary" style={{ width: '100%' }}>סגור</button>
+                <button onClick={() => { setShowSendModal(false); setSendResult(null); setPreviewMessages(null); }} className="btn-secondary" style={{ width: '100%' }}>סגור</button>
+              </>
+            ) : previewMessages ? (
+              <>
+                <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>
+                  תצוגה מקדימה — <strong>{previewMessages.length}</strong> הודעות לתאריך <strong>{dateStr}</strong>
+                </p>
+                <div style={{ maxHeight: 380, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  {previewMessages.map(msg => {
+                    const isOpen = expandedPreviewId === msg.workerId;
+                    return (
+                      <div key={msg.workerId} style={{ border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+                        <button
+                          onClick={() => setExpandedPreviewId(isOpen ? null : msg.workerId)}
+                          style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: isOpen ? '#f1f5f9' : '#fff', border: 'none', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: msg.hasAccount ? '#1a2e4a' : '#9ca3af', textAlign: 'right', direction: 'rtl' }}
+                        >
+                          <span>{msg.workerName}{!msg.hasAccount ? ' (אין חשבון)' : ''}</span>
+                          <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{isOpen ? '▲' : '▼'}</span>
+                        </button>
+                        {isOpen && (
+                          <pre style={{ margin: 0, padding: '0.6rem 0.75rem', background: '#f8fafc', fontSize: '0.8rem', color: '#374151', whiteSpace: 'pre-wrap', wordBreak: 'break-word', direction: 'rtl', textAlign: 'right', borderTop: '1px solid #e5e7eb' }}>
+                            {msg.content}
+                          </pre>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button onClick={sendSchedule} disabled={sending} className="btn-primary" style={{ flex: 1 }}>
+                    {sending ? '...שולח' : `✓ שלח (${previewMessages.filter(m => m.hasAccount).length})`}
+                  </button>
+                  <button onClick={() => { setPreviewMessages(null); setExpandedPreviewId(null); }} className="btn-secondary">חזור</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: 0 }}>תאריך: <strong>{dateStr}</strong></p>
+                <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 6, padding: '0.5rem 0.75rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.1rem 0' }}>
+                  {workers.length === 0 ? (
+                    <p style={{ fontSize: '0.85rem', color: '#999' }}>אין עובדים במערכת</p>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', gap: '1rem', gridColumn: '1 / -1' }}>
+                        <button onClick={() => setSendWorkerIds(workers.map(w => w.id))} style={{ fontSize: '0.85rem', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>בחר הכל</button>
+                        <button onClick={() => setSendWorkerIds([])} style={{ fontSize: '0.85rem', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>בטל הכל</button>
+                      </div>
+                      {workers.map(w => (
+                        <label key={w.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.88rem', padding: '0.1rem 0.25rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={sendWorkerIds.includes(w.id)}
+                            onChange={e => setSendWorkerIds(prev => e.target.checked ? [...prev, w.id] : prev.filter(id => id !== w.id))}
+                          />
+                          {w.first_name} {w.family_name} {w.user_id ? '' : '(אין חשבון)'}
+                        </label>
+                      ))}
+                    </>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button onClick={previewSchedule} disabled={sending || sendWorkerIds.length === 0} className="btn-primary" style={{ flex: 1 }}>
+                    {sending ? '...טוען' : '👁 תצוגה מקדימה'}
+                  </button>
+                  <button onClick={() => setShowSendModal(false)} className="btn-secondary">ביטול</button>
+                </div>
               </>
             )}
           </div>

@@ -2362,6 +2362,130 @@ app.post('/api/send-schedule', requireAdmin, async (req, res) => {
 
 // ── Send Schedule via Chat ──────────────────────────────────────────────────
 
+async function buildWorkerScheduleMessage(workerId, date) {
+  const shiftLabels = { morning: 'בוקר', evening: 'ערב', night: 'לילה', oncall: 'כוננות' };
+  const shiftDefaultTimes = {
+    morning: { start: '07:00', end: '15:00' },
+    evening: { start: '15:00', end: '23:00' },
+    night:   { start: '23:00', end: '07:00' },
+  };
+  const formatTime = (time) => {
+    if (!time) return null;
+    const m = String(time).trim().match(/^(\d{1,2}):(\d{2})/);
+    return m ? `${String(m[1]).padStart(2,'0')}:${m[2]}` : null;
+  };
+
+  const [userRes, workerRes, assignRes, eventAssignRes, coverageRes] = await Promise.all([
+    query('SELECT id FROM users WHERE worker_id = $1', [workerId]),
+    query('SELECT first_name, family_name FROM workers WHERE id = $1', [workerId]),
+    query(
+      `SELECT s.name AS site_name, wsa.shift_type,
+              COALESCE(wsa.start_time, st.default_start) AS start_time,
+              COALESCE(wsa.end_time, st.default_end) AS end_time,
+              wsa.notes, at.name AS activity_name
+       FROM worker_site_assignments wsa
+       JOIN sites s ON s.id = wsa.site_id
+       LEFT JOIN shift_types st ON st.key = wsa.shift_type
+       LEFT JOIN site_shift_activities ssa ON ssa.site_id = wsa.site_id AND ssa.shift_type = wsa.shift_type AND ssa.date = wsa.date
+       LEFT JOIN activity_types at ON at.id = ssa.activity_type_id
+       WHERE wsa.worker_id = $1 AND wsa.date = $2
+       ORDER BY s.name`,
+      [workerId, date]
+    ),
+    query(
+      `SELECT e.name AS event_name, es.start_time, es.end_time, es.location
+       FROM event_session_assignments esa
+       JOIN event_sessions es ON es.id = esa.session_id
+       JOIN events e ON e.id = es.event_id
+       WHERE esa.worker_id = $1 AND es.session_date = $2
+       ORDER BY es.start_time`,
+      [workerId, date]
+    ),
+    query(
+      `SELECT s.name AS site_name, e.name AS event_name,
+              scr.coverage_from_time, scr.coverage_to_time,
+              orig_w.first_name AS orig_first, orig_w.family_name AS orig_family
+       FROM site_coverage_requests scr
+       JOIN worker_site_assignments wsa ON scr.original_assignment_id = wsa.id
+       JOIN sites s ON wsa.site_id = s.id
+       JOIN event_sessions es ON scr.event_session_id = es.id
+       JOIN events e ON es.event_id = e.id
+       JOIN workers orig_w ON wsa.worker_id = orig_w.id
+       WHERE scr.coverage_worker_id = $1 AND wsa.date = $2 AND scr.status = 'approved'
+       ORDER BY scr.coverage_from_time`,
+      [workerId, date]
+    ),
+  ]);
+
+  const worker = workerRes.rows[0];
+  if (!worker) return null;
+  const workerName = `${worker.first_name} ${worker.family_name}`;
+  const userId = userRes.rows[0]?.id || null;
+
+  const lines = [`תוכנית יומית ל-${date}`];
+
+  if (assignRes.rows.length === 0 && eventAssignRes.rows.length === 0) {
+    const vacRes = await query(
+      `SELECT id FROM vacation_requests
+       WHERE worker_id = $1 AND status IN ('approved','partial')
+         AND ((approved_start IS NOT NULL AND approved_end IS NOT NULL AND $2 >= approved_start AND $2 <= approved_end)
+           OR (approved_start IS NULL AND $2 >= start_date AND $2 <= end_date))`,
+      [workerId, date]
+    );
+    lines.push(vacRes.rows.length > 0 ? 'אינך משובץ — אתה בחופשה בתאריך זה.' : 'אינך משובץ לתאריך זה.');
+  } else {
+    for (const a of assignRes.rows) {
+      const shiftLabel = shiftLabels[a.shift_type] || a.shift_type;
+      const defaults = shiftDefaultTimes[a.shift_type] || {};
+      const startTime = formatTime(a.start_time) || defaults.start || null;
+      const endTime = formatTime(a.end_time) || defaults.end || null;
+      const hours = startTime && endTime ? `${startTime}-${endTime}` : '—';
+      let line = `${a.site_name} | ${shiftLabel} | ${hours}`;
+      if (a.activity_name) line += ` | ${a.activity_name}`;
+      if (a.notes) line += ` | הערה: ${a.notes}`;
+      lines.push(line);
+    }
+  }
+
+  if (eventAssignRes.rows.length > 0) {
+    lines.push('');
+    lines.push('אירועים:');
+    for (const ev of eventAssignRes.rows) {
+      const s = formatTime(ev.start_time); const e2 = formatTime(ev.end_time);
+      const hrs = s && e2 ? `${s}-${e2}` : s || '—';
+      let line = `${ev.event_name} | ${hrs}`;
+      if (ev.location) line += ` | ${ev.location}`;
+      lines.push(line);
+    }
+  }
+
+  if (coverageRes.rows.length > 0) {
+    lines.push('');
+    lines.push('כיסויים:');
+    for (const cov of coverageRes.rows) {
+      const from = formatTime(cov.coverage_from_time) || '—';
+      const to = formatTime(cov.coverage_to_time) || '—';
+      lines.push(`${cov.site_name} | ${from}-${to} | במקום ${cov.orig_family} ${cov.orig_first} (${cov.event_name})`);
+    }
+  }
+
+  return { workerId, workerName, userId, hasAccount: !!userId, content: lines.join('\n') };
+}
+
+app.post('/api/send-schedule-chat/preview', requireAdmin, async (req, res) => {
+  try {
+    const { date, workerIds } = req.body;
+    if (!date || !Array.isArray(workerIds)) {
+      return res.status(400).json({ error: 'תאריך ורשימת עובדים נדרשים' });
+    }
+    const results = await Promise.all(workerIds.map(id => buildWorkerScheduleMessage(id, date)));
+    res.json(results.filter(Boolean));
+  } catch (err) {
+    console.error('Preview error:', err);
+    res.status(500).json({ error: 'שגיאה בהכנת תצוגה מקדימה' });
+  }
+});
+
 app.post('/api/send-schedule-chat', requireAdmin, async (req, res) => {
   try {
     const { date, workerIds } = req.body;
@@ -2376,115 +2500,17 @@ app.post('/api/send-schedule-chat', requireAdmin, async (req, res) => {
     const noAccount = [];
     const failed = [];
 
-    const shiftLabels = {
-      morning: 'בוקר',
-      evening: 'ערב',
-      night: 'לילה',
-      oncall: 'כוננות'
-    };
-    const shiftDefaultTimes = {
-      morning: { start: '07:00', end: '15:00' },
-      evening: { start: '15:00', end: '23:00' },
-      night:   { start: '23:00', end: '07:00' },
-    };
-
     for (const workerId of workerIds) {
       try {
-        const userRes = await query(
-          'SELECT u.id FROM users u WHERE u.worker_id = $1',
-          [workerId]
-        );
-
-        const workerRes = await query('SELECT first_name, family_name FROM workers WHERE id = $1', [workerId]);
-
-        if (userRes.rows.length === 0) {
-          const worker = workerRes.rows[0];
-          noAccount.push(`${worker.first_name} ${worker.family_name}`);
-          continue;
-        }
-
-        const user = userRes.rows[0];
-        const userId = user.id;
-        const worker = workerRes.rows[0];
-        const workerName = `${worker.first_name} ${worker.family_name}`;
-
-        const assignRes = await query(
-          `SELECT s.name AS site_name, wsa.shift_type,
-                  COALESCE(wsa.start_time, st.default_start) AS start_time,
-                  COALESCE(wsa.end_time, st.default_end) AS end_time,
-                  wsa.notes, at.name AS activity_name
-           FROM worker_site_assignments wsa
-           JOIN sites s ON s.id = wsa.site_id
-           LEFT JOIN shift_types st ON st.key = wsa.shift_type
-           LEFT JOIN site_shift_activities ssa ON ssa.site_id = wsa.site_id AND ssa.shift_type = wsa.shift_type AND ssa.date = wsa.date
-           LEFT JOIN activity_types at ON at.id = ssa.activity_type_id
-           WHERE wsa.worker_id = $1 AND wsa.date = $2
-           ORDER BY s.name`,
-          [workerId, date]
-        );
-
-        if (assignRes.rows.length === 0) {
-          const vacRes = await query(
-            `SELECT id FROM vacation_requests
-             WHERE worker_id = $1
-               AND status IN ('approved', 'partial')
-               AND (
-                 (approved_start IS NOT NULL AND approved_end IS NOT NULL
-                  AND $2 >= approved_start AND $2 <= approved_end)
-                 OR
-                 (approved_start IS NULL AND $2 >= start_date AND $2 <= end_date)
-               )`,
-            [workerId, date]
-          );
-          const onVacation = vacRes.rows.length > 0;
-          const msgContent = onVacation
-            ? `תוכנית יומית ל-${date}\nאינך משובץ — אתה בחופשה בתאריך זה.`
-            : `תוכנית יומית ל-${date}\nאינך משובץ לתאריך זה.`;
-          await query(
-            'INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1, $2, $3, $4)',
-            [senderId, userId, msgContent, branchId || null]
-          );
-          sent.push(workerName);
-          continue;
-        }
-
-        const lines = [`תוכנית יומית ל-${date}`];
-        const formatTime = (time) => {
-          if (!time) return null;
-          const timeStr = String(time).trim();
-          if (timeStr.length === 0) return null;
-          const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
-          if (match) {
-            const hours = String(match[1]).padStart(2, '0');
-            const mins = String(match[2]).padStart(2, '0');
-            return `${hours}:${mins}`;
-          }
-          return null;
-        };
-
-        for (const a of assignRes.rows) {
-          const shiftLabel = shiftLabels[a.shift_type] || a.shift_type;
-          const defaults = shiftDefaultTimes[a.shift_type] || {};
-          const startTime = formatTime(a.start_time) || defaults.start || null;
-          const endTime = formatTime(a.end_time) || defaults.end || null;
-          const hours = startTime && endTime ? `${startTime}-${endTime}` : '—';
-          let line = `${a.site_name} | ${shiftLabel} | ${hours}`;
-          if (a.activity_name) {
-            line += ` | ${a.activity_name}`;
-          }
-          if (a.notes) {
-            line += ` | הערה: ${a.notes}`;
-          }
-          lines.push(line);
-        }
-        const content = lines.join('\n');
+        const msg = await buildWorkerScheduleMessage(workerId, date);
+        if (!msg) { failed.push(`Worker ${workerId}`); continue; }
+        if (!msg.hasAccount) { noAccount.push(msg.workerName); continue; }
 
         await query(
           'INSERT INTO messages (sender_id, recipient_id, content, branch_id) VALUES ($1, $2, $3, $4)',
-          [senderId, userId, content, branchId || null]
+          [senderId, msg.userId, msg.content, branchId || null]
         );
-
-        sent.push(workerName);
+        sent.push(msg.workerName);
       } catch (e) {
         console.error(`Error sending schedule to worker ${workerId}:`, e);
         try {
@@ -3957,6 +3983,285 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
   }
 });
 
+// Coverage needs: detect conflicts between event sessions and site assignments, suggest replacements
+app.get('/api/staffing/coverage-needs', requireAdmin, async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ error: 'תאריך חסר' });
+    const branchId = getEffectiveBranchId(req);
+
+    // Find all workers assigned to event sessions on this date, with session time info
+    const sessionAssignmentsRes = await query(`
+      SELECT esa.worker_id, esa.session_id,
+             es.start_time AS session_start, es.end_time AS session_end,
+             e.name AS event_name, e.id AS event_id
+      FROM event_session_assignments esa
+      JOIN event_sessions es ON esa.session_id = es.id
+      JOIN events e ON es.event_id = e.id
+      WHERE es.session_date = $1
+        ${branchId ? 'AND e.branch_id = $2' : ''}
+    `, branchId ? [date, branchId] : [date]);
+
+    if (sessionAssignmentsRes.rows.length === 0) return res.json({ needs: [] });
+
+    const sessionWorkerIds = [...new Set(sessionAssignmentsRes.rows.map(r => r.worker_id))];
+    const placeholders = sessionWorkerIds.map((_, i) => `$${i + 2}`).join(', ');
+
+    // Find site assignments for those workers on the same date that overlap with a session
+    const conflictsRes = await query(`
+      SELECT wsa.id AS assignment_id, wsa.worker_id, wsa.site_id, wsa.shift_type,
+             wsa.start_time, wsa.end_time,
+             s.name AS site_name, s.group_id,
+             sg.name AS group_name,
+             w.first_name, w.family_name
+      FROM worker_site_assignments wsa
+      JOIN sites s ON wsa.site_id = s.id
+      LEFT JOIN site_groups sg ON s.group_id = sg.id
+      JOIN workers w ON wsa.worker_id = w.id
+      WHERE wsa.date = $1
+        AND wsa.worker_id IN (${placeholders})
+        AND wsa.start_time IS NOT NULL AND wsa.end_time IS NOT NULL
+    `, [date, ...sessionWorkerIds]);
+
+    // Build session map per worker
+    const sessionByWorker = new Map();
+    sessionAssignmentsRes.rows.forEach(r => {
+      if (!sessionByWorker.has(r.worker_id)) sessionByWorker.set(r.worker_id, []);
+      sessionByWorker.get(r.worker_id).push(r);
+    });
+
+    // Find overlapping conflicts
+    const conflictPairs = [];
+    conflictsRes.rows.forEach(assignment => {
+      const sessions = sessionByWorker.get(assignment.worker_id) || [];
+      sessions.forEach(sess => {
+        if (assignment.start_time < sess.session_end && assignment.end_time > sess.session_start) {
+          conflictPairs.push({ assignment, session: sess });
+        }
+      });
+    });
+
+    if (conflictPairs.length === 0) return res.json({ needs: [] });
+
+    // Fetch existing coverage requests for these assignment IDs
+    const assignmentIds = conflictPairs.map(cp => cp.assignment.assignment_id);
+    const coverageRes = await query(`
+      SELECT scr.*, w.first_name AS cov_first, w.family_name AS cov_family
+      FROM site_coverage_requests scr
+      LEFT JOIN workers w ON scr.coverage_worker_id = w.id
+      WHERE scr.original_assignment_id = ANY($1)
+    `, [assignmentIds]);
+    const coverageByAssignment = new Map();
+    coverageRes.rows.forEach(r => coverageByAssignment.set(r.original_assignment_id, r));
+
+    // Gather data for suggestions: allowed jobs per site, activity type for each slot, worker auths
+    const siteIds = [...new Set(conflictPairs.map(cp => cp.assignment.site_id))];
+    const siteAllowedJobs = new Map();
+    if (siteIds.length > 0) {
+      const sp = siteIds.map((_, i) => `$${i + 1}`).join(', ');
+      const ajRes = await query(`SELECT site_id, job_id FROM site_allowed_jobs WHERE site_id IN (${sp})`, siteIds);
+      ajRes.rows.forEach(r => {
+        if (!siteAllowedJobs.has(r.site_id)) siteAllowedJobs.set(r.site_id, new Set());
+        siteAllowedJobs.get(r.site_id).add(r.job_id);
+      });
+    }
+
+    // Activity type per site+shift on this date
+    const activityTypeMap = new Map(); // `${site_id}-${shift_type}` -> activity_type_id
+    if (siteIds.length > 0) {
+      const sp = siteIds.map((_, i) => `$${i + 2}`).join(', ');
+      const actRes = await query(
+        `SELECT site_id, shift_type, activity_type_id FROM site_shift_activities WHERE date = $1 AND site_id IN (${sp})`,
+        [date, ...siteIds]
+      );
+      actRes.rows.forEach(r => activityTypeMap.set(`${r.site_id}-${r.shift_type}`, r.activity_type_id));
+    }
+
+    // Workers in sessions on this date (to exclude from suggestions)
+    const workersInSessions = new Set(sessionAssignmentsRes.rows.map(r => r.worker_id));
+
+    // Workers already assigned to sites on this date
+    const alreadyAssignedRes = await query(
+      `SELECT worker_id, shift_type FROM worker_site_assignments WHERE date = $1`,
+      [date]
+    );
+    const alreadyAssigned = new Set(alreadyAssignedRes.rows.map(r => `${r.worker_id}-${r.shift_type}`));
+
+    // Shift requests for the date
+    const shiftReqRes = branchId
+      ? await query(`
+          SELECT sr.shift_type, sr.preference_type, w.id AS worker_id, w.first_name, w.family_name, w.job_id
+          FROM shift_requests sr
+          JOIN users u ON sr.user_id = u.id
+          JOIN workers w ON u.worker_id = w.id
+          JOIN worker_branches wb ON wb.worker_id = w.id AND wb.branch_id = $2
+          WHERE sr.date = $1 AND sr.preference_type IN ('can', 'prefer') AND wb.is_active = TRUE
+        `, [date, branchId])
+      : await query(`
+          SELECT sr.shift_type, sr.preference_type, w.id AS worker_id, w.first_name, w.family_name, w.job_id
+          FROM shift_requests sr
+          JOIN users u ON sr.user_id = u.id
+          JOIN workers w ON u.worker_id = w.id
+          WHERE sr.date = $1 AND sr.preference_type IN ('can', 'prefer')
+        `, [date]);
+
+    // Worker activity authorizations
+    const workerIds = [...new Set(shiftReqRes.rows.map(r => r.worker_id))];
+    const workerAuthSet = new Map();
+    const workerAuthPriority = new Map();
+    if (workerIds.length > 0) {
+      const ph = workerIds.map((_, i) => `$${i + 1}`).join(', ');
+      const authRes = await query(
+        `SELECT worker_id, activity_type_id, priority FROM worker_activity_authorizations WHERE worker_id IN (${ph})`,
+        workerIds
+      );
+      authRes.rows.forEach(r => {
+        if (!workerAuthSet.has(r.worker_id)) workerAuthSet.set(r.worker_id, new Set());
+        workerAuthSet.get(r.worker_id).add(r.activity_type_id);
+        if (!workerAuthPriority.has(r.worker_id)) workerAuthPriority.set(r.worker_id, new Map());
+        workerAuthPriority.get(r.worker_id).set(r.activity_type_id, r.priority ?? 3);
+      });
+    }
+
+    // Fairness counts
+    const fairnessCountByWorker = new Map();
+    try {
+      const fRes = branchId
+        ? await query(`SELECT fs.site_id FROM fairness_sites fs JOIN sites s ON fs.site_id = s.id WHERE s.branch_id = $1`, [branchId])
+        : await query('SELECT site_id FROM fairness_sites');
+      const fIds = fRes.rows.map(r => r.site_id);
+      if (fIds.length > 0) {
+        const ph = fIds.map((_, i) => `$${i + 1}`).join(', ');
+        const cRes = await query(
+          `SELECT worker_id, COUNT(*) AS cnt FROM worker_site_assignments WHERE site_id IN (${ph}) GROUP BY worker_id`,
+          fIds
+        );
+        cRes.rows.forEach(r => fairnessCountByWorker.set(r.worker_id, parseInt(r.cnt)));
+      }
+    } catch (e) { /* fairness optional */ }
+
+    // Build needs list
+    const needs = conflictPairs.map(({ assignment, session }) => {
+      const shiftType = assignment.shift_type;
+      const activityTypeId = activityTypeMap.get(`${assignment.site_id}-${shiftType}`) ?? null;
+      const allowedJobs = siteAllowedJobs.get(assignment.site_id) ?? null;
+      const hasRestriction = allowedJobs !== null && allowedJobs.size > 0;
+
+      // Suggest candidates: not in session, requested this shift, job ok, auth ok, not already assigned elsewhere
+      const candidates = shiftReqRes.rows
+        .filter(w => w.shift_type === shiftType && !workersInSessions.has(w.worker_id))
+        .map(w => {
+          const jobOk = !hasRestriction || allowedJobs.has(w.job_id);
+          const authOk = !activityTypeId || (workerAuthSet.get(w.worker_id)?.has(activityTypeId) ?? false);
+          if (!jobOk || !authOk) return null;
+          const priority = activityTypeId
+            ? (workerAuthPriority.get(w.worker_id)?.get(activityTypeId) ?? 3)
+            : 3;
+          const score = (w.preference_type === 'prefer' ? 0 : 1)
+            + (5 - priority) * 0.4
+            + (fairnessCountByWorker.get(w.worker_id) ?? 0) * 0.05;
+          return { worker_id: w.worker_id, worker_name: `${w.family_name} ${w.first_name}`, score };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.score - b.score)
+        .slice(0, 5);
+
+      const coverageReq = coverageByAssignment.get(assignment.assignment_id) ?? null;
+
+      return {
+        original_assignment: {
+          id: assignment.assignment_id,
+          worker_id: assignment.worker_id,
+          worker_name: `${assignment.family_name} ${assignment.first_name}`,
+          site_id: assignment.site_id,
+          site_name: assignment.site_name,
+          shift_type: shiftType,
+          start_time: assignment.start_time,
+          end_time: assignment.end_time,
+        },
+        session: {
+          id: session.session_id,
+          event_name: session.event_name,
+          event_id: session.event_id,
+          start_time: session.session_start,
+          end_time: session.session_end,
+        },
+        coverage_request: coverageReq ? {
+          id: coverageReq.id,
+          coverage_worker_id: coverageReq.coverage_worker_id,
+          coverage_worker_name: coverageReq.cov_first ? `${coverageReq.cov_family} ${coverageReq.cov_first}` : null,
+          status: coverageReq.status,
+        } : null,
+        suggestions: candidates,
+      };
+    });
+
+    res.json({ needs });
+  } catch (error) {
+    console.error('Coverage needs error:', error);
+    res.status(500).json({ error: 'שגיאה בטעינת צרכי כיסוי' });
+  }
+});
+
+app.post('/api/staffing/coverage-requests', requireAdmin, async (req, res) => {
+  try {
+    const { original_assignment_id, event_session_id, coverage_worker_id, coverage_from_time, coverage_to_time, branch_id } = req.body;
+    if (!original_assignment_id || !event_session_id || !coverage_from_time || !coverage_to_time) {
+      return res.status(400).json({ error: 'שדות חסרים' });
+    }
+    const result = await query(`
+      INSERT INTO site_coverage_requests
+        (original_assignment_id, event_session_id, coverage_worker_id, coverage_from_time, coverage_to_time, branch_id, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (original_assignment_id, event_session_id) DO UPDATE
+        SET coverage_worker_id = EXCLUDED.coverage_worker_id,
+            coverage_from_time = EXCLUDED.coverage_from_time,
+            coverage_to_time   = EXCLUDED.coverage_to_time,
+            status             = EXCLUDED.status
+      RETURNING *
+    `, [original_assignment_id, event_session_id, coverage_worker_id || null,
+        coverage_from_time, coverage_to_time, branch_id || null,
+        coverage_worker_id ? 'approved' : 'pending']);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Coverage request create error:', error);
+    res.status(500).json({ error: 'שגיאה ביצירת בקשת כיסוי' });
+  }
+});
+
+app.patch('/api/staffing/coverage-requests/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, coverage_worker_id } = req.body;
+    const userId = req.user.id;
+    const result = await query(`
+      UPDATE site_coverage_requests
+      SET status             = COALESCE($1, status),
+          coverage_worker_id = COALESCE($2, coverage_worker_id),
+          approved_by        = $3,
+          approved_at        = NOW()
+      WHERE id = $4
+      RETURNING *
+    `, [status || null, coverage_worker_id !== undefined ? coverage_worker_id : null, userId, id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'לא נמצא' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Coverage request update error:', error);
+    res.status(500).json({ error: 'שגיאה בעדכון בקשת כיסוי' });
+  }
+});
+
+app.delete('/api/staffing/coverage-requests/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await query('DELETE FROM site_coverage_requests WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Coverage request delete error:', error);
+    res.status(500).json({ error: 'שגיאה במחיקת בקשת כיסוי' });
+  }
+});
+
 app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
   try {
     const { worker_id, date, site_id, shift_type, start_time, end_time, notes } = req.body;
@@ -4874,7 +5179,7 @@ app.post('/api/events/:id/sessions', requireAdmin, async (req, res) => {
     const { session_date, start_time, end_time, max_capacity, location, notes } = req.body;
     const result = await query(
       'INSERT INTO event_sessions (event_id,session_date,start_time,end_time,max_capacity,location,notes) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [req.params.id, session_date, start_time, end_time, max_capacity || 20, location || null, notes || null]
+      [req.params.id, session_date, start_time, end_time, max_capacity || 9999, location || null, notes || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (e) {
@@ -4885,10 +5190,10 @@ app.post('/api/events/:id/sessions', requireAdmin, async (req, res) => {
 
 app.put('/api/events/:id/sessions/:sid', requireAdmin, async (req, res) => {
   try {
-    const { session_date, start_time, end_time, max_capacity, location, notes } = req.body;
+    const { session_date, start_time, end_time, max_capacity, location, notes, participant_pct } = req.body;
     const result = await query(
-      'UPDATE event_sessions SET session_date=$1,start_time=$2,end_time=$3,max_capacity=$4,location=$5,notes=$6 WHERE id=$7 AND event_id=$8 RETURNING *',
-      [session_date, start_time, end_time, max_capacity, location || null, notes || null, req.params.sid, req.params.id]
+      'UPDATE event_sessions SET session_date=$1,start_time=$2,end_time=$3,max_capacity=$4,location=$5,notes=$6,participant_pct=$7 WHERE id=$8 AND event_id=$9 RETURNING *',
+      [session_date, start_time, end_time, max_capacity, location || null, notes || null, participant_pct ?? null, req.params.sid, req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'לא נמצא' });
     res.json(result.rows[0]);
@@ -5064,6 +5369,7 @@ app.post('/api/events/:id/sessions/:sid/resolve-conflict', requireAdmin, async (
 app.post('/api/events/:id/optimize', requireAdmin, async (req, res) => {
   try {
     const eventId = req.params.id;
+    const reset = req.body?.reset === true;
 
     // Get all sessions for this event
     const sessionsRes = await query(
@@ -5071,6 +5377,15 @@ app.post('/api/events/:id/optimize', requireAdmin, async (req, res) => {
       [eventId]
     );
     const sessions = sessionsRes.rows;
+
+    // If reset, clear all existing session assignments for this event
+    if (reset && sessions.length) {
+      const sessionIds = sessions.map(s => s.id);
+      await query(
+        `DELETE FROM event_session_assignments WHERE session_id = ANY($1)`,
+        [sessionIds]
+      );
+    }
 
     // Get invitees not yet assigned to any session
     const inviteesRes = await query(`
@@ -5102,34 +5417,77 @@ app.post('/api/events/:id/optimize', requireAdmin, async (req, res) => {
       existingCounts[r.session_id] = parseInt(r.cnt);
     }
 
-    // Greedy: for each session, fill up to max_capacity
-    for (const s of sessions) {
-      const currentCount = existingCounts[s.id] || 0;
-      const available = s.max_capacity - currentCount;
-      if (available <= 0) continue;
+    // Compute effective participant_pct per session:
+    // Sessions with explicit pct keep theirs; remaining sessions split the leftover equally.
+    const totalInviteesForPct = (await query('SELECT COUNT(*) AS cnt FROM event_invitees WHERE event_id=$1', [eventId])).rows[0].cnt;
+    {
+      const fixed = sessions.filter(s => s.participant_pct != null);
+      const free  = sessions.filter(s => s.participant_pct == null);
+      const usedPct = fixed.reduce((sum, s) => sum + s.participant_pct, 0);
+      const freePct = Math.max(0, 100 - usedPct);
+      const perFree = free.length ? Math.floor(freePct / free.length) : 0;
+      let remainder = free.length ? freePct - perFree * free.length : 0;
+      for (const s of sessions) {
+        if (s.participant_pct != null) {
+          s._effectivePct = s.participant_pct;
+        } else {
+          s._effectivePct = perFree + (remainder-- > 0 ? 1 : 0);
+        }
+        // Convert pct to target count, capped at max_capacity
+        s._targetCount = Math.min(s.max_capacity, Math.round(totalInviteesForPct * s._effectivePct / 100));
+      }
+    }
 
-      const newlyAssigned = [];
-      for (const workerId of [...unassigned]) {
-        if (newlyAssigned.length >= available) break;
-
-        // Check no shift conflict
+    // Pre-compute which sessions each worker can attend (no site conflict)
+    // Workers who can attend fewer sessions get priority (least-flexible first)
+    const workerAvailableSessions = {};
+    for (const workerId of unassigned) {
+      workerAvailableSessions[workerId] = new Set();
+      for (const s of sessions) {
         const conflictRes = await query(`
           SELECT 1 FROM worker_site_assignments
           WHERE worker_id=$1 AND date=$2
             AND start_time IS NOT NULL AND end_time IS NOT NULL
             AND start_time < $3 AND end_time > $4
         `, [workerId, s.session_date, s.end_time, s.start_time]);
-        if (conflictRes.rows.length) continue;
-
-        await query(
-          'INSERT INTO event_session_assignments (session_id, worker_id, assigned_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
-          [s.id, workerId, req.user.id]
-        );
-        newlyAssigned.push(workerId);
-        assignments[s.id].push(workerId);
+        if (!conflictRes.rows.length) {
+          workerAvailableSessions[workerId].add(s.id);
+        }
       }
-      // Remove newly assigned from unassigned pool
-      unassigned = unassigned.filter(w => !newlyAssigned.includes(w));
+    }
+
+    // Sort by flexibility ascending: workers who can attend fewer sessions go first
+    unassigned.sort(
+      (a, b) => workerAvailableSessions[a].size - workerAvailableSessions[b].size
+    );
+
+    // Track current fill per session (starts from existing)
+    const fillCounts = {};
+    for (const s of sessions) {
+      fillCounts[s.id] = existingCounts[s.id] || 0;
+    }
+
+    // Assign each worker (least-flexible first) to the session with the most remaining need
+    const notAssigned = [];
+    for (const workerId of [...unassigned]) {
+      const eligible = sessions.filter(s =>
+        workerAvailableSessions[workerId].has(s.id) &&
+        fillCounts[s.id] < s._targetCount
+      );
+      if (!eligible.length) { notAssigned.push(workerId); continue; }
+
+      // Pick the session with the largest remaining target gap (most need)
+      eligible.sort((a, b) =>
+        (b._targetCount - fillCounts[b.id]) - (a._targetCount - fillCounts[a.id])
+      );
+      const target = eligible[0];
+
+      await query(
+        'INSERT INTO event_session_assignments (session_id, worker_id, assigned_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
+        [target.id, workerId, req.user.id]
+      );
+      assignments[target.id].push(workerId);
+      fillCounts[target.id]++;
     }
 
     const totalAssigned = Object.values(assignments).flat().length;
@@ -5140,18 +5498,16 @@ app.post('/api/events/:id/optimize', requireAdmin, async (req, res) => {
       if (sessions.length === 0) {
         reasons.push('לא הוגדרו סשנים לאירוע');
       } else {
-        // Check invitees total
         const totalInviteesRes = await query(
           'SELECT COUNT(*) AS cnt FROM event_invitees WHERE event_id=$1', [eventId]
         );
         const totalInvitees = parseInt(totalInviteesRes.rows[0].cnt);
         if (totalInvitees === 0) {
           reasons.push('לא הוגדרו מוזמנים לאירוע');
-        } else if (unassigned.length === 0 && totalInvitees > 0) {
+        } else if (unassigned.length === 0) {
           reasons.push('כל המוזמנים כבר שובצו לאחד הסשנים');
         } else {
-          // Check if all sessions are full
-          const allFull = sessions.every(s => (existingCounts[s.id] || 0) >= s.max_capacity);
+          const allFull = sessions.every(s => fillCounts[s.id] >= s._targetCount);
           if (allFull) {
             reasons.push('כל הסשנים מלאים עד הקיבולת המקסימלית');
           } else {
@@ -5161,11 +5517,44 @@ app.post('/api/events/:id/optimize', requireAdmin, async (req, res) => {
       }
     }
 
-    res.json({ assignments, unassigned, reasons });
+    res.json({ assignments, unassigned: notAssigned, reasons });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'שגיאה' });
   }
+});
+
+// ── Invitee Templates ─────────────────────────────────────────────────────────
+
+app.get('/api/invitee-templates', requireAuth, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const result = await query(
+      'SELECT id, name, worker_ids FROM invitee_templates WHERE branch_id=$1 AND created_by=$2 ORDER BY name',
+      [branchId, req.user.id]
+    );
+    res.json(result.rows);
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה' }); }
+});
+
+app.post('/api/invitee-templates', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const { name, worker_ids } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'שם חסר' });
+    const result = await query(
+      'INSERT INTO invitee_templates (name, branch_id, worker_ids, created_by) VALUES ($1,$2,$3,$4) RETURNING *',
+      [name.trim(), branchId, worker_ids || [], req.user.id]
+    );
+    res.json(result.rows[0]);
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה' }); }
+});
+
+app.delete('/api/invitee-templates/:id', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM invitee_templates WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה' }); }
 });
 
 // ── Predict New Session ───────────────────────────────────────────────────────

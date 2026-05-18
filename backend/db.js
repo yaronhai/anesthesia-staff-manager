@@ -356,6 +356,31 @@ async function initializeSchema() {
         UNIQUE(session_id, worker_id)
       );
 
+      CREATE TABLE IF NOT EXISTS site_coverage_requests (
+        id SERIAL PRIMARY KEY,
+        original_assignment_id INTEGER NOT NULL REFERENCES worker_site_assignments(id) ON DELETE CASCADE,
+        coverage_worker_id INTEGER REFERENCES workers(id) ON DELETE SET NULL,
+        event_session_id INTEGER NOT NULL REFERENCES event_sessions(id) ON DELETE CASCADE,
+        coverage_from_time TEXT NOT NULL,
+        coverage_to_time TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'approved', 'rejected')),
+        branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+        approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        approved_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(original_assignment_id, event_session_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS invitee_templates (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        worker_ids INTEGER[] NOT NULL DEFAULT '{}',
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS profile_change_requests (
         id SERIAL PRIMARY KEY,
         worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
@@ -471,6 +496,7 @@ async function initializeSchema() {
         ADD COLUMN IF NOT EXISTS orig_birth_date    TEXT,
         ADD COLUMN IF NOT EXISTS orig_honorific_id  INTEGER
     `);
+    await query(`ALTER TABLE event_sessions ADD COLUMN IF NOT EXISTS participant_pct INTEGER`);
     console.log('✓ Database schema initialized');
   } catch (error) {
     console.error('Error initializing schema:', error);

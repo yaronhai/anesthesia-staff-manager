@@ -2,6 +2,18 @@
 button, a, select, input, textarea { touch-action: manipulation; }
 .required-star { color: #b91c1c; font-weight: 700; margin-right: 2px; }
 
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner-inline {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
 html { overflow-x: hidden; }
 
 body {
@@ -2948,6 +2960,11 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   background: linear-gradient(135deg, #7c3aed, #a855f7);
   color: #fff;
   box-shadow: 0 2px 8px rgba(124,58,237,0.4);
+  &--loading {
+    background: linear-gradient(135deg, #5b21b6, #7c3aed);
+    opacity: 0.85;
+    cursor: not-allowed;
+  }
 }
 .room-nav-send-btn {
   background: linear-gradient(135deg, #0ea5e9, #38bdf8);
@@ -3331,6 +3348,42 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   cursor: pointer;
 }
 
+.coverage-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 10px;
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-right: 0.2rem;
+  &:hover {
+    background: #fef3c7;
+  }
+}
+
+.coverage-assigned-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.82rem;
+  color: #065f46;
+}
+
+.coverage-suggestion-btn {
+  text-align: right;
+  font-size: 0.82rem;
+  padding: 0.25rem 0.5rem;
+}
+
 .room-assignment-time {
   display: block;
   font-size: 0.75rem;
@@ -3621,6 +3674,168 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   color: #9ca3af;
   margin-top: 0.5rem;
   font-style: italic;
+}
+
+/* ── Assignment edit modal ── */
+.assign-edit-modal {
+  max-width: 420px;
+}
+
+.assign-edit-header {
+  background: #f8fafc;
+  border-radius: 12px 12px 0 0;
+}
+
+.assign-edit-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.assign-edit-icon {
+  font-size: 1.1rem;
+}
+
+.assign-info-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.assign-chip {
+  display: inline-flex;
+  flex-direction: column;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  min-width: 0;
+}
+
+.chip-label {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.1rem;
+}
+
+.chip-val {
+  font-size: 0.88rem;
+  color: #1a2e4a;
+  font-weight: 600;
+}
+
+.assign-times-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.assign-times-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  direction: rtl;
+}
+
+.assign-time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+  }
+}
+
+.assign-times-arrow {
+  font-size: 1.1rem;
+  color: #94a3b8;
+  padding-bottom: 0.45rem;
+  flex-shrink: 0;
+}
+
+.assign-clear-times {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #ef4444;
+  padding: 0.3rem 0;
+  margin-top: 0.6rem;
+  display: block;
+
+  &:hover {
+    color: #b91c1c;
+    text-decoration: underline;
+  }
+}
+
+/* ── DrvTimePickerInput (shared global styles) ── */
+.drv-tp-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.drv-tp-select {
+  padding: 0.42rem 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: #fff;
+  color: #1a2e4a;
+  cursor: pointer;
+  width: 88px;
+  text-align: center;
+  direction: ltr;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+}
+
+.drv-tp-exact {
+  width: 72px;
+  padding: 0.42rem 0.5rem;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1a2e4a;
+  text-align: center;
+  direction: ltr;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+
+.drv-tp-exact-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #64748b;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #2563eb;
+  }
 }
 
 /* Inline form groups (times) */

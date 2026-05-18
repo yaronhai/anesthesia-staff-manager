@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from '../styles/EventsManagement.module.scss';
 import { useDraggableModal } from '../hooks/useDraggableModal';
 
@@ -13,6 +13,7 @@ export default function EventsManagement({ workers, config, authToken, currentUs
   const [predictResult, setPredictResult] = useState(null);
   const [conflictData, setConflictData] = useState(null);
   const [optimizeResult, setOptimizeResult] = useState(null);
+  const [optimizing, setOptimizing] = useState(false);
   const [showInviteesModal, setShowInviteesModal] = useState(false);
 
   const isAdmin = ['admin', 'superadmin'].includes(currentUser?.role_tier ?? currentUser?.role);
@@ -111,14 +112,26 @@ export default function EventsManagement({ workers, config, authToken, currentUs
   }
 
   async function runOptimize() {
-    const res = await fetch(`/api/events/${eventDetail.id}/optimize`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    if (!res.ok) { alert('שגיאה באופטימיזציה'); return; }
-    const data = await res.json();
-    setOptimizeResult(data);
-    fetchEventDetail(eventDetail.id);
+    const hasAssignments = eventDetail.sessions?.some(s => s.assignments?.length > 0);
+    const reset = hasAssignments
+      ? confirm('קיימים שיבוצים לסשנים. לנקות ולחשב מחדש מאפס?\n\nאישור = נקה הכל וחשב מחדש\nביטול = הוסף רק למי שטרם שובץ')
+      : false;
+    setOptimizing(true);
+    document.body.style.cursor = 'wait';
+    try {
+      const res = await fetch(`/api/events/${eventDetail.id}/optimize`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset }),
+      });
+      if (!res.ok) { alert('שגיאה באופטימיזציה'); return; }
+      const data = await res.json();
+      setOptimizeResult(data);
+      fetchEventDetail(eventDetail.id);
+    } finally {
+      setOptimizing(false);
+      document.body.style.cursor = '';
+    }
   }
 
   async function deleteSession(sessionId) {
@@ -230,8 +243,8 @@ export default function EventsManagement({ workers, config, authToken, currentUs
             {/* Optimize + Predict buttons */}
             {isAdmin && (
               <div className={styles.algoBar}>
-                <button className="btn-primary" onClick={runOptimize}>
-                  ⚡ שיבוץ מקסימלי
+                <button className="btn-primary" onClick={runOptimize} disabled={optimizing}>
+                  {optimizing ? '⏳ מחשב...' : '⚡ שיבוץ מקסימלי'}
                 </button>
                 <button className="btn-secondary" onClick={() => { setPredictResult(null); setShowPredictModal(true); }}>
                   🔮 חיזוי סשן חדש
@@ -263,23 +276,37 @@ export default function EventsManagement({ workers, config, authToken, currentUs
                 <p className={styles.empty}>אין סשנים. הוסף סשן ראשון.</p>
               ) : (
                 <div className={styles.sessionsList}>
-                  {eventDetail.sessions.map(session => (
-                    <SessionCard
-                      key={session.id}
-                      session={session}
-                      invitees={eventDetail.invitees}
-                      isAdmin={isAdmin}
-                      onAssign={(workerIds) => assignToSession(session.id, workerIds)}
-                      onRemove={(wid) => removeFromSession(session.id, wid)}
-                      onClearAll={(wids) => clearSessionAssignments(session.id, wids)}
-                      onDelete={() => deleteSession(session.id)}
-                      onEdited={() => fetchEventDetail(eventDetail.id)}
-                      authToken={authToken}
-                      eventId={eventDetail.id}
-                      formatDate={formatDate}
-                      formatTime={formatTime}
-                    />
-                  ))}
+                  {(() => {
+                    const sessions = eventDetail.sessions;
+                    const fixed = sessions.filter(s => s.participant_pct != null);
+                    const free  = sessions.filter(s => s.participant_pct == null);
+                    const usedPct = fixed.reduce((sum, s) => sum + s.participant_pct, 0);
+                    const freePct = Math.max(0, 100 - usedPct);
+                    const perFree = free.length ? Math.floor(freePct / free.length) : 0;
+                    let rem = free.length ? freePct - perFree * free.length : 0;
+                    const effectivePcts = {};
+                    for (const s of sessions) {
+                      effectivePcts[s.id] = s.participant_pct != null ? s.participant_pct : (perFree + (rem-- > 0 ? 1 : 0));
+                    }
+                    return sessions.map(session => (
+                      <SessionCard
+                        key={session.id}
+                        session={session}
+                        effectivePct={effectivePcts[session.id]}
+                        invitees={eventDetail.invitees}
+                        isAdmin={isAdmin}
+                        onAssign={(workerIds) => assignToSession(session.id, workerIds)}
+                        onRemove={(wid) => removeFromSession(session.id, wid)}
+                        onClearAll={(wids) => clearSessionAssignments(session.id, wids)}
+                        onDelete={() => deleteSession(session.id)}
+                        onEdited={() => fetchEventDetail(eventDetail.id)}
+                        authToken={authToken}
+                        eventId={eventDetail.id}
+                        formatDate={formatDate}
+                        formatTime={formatTime}
+                      />
+                    ));
+                  })()}
                 </div>
               )}
             </section>
@@ -352,6 +379,8 @@ export default function EventsManagement({ workers, config, authToken, currentUs
           workers={workers}
           onSave={saveInvitees}
           onClose={() => setShowInviteesModal(false)}
+          authToken={authToken}
+          selectedBranchId={selectedBranchId}
         />
       )}
 
@@ -371,51 +400,114 @@ export default function EventsManagement({ workers, config, authToken, currentUs
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SessionCard({ session, invitees, isAdmin, onAssign, onRemove, onClearAll, onDelete, onEdited, authToken, eventId, formatDate, formatTime }) {
-  const [addMode, setAddMode] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState({
-    session_date: session.session_date?.slice(0, 10) || '',
-    start_time: session.start_time?.slice(0, 5) || '',
-    end_time: session.end_time?.slice(0, 5) || '',
-    max_capacity: session.max_capacity,
-    location: session.location || '',
-  });
-  const assignedIds = new Set(session.assignments.map(a => a.worker_id));
-  const eligible = invitees.filter(i => !assignedIds.has(i.worker_id));
-  const capacity = session.max_capacity;
-  const filled = session.assignments.length;
-  const pct = capacity > 0 ? Math.round((filled / capacity) * 100) : 0;
+function DatePickerInput({ value, onChange, className }) {
+  const ref = useRef(null);
 
-  async function saveEdit() {
-    const res = await fetch(`/api/events/${eventId}/sessions/${session.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify(editForm),
-    });
-    if (!res.ok) { alert('שגיאה בשמירת הסשן'); return; }
-    setEditMode(false);
-    onEdited();
+  function shift(days) {
+    const d = value ? new Date(value + 'T12:00:00') : new Date();
+    d.setDate(d.getDate() + days);
+    onChange(d.toISOString().slice(0, 10));
   }
 
-  if (editMode) {
-    return (
-      <div className={styles.sessionCard}>
-        <div className={styles.editSessionForm}>
-          <input type="date" value={editForm.session_date} onChange={e => setEditForm(p => ({ ...p, session_date: e.target.value }))} />
-          <input type="time" value={editForm.start_time} onChange={e => setEditForm(p => ({ ...p, start_time: e.target.value }))} />
-          <span>–</span>
-          <input type="time" value={editForm.end_time} onChange={e => setEditForm(p => ({ ...p, end_time: e.target.value }))} />
-          <input type="number" min="1" max="200" value={editForm.max_capacity} onChange={e => setEditForm(p => ({ ...p, max_capacity: parseInt(e.target.value) || 20 }))} style={{ width: 60 }} />
-          <input value={editForm.location} onChange={e => setEditForm(p => ({ ...p, location: e.target.value }))} placeholder="מיקום..." style={{ width: 100 }} />
-          <button className="btn-primary" onClick={saveEdit}>שמור</button>
-          <button className="btn-secondary" onClick={() => setEditMode(false)}>ביטול</button>
-        </div>
-      </div>
-    );
+  const display = value ? value.split('-').reverse().join('/') : '--/--/----';
+
+  return (
+    <span className={`${styles.datePickerWrap} ${className || ''}`}>
+      <button type="button" className={styles.dateNavBtn} onClick={() => shift(-1)}>‹</button>
+      <span className={styles.dateDisplay} onClick={() => ref.current?.showPicker()}>
+        {display}
+      </span>
+      <input
+        ref={ref}
+        type="date"
+        value={value || ''}
+        onChange={e => { if (e.target.value) onChange(e.target.value); }}
+        className={styles.hiddenDateInput}
+      />
+      <button type="button" className={styles.dateNavBtn} onClick={() => shift(1)}>›</button>
+    </span>
+  );
+}
+
+function TimePickerInput({ value, onChange, className }) {
+  const [exactRaw, setExactRaw] = useState('');
+  const [exactMode, setExactMode] = useState(false);
+  const slots = Array.from({ length: 96 }, (_, i) => {
+    const h = Math.floor(i / 4);
+    const m = (i % 4) * 15;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  });
+
+  const nearest = (() => {
+    const [hh, mm] = (value || '00:00').split(':').map(Number);
+    const total = hh * 60 + mm;
+    const rounded = Math.round(total / 15) * 15;
+    const nh = Math.min(23, Math.floor(rounded / 60));
+    const nm = rounded % 60;
+    return `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+  })();
+
+  function commitExact(v) {
+    const match = v.match(/^(\d{1,2}):(\d{2})$/);
+    if (match) {
+      const nh = Math.min(23, parseInt(match[1]));
+      const nm = Math.min(59, parseInt(match[2]));
+      onChange(`${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`);
+    }
+    setExactMode(false);
+    setExactRaw('');
   }
 
   return (
+    <span className={`${styles.timePickerWrap} ${className || ''}`} dir="ltr">
+      {exactMode ? (
+        <input
+          className={styles.timeExactInput}
+          value={exactRaw}
+          onChange={e => setExactRaw(e.target.value)}
+          onBlur={e => commitExact(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { setExactMode(false); setExactRaw(''); } }}
+          placeholder={value?.slice(0,5)}
+          maxLength={5}
+          autoFocus
+          dir="ltr"
+        />
+      ) : (
+        <>
+          <select value={nearest} onChange={e => onChange(e.target.value)} className={styles.timeSelect}>
+            {slots.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button type="button" className={styles.timeExactBtn} title="הקלד שעה מדויקת" onClick={() => { setExactRaw(value?.slice(0,5) || ''); setExactMode(true); }}>
+            ✎
+          </button>
+        </>
+      )}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SessionCard({ session, effectivePct, invitees, isAdmin, onAssign, onRemove, onClearAll, onDelete, onEdited, authToken, eventId, formatDate, formatTime }) {
+  const [addMode, setAddMode] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
+  const assignedIds = new Set(session.assignments.map(a => a.worker_id));
+  const eligible = invitees.filter(i => !assignedIds.has(i.worker_id));
+  const filled = session.assignments.length;
+
+
+  return (
+    <>
+    {editMode && (
+      <SessionEditModal
+        session={session}
+        authToken={authToken}
+        eventId={eventId}
+        onSaved={() => { setEditMode(false); onEdited(); }}
+        onClose={() => setEditMode(false)}
+      />
+    )}
     <div className={styles.sessionCard}>
       <div className={styles.sessionCardHeader}>
         <div className={styles.sessionCardInfo}>
@@ -424,14 +516,17 @@ function SessionCard({ session, invitees, isAdmin, onAssign, onRemove, onClearAl
           {session.location && <span className={styles.sessionLocation}>📍 {session.location}</span>}
         </div>
         <div className={styles.sessionCapacity}>
-          <span className={`${styles.capacityBar} ${pct >= 100 ? styles.capacityFull : ''}`}>
-            {filled}/{capacity}
+          <span className={`${styles.sessionPctBadge}${session.participant_pct == null ? ` ${styles.sessionPctBadgeAuto}` : ''}`}>
+            {effectivePct}%
+          </span>
+          <span className={styles.capacityBar}>
+            {filled} משובצים
           </span>
           {isAdmin && (
             <button className={styles.editSessionBtn} onClick={() => setEditMode(true)}>✎</button>
           )}
           {isAdmin && (
-            <button className="btn-remove" style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem' }} onClick={onDelete}>✕</button>
+            <button className={`btn-remove ${styles.deleteSessionBtn}`} onClick={onDelete}>✕</button>
           )}
         </div>
       </div>
@@ -464,7 +559,7 @@ function SessionCard({ session, invitees, isAdmin, onAssign, onRemove, onClearAl
       </div>
 
       {/* Add workers */}
-      {isAdmin && filled < capacity && (
+      {isAdmin && (
         <>
           {addMode ? (
             <div className={styles.addWorkerBar}>
@@ -494,6 +589,98 @@ function SessionCard({ session, invitees, isAdmin, onAssign, onRemove, onClearAl
         </>
       )}
     </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SessionEditModal({ session, authToken, eventId, onSaved, onClose }) {
+  const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
+  const close = () => { onClose(); reset(); };
+  const [form, setForm] = useState({
+    session_date: session.session_date?.slice(0, 10) || '',
+    start_time:   session.start_time?.slice(0, 5) || '07:00',
+    end_time:     session.end_time?.slice(0, 5) || '08:00',
+    location:     session.location || '',
+    participant_pct: session.participant_pct ?? '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const pct = form.participant_pct === '' ? null : Math.min(100, Math.max(0, parseInt(form.participant_pct)));
+      const res = await fetch(`/api/events/${eventId}/sessions/${session.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ ...form, max_capacity: 9999, participant_pct: pct }),
+      });
+      if (!res.ok) { alert('שגיאה בשמירה'); return; }
+      onSaved();
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className={overlayClass} onClick={close}>
+      <div className={styles.sessionEditModal} ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
+        <div className={styles.sessionEditHeader} {...dragHandleProps}>
+          <div className={styles.sessionEditHeaderIcon}>📅</div>
+          <h3 className={styles.sessionEditTitle}>עריכת סשן</h3>
+          <button className={styles.sessionEditClose} onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
+        </div>
+
+        <div className={styles.sessionEditBody}>
+
+          <div className={styles.sessionEditField}>
+            <label className={styles.sessionEditLabel}>תאריך</label>
+            <DatePickerInput value={form.session_date} onChange={v => setForm(p => ({ ...p, session_date: v }))} />
+          </div>
+
+          <div className={styles.sessionEditField}>
+            <label className={styles.sessionEditLabel}>שעות</label>
+            <div className={styles.sessionEditTimeRow}>
+              <TimePickerInput value={form.start_time} onChange={v => setForm(p => ({ ...p, start_time: v }))} className={styles.timePickerInput} />
+              <span className={styles.sessionEditTimeDash}>–</span>
+              <TimePickerInput value={form.end_time} onChange={v => setForm(p => ({ ...p, end_time: v }))} className={styles.timePickerInput} />
+            </div>
+          </div>
+
+          <div className={styles.sessionEditField}>
+            <label className={styles.sessionEditLabel}>מיקום</label>
+            <input
+              className={styles.sessionEditInput}
+              value={form.location}
+              onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
+              placeholder="אופציונלי..."
+            />
+          </div>
+
+          <div className={styles.sessionEditField}>
+            <label className={styles.sessionEditLabel}>% משתתפים</label>
+            <div className={styles.sessionEditPctWrap}>
+              <input
+                className={styles.sessionEditPctInput}
+                type="number" min="0" max="100"
+                value={form.participant_pct}
+                placeholder="אוטומטי"
+                onChange={e => setForm(p => ({ ...p, participant_pct: e.target.value }))}
+              />
+              <span className={styles.sessionEditPctSuffix}>%</span>
+              <span className={styles.sessionEditPctHint}>ריק = חלוקה שווה</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div className={styles.sessionEditFooter}>
+          <button className="btn-secondary" onClick={close}>ביטול</button>
+          <button className="btn-primary" onClick={save} disabled={saving}>
+            {saving ? 'שומר...' : 'שמור שינויים'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -518,12 +705,11 @@ function AddSessionInline({ eventId, authToken, onAdded }) {
 
   return (
     <div className={styles.addSessionForm}>
-      <input type="date" value={form.session_date} onChange={e => setForm(p => ({ ...p, session_date: e.target.value }))} />
-      <input type="time" value={form.start_time} onChange={e => setForm(p => ({ ...p, start_time: e.target.value }))} />
-      <span>–</span>
-      <input type="time" value={form.end_time} onChange={e => setForm(p => ({ ...p, end_time: e.target.value }))} />
-      <input type="number" min="1" max="200" value={form.max_capacity} onChange={e => setForm(p => ({ ...p, max_capacity: parseInt(e.target.value) || 20 }))} placeholder="קיבולת" style={{ width: 60 }} />
-      <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder="מיקום..." style={{ width: 100 }} />
+      <DatePickerInput value={form.session_date} onChange={v => setForm(p => ({ ...p, session_date: v }))} className={styles.datePickerInput} />
+      <TimePickerInput value={form.start_time} onChange={v => setForm(p => ({ ...p, start_time: v }))} className={styles.timePickerInput} />
+      <span className={styles.timeSep}>–</span>
+      <TimePickerInput value={form.end_time} onChange={v => setForm(p => ({ ...p, end_time: v }))} className={styles.timePickerInput} />
+      <input className={styles.editLocationInput} value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder="מיקום..." />
       <button className="btn-primary" onClick={submit}>הוסף</button>
       <button className="btn-secondary" onClick={() => setOpen(false)}>ביטול</button>
     </div>
@@ -532,17 +718,56 @@ function AddSessionInline({ eventId, authToken, onAdded }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function InviteesModal({ invitees, workers, onSave, onClose }) {
+function InviteesModal({ invitees, workers, onSave, onClose, authToken, selectedBranchId }) {
   const { modalRef, dragHandleProps, modalStyle, overlayClass, reset } = useDraggableModal();
   const close = () => { onClose(); reset(); };
   const attendedIds = new Set(invitees.filter(i => i.attended).map(i => i.worker_id));
   const [selected, setSelected] = useState(new Set(invitees.map(i => i.worker_id)));
   const [search, setSearch] = useState('');
+  const [jobFilter, setJobFilter] = useState('');
+  const [templates, setTemplates] = useState([]);
+  const [templateName, setTemplateName] = useState('');
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/invitee-templates', { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(setTemplates)
+      .catch(() => {});
+  }, [authToken]);
+
+  async function saveTemplate() {
+    if (!templateName.trim()) return;
+    const res = await fetch('/api/invitee-templates', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: templateName.trim(), worker_ids: [...selected] }),
+    });
+    if (res.ok) {
+      const t = await res.json();
+      setTemplates(prev => [...prev, t].sort((a, b) => a.name.localeCompare(b.name, 'he')));
+      setTemplateName('');
+      setShowSaveTemplate(false);
+    }
+  }
+
+  async function deleteTemplate(id) {
+    if (!confirm('למחוק תבנית זו?')) return;
+    await fetch(`/api/invitee-templates/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${authToken}` } });
+    setTemplates(prev => prev.filter(t => t.id !== id));
+  }
+
+  function loadTemplate(templateId) {
+    const t = templates.find(t => t.id === parseInt(templateId));
+    if (!t) return;
+    setSelected(new Set([...attendedIds, ...t.worker_ids]));
+  }
 
   const activeWorkers = (workers || []).filter(w => w.is_active !== false);
+  const jobOptions = [...new Set(activeWorkers.map(w => w.job).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
   const filtered = activeWorkers.filter(w => {
     const name = `${w.first_name} ${w.family_name}`.toLowerCase();
-    return name.includes(search.toLowerCase());
+    return name.includes(search.toLowerCase()) && (!jobFilter || w.job === jobFilter);
   });
 
   function toggle(id) {
@@ -555,12 +780,12 @@ function InviteesModal({ invitees, workers, onSave, onClose }) {
   }
 
   function selectAll() {
-    setSelected(new Set(activeWorkers.map(w => w.id)));
+    setSelected(prev => new Set([...prev, ...filtered.map(w => w.id)]));
   }
 
   function clearAll() {
-    // keep attended workers — cannot remove them
-    setSelected(new Set([...attendedIds]));
+    const filteredIds = new Set(filtered.map(w => w.id));
+    setSelected(prev => new Set([...prev].filter(id => attendedIds.has(id) || !filteredIds.has(id))));
   }
 
   const invited = filtered.filter(w => selected.has(w.id));
@@ -568,49 +793,110 @@ function InviteesModal({ invitees, workers, onSave, onClose }) {
 
   return (
     <div className={overlayClass} onClick={close}>
-      <div className={`assignment-modal ${styles.inviteesModal}`} ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
-        <div className="modal-header" {...dragHandleProps}>
-          <h3>ניהול מוזמנים ({selected.size})</h3>
-          <button className="btn-close" onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
+      <div className={styles.inviteesModal} ref={modalRef} style={modalStyle} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className={styles.inviteesHeader} {...dragHandleProps}>
+          <span className={styles.inviteesHeaderIcon}>👥</span>
+          <div className={styles.inviteesHeaderText}>
+            <h3 className={styles.inviteesHeaderTitle}>ניהול מוזמנים</h3>
+            <span className={styles.inviteesHeaderCount}>{selected.size} נבחרו</span>
+          </div>
+          <button className={styles.inviteesCloseBtn} onMouseDown={e => e.stopPropagation()} onClick={close}>✕</button>
         </div>
-        <div className="modal-body">
-          <div className={styles.inviteesToolbar}>
+
+        {/* Body */}
+        <div className={styles.inviteesBody}>
+          {/* Search + filter */}
+          <div className={styles.inviteesSearchRow}>
             <input
               className={styles.inviteesSearch}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="חיפוש עובד..."
+              placeholder="חיפוש שם..."
               autoFocus
             />
-            <button className="btn-secondary" onClick={selectAll}>בחר הכל</button>
-            <button className="btn-secondary" onClick={clearAll}>נקה הכל</button>
+            <select
+              className={styles.inviteesJobFilter}
+              value={jobFilter}
+              onChange={e => setJobFilter(e.target.value)}
+            >
+              <option value="">כל התפקידים</option>
+              {jobOptions.map(j => <option key={j} value={j}>{j}</option>)}
+            </select>
           </div>
+
+          {/* Quick actions */}
+          <div className={styles.inviteesActions}>
+            <button className={styles.inviteesActionBtn} onClick={selectAll}>בחר הכל</button>
+            <button className={styles.inviteesActionBtn} onClick={clearAll}>נקה הכל</button>
+          </div>
+
+          {/* Templates */}
+          <div className={styles.inviteesTemplateSection}>
+            <span className={styles.inviteesTemplateSectionLabel}>תבניות:</span>
+            <div className={styles.inviteesTemplateSectionContent}>
+              {templates.length > 0 && (
+                <div className={styles.inviteesTemplateChips}>
+                  {templates.map(t => (
+                    <span key={t.id} className={styles.inviteesTemplateChip}>
+                      <button type="button" className={styles.inviteesTemplateChipName} title={`טען "${t.name}"`} onClick={() => loadTemplate(t.id)}>{t.name}</button>
+                      <button type="button" className={styles.inviteesTemplateChipDel} title={`מחק "${t.name}"`} onClick={() => deleteTemplate(t.id)}>✕</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {showSaveTemplate ? (
+                <div className={styles.inviteesTemplateSaveRow}>
+                  <input
+                    className={styles.inviteesTemplateNameInput}
+                    value={templateName}
+                    onChange={e => setTemplateName(e.target.value)}
+                    placeholder="שם התבנית..."
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') saveTemplate(); if (e.key === 'Escape') setShowSaveTemplate(false); }}
+                  />
+                  <button className="btn-primary" onClick={saveTemplate}>שמור</button>
+                  <button className="btn-secondary" onClick={() => setShowSaveTemplate(false)}>ביטול</button>
+                </div>
+              ) : (
+                <button className={styles.inviteesTemplateSaveBtn} onClick={() => setShowSaveTemplate(true)}>+ שמור תבנית</button>
+              )}
+            </div>
+          </div>
+
+          {/* Checklist */}
           <div className={styles.inviteesCheckList}>
             {filtered.length === 0 && <p className={styles.empty}>לא נמצאו עובדים</p>}
+            {invited.length > 0 && (
+              <div className={styles.inviteeSectionHeader}>
+                <span>מוזמנים</span>
+                <span className={styles.inviteeSectionCount}>{invited.length}</span>
+              </div>
+            )}
             {invited.map(w => (
               <label key={w.id} className={`${styles.inviteeCheckRow} ${attendedIds.has(w.id) ? styles.inviteeCheckAttended : ''}`}>
-                <input
-                  type="checkbox"
-                  checked
-                  onChange={() => toggle(w.id)}
-                  disabled={attendedIds.has(w.id)}
-                />
-                <span className={styles.inviteeCheckName}>{w.first_name} {w.family_name}</span>
+                <input type="checkbox" checked onChange={() => toggle(w.id)} disabled={attendedIds.has(w.id)} />
+                <span className={styles.inviteeCheckName}>{w.first_name} {w.family_name}{w.job && <span className={styles.inviteeJob}>{w.job}</span>}</span>
                 {attendedIds.has(w.id) && <span className={styles.attendedTag}>שובץ</span>}
               </label>
             ))}
-            {notInvited.length > 0 && invited.length > 0 && (
-              <div className={styles.inviteeDivider}>לא מוזמנים</div>
+            {notInvited.length > 0 && (
+              <div className={styles.inviteeSectionHeader}>
+                <span>שאר העובדים</span>
+                <span className={styles.inviteeSectionCount}>{notInvited.length}</span>
+              </div>
             )}
             {notInvited.map(w => (
               <label key={w.id} className={`${styles.inviteeCheckRow} ${styles.inviteeCheckRowDimmed}`}>
                 <input type="checkbox" checked={false} onChange={() => toggle(w.id)} />
-                <span className={styles.inviteeCheckName}>{w.first_name} {w.family_name}</span>
+                <span className={styles.inviteeCheckName}>{w.first_name} {w.family_name}{w.job && <span className={styles.inviteeJob}>{w.job}</span>}</span>
               </label>
             ))}
           </div>
         </div>
-        <div className="modal-footer">
+
+        {/* Footer */}
+        <div className={styles.inviteesFooter}>
           <button className="btn-secondary" onClick={onClose}>ביטול</button>
           <button className="btn-primary" onClick={() => onSave([...selected])}>שמור</button>
         </div>
@@ -709,11 +995,10 @@ function EventFormModal({ event, config, authToken, selectedBranchId, onSave, on
               </div>
               {sessions.map((s, i) => (
                 <div key={i} className={styles.sessionFormRow}>
-                  <input type="date" value={s.session_date} onChange={e => updateSession(i, 'session_date', e.target.value)} />
-                  <input type="time" value={s.start_time} onChange={e => updateSession(i, 'start_time', e.target.value)} />
-                  <span>–</span>
-                  <input type="time" value={s.end_time} onChange={e => updateSession(i, 'end_time', e.target.value)} />
-                  <input type="number" min="1" value={s.max_capacity} onChange={e => updateSession(i, 'max_capacity', parseInt(e.target.value) || 20)} style={{ width: 52 }} title="קיבולת" placeholder="קיב׳" />
+                  <DatePickerInput value={s.session_date} onChange={v => updateSession(i, 'session_date', v)} className={styles.datePickerInput} />
+                  <TimePickerInput value={s.start_time} onChange={v => updateSession(i, 'start_time', v)} className={styles.timePickerInput} />
+                  <span className={styles.timeSep}>–</span>
+                  <TimePickerInput value={s.end_time} onChange={v => updateSession(i, 'end_time', v)} className={styles.timePickerInput} />
                   {sessions.length > 1 && (
                     <button type="button" className="btn-remove" onClick={() => removeSessionRow(i)}>✕</button>
                   )}
