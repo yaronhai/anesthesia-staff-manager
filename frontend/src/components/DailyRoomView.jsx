@@ -315,6 +315,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [inlineEditingNotes, setInlineEditingNotes] = useState(null); // "site_id-shift_type" for inline notes editing
   const [inlineNotes, setInlineNotes] = useState('');
   const [addingToShiftInSite, setAddingToShiftInSite] = useState(null); // { site_id, shift_type } - for adding within site modal
+  const [selectedShiftModal, setSelectedShiftModal] = useState(null); // { site_id, shift_type } for ShiftManagementModal
+  const dragShiftMgmt = useDraggableModal();
 
   // Fairness report
   const [fairnessReport, setFairnessReport] = useState(null);
@@ -727,10 +729,15 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     }
   }
 
+  function getSiteShiftActivities(siteId, shiftType) {
+    return siteShiftActivities
+      .filter(ssa => ssa.site_id === siteId && ssa.date === dateStr && ssa.shift_type === shiftType)
+      .sort((a, b) => (a.sort_order - b.sort_order) || (a.start_time || '').localeCompare(b.start_time || ''));
+  }
+
   function getSiteShiftActivity(siteId, shiftType) {
-    return siteShiftActivities.find(ssa =>
-      ssa.site_id === siteId && ssa.date === dateStr && ssa.shift_type === shiftType
-    );
+    const list = getSiteShiftActivities(siteId, shiftType);
+    return list[0];
   }
 
   function getSiteShiftTimes(siteId, shiftType) {
@@ -795,22 +802,20 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     const allowedJobs = groupId ? config.site_group_allowed_jobs?.[groupId] : null;
     const hasJobRestrictions = allowedJobs && allowedJobs.length > 0;
 
-    // Get activity type for this site/shift/date
-    const activity = siteShiftActivities.find(
-      a => a.site_id === siteId && a.shift_type === shiftType && a.date === dateStr
-    );
-    const activityTypeId = activity?.activity_type_id ?? null;
+    // Get all activity types for this site/shift/date
+    const shiftActivities = getSiteShiftActivities(siteId, shiftType).filter(a => a.activity_type_id);
+    const activityTypeIds = shiftActivities.map(a => a.activity_type_id);
 
     const allWorkers = hasJobRestrictions
       ? workers.filter(w => allowedJobs.some(j => j.job_id === w.job_id))
       : workers;
 
-    // Filter by activity authorization: if slot has an activity type,
-    // only workers with that specific authorization are eligible.
-    const authFiltered = activityTypeId
+    // Filter by activity authorization: worker must be authorized for ALL activity types.
+    // If not fully authorized, they still appear (with warning) — handled by server on save.
+    const authFiltered = activityTypeIds.length > 0
       ? allWorkers.filter(w => {
-          const auths = workerAuthorizations[w.id];
-          return auths != null && auths.includes(activityTypeId);
+          const auths = workerAuthorizations[w.id] || [];
+          return activityTypeIds.every(id => auths.includes(id));
         })
       : allWorkers;
 
@@ -880,6 +885,49 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     } catch (err) {
       console.error('Network error:', err);
     }
+  }
+
+  async function addShiftActivity(siteId, shiftType, activityTypeId) {
+    const res = await fetch('/api/site-shift-activities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ site_id: siteId, date: dateStr, shift_type: shiftType, activity_type_id: activityTypeId }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'שגיאה');
+    }
+    fetchAll();
+  }
+
+  async function deleteShiftActivity(activityId) {
+    const res = await fetch(`/api/site-shift-activities/${activityId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (res.ok) fetchAll();
+  }
+
+  async function updateShiftActivityTime(activityId, startTime) {
+    const res = await fetch(`/api/site-shift-activities/${activityId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ start_time: startTime || null }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'שגיאה');
+    }
+    fetchAll();
+  }
+
+  async function reorderShiftActivities(items) {
+    const res = await fetch('/api/site-shift-activities/reorder', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify(items),
+    });
+    if (res.ok) fetchAll();
   }
 
 
@@ -1436,6 +1484,293 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     );
   }
 
+  function ShiftManagementModal() {
+    const [addingActivity, setAddingActivity] = useState(false);
+    const [newActivityId, setNewActivityId] = useState('');
+    const [newActivityGroupFilter, setNewActivityGroupFilter] = useState('');
+    const [activityError, setActivityError] = useState('');
+    const [timeErrors, setTimeErrors] = useState({}); // id -> error string
+
+    if (!selectedShiftModal) return null;
+    const { site_id, shift_type } = selectedShiftModal;
+    const site = (config.sites || []).find(s => s.id === site_id);
+    if (!site) return null;
+
+    const isNight = shift_type === 'night';
+    const isOncall = shift_type === 'oncall';
+    const isMorning = shift_type === 'morning';
+    const accentColor = isMorning ? '#92400e' : isNight ? '#6d28d9' : isOncall ? '#0369a1' : '#0369a1';
+    const shiftLabel = shiftDefaults[shift_type]?.label_he || shift_type;
+    const shiftIcon = isMorning ? '☀️' : shift_type === 'evening' ? '🌙' : isNight ? (shiftDefaults.night?.icon || '⭐') : (shiftDefaults.oncall?.icon || '📞');
+    const shiftDefaultStart = shiftDefaults[shift_type]?.default_start || '';
+    const shiftDefaultEnd = shiftDefaults[shift_type]?.default_end || '';
+    const shiftTimes = getSiteShiftTimes(site_id, shift_type);
+    const shiftStart = shiftTimes.start_time || shiftDefaultStart;
+    const shiftEnd = shiftTimes.end_time || shiftDefaultEnd;
+
+    const activities = getSiteShiftActivities(site_id, shift_type);
+    const hasTimeOnAny = activities.some(a => a.start_time);
+
+    const usedActivityIds = new Set(activities.map(a => a.activity_type_id));
+    const availableActivityTypes = (config.activity_types || []).filter(at => !usedActivityIds.has(at.id));
+    const filteredActivityTypes = newActivityGroupFilter
+      ? availableActivityTypes.filter(at => String(at.group_id) === newActivityGroupFilter)
+      : availableActivityTypes;
+
+    function validateTime(timeStr) {
+      if (!timeStr) return null;
+      if (!/^\d{2}:\d{2}$/.test(timeStr)) return 'פורמט לא תקין';
+      if (shiftStart && shiftEnd) {
+        const toMins = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+        const start = toMins(shiftStart);
+        const end = toMins(shiftEnd);
+        const t = toMins(timeStr);
+        const dayEnd = end <= start ? end + 24 * 60 : end;
+        const dayT = t < start ? t + 24 * 60 : t;
+        if (dayT < start || dayT >= dayEnd) return `מחוץ לשעות המשמרת (${shiftStart}–${shiftEnd})`;
+      }
+      return null;
+    }
+
+    async function handleAddActivity() {
+      if (!newActivityId) return;
+      try {
+        await addShiftActivity(site_id, shift_type, parseInt(newActivityId));
+        setAddingActivity(false);
+        setNewActivityId('');
+        setNewActivityGroupFilter('');
+        setActivityError('');
+      } catch (e) {
+        setActivityError(e.message);
+      }
+    }
+
+    async function handleTimeChange(activity, val) {
+      const err = validateTime(val);
+      setTimeErrors(prev => ({ ...prev, [activity.id]: err }));
+      if (err) return;
+      try {
+        await updateShiftActivityTime(activity.id, val || null);
+      } catch (e) {
+        setTimeErrors(prev => ({ ...prev, [activity.id]: e.message }));
+      }
+    }
+
+    async function handleMoveUp(idx) {
+      if (idx === 0) return;
+      const reordered = [...activities];
+      [reordered[idx - 1], reordered[idx]] = [reordered[idx], reordered[idx - 1]];
+      await reorderShiftActivities(reordered.map((a, i) => ({ id: a.id, sort_order: i })));
+    }
+
+    async function handleMoveDown(idx) {
+      if (idx === activities.length - 1) return;
+      const reordered = [...activities];
+      [reordered[idx], reordered[idx + 1]] = [reordered[idx + 1], reordered[idx]];
+      await reorderShiftActivities(reordered.map((a, i) => ({ id: a.id, sort_order: i })));
+    }
+
+    function getEndTime(idx) {
+      if (activities[idx + 1]?.start_time) return activities[idx + 1].start_time;
+      return shiftEnd || '';
+    }
+
+    const siteAssignments = getSiteShiftAssignments(site_id, shift_type);
+
+    return createPortal(
+      <div
+        className={dragShiftMgmt.overlayClass}
+        onClick={() => { setSelectedShiftModal(null); dragShiftMgmt.reset(); }}
+      >
+        <div
+          className="site-detail-modal"
+          ref={dragShiftMgmt.modalRef}
+          style={{ maxWidth: 520, ...(dragShiftMgmt.modalStyle || {}) }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="site-detail-header" {...dragShiftMgmt.dragHandleProps}>
+            <div className="site-detail-header__title">
+              <span className="site-detail-header__icon">{shiftIcon}</span>
+              <div>
+                <h2>{site.name} — {shiftLabel}</h2>
+                <span className="site-detail-header__date">{dateLabel}</span>
+              </div>
+            </div>
+            <button className="site-detail-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setSelectedShiftModal(null); dragShiftMgmt.reset(); }}>✕</button>
+          </div>
+
+          <div className="site-detail-body" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '75vh', overflowY: 'auto' }}>
+            {/* Activities section */}
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: accentColor, marginBottom: '0.5rem', borderBottom: `2px solid ${accentColor}20`, paddingBottom: '0.25rem' }}>
+                סוגי פעילות
+                <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#6b7280', marginRight: '0.5rem' }}>
+                  {shiftStart && shiftEnd ? `${shiftStart}–${shiftEnd}` : ''}
+                </span>
+              </div>
+
+              {activities.length === 0 && !addingActivity && (
+                <div style={{ fontSize: '0.85rem', color: '#9ca3af', fontStyle: 'italic', marginBottom: '0.5rem' }}>אין פעילויות מוגדרות</div>
+              )}
+
+              {activities.map((act, idx) => (
+                <div key={act.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem', background: '#f8fafc', borderRadius: '6px', padding: '0.4rem 0.5rem', border: '1px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <button
+                      disabled={hasTimeOnAny || idx === 0}
+                      onClick={() => handleMoveUp(idx)}
+                      style={{ background: 'none', border: 'none', cursor: hasTimeOnAny || idx === 0 ? 'not-allowed' : 'pointer', color: hasTimeOnAny || idx === 0 ? '#d1d5db' : '#374151', padding: '0 2px', lineHeight: 1, fontSize: '0.7rem' }}
+                      title={hasTimeOnAny ? 'הסדר נקבע לפי שעות' : 'הזז למעלה'}
+                    >▲</button>
+                    <button
+                      disabled={hasTimeOnAny || idx === activities.length - 1}
+                      onClick={() => handleMoveDown(idx)}
+                      style={{ background: 'none', border: 'none', cursor: hasTimeOnAny || idx === activities.length - 1 ? 'not-allowed' : 'pointer', color: hasTimeOnAny || idx === activities.length - 1 ? '#d1d5db' : '#374151', padding: '0 2px', lineHeight: 1, fontSize: '0.7rem' }}
+                      title={hasTimeOnAny ? 'הסדר נקבע לפי שעות' : 'הזז למטה'}
+                    >▼</button>
+                  </div>
+                  <span style={{ fontWeight: 600, fontSize: '0.85rem', flex: 1, color: '#1f2937' }}>{act.activity_name}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <label style={{ fontSize: '0.72rem', color: '#6b7280' }}>התחלה:</label>
+                      <input
+                        type="time"
+                        defaultValue={act.start_time || ''}
+                        onChange={e => handleTimeChange(act, e.target.value)}
+                        style={{ fontSize: '0.8rem', border: timeErrors[act.id] ? '1px solid #ef4444' : '1px solid #d1d5db', borderRadius: '4px', padding: '0.1rem 0.2rem', width: '80px' }}
+                      />
+                      <span style={{ fontSize: '0.72rem', color: '#9ca3af' }}>–{formatTime24(getEndTime(idx))}</span>
+                    </div>
+                    {timeErrors[act.id] && <span style={{ fontSize: '0.7rem', color: '#ef4444' }}>{timeErrors[act.id]}</span>}
+                  </div>
+                  <button
+                    onClick={() => deleteShiftActivity(act.id)}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', padding: '0.1rem 0.3rem', borderRadius: '4px' }}
+                    title="הסר פעילות"
+                  >✕</button>
+                </div>
+              ))}
+
+              {addingActivity ? (
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                  {(config.activity_type_groups || []).length > 0 && (
+                    <select
+                      value={newActivityGroupFilter}
+                      onChange={e => setNewActivityGroupFilter(e.target.value)}
+                      style={{ fontSize: '0.78rem', borderRadius: '4px', border: '1px solid #d1d5db', color: '#475569' }}
+                    >
+                      <option value="">כל הקבוצות</option>
+                      {(config.activity_type_groups || []).map(g => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
+                    </select>
+                  )}
+                  <select
+                    value={newActivityId}
+                    onChange={e => setNewActivityId(e.target.value)}
+                    style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', flex: 1, minWidth: 120 }}
+                  >
+                    <option value="">בחר פעילות...</option>
+                    {filteredActivityTypes.map(at => <option key={at.id} value={at.id}>{at.name}</option>)}
+                  </select>
+                  <button className="btn-primary" onClick={handleAddActivity} disabled={!newActivityId} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>הוסף</button>
+                  <button className="btn-secondary" onClick={() => { setAddingActivity(false); setActivityError(''); }} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>ביטול</button>
+                  {activityError && <span style={{ fontSize: '0.78rem', color: '#ef4444', width: '100%' }}>{activityError}</span>}
+                </div>
+              ) : (
+                <button
+                  className="btn-secondary"
+                  onClick={() => setAddingActivity(true)}
+                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem', marginTop: '0.25rem' }}
+                >+ הוסף פעילות</button>
+              )}
+            </div>
+
+            {/* Workers section */}
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: accentColor, marginBottom: '0.5rem', borderBottom: `2px solid ${accentColor}20`, paddingBottom: '0.25rem' }}>
+                עובדים משובצים
+              </div>
+              {siteAssignments.length === 0 ? (
+                <div style={{ fontSize: '0.85rem', color: '#9ca3af', fontStyle: 'italic', marginBottom: '0.5rem' }}>אין שיבוצים</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                  {siteAssignments.map(a => {
+                    const workerAuthIds = workerAuthorizations[a.worker_id] || [];
+                    const missingActivities = activities.filter(act => act.activity_type_id && !workerAuthIds.includes(act.activity_type_id));
+                    return (
+                      <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f8fafc', borderRadius: '6px', padding: '0.4rem 0.6rem', border: missingActivities.length > 0 ? '1px solid #fbbf24' : '1px solid #e5e7eb' }}>
+                        <span style={{ flex: 1, fontSize: '0.88rem', fontWeight: 500 }}>{a.family_name} {a.first_name}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{formatTime24(resolveTime(a, shift_type, 'start_time'))}–{formatTime24(resolveTime(a, shift_type, 'end_time'))}</span>
+                        {missingActivities.length > 0 && (
+                          <span title={`חסר הרשאה ל: ${missingActivities.map(act => act.activity_name).join(', ')}`} style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#92400e', borderRadius: '4px', padding: '0.1rem 0.3rem' }}>⚠ חלקי</span>
+                        )}
+                        <button onClick={e => { e.stopPropagation(); openEditModal(a); }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '0.8rem' }} title="ערוך שעות">✏️</button>
+                        <button onClick={e => { e.stopPropagation(); deleteAssignment(a.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem' }} title="הסר שיבוץ">✕</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Activity authorization summary */}
+              {activities.length > 0 && (
+                <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.75rem', background: '#f9fafb', borderRadius: '4px', padding: '0.3rem 0.5rem' }}>
+                  {activities.map(act => {
+                    if (!act.activity_type_id) return null;
+                    const covered = siteAssignments.some(a => (workerAuthorizations[a.worker_id] || []).includes(act.activity_type_id));
+                    return (
+                      <span key={act.id} style={{ marginLeft: '0.75rem', color: covered ? '#15803d' : '#dc2626' }}>
+                        {covered ? '✓' : '✗'} {act.activity_name}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button
+                className="shift-card__add-btn"
+                style={{ fontSize: '0.85rem' }}
+                onClick={() => {
+                  setAddingToShiftInSite({ site_id, shift_type });
+                  setNewAssignment({ worker_id: null, start_time: shiftStart, end_time: shiftEnd, notes: '' });
+                  setShowAllWorkers(false);
+                }}
+              >+ שיבוץ עובד</button>
+
+              {addingToShiftInSite && addingToShiftInSite.site_id === site_id && addingToShiftInSite.shift_type === shift_type && (
+                <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#fff', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                      <input type="checkbox" checked={showAllWorkers} onChange={e => { setShowAllWorkers(e.target.checked); setNewAssignment({ ...newAssignment, worker_id: null }); setJobFilter(null); }} />
+                      צפה בכל העובדים
+                    </label>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <select
+                      value={newAssignment.worker_id || ''}
+                      onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
+                      style={{ flex: 1, fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
+                    >
+                      <option value="">בחר עובד...</option>
+                      {getEligibleWorkers(site_id, shift_type).map(w => (
+                        <option key={w.id} value={w.id}>{w.family_name} {w.first_name}</option>
+                      ))}
+                    </select>
+                    <button className="btn-primary" onClick={saveNewAssignment} disabled={!newAssignment.worker_id} style={{ fontSize: '0.85rem', padding: '0.3rem 0.6rem' }}>שמור</button>
+                    <button className="btn-secondary" onClick={() => { setAddingToShiftInSite(null); setNewAssignment({ worker_id: null }); setShowAllWorkers(false); }} style={{ fontSize: '0.85rem', padding: '0.3rem 0.6rem' }}>ביטול</button>
+                  </div>
+                  {newAssignment.worker_id && !didWorkerRequestShift(newAssignment.worker_id, shift_type) && (
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: '#991b1b', background: '#fee2e2', borderRadius: '4px', padding: '0.3rem 0.5rem' }}>⛔ העובד לא ביקש משמרת זו</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   function ShiftHeaderTimes({ site, shiftType, accentColor }) {
     const editKey = `${site.id}-${shiftType}`;
     const shiftTimes = getSiteShiftTimes(site.id, shiftType);
@@ -1924,15 +2259,13 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   return (groupSitesByGroup(config.sites)[selectedGroupId] || []).map((site) => {
                   const morningAssignments = getSiteShiftAssignments(site.id, 'morning');
                   const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
-                  const morningActivity = getSiteShiftActivity(site.id, 'morning');
-                  const eveningActivity = getSiteShiftActivity(site.id, 'evening');
                   const morningTimes = getSiteShiftTimes(site.id, 'morning');
                   const eveningTimes = getSiteShiftTimes(site.id, 'evening');
                   const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
                   const fs = v => `${(v * scale).toFixed(3)}rem`;
 
-                  const hasMorningActivity = !!morningActivity?.activity_type_id;
-                  const hasEveningActivity = !!eveningActivity?.activity_type_id;
+                  const hasMorningActivity = getSiteShiftActivities(site.id, 'morning').some(a => a.activity_type_id);
+                  const hasEveningActivity = getSiteShiftActivities(site.id, 'evening').some(a => a.activity_type_id);
                   const morningCovered = hasMorningActivity
                     ? isTimeRangeCovered(morningAssignments, shiftDefaults.morning?.default_start || morningStart, shiftDefaults.morning?.default_end || morningEnd)
                     : true;
@@ -1965,24 +2298,30 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     eveningBgColor = '#e5e7eb';
                   }
 
+                  const morningActivities = getSiteShiftActivities(site.id, 'morning');
+                  const eveningActivities = getSiteShiftActivities(site.id, 'evening');
+
                   return (
                     <div
                       key={site.id}
                       className="site-square"
                       style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }}
-                      onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}
                     >
                       <div className="site-square-title" style={{fontSize: fs(0.78), color: '#8B0000', fontWeight: 700}}>{site.name}</div>
-                      <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: morningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
+                      <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: morningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%', cursor: 'pointer'}}
+                        onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>
                         <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                           <span className="site-square-icon" style={{fontSize: fs(0.78)}}>☀</span>
                           <span style={{fontSize: fs(0.6), color: '#b45309', fontWeight: 600, whiteSpace: 'nowrap'}}>{formatTime24(morningTimes.start_time)}–{formatTime24(morningTimes.end_time)}</span>
                         </div>
-                        {morningActivity?.activity_type_id && (
-                          <div style={{}}>
-                            <span style={{ fontSize: fs(0.65), color: '#b45309', fontWeight: 600, padding: `${0.2 * scale}rem ${0.35 * scale}rem`, background: '#fef9e7', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
-                              {(config.activity_types || []).find(at => at.id === morningActivity.activity_type_id)?.name}
-                            </span>
+                        {morningActivities.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: `${0.15 * scale}rem` }}>
+                            {morningActivities.slice(0, 2).map((act, i) => (
+                              <span key={i} style={{ fontSize: fs(0.62), color: '#b45309', fontWeight: 600, padding: `${0.15 * scale}rem ${0.3 * scale}rem`, background: '#fef9e7', borderRadius: '3px', whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
+                                {act.start_time ? `${act.start_time} ` : ''}{act.activity_name}
+                              </span>
+                            ))}
+                            {morningActivities.length > 2 && <span style={{ fontSize: fs(0.62), color: '#b45309', fontWeight: 600 }}>+{morningActivities.length - 2}</span>}
                           </div>
                         )}
                         <div className="site-square-names" style={{fontSize: fs(0.58), lineHeight: '1.3'}}>
@@ -2002,16 +2341,20 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           }) : <div>—</div>}
                         </div>
                       </div>
-                      <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: eveningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
+                      <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: eveningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%', cursor: 'pointer'}}
+                        onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>
                         <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                           <span className="site-square-icon" style={{fontSize: fs(0.78)}}>🌙</span>
                           <span style={{fontSize: fs(0.6), color: '#0369a1', fontWeight: 600, whiteSpace: 'nowrap'}}>{formatTime24(eveningTimes.start_time)}–{formatTime24(eveningTimes.end_time)}</span>
                         </div>
-                        {eveningActivity?.activity_type_id && (
-                          <div style={{}}>
-                            <span style={{ fontSize: fs(0.65), color: '#0369a1', fontWeight: 600, padding: `${0.2 * scale}rem ${0.35 * scale}rem`, background: '#f0f9ff', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
-                              {(config.activity_types || []).find(at => at.id === eveningActivity.activity_type_id)?.name}
-                            </span>
+                        {eveningActivities.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: `${0.15 * scale}rem` }}>
+                            {eveningActivities.slice(0, 2).map((act, i) => (
+                              <span key={i} style={{ fontSize: fs(0.62), color: '#0369a1', fontWeight: 600, padding: `${0.15 * scale}rem ${0.3 * scale}rem`, background: '#f0f9ff', borderRadius: '3px', whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
+                                {act.start_time ? `${act.start_time} ` : ''}{act.activity_name}
+                              </span>
+                            ))}
+                            {eveningActivities.length > 2 && <span style={{ fontSize: fs(0.62), color: '#0369a1', fontWeight: 600 }}>+{eveningActivities.length - 2}</span>}
                           </div>
                         )}
                         <div className="site-square-names" style={{fontSize: fs(0.58), lineHeight: '1.3'}}>
@@ -2126,31 +2469,31 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   {regularSites.map((site) => {
                     const morningAssignments = getSiteShiftAssignments(site.id, 'morning');
                     const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
-                    const morningActivity = getSiteShiftActivity(site.id, 'morning');
-                    const eveningActivity = getSiteShiftActivity(site.id, 'evening');
                     const morningTimes = getSiteShiftTimes(site.id, 'morning');
                     const eveningTimes = getSiteShiftTimes(site.id, 'evening');
                     const scale = Math.max(0.6, Math.min(1.8, cardSize / 148));
                     const fs = v => `${(v * scale).toFixed(3)}rem`;
-                    const hasMorningActivity = !!morningActivity?.activity_type_id;
-                    const hasEveningActivity = !!eveningActivity?.activity_type_id;
+                    const hasMorningActivity = getSiteShiftActivities(site.id, 'morning').some(a => a.activity_type_id);
+                    const hasEveningActivity = getSiteShiftActivities(site.id, 'evening').some(a => a.activity_type_id);
                     const morningCovered = hasMorningActivity ? isTimeRangeCovered(morningAssignments, shiftDefaults.morning?.default_start || morningStart, shiftDefaults.morning?.default_end || morningEnd) : true;
                     const eveningCovered = hasEveningActivity ? isTimeRangeCovered(eveningAssignments, shiftDefaults.evening?.default_start || eveningStart, shiftDefaults.evening?.default_end || eveningEnd) : true;
                     const isCardEmpty = !hasMorningActivity && !hasEveningActivity && morningAssignments.length === 0 && eveningAssignments.length === 0;
                     const groupBg = groupBgMap[site.group_id] || '#ffffff';
                     let morningBgColor = isCardEmpty ? '#d1d5db' : hasMorningActivity && !morningCovered ? '#fee2e2' : hasMorningActivity && morningCovered ? '#dcfce7' : '#e5e7eb';
                     let eveningBgColor = isCardEmpty ? '#d1d5db' : hasEveningActivity && !eveningCovered ? '#fee2e2' : hasEveningActivity && eveningCovered ? '#dcfce7' : '#e5e7eb';
+                    const mActivities = getSiteShiftActivities(site.id, 'morning');
+                    const eActivities = getSiteShiftActivities(site.id, 'evening');
                     return (
-                      <div key={site.id} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }} onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}>
+                      <div key={site.id} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }}>
                         <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
-                        <div className="site-square-shift" style={{background: morningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px'}}>
+                        <div className="site-square-shift" style={{background: morningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px', cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>☀️</span>{morningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#92400e',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(morningTimes.start_time)}{morningTimes.end_time?`–${formatTime24(morningTimes.end_time)}`:''}</span>}</div>
-                          {morningActivity?.activity_type_id&&<div style={{}}><span style={{fontSize:fs(0.65),color:'#92400e',fontWeight:600}}>{(config.activity_types||[]).find(at=>at.id===morningActivity.activity_type_id)?.name}</span></div>}
+                          {mActivities.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:`${0.15*scale}rem`}}>{mActivities.slice(0,2).map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#92400e',fontWeight:600}}>{a.activity_name}</span>)}{mActivities.length>2&&<span style={{fontSize:fs(0.62),color:'#92400e'}}>+{mActivities.length-2}</span>}</div>}
                           <div className="site-square-names" style={{fontSize:fs(0.58),lineHeight:'1.3'}}>{morningAssignments.length>0?morningAssignments.map((a,idx)=><div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>):<div>—</div>}</div>
                         </div>
-                        <div className="site-square-shift" style={{background: eveningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px'}}>
+                        <div className="site-square-shift" style={{background: eveningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px', cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>🌙</span>{eveningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#1e40af',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(eveningTimes.start_time)}{eveningTimes.end_time?`–${formatTime24(eveningTimes.end_time)}`:''}</span>}</div>
-                          {eveningActivity?.activity_type_id&&<div style={{}}><span style={{fontSize:fs(0.65),color:'#1e40af',fontWeight:600}}>{(config.activity_types||[]).find(at=>at.id===eveningActivity.activity_type_id)?.name}</span></div>}
+                          {eActivities.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:`${0.15*scale}rem`}}>{eActivities.slice(0,2).map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#1e40af',fontWeight:600}}>{a.activity_name}</span>)}{eActivities.length>2&&<span style={{fontSize:fs(0.62),color:'#1e40af'}}>+{eActivities.length-2}</span>}</div>}
                           <div className="site-square-names" style={{fontSize:fs(0.58),lineHeight:'1.3'}}>{eveningAssignments.length>0?eveningAssignments.map((a,idx)=><div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>):<div>—</div>}</div>
                         </div>
                       </div>
@@ -2954,6 +3297,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     )}
 
     {showReportPreview && <ReportPreview />}
+
+    <ShiftManagementModal />
 
     {showSendModal && (
       <div className={dragSendModal.overlayClass} onClick={() => { setShowSendModal(false); setSendResult(null); setPreviewMessages(null); dragSendModal.reset(); }}>

@@ -1013,6 +1013,18 @@ async function runMigrations() {
     await query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS approval_request_id INTEGER REFERENCES shift_approval_requests(id) ON DELETE SET NULL`);
     await query(`ALTER TABLE shift_requests ADD COLUMN IF NOT EXISTS pending_approval_id INTEGER REFERENCES shift_approval_requests(id) ON DELETE SET NULL`);
 
+    // Multi-activity per shift: drop old single-activity unique constraint, add sort_order/start_time
+    await query(`
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'site_shift_activities_site_id_date_shift_type_key') THEN
+          ALTER TABLE site_shift_activities DROP CONSTRAINT site_shift_activities_site_id_date_shift_type_key;
+        END IF;
+      END $$
+    `);
+    await query(`ALTER TABLE site_shift_activities ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
+    await query(`ALTER TABLE site_shift_activities ADD COLUMN IF NOT EXISTS start_time TEXT`);
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS ssa_site_date_shift_activity ON site_shift_activities(site_id, date, shift_type, activity_type_id) WHERE activity_type_id IS NOT NULL`);
+
     console.log('✓ Migrations complete');
   } catch (error) {
     console.error('Error running migrations:', error);

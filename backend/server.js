@@ -3565,10 +3565,11 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
     const assignmentsRes = await query(assignmentsQuery, params);
     const siteAssignments = assignmentsRes.rows;
 
-    // Get site shift activities for the month
+    // Get site shift activities for the month (multiple per shift, ordered)
     let activitiesQuery = `
       SELECT ssa.id, ssa.site_id, ssa.date, ssa.shift_type,
-             ssa.activity_type_id, at.name AS activity_name
+             ssa.activity_type_id, at.name AS activity_name,
+             ssa.sort_order, ssa.start_time
       FROM site_shift_activities ssa
       LEFT JOIN activity_types at ON ssa.activity_type_id = at.id
     `;
@@ -3587,7 +3588,7 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
       actParams.push(siteId);
     }
 
-    activitiesQuery += ' ORDER BY ssa.date, ssa.site_id, ssa.shift_type';
+    activitiesQuery += ' ORDER BY ssa.date, ssa.site_id, ssa.shift_type, ssa.sort_order, ssa.start_time';
 
     const activitiesRes = await query(activitiesQuery, actParams);
     const siteShiftActivities = activitiesRes.rows;
@@ -4274,22 +4275,27 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'סוג משמרת לא תקין' });
     }
 
-    // Check if site has an activity type set for this shift/date
+    // Check activity authorizations for all activity types set on this shift
     const activityRes = await query(`
-      SELECT activity_type_id FROM site_shift_activities
-      WHERE site_id = $1 AND date = $2 AND shift_type = $3
+      SELECT ssa.activity_type_id, at.name AS activity_name
+      FROM site_shift_activities ssa
+      JOIN activity_types at ON at.id = ssa.activity_type_id
+      WHERE ssa.site_id = $1 AND ssa.date = $2 AND ssa.shift_type = $3 AND ssa.activity_type_id IS NOT NULL
     `, [site_id, date, shiftType]);
 
     if (activityRes.rows.length > 0) {
-      const activityTypeId = activityRes.rows[0].activity_type_id;
-      if (activityTypeId) {
-        const specificAuthRes = await query(
-          `SELECT COUNT(*) as count FROM worker_activity_authorizations WHERE worker_id = $1 AND activity_type_id = $2`,
-          [worker_id, activityTypeId]
-        );
-        if (parseInt(specificAuthRes.rows[0].count) === 0) {
-          return res.status(403).json({ error: 'עובד לא מורשה לסוג פעילות זה' });
-        }
+      const authRes = await query(
+        `SELECT activity_type_id FROM worker_activity_authorizations WHERE worker_id = $1`,
+        [worker_id]
+      );
+      const workerAuthIds = new Set(authRes.rows.map(r => r.activity_type_id));
+      const missing = activityRes.rows.filter(r => !workerAuthIds.has(r.activity_type_id));
+      if (missing.length === activityRes.rows.length) {
+        return res.status(403).json({ error: 'עובד לא מורשה לאף סוג פעילות בחדר זה' });
+      }
+      if (missing.length > 0) {
+        // partial auth — will add warning after insert
+        var missingActivityNames = missing.map(r => r.activity_name);
       }
     }
 
@@ -4334,6 +4340,9 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
     `, [worker_id, date, site_id, shiftType, start_time || null, end_time || null, notes || null]);
 
     let warning = null;
+    if (typeof missingActivityNames !== 'undefined' && missingActivityNames.length > 0) {
+      warning = `עובד חסר הרשאה לפעילויות: ${missingActivityNames.join(', ')}`;
+    }
     if (shiftType === 'morning') {
       const prevDate = new Date(date);
       prevDate.setDate(prevDate.getDate() - 1);
@@ -4344,7 +4353,8 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
         LIMIT 1
       `, [worker_id, prevDateStr]);
       if (nightCheck.rows.length > 0) {
-        warning = 'שימו לב: העובד שובץ לתורנות לילה אמש — ייתכן שלא עברו 8 שעות מנוחה';
+        const nightWarning = 'שימו לב: העובד שובץ לתורנות לילה אמש — ייתכן שלא עברו 8 שעות מנוחה';
+        warning = warning ? `${warning}. ${nightWarning}` : nightWarning;
       }
     }
 
@@ -4412,26 +4422,73 @@ app.post('/api/site-shift-activities', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'סוג משמרת לא תקין' });
     }
 
-    // Upsert: insert or update
-    if (activity_type_id) {
-      await query(`
-        INSERT INTO site_shift_activities (site_id, date, shift_type, activity_type_id)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT(site_id, date, shift_type) DO UPDATE SET
-          activity_type_id = excluded.activity_type_id
-      `, [site_id, date, shift_type, activity_type_id]);
-    } else {
-      // If no activity_type_id, delete the entry
-      await query(`
-        DELETE FROM site_shift_activities
-        WHERE site_id = $1 AND date = $2 AND shift_type = $3
-      `, [site_id, date, shift_type]);
+    if (!activity_type_id) {
+      // Clear all activities for this shift
+      await query(`DELETE FROM site_shift_activities WHERE site_id = $1 AND date = $2 AND shift_type = $3`, [site_id, date, shift_type]);
+      return res.json({ ok: true });
     }
 
-    res.json({ ok: true });
+    // Compute next sort_order
+    const maxRes = await query(
+      `SELECT COALESCE(MAX(sort_order), -1) AS mx FROM site_shift_activities WHERE site_id = $1 AND date = $2 AND shift_type = $3`,
+      [site_id, date, shift_type]
+    );
+    const sortOrder = maxRes.rows[0].mx + 1;
+
+    const r = await query(`
+      INSERT INTO site_shift_activities (site_id, date, shift_type, activity_type_id, sort_order)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, sort_order
+    `, [site_id, date, shift_type, activity_type_id, sortOrder]);
+
+    res.json({ ok: true, id: r.rows[0].id, sort_order: r.rows[0].sort_order });
   } catch (error) {
+    if (error.code === '23505') return res.status(409).json({ error: 'סוג פעילות זה כבר קיים במשמרת' });
     console.error('Error saving site shift activity:', error);
     res.status(500).json({ error: 'שגיאה בשמירת פעילות' });
+  }
+});
+
+app.put('/api/site-shift-activities/reorder', requireAdmin, async (req, res) => {
+  try {
+    const items = req.body; // [{ id, sort_order }, ...]
+    if (!Array.isArray(items)) return res.status(400).json({ error: 'נדרש מערך' });
+    for (const item of items) {
+      await query(`UPDATE site_shift_activities SET sort_order = $1 WHERE id = $2`, [item.sort_order, item.id]);
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Reorder site shift activities error:', error);
+    res.status(500).json({ error: 'שגיאה בעדכון סדר' });
+  }
+});
+
+app.put('/api/site-shift-activities/:id', requireAdmin, async (req, res) => {
+  try {
+    const { start_time, sort_order } = req.body;
+    const id = req.params.id;
+
+    if (start_time !== undefined) {
+      // Validate start_time format HH:MM
+      if (start_time !== null && !/^\d{2}:\d{2}$/.test(start_time)) {
+        return res.status(400).json({ error: 'פורמט שעה לא תקין' });
+      }
+    }
+
+    const fields = [];
+    const vals = [];
+    let idx = 1;
+    if (start_time !== undefined) { fields.push(`start_time = $${idx++}`); vals.push(start_time || null); }
+    if (sort_order !== undefined) { fields.push(`sort_order = $${idx++}`); vals.push(sort_order); }
+    if (!fields.length) return res.status(400).json({ error: 'אין שדות לעדכון' });
+
+    vals.push(id);
+    const r = await query(`UPDATE site_shift_activities SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id`, vals);
+    if (r.rowCount === 0) return res.status(404).json({ error: 'פעילות לא נמצאה' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Update site shift activity error:', error);
+    res.status(500).json({ error: 'שגיאה בעדכון פעילות' });
   }
 });
 
