@@ -1052,6 +1052,30 @@ async function runMigrations() {
       END $$
     `);
 
+    // Activity template items: support multiple activities per shift
+    await query(`ALTER TABLE activity_template_items ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
+    await query(`
+      DO $$ DECLARE r RECORD; BEGIN
+        FOR r IN
+          SELECT c.conname FROM pg_constraint c
+          JOIN pg_class t ON c.conrelid = t.oid
+          WHERE t.relname = 'activity_template_items' AND c.contype = 'u'
+            AND pg_get_constraintdef(c.oid) LIKE '%template_id%'
+            AND pg_get_constraintdef(c.oid) NOT LIKE '%activity_type_id%'
+        LOOP
+          EXECUTE format('ALTER TABLE activity_template_items DROP CONSTRAINT %I', r.conname);
+        END LOOP;
+      END $$
+    `);
+    await query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ati_unique_per_activity') THEN
+          ALTER TABLE activity_template_items ADD CONSTRAINT ati_unique_per_activity
+            UNIQUE(template_id, site_id, shift_type, activity_type_id);
+        END IF;
+      END $$
+    `);
+
     console.log('✓ Migrations complete');
   } catch (error) {
     console.error('Error running migrations:', error);

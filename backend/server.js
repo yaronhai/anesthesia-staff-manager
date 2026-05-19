@@ -4691,15 +4691,15 @@ app.put('/api/config/activity-templates/:id/items', requireAdmin, async (req, re
     await query('DELETE FROM activity_template_items WHERE template_id = $1', [templateId]);
 
     // Insert new items
-    for (const item of items) {
-      const { site_id, shift_type, activity_type_id } = item;
+    for (const [idx, item] of items.entries()) {
+      const { site_id, shift_type, activity_type_id, sort_order } = item;
       if (!site_id || !shift_type || !activity_type_id) {
         return res.status(400).json({ error: 'Missing required fields in item' });
       }
       await query(`
-        INSERT INTO activity_template_items (template_id, site_id, shift_type, activity_type_id)
-        VALUES ($1, $2, $3, $4)
-      `, [templateId, site_id, shift_type, activity_type_id]);
+        INSERT INTO activity_template_items (template_id, site_id, shift_type, activity_type_id, sort_order)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [templateId, site_id, shift_type, activity_type_id, sort_order ?? idx]);
     }
 
     res.json({ ok: true });
@@ -4726,11 +4726,11 @@ app.post('/api/config/activity-templates/:id/apply', requireAdmin, async (req, r
 
     // Insert template items into site_shift_activities, ignoring conflicts
     await query(`
-      INSERT INTO site_shift_activities (site_id, date, shift_type, activity_type_id)
-      SELECT site_id, $1, shift_type, activity_type_id
+      INSERT INTO site_shift_activities (site_id, date, shift_type, activity_type_id, sort_order)
+      SELECT site_id, $1, shift_type, activity_type_id, sort_order
       FROM activity_template_items
       WHERE template_id = $2
-      ON CONFLICT(site_id, date, shift_type) DO NOTHING
+      ON CONFLICT (site_id, date, shift_type, activity_type_id) WHERE activity_type_id IS NOT NULL DO NOTHING
     `, [date, templateId]);
 
     res.json({ ok: true });

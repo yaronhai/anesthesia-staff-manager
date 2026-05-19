@@ -1250,6 +1250,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         site_id: a.site_id,
         shift_type: a.shift_type,
         activity_type_id: a.activity_type_id,
+        sort_order: a.sort_order ?? 0,
       }));
       const itemsRes = await fetch(`/api/config/activity-templates/${newTemplate.id}/items${branchQS}`, {
         method: 'PUT',
