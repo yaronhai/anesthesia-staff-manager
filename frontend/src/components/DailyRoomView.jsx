@@ -1551,6 +1551,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     const [newActivityGroupFilter, setNewActivityGroupFilter] = useState('');
     const [activityError, setActivityError] = useState('');
     const [timeErrors, setTimeErrors] = useState({}); // actId-field -> error string
+    const [editingShiftTimes, setEditingShiftTimes] = useState(false);
 
     if (!selectedShiftModal) return null;
     const { site_id, shift_type } = selectedShiftModal;
@@ -1701,15 +1702,27 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             {/* Shift times editor */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.5rem 0.75rem' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', flexShrink: 0 }}>שעות משמרת:</span>
-              <TimePickerInput
-                value={shiftTimes.start_time || shiftDefaultStart}
-                onChange={val => saveSiteShiftTimes(site_id, shift_type, val, shiftTimes.end_time || shiftDefaultEnd)}
-              />
-              <span style={{ color: '#9ca3af' }}>–</span>
-              <TimePickerInput
-                value={shiftTimes.end_time || shiftDefaultEnd}
-                onChange={val => saveSiteShiftTimes(site_id, shift_type, shiftTimes.start_time || shiftDefaultStart, val)}
-              />
+              {editingShiftTimes ? (
+                <>
+                  <TimePickerInput
+                    value={shiftTimes.start_time || shiftDefaultStart}
+                    onChange={val => saveSiteShiftTimes(site_id, shift_type, val, shiftTimes.end_time || shiftDefaultEnd)}
+                  />
+                  <span style={{ color: '#9ca3af' }}>–</span>
+                  <TimePickerInput
+                    value={shiftTimes.end_time || shiftDefaultEnd}
+                    onChange={val => saveSiteShiftTimes(site_id, shift_type, shiftTimes.start_time || shiftDefaultStart, val)}
+                  />
+                  <button onClick={() => setEditingShiftTimes(false)} className="btn-secondary" style={{ padding: '0.15rem 0.4rem', fontSize: '0.75rem' }}>✓</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: accentColor, fontVariantNumeric: 'tabular-nums' }}>
+                    {formatTime24(shiftTimes.start_time || shiftDefaultStart)}–{formatTime24(shiftTimes.end_time || shiftDefaultEnd)}
+                  </span>
+                  <button onClick={() => setEditingShiftTimes(true)} className="btn-edit-small" title="ערוך שעות" style={{ padding: '0.15rem 0.35rem', fontSize: '0.75rem' }}>✏️</button>
+                </>
+              )}
             </div>
 
             {/* Section header */}
