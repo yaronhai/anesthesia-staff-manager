@@ -2463,13 +2463,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           <span style={{fontSize: fs(0.6), color: '#b45309', fontWeight: 600, whiteSpace: 'nowrap'}}>{formatTime24(morningTimes.start_time)}–{formatTime24(morningTimes.end_time)}</span>
                         </div>
                         {morningActivities.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: `${0.15 * scale}rem` }}>
-                            {morningActivities.slice(0, 2).map((act, i) => (
-                              <span key={i} style={{ fontSize: fs(0.62), color: '#b45309', fontWeight: 600, padding: `${0.15 * scale}rem ${0.3 * scale}rem`, background: '#fef9e7', borderRadius: '3px', whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
-                                {act.start_time ? `${act.start_time} ` : ''}{act.activity_name}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: `${0.1 * scale}rem` }}>
+                            {morningActivities.map((act, i) => (
+                              <span key={i} style={{ fontSize: fs(0.62), color: '#b45309', fontWeight: 600 }}>
+                                {act.start_time ? `${formatTime24(act.start_time)} ` : ''}{act.activity_name}
                               </span>
                             ))}
-                            {morningActivities.length > 2 && <span style={{ fontSize: fs(0.62), color: '#b45309', fontWeight: 600 }}>+{morningActivities.length - 2}</span>}
                           </div>
                         )}
                       </div>
@@ -2480,13 +2479,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           <span style={{fontSize: fs(0.6), color: '#0369a1', fontWeight: 600, whiteSpace: 'nowrap'}}>{formatTime24(eveningTimes.start_time)}–{formatTime24(eveningTimes.end_time)}</span>
                         </div>
                         {eveningActivities.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: `${0.15 * scale}rem` }}>
-                            {eveningActivities.slice(0, 2).map((act, i) => (
-                              <span key={i} style={{ fontSize: fs(0.62), color: '#0369a1', fontWeight: 600, padding: `${0.15 * scale}rem ${0.3 * scale}rem`, background: '#f0f9ff', borderRadius: '3px', whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
-                                {act.start_time ? `${act.start_time} ` : ''}{act.activity_name}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: `${0.1 * scale}rem` }}>
+                            {eveningActivities.map((act, i) => (
+                              <span key={i} style={{ fontSize: fs(0.62), color: '#0369a1', fontWeight: 600 }}>
+                                {act.start_time ? `${formatTime24(act.start_time)} ` : ''}{act.activity_name}
                               </span>
                             ))}
-                            {eveningActivities.length > 2 && <span style={{ fontSize: fs(0.62), color: '#0369a1', fontWeight: 600 }}>+{eveningActivities.length - 2}</span>}
                           </div>
                         )}
                       </div>
@@ -2602,11 +2600,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
                         <div className="site-square-shift" style={{background: morningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px', cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>☀️</span>{morningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#92400e',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(morningTimes.start_time)}{morningTimes.end_time?`–${formatTime24(morningTimes.end_time)}`:''}</span>}</div>
-                          {mActivities.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:`${0.15*scale}rem`}}>{mActivities.slice(0,2).map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#92400e',fontWeight:600}}>{a.activity_name}</span>)}{mActivities.length>2&&<span style={{fontSize:fs(0.62),color:'#92400e'}}>+{mActivities.length-2}</span>}</div>}
+                          {mActivities.length>0&&<div style={{display:'flex',flexDirection:'column',gap:`${0.1*scale}rem`}}>{mActivities.map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#92400e',fontWeight:600}}>{a.start_time?`${formatTime24(a.start_time)} `:''}{a.activity_name}</span>)}</div>}
                         </div>
                         <div className="site-square-shift" style={{background: eveningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px', cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>🌙</span>{eveningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#1e40af',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(eveningTimes.start_time)}{eveningTimes.end_time?`–${formatTime24(eveningTimes.end_time)}`:''}</span>}</div>
-                          {eActivities.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:`${0.15*scale}rem`}}>{eActivities.slice(0,2).map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#1e40af',fontWeight:600}}>{a.activity_name}</span>)}{eActivities.length>2&&<span style={{fontSize:fs(0.62),color:'#1e40af'}}>+{eActivities.length-2}</span>}</div>}
+                          {eActivities.length>0&&<div style={{display:'flex',flexDirection:'column',gap:`${0.1*scale}rem`}}>{eActivities.map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#1e40af',fontWeight:600}}>{a.start_time?`${formatTime24(a.start_time)} `:''}{a.activity_name}</span>)}</div>}
                         </div>
                       </div>
                     );
