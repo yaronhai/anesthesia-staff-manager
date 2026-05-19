@@ -3538,6 +3538,7 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
     let assignmentsQuery = `
       SELECT wsa.id, wsa.worker_id, wsa.date, wsa.site_id,
              wsa.shift_type, wsa.start_time, wsa.end_time, wsa.notes,
+             wsa.site_shift_activity_id,
              s.name AS site_name,
              w.first_name, w.family_name, jt.name AS job_name
       FROM worker_site_assignments wsa
@@ -3569,7 +3570,7 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
     let activitiesQuery = `
       SELECT ssa.id, ssa.site_id, ssa.date, ssa.shift_type,
              ssa.activity_type_id, at.name AS activity_name,
-             ssa.sort_order, ssa.start_time
+             ssa.sort_order, ssa.start_time, ssa.end_time
       FROM site_shift_activities ssa
       LEFT JOIN activity_types at ON ssa.activity_type_id = at.id
     `;
@@ -4265,7 +4266,7 @@ app.delete('/api/staffing/coverage-requests/:id', requireAdmin, async (req, res)
 
 app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
   try {
-    const { worker_id, date, site_id, shift_type, start_time, end_time, notes } = req.body;
+    const { worker_id, date, site_id, shift_type, start_time, end_time, notes, site_shift_activity_id } = req.body;
     const shiftType = shift_type || 'morning';
 
     if (!worker_id || !date || !site_id) {
@@ -4275,27 +4276,44 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'סוג משמרת לא תקין' });
     }
 
-    // Check activity authorizations for all activity types set on this shift
-    const activityRes = await query(`
-      SELECT ssa.activity_type_id, at.name AS activity_name
-      FROM site_shift_activities ssa
-      JOIN activity_types at ON at.id = ssa.activity_type_id
-      WHERE ssa.site_id = $1 AND ssa.date = $2 AND ssa.shift_type = $3 AND ssa.activity_type_id IS NOT NULL
-    `, [site_id, date, shiftType]);
-
-    if (activityRes.rows.length > 0) {
-      const authRes = await query(
-        `SELECT activity_type_id FROM worker_activity_authorizations WHERE worker_id = $1`,
-        [worker_id]
-      );
-      const workerAuthIds = new Set(authRes.rows.map(r => r.activity_type_id));
-      const missing = activityRes.rows.filter(r => !workerAuthIds.has(r.activity_type_id));
-      if (missing.length === activityRes.rows.length) {
-        return res.status(403).json({ error: 'עובד לא מורשה לאף סוג פעילות בחדר זה' });
+    // Check activity authorization — when assigning to a specific activity, check only that one
+    let missingActivityNames;
+    if (site_shift_activity_id) {
+      const actRes = await query(`
+        SELECT ssa.activity_type_id, at.name AS activity_name
+        FROM site_shift_activities ssa
+        JOIN activity_types at ON at.id = ssa.activity_type_id
+        WHERE ssa.id = $1 AND ssa.activity_type_id IS NOT NULL
+      `, [site_shift_activity_id]);
+      if (actRes.rows.length > 0) {
+        const authRes = await query(
+          `SELECT activity_type_id FROM worker_activity_authorizations WHERE worker_id = $1`,
+          [worker_id]
+        );
+        const workerAuthIds = new Set(authRes.rows.map(r => r.activity_type_id));
+        if (!workerAuthIds.has(actRes.rows[0].activity_type_id)) {
+          return res.status(403).json({ error: `עובד לא מורשה לפעילות "${actRes.rows[0].activity_name}"` });
+        }
       }
-      if (missing.length > 0) {
-        // partial auth — will add warning after insert
-        var missingActivityNames = missing.map(r => r.activity_name);
+    } else {
+      // Legacy: check all shift activities
+      const activityRes = await query(`
+        SELECT ssa.activity_type_id, at.name AS activity_name
+        FROM site_shift_activities ssa
+        JOIN activity_types at ON at.id = ssa.activity_type_id
+        WHERE ssa.site_id = $1 AND ssa.date = $2 AND ssa.shift_type = $3 AND ssa.activity_type_id IS NOT NULL
+      `, [site_id, date, shiftType]);
+      if (activityRes.rows.length > 0) {
+        const authRes = await query(
+          `SELECT activity_type_id FROM worker_activity_authorizations WHERE worker_id = $1`,
+          [worker_id]
+        );
+        const workerAuthIds = new Set(authRes.rows.map(r => r.activity_type_id));
+        const missing = activityRes.rows.filter(r => !workerAuthIds.has(r.activity_type_id));
+        if (missing.length === activityRes.rows.length) {
+          return res.status(403).json({ error: 'עובד לא מורשה לאף סוג פעילות בחדר זה' });
+        }
+        if (missing.length > 0) missingActivityNames = missing.map(r => r.activity_name);
       }
     }
 
@@ -4331,13 +4349,13 @@ app.post('/api/worker-site-assignments', requireAdmin, async (req, res) => {
     }
 
     await query(`
-      INSERT INTO worker_site_assignments (worker_id, date, site_id, shift_type, start_time, end_time, notes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT(worker_id, date, site_id, shift_type) DO UPDATE SET
+      INSERT INTO worker_site_assignments (worker_id, date, site_id, shift_type, start_time, end_time, notes, site_shift_activity_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ON CONFLICT ON CONSTRAINT wsa_unique_per_activity DO UPDATE SET
         start_time = excluded.start_time,
         end_time   = excluded.end_time,
         notes      = excluded.notes
-    `, [worker_id, date, site_id, shiftType, start_time || null, end_time || null, notes || null]);
+    `, [worker_id, date, site_id, shiftType, start_time || null, end_time || null, notes || null, site_shift_activity_id || null]);
 
     let warning = null;
     if (typeof missingActivityNames !== 'undefined' && missingActivityNames.length > 0) {
@@ -4465,13 +4483,20 @@ app.put('/api/site-shift-activities/reorder', requireAdmin, async (req, res) => 
 
 app.put('/api/site-shift-activities/:id', requireAdmin, async (req, res) => {
   try {
-    const { start_time, sort_order } = req.body;
+    const { start_time, end_time, sort_order } = req.body;
     const id = req.params.id;
 
-    if (start_time !== undefined) {
-      // Validate start_time format HH:MM
-      if (start_time !== null && !/^\d{2}:\d{2}$/.test(start_time)) {
-        return res.status(400).json({ error: 'פורמט שעה לא תקין' });
+    const timeRx = /^\d{2}:\d{2}$/;
+    if (start_time !== undefined && start_time !== null && !timeRx.test(start_time))
+      return res.status(400).json({ error: 'פורמט שעת התחלה לא תקין' });
+    if (end_time !== undefined && end_time !== null && !timeRx.test(end_time))
+      return res.status(400).json({ error: 'פורמט שעת סיום לא תקין' });
+
+    // Validate start < end when both provided
+    if (start_time && end_time) {
+      const toMins = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+      if (toMins(end_time) <= toMins(start_time)) {
+        return res.status(400).json({ error: 'שעת סיום חייבת להיות אחרי שעת התחלה' });
       }
     }
 
@@ -4479,6 +4504,7 @@ app.put('/api/site-shift-activities/:id', requireAdmin, async (req, res) => {
     const vals = [];
     let idx = 1;
     if (start_time !== undefined) { fields.push(`start_time = $${idx++}`); vals.push(start_time || null); }
+    if (end_time !== undefined)   { fields.push(`end_time = $${idx++}`);   vals.push(end_time || null); }
     if (sort_order !== undefined) { fields.push(`sort_order = $${idx++}`); vals.push(sort_order); }
     if (!fields.length) return res.status(400).json({ error: 'אין שדות לעדכון' });
 
@@ -5094,11 +5120,13 @@ app.get('/api/events', requireAuth, async (req, res) => {
     const result = await query(`
       SELECT e.*, et.name AS event_type_name,
         (SELECT COUNT(*) FROM event_sessions WHERE event_id = e.id) AS session_count,
-        (SELECT COUNT(*) FROM event_invitees WHERE event_id = e.id) AS invitee_count
+        (SELECT COUNT(*) FROM event_invitees WHERE event_id = e.id) AS invitee_count,
+        (SELECT MIN(session_date) FROM event_sessions WHERE event_id = e.id) AS first_session_date,
+        (SELECT MAX(session_date) FROM event_sessions WHERE event_id = e.id) AS last_session_date
       FROM events e
       LEFT JOIN event_types et ON e.event_type_id = et.id
       WHERE TRUE ${branchFilter}
-      ORDER BY e.created_at DESC
+      ORDER BY COALESCE((SELECT MIN(session_date) FROM event_sessions WHERE event_id = e.id), e.created_at::date) DESC
     `, branchId ? [branchId] : []);
     res.json(result.rows);
   } catch (e) {

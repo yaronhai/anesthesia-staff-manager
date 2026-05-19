@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useDraggableModal } from '../hooks/useDraggableModal';
+import TimePickerInput from './TimePickerInput';
 
 function Tip({ text, children }) {
   const [pos, setPos] = useState(null);
@@ -702,13 +703,14 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({
-          worker_id:   newAssignment.worker_id,
-          date:        dateStr,
-          site_id:     addingToShiftInSite.site_id,
-          shift_type:  addingToShiftInSite.shift_type,
-          start_time:  null,
-          end_time:    null,
-          notes:       null,
+          worker_id:               newAssignment.worker_id,
+          date:                    dateStr,
+          site_id:                 addingToShiftInSite.site_id,
+          shift_type:              addingToShiftInSite.shift_type,
+          start_time:              newAssignment.start_time || null,
+          end_time:                newAssignment.end_time   || null,
+          notes:                   null,
+          site_shift_activity_id:  addingToShiftInSite.activity_id || null,
         }),
       });
       if (res.ok) {
@@ -908,11 +910,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     if (res.ok) fetchAll();
   }
 
-  async function updateShiftActivityTime(activityId, startTime) {
+  async function updateShiftActivityTimes(activityId, fields) {
     const res = await fetch(`/api/site-shift-activities/${activityId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify({ start_time: startTime || null }),
+      body: JSON.stringify(fields),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -1489,7 +1491,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     const [newActivityId, setNewActivityId] = useState('');
     const [newActivityGroupFilter, setNewActivityGroupFilter] = useState('');
     const [activityError, setActivityError] = useState('');
-    const [timeErrors, setTimeErrors] = useState({}); // id -> error string
+    const [timeErrors, setTimeErrors] = useState({}); // actId-field -> error string
 
     if (!selectedShiftModal) return null;
     const { site_id, shift_type } = selectedShiftModal;
@@ -1517,17 +1519,28 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       ? availableActivityTypes.filter(at => String(at.group_id) === newActivityGroupFilter)
       : availableActivityTypes;
 
-    function validateTime(timeStr) {
+    const toMins = t => { const [h, m] = (t || '00:00').split(':').map(Number); return h * 60 + m; };
+
+    function validateActivityTime(timeStr) {
       if (!timeStr) return null;
       if (!/^\d{2}:\d{2}$/.test(timeStr)) return 'פורמט לא תקין';
       if (shiftStart && shiftEnd) {
-        const toMins = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-        const start = toMins(shiftStart);
-        const end = toMins(shiftEnd);
+        const s = toMins(shiftStart), e = toMins(shiftEnd);
         const t = toMins(timeStr);
-        const dayEnd = end <= start ? end + 24 * 60 : end;
-        const dayT = t < start ? t + 24 * 60 : t;
-        if (dayT < start || dayT >= dayEnd) return `מחוץ לשעות המשמרת (${shiftStart}–${shiftEnd})`;
+        const dayEnd = e <= s ? e + 24 * 60 : e;
+        const dayT = t < s ? t + 24 * 60 : t;
+        if (dayT < s || dayT >= dayEnd) return `מחוץ לשעות המשמרת (${shiftStart}–${shiftEnd})`;
+      }
+      return null;
+    }
+
+    function getSequenceError() {
+      const withTimes = activities.filter(a => a.start_time && a.end_time)
+        .sort((a, b) => toMins(a.start_time) - toMins(b.start_time));
+      for (let i = 0; i < withTimes.length - 1; i++) {
+        const curr = withTimes[i], next = withTimes[i + 1];
+        if (toMins(curr.end_time) > toMins(next.start_time))
+          return `חפיפה בין "${curr.activity_name}" (עד ${curr.end_time}) ל-"${next.activity_name}" (מ-${next.start_time})`;
       }
       return null;
     }
@@ -1545,14 +1558,27 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       }
     }
 
-    async function handleTimeChange(activity, val) {
-      const err = validateTime(val);
-      setTimeErrors(prev => ({ ...prev, [activity.id]: err }));
-      if (err) return;
+    async function handleActivityFieldChange(act, field, val) {
+      const errKey = `${act.id}-${field}`;
+      const err = validateActivityTime(val);
+      // cross-validate start < end
+      let crossErr = null;
+      if (!err && val) {
+        const otherField = field === 'start_time' ? 'end_time' : 'start_time';
+        const otherVal = field === 'start_time' ? act.end_time : act.start_time;
+        if (otherVal) {
+          const startMins = field === 'start_time' ? toMins(val) : toMins(otherVal);
+          const endMins   = field === 'end_time'   ? toMins(val) : toMins(otherVal);
+          if (endMins <= startMins) crossErr = 'שעת סיום חייבת להיות אחרי שעת ההתחלה';
+        }
+      }
+      const finalErr = err || crossErr;
+      setTimeErrors(prev => ({ ...prev, [errKey]: finalErr || null }));
+      if (finalErr) return;
       try {
-        await updateShiftActivityTime(activity.id, val || null);
+        await updateShiftActivityTimes(act.id, { [field]: val || null });
       } catch (e) {
-        setTimeErrors(prev => ({ ...prev, [activity.id]: e.message }));
+        setTimeErrors(prev => ({ ...prev, [errKey]: e.message }));
       }
     }
 
@@ -1570,12 +1596,25 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       await reorderShiftActivities(reordered.map((a, i) => ({ id: a.id, sort_order: i })));
     }
 
-    function getEndTime(idx) {
-      if (activities[idx + 1]?.start_time) return activities[idx + 1].start_time;
-      return shiftEnd || '';
-    }
-
     const siteAssignments = getSiteShiftAssignments(site_id, shift_type);
+    const sequenceError = getSequenceError();
+
+    // Base eligible workers (job restriction)
+    const siteObj = config.sites?.find(s => s.id === site_id);
+    const allowedJobs = siteObj?.group_id ? (config.site_group_allowed_jobs?.[siteObj.group_id] || null) : null;
+    const baseWorkers = allowedJobs?.length > 0
+      ? workers.filter(w => allowedJobs.some(j => j.job_id === w.job_id))
+      : workers;
+
+    function getActivityCandidates(act) {
+      const alreadyInActivity = new Set(siteAssignments.filter(a => a.site_shift_activity_id === act.id).map(a => a.worker_id));
+      const eligible = act.activity_type_id
+        ? baseWorkers.filter(w => (workerAuthorizations[w.id] || []).includes(act.activity_type_id) && !alreadyInActivity.has(w.id))
+        : baseWorkers.filter(w => !alreadyInActivity.has(w.id));
+      const withReq = eligible.filter(w => didWorkerRequestShift(w.id, shift_type));
+      const withoutReq = eligible.filter(w => !didWorkerRequestShift(w.id, shift_type));
+      return showAllWorkers ? [...withReq, ...withoutReq] : withReq;
+    }
 
     return createPortal(
       <div
@@ -1585,7 +1624,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         <div
           className="site-detail-modal"
           ref={dragShiftMgmt.modalRef}
-          style={{ maxWidth: 520, ...(dragShiftMgmt.modalStyle || {}) }}
+          style={{ maxWidth: 540, ...(dragShiftMgmt.modalStyle || {}) }}
           onClick={e => e.stopPropagation()}
         >
           <div className="site-detail-header" {...dragShiftMgmt.dragHandleProps}>
@@ -1599,171 +1638,185 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             <button className="site-detail-close" onMouseDown={e => e.stopPropagation()} onClick={() => { setSelectedShiftModal(null); dragShiftMgmt.reset(); }}>✕</button>
           </div>
 
-          <div className="site-detail-body" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '75vh', overflowY: 'auto' }}>
-            {/* Activities section */}
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: accentColor, marginBottom: '0.5rem', borderBottom: `2px solid ${accentColor}20`, paddingBottom: '0.25rem' }}>
-                סוגי פעילות
-                <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#6b7280', marginRight: '0.5rem' }}>
-                  {shiftStart && shiftEnd ? `${shiftStart}–${shiftEnd}` : ''}
-                </span>
-              </div>
-
-              {activities.length === 0 && !addingActivity && (
-                <div style={{ fontSize: '0.85rem', color: '#9ca3af', fontStyle: 'italic', marginBottom: '0.5rem' }}>אין פעילויות מוגדרות</div>
-              )}
-
-              {activities.map((act, idx) => (
-                <div key={act.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem', background: '#f8fafc', borderRadius: '6px', padding: '0.4rem 0.5rem', border: '1px solid #e5e7eb' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <button
-                      disabled={hasTimeOnAny || idx === 0}
-                      onClick={() => handleMoveUp(idx)}
-                      style={{ background: 'none', border: 'none', cursor: hasTimeOnAny || idx === 0 ? 'not-allowed' : 'pointer', color: hasTimeOnAny || idx === 0 ? '#d1d5db' : '#374151', padding: '0 2px', lineHeight: 1, fontSize: '0.7rem' }}
-                      title={hasTimeOnAny ? 'הסדר נקבע לפי שעות' : 'הזז למעלה'}
-                    >▲</button>
-                    <button
-                      disabled={hasTimeOnAny || idx === activities.length - 1}
-                      onClick={() => handleMoveDown(idx)}
-                      style={{ background: 'none', border: 'none', cursor: hasTimeOnAny || idx === activities.length - 1 ? 'not-allowed' : 'pointer', color: hasTimeOnAny || idx === activities.length - 1 ? '#d1d5db' : '#374151', padding: '0 2px', lineHeight: 1, fontSize: '0.7rem' }}
-                      title={hasTimeOnAny ? 'הסדר נקבע לפי שעות' : 'הזז למטה'}
-                    >▼</button>
-                  </div>
-                  <span style={{ fontWeight: 600, fontSize: '0.85rem', flex: 1, color: '#1f2937' }}>{act.activity_name}</span>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <label style={{ fontSize: '0.72rem', color: '#6b7280' }}>התחלה:</label>
-                      <input
-                        type="time"
-                        defaultValue={act.start_time || ''}
-                        onChange={e => handleTimeChange(act, e.target.value)}
-                        style={{ fontSize: '0.8rem', border: timeErrors[act.id] ? '1px solid #ef4444' : '1px solid #d1d5db', borderRadius: '4px', padding: '0.1rem 0.2rem', width: '80px' }}
-                      />
-                      <span style={{ fontSize: '0.72rem', color: '#9ca3af' }}>–{formatTime24(getEndTime(idx))}</span>
-                    </div>
-                    {timeErrors[act.id] && <span style={{ fontSize: '0.7rem', color: '#ef4444' }}>{timeErrors[act.id]}</span>}
-                  </div>
-                  <button
-                    onClick={() => deleteShiftActivity(act.id)}
-                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', padding: '0.1rem 0.3rem', borderRadius: '4px' }}
-                    title="הסר פעילות"
-                  >✕</button>
-                </div>
-              ))}
-
-              {addingActivity ? (
-                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-                  {(config.activity_type_groups || []).length > 0 && (
-                    <select
-                      value={newActivityGroupFilter}
-                      onChange={e => setNewActivityGroupFilter(e.target.value)}
-                      style={{ fontSize: '0.78rem', borderRadius: '4px', border: '1px solid #d1d5db', color: '#475569' }}
-                    >
-                      <option value="">כל הקבוצות</option>
-                      {(config.activity_type_groups || []).map(g => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
-                    </select>
-                  )}
-                  <select
-                    value={newActivityId}
-                    onChange={e => setNewActivityId(e.target.value)}
-                    style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', flex: 1, minWidth: 120 }}
-                  >
-                    <option value="">בחר פעילות...</option>
-                    {filteredActivityTypes.map(at => <option key={at.id} value={at.id}>{at.name}</option>)}
-                  </select>
-                  <button className="btn-primary" onClick={handleAddActivity} disabled={!newActivityId} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>הוסף</button>
-                  <button className="btn-secondary" onClick={() => { setAddingActivity(false); setActivityError(''); }} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>ביטול</button>
-                  {activityError && <span style={{ fontSize: '0.78rem', color: '#ef4444', width: '100%' }}>{activityError}</span>}
-                </div>
-              ) : (
-                <button
-                  className="btn-secondary"
-                  onClick={() => setAddingActivity(true)}
-                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem', marginTop: '0.25rem' }}
-                >+ הוסף פעילות</button>
-              )}
+          <div className="site-detail-body" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '75vh', overflowY: 'auto' }}>
+            {/* Section header */}
+            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: accentColor, borderBottom: `2px solid ${accentColor}20`, paddingBottom: '0.25rem' }}>
+              פעילויות ועובדים
+              <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#6b7280', marginRight: '0.5rem' }}>
+                {shiftStart && shiftEnd ? `${shiftStart}–${shiftEnd}` : ''}
+              </span>
             </div>
 
-            {/* Workers section */}
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: accentColor, marginBottom: '0.5rem', borderBottom: `2px solid ${accentColor}20`, paddingBottom: '0.25rem' }}>
-                עובדים משובצים
+            {sequenceError && (
+              <div style={{ fontSize: '0.8rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
+                ⚠ {sequenceError}
               </div>
-              {siteAssignments.length === 0 ? (
-                <div style={{ fontSize: '0.85rem', color: '#9ca3af', fontStyle: 'italic', marginBottom: '0.5rem' }}>אין שיבוצים</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.5rem' }}>
-                  {siteAssignments.map(a => {
-                    const workerAuthIds = workerAuthorizations[a.worker_id] || [];
-                    const missingActivities = activities.filter(act => act.activity_type_id && !workerAuthIds.includes(act.activity_type_id));
-                    return (
-                      <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f8fafc', borderRadius: '6px', padding: '0.4rem 0.6rem', border: missingActivities.length > 0 ? '1px solid #fbbf24' : '1px solid #e5e7eb' }}>
-                        <span style={{ flex: 1, fontSize: '0.88rem', fontWeight: 500 }}>{a.family_name} {a.first_name}</span>
-                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{formatTime24(resolveTime(a, shift_type, 'start_time'))}–{formatTime24(resolveTime(a, shift_type, 'end_time'))}</span>
-                        {missingActivities.length > 0 && (
-                          <span title={`חסר הרשאה ל: ${missingActivities.map(act => act.activity_name).join(', ')}`} style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#92400e', borderRadius: '4px', padding: '0.1rem 0.3rem' }}>⚠ חלקי</span>
+            )}
+
+            {activities.length === 0 && !addingActivity && (
+              <div style={{ fontSize: '0.85rem', color: '#9ca3af', fontStyle: 'italic' }}>אין פעילויות מוגדרות</div>
+            )}
+
+            {activities.map((act, idx) => {
+              const activityWorkers = siteAssignments.filter(a => a.site_shift_activity_id === act.id);
+              const isCovered = activityWorkers.length > 0;
+              const isAddingHere = addingToShiftInSite?.activity_id === act.id;
+              const candidates = getActivityCandidates(act);
+              const selectedWorker = newAssignment.worker_id ? workers.find(w => w.id === newAssignment.worker_id) : null;
+
+              return (
+                <div key={act.id} style={{ border: `1px solid ${isCovered ? '#e5e7eb' : '#fca5a5'}`, borderRadius: '8px', overflow: 'hidden' }}>
+                  {/* Activity header: reorder + name + times + delete */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', background: isCovered ? '#f8fafc' : '#fff5f5', padding: '0.45rem 0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', paddingTop: '2px' }}>
+                      <button
+                        disabled={hasTimeOnAny || idx === 0}
+                        onClick={() => handleMoveUp(idx)}
+                        style={{ background: 'none', border: 'none', cursor: hasTimeOnAny || idx === 0 ? 'not-allowed' : 'pointer', color: hasTimeOnAny || idx === 0 ? '#d1d5db' : '#374151', padding: '0 2px', lineHeight: 1, fontSize: '0.7rem' }}
+                        title={hasTimeOnAny ? 'הסדר נקבע לפי שעות' : 'הזז למעלה'}
+                      >▲</button>
+                      <button
+                        disabled={hasTimeOnAny || idx === activities.length - 1}
+                        onClick={() => handleMoveDown(idx)}
+                        style={{ background: 'none', border: 'none', cursor: hasTimeOnAny || idx === activities.length - 1 ? 'not-allowed' : 'pointer', color: hasTimeOnAny || idx === activities.length - 1 ? '#d1d5db' : '#374151', padding: '0 2px', lineHeight: 1, fontSize: '0.7rem' }}
+                        title={hasTimeOnAny ? 'הסדר נקבע לפי שעות' : 'הזז למטה'}
+                      >▼</button>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#1f2937' }}>{act.activity_name}</span>
+                      {!isCovered && <span style={{ fontSize: '0.7rem', color: '#dc2626', background: '#fee2e2', borderRadius: '4px', padding: '0.1rem 0.3rem', marginRight: '0.4rem', verticalAlign: 'middle' }}>⚠ אין כיסוי</span>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                        <label style={{ fontSize: '0.7rem', color: '#6b7280' }}>התחלה:</label>
+                        <TimePickerInput
+                          value={act.start_time || ''}
+                          onChange={val => handleActivityFieldChange(act, 'start_time', val)}
+                        />
+                        <label style={{ fontSize: '0.7rem', color: '#6b7280' }}>סיום:</label>
+                        <TimePickerInput
+                          value={act.end_time || ''}
+                          onChange={val => handleActivityFieldChange(act, 'end_time', val)}
+                        />
+                        {(timeErrors[`${act.id}-start_time`] || timeErrors[`${act.id}-end_time`]) && (
+                          <span style={{ fontSize: '0.7rem', color: '#ef4444', width: '100%' }}>
+                            {timeErrors[`${act.id}-start_time`] || timeErrors[`${act.id}-end_time`]}
+                          </span>
                         )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteShiftActivity(act.id)}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', padding: '0.1rem 0.3rem', borderRadius: '4px', alignSelf: 'flex-start' }}
+                      title="הסר פעילות"
+                    >✕</button>
+                  </div>
+
+                  {/* Workers assigned to this specific activity */}
+                  <div style={{ padding: '0.3rem 0.6rem 0.4rem 0.6rem', background: '#fff', borderTop: '1px solid #f3f4f6', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                    {activityWorkers.length === 0 && !isAddingHere && (
+                      <div style={{ fontSize: '0.78rem', color: '#9ca3af', fontStyle: 'italic' }}>אין עובד משובץ לפעילות זו</div>
+                    )}
+                    {activityWorkers.map(a => (
+                      <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem' }}>
+                        <span style={{ flex: 1, fontWeight: 500 }}>{a.family_name} {a.first_name}</span>
+                        <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>
+                          {formatTime24(a.start_time || act.start_time || '')}–{formatTime24(a.end_time || act.end_time || '')}
+                        </span>
                         <button onClick={e => { e.stopPropagation(); openEditModal(a); }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '0.8rem' }} title="ערוך שעות">✏️</button>
                         <button onClick={e => { e.stopPropagation(); deleteAssignment(a.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem' }} title="הסר שיבוץ">✕</button>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
 
-              {/* Activity authorization summary */}
-              {activities.length > 0 && (
-                <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.75rem', background: '#f9fafb', borderRadius: '4px', padding: '0.3rem 0.5rem' }}>
-                  {activities.map(act => {
-                    if (!act.activity_type_id) return null;
-                    const covered = siteAssignments.some(a => (workerAuthorizations[a.worker_id] || []).includes(act.activity_type_id));
-                    return (
-                      <span key={act.id} style={{ marginLeft: '0.75rem', color: covered ? '#15803d' : '#dc2626' }}>
-                        {covered ? '✓' : '✗'} {act.activity_name}
-                      </span>
-                    );
-                  })}
+                    {/* Per-activity add worker form */}
+                    {isAddingHere ? (
+                      <div style={{ marginTop: '0.3rem', padding: '0.5rem', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                        <div style={{ marginBottom: '0.35rem' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: '#6b7280' }}>
+                            <input type="checkbox" checked={showAllWorkers} onChange={e => { setShowAllWorkers(e.target.checked); setNewAssignment({ ...newAssignment, worker_id: null }); }} />
+                            הצג עובדים ללא בקשת משמרת
+                          </label>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <select
+                            value={newAssignment.worker_id || ''}
+                            onChange={e => setNewAssignment({ ...newAssignment, worker_id: e.target.value ? parseInt(e.target.value) : null })}
+                            style={{ flex: 1, fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', minWidth: 130 }}
+                          >
+                            <option value="">בחר עובד...</option>
+                            {candidates.length === 0 && <option disabled value="">— אין עובדים מורשים —</option>}
+                            {candidates.map(w => (
+                              <option key={w.id} value={w.id}>{w.family_name} {w.first_name}</option>
+                            ))}
+                          </select>
+                          <button className="btn-primary" onClick={saveNewAssignment} disabled={!newAssignment.worker_id} style={{ fontSize: '0.82rem', padding: '0.25rem 0.5rem' }}>שמור</button>
+                          <button className="btn-secondary" onClick={() => { setAddingToShiftInSite(null); setNewAssignment({ worker_id: null }); setShowAllWorkers(false); }} style={{ fontSize: '0.82rem', padding: '0.25rem 0.5rem' }}>ביטול</button>
+                        </div>
+                        {selectedWorker && !didWorkerRequestShift(selectedWorker.id, shift_type) && (
+                          <div style={{ marginTop: '0.35rem', fontSize: '0.78rem', color: '#991b1b', background: '#fee2e2', borderRadius: '4px', padding: '0.25rem 0.4rem' }}>⛔ העובד לא ביקש משמרת זו</div>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        className="shift-card__add-btn"
+                        style={{ fontSize: '0.78rem', padding: '0.2rem 0.5rem', marginTop: '0.25rem', alignSelf: 'flex-start' }}
+                        onClick={() => {
+                          setAddingToShiftInSite({ site_id, shift_type, activity_id: act.id });
+                          setNewAssignment({ worker_id: null, start_time: act.start_time || shiftStart, end_time: act.end_time || shiftEnd, notes: '' });
+                          setShowAllWorkers(false);
+                        }}
+                      >+ שיבוץ עובד לפעילות זו</button>
+                    )}
+                  </div>
                 </div>
-              )}
+              );
+            })}
 
+            {/* Unlinked workers (legacy assignments with no activity) */}
+            {siteAssignments.filter(a => !a.site_shift_activity_id).length > 0 && (
+              <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.5rem 0.75rem' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.3rem' }}>שיבוצים ישנים (ללא פעילות ספציפית)</div>
+                {siteAssignments.filter(a => !a.site_shift_activity_id).map(a => (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', marginBottom: '0.2rem' }}>
+                    <span style={{ flex: 1 }}>{a.family_name} {a.first_name}</span>
+                    <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>{formatTime24(resolveTime(a, shift_type, 'start_time'))}–{formatTime24(resolveTime(a, shift_type, 'end_time'))}</span>
+                    <button onClick={e => { e.stopPropagation(); openEditModal(a); }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '0.8rem' }} title="ערוך שעות">✏️</button>
+                    <button onClick={e => { e.stopPropagation(); deleteAssignment(a.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem' }} title="הסר שיבוץ">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add activity */}
+            {addingActivity ? (
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                {(config.activity_type_groups || []).length > 0 && (
+                  <select
+                    value={newActivityGroupFilter}
+                    onChange={e => setNewActivityGroupFilter(e.target.value)}
+                    style={{ fontSize: '0.78rem', borderRadius: '4px', border: '1px solid #d1d5db', color: '#475569' }}
+                  >
+                    <option value="">כל הקבוצות</option>
+                    {(config.activity_type_groups || []).map(g => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
+                  </select>
+                )}
+                <select
+                  value={newActivityId}
+                  onChange={e => setNewActivityId(e.target.value)}
+                  style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', flex: 1, minWidth: 120 }}
+                >
+                  <option value="">בחר פעילות...</option>
+                  {filteredActivityTypes.map(at => <option key={at.id} value={at.id}>{at.name}</option>)}
+                </select>
+                <button className="btn-primary" onClick={handleAddActivity} disabled={!newActivityId} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>הוסף</button>
+                <button className="btn-secondary" onClick={() => { setAddingActivity(false); setActivityError(''); }} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>ביטול</button>
+                {activityError && <span style={{ fontSize: '0.78rem', color: '#ef4444', width: '100%' }}>{activityError}</span>}
+              </div>
+            ) : (
               <button
-                className="shift-card__add-btn"
-                style={{ fontSize: '0.85rem' }}
-                onClick={() => {
-                  setAddingToShiftInSite({ site_id, shift_type });
-                  setNewAssignment({ worker_id: null, start_time: shiftStart, end_time: shiftEnd, notes: '' });
-                  setShowAllWorkers(false);
-                }}
-              >+ שיבוץ עובד</button>
-
-              {addingToShiftInSite && addingToShiftInSite.site_id === site_id && addingToShiftInSite.shift_type === shift_type && (
-                <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#fff', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
-                      <input type="checkbox" checked={showAllWorkers} onChange={e => { setShowAllWorkers(e.target.checked); setNewAssignment({ ...newAssignment, worker_id: null }); setJobFilter(null); }} />
-                      צפה בכל העובדים
-                    </label>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <select
-                      value={newAssignment.worker_id || ''}
-                      onChange={e => setNewAssignment({ ...newAssignment, worker_id: parseInt(e.target.value) })}
-                      style={{ flex: 1, fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
-                    >
-                      <option value="">בחר עובד...</option>
-                      {getEligibleWorkers(site_id, shift_type).map(w => (
-                        <option key={w.id} value={w.id}>{w.family_name} {w.first_name}</option>
-                      ))}
-                    </select>
-                    <button className="btn-primary" onClick={saveNewAssignment} disabled={!newAssignment.worker_id} style={{ fontSize: '0.85rem', padding: '0.3rem 0.6rem' }}>שמור</button>
-                    <button className="btn-secondary" onClick={() => { setAddingToShiftInSite(null); setNewAssignment({ worker_id: null }); setShowAllWorkers(false); }} style={{ fontSize: '0.85rem', padding: '0.3rem 0.6rem' }}>ביטול</button>
-                  </div>
-                  {newAssignment.worker_id && !didWorkerRequestShift(newAssignment.worker_id, shift_type) && (
-                    <div style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: '#991b1b', background: '#fee2e2', borderRadius: '4px', padding: '0.3rem 0.5rem' }}>⛔ העובד לא ביקש משמרת זו</div>
-                  )}
-                </div>
-              )}
-            </div>
+                className="btn-secondary"
+                onClick={() => setAddingActivity(true)}
+                style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem', alignSelf: 'flex-start' }}
+              >+ הוסף פעילות</button>
+            )}
           </div>
         </div>
       </div>,

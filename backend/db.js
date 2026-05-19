@@ -1025,6 +1025,33 @@ async function runMigrations() {
     await query(`ALTER TABLE site_shift_activities ADD COLUMN IF NOT EXISTS start_time TEXT`);
     await query(`CREATE UNIQUE INDEX IF NOT EXISTS ssa_site_date_shift_activity ON site_shift_activities(site_id, date, shift_type, activity_type_id) WHERE activity_type_id IS NOT NULL`);
 
+    // Per-activity worker assignments: add end_time to activities, link assignments to activity
+    await query(`ALTER TABLE site_shift_activities ADD COLUMN IF NOT EXISTS end_time TEXT`);
+    await query(`ALTER TABLE worker_site_assignments ADD COLUMN IF NOT EXISTS site_shift_activity_id INTEGER REFERENCES site_shift_activities(id) ON DELETE SET NULL`);
+    // Drop old unique constraint (worker_id, date, site_id, shift_type) — allow multiple rows per shift (one per activity)
+    await query(`
+      DO $$ DECLARE r RECORD; BEGIN
+        FOR r IN
+          SELECT c.conname FROM pg_constraint c
+          JOIN pg_class t ON c.conrelid = t.oid
+          WHERE t.relname = 'worker_site_assignments' AND c.contype = 'u'
+            AND pg_get_constraintdef(c.oid) LIKE '%worker_id%'
+            AND pg_get_constraintdef(c.oid) LIKE '%site_id%'
+            AND pg_get_constraintdef(c.oid) NOT LIKE '%site_shift_activity%'
+        LOOP
+          EXECUTE format('ALTER TABLE worker_site_assignments DROP CONSTRAINT %I', r.conname);
+        END LOOP;
+      END $$
+    `);
+    await query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'wsa_unique_per_activity') THEN
+          ALTER TABLE worker_site_assignments ADD CONSTRAINT wsa_unique_per_activity
+            UNIQUE(worker_id, date, site_id, shift_type, site_shift_activity_id);
+        END IF;
+      END $$
+    `);
+
     console.log('✓ Migrations complete');
   } catch (error) {
     console.error('Error running migrations:', error);

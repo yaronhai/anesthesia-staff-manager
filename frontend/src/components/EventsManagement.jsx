@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from '../styles/EventsManagement.module.scss';
 import { useDraggableModal } from '../hooks/useDraggableModal';
+import TimePickerInput from './TimePickerInput';
 
 export default function EventsManagement({ workers, config, authToken, currentUser, selectedBranchId }) {
   const [events, setEvents] = useState([]);
@@ -15,6 +16,8 @@ export default function EventsManagement({ workers, config, authToken, currentUs
   const [optimizeResult, setOptimizeResult] = useState(null);
   const [optimizing, setOptimizing] = useState(false);
   const [showInviteesModal, setShowInviteesModal] = useState(false);
+  const [timeFilter, setTimeFilter] = useState('future');
+  const [typeFilter, setTypeFilter] = useState('');
 
   const effectiveRole = currentUser?.role_tier ?? currentUser?.role;
   const isAdmin = effectiveRole === 'master' || ['admin', 'superadmin'].includes(effectiveRole);
@@ -172,6 +175,23 @@ export default function EventsManagement({ workers, config, authToken, currentUs
     ? eventDetail.invitees.filter(i => !i.attended)
     : [];
 
+  const today = new Date().toISOString().slice(0, 10);
+
+  const eventTypeOptions = [...new Set(events.map(e => e.event_type_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
+
+  const filteredEvents = events.filter(ev => {
+    if (typeFilter && ev.event_type_name !== typeFilter) return false;
+    if (timeFilter === 'future') {
+      if (!ev.last_session_date) return true;
+      return ev.last_session_date >= today;
+    }
+    if (timeFilter === 'past') {
+      if (!ev.last_session_date) return false;
+      return ev.last_session_date < today;
+    }
+    return true;
+  });
+
   return (
     <div className={styles.container}>
       {/* ── Left panel: event list ── */}
@@ -184,11 +204,24 @@ export default function EventsManagement({ workers, config, authToken, currentUs
             </button>
           )}
         </div>
-        {events.length === 0 ? (
+        <div className={styles.filterBar}>
+          <div className={styles.timeFilterBtns}>
+            <button className={`${styles.filterBtn} ${timeFilter === 'future' ? styles.filterBtnActive : ''}`} onClick={() => setTimeFilter('future')}>עתידיים</button>
+            <button className={`${styles.filterBtn} ${timeFilter === 'past' ? styles.filterBtnActive : ''}`} onClick={() => setTimeFilter('past')}>עבר</button>
+            <button className={`${styles.filterBtn} ${timeFilter === 'all' ? styles.filterBtnActive : ''}`} onClick={() => setTimeFilter('all')}>הכל</button>
+          </div>
+          {eventTypeOptions.length > 0 && (
+            <select className={styles.typeFilterSelect} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+              <option value="">כל הסוגים</option>
+              {eventTypeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
+        </div>
+        {filteredEvents.length === 0 ? (
           <p className={styles.empty}>אין אירועים מתוכננים</p>
         ) : (
           <ul className={styles.eventList}>
-            {events.map(ev => (
+            {filteredEvents.map(ev => (
               <li
                 key={ev.id}
                 className={`${styles.eventItem} ${selectedEvent?.id === ev.id ? styles.eventItemActive : ''}`}
@@ -430,62 +463,6 @@ function DatePickerInput({ value, onChange, className }) {
   );
 }
 
-function TimePickerInput({ value, onChange, className }) {
-  const [exactRaw, setExactRaw] = useState('');
-  const [exactMode, setExactMode] = useState(false);
-  const slots = Array.from({ length: 96 }, (_, i) => {
-    const h = Math.floor(i / 4);
-    const m = (i % 4) * 15;
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-  });
-
-  const nearest = (() => {
-    const [hh, mm] = (value || '00:00').split(':').map(Number);
-    const total = hh * 60 + mm;
-    const rounded = Math.round(total / 15) * 15;
-    const nh = Math.min(23, Math.floor(rounded / 60));
-    const nm = rounded % 60;
-    return `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
-  })();
-
-  function commitExact(v) {
-    const match = v.match(/^(\d{1,2}):(\d{2})$/);
-    if (match) {
-      const nh = Math.min(23, parseInt(match[1]));
-      const nm = Math.min(59, parseInt(match[2]));
-      onChange(`${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`);
-    }
-    setExactMode(false);
-    setExactRaw('');
-  }
-
-  return (
-    <span className={`${styles.timePickerWrap} ${className || ''}`} dir="ltr">
-      {exactMode ? (
-        <input
-          className={styles.timeExactInput}
-          value={exactRaw}
-          onChange={e => setExactRaw(e.target.value)}
-          onBlur={e => commitExact(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { setExactMode(false); setExactRaw(''); } }}
-          placeholder={value?.slice(0,5)}
-          maxLength={5}
-          autoFocus
-          dir="ltr"
-        />
-      ) : (
-        <>
-          <select value={nearest} onChange={e => onChange(e.target.value)} className={styles.timeSelect}>
-            {slots.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <button type="button" className={styles.timeExactBtn} title="הקלד שעה מדויקת" onClick={() => { setExactRaw(value?.slice(0,5) || ''); setExactMode(true); }}>
-            ✎
-          </button>
-        </>
-      )}
-    </span>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 
