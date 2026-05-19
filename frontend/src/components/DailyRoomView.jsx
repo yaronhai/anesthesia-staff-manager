@@ -731,6 +731,57 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     }
   }
 
+  async function saveWorkerToAllActivities() {
+    if (!addingToShiftInSite || !newAssignment.worker_id) return;
+    const { site_id, shift_type } = addingToShiftInSite;
+    const workerAuthIds = workerAuthorizations[newAssignment.worker_id] || [];
+    const allActivities = getSiteShiftActivities(site_id, shift_type);
+    const currentAssignments = assignments.filter(a => a.site_id === site_id && a.date === dateStr && a.shift_type === shift_type);
+    const targets = allActivities.filter(act =>
+      act.activity_type_id &&
+      workerAuthIds.includes(act.activity_type_id) &&
+      !currentAssignments.some(a => a.site_shift_activity_id === act.id && a.worker_id === newAssignment.worker_id)
+    );
+    if (targets.length === 0) return;
+
+    if (!didWorkerRequestShift(newAssignment.worker_id, shift_type)) {
+      const worker = workers.find(w => w.id === newAssignment.worker_id);
+      const shiftLabel = shiftDefaults[shift_type]?.label_he || shift_type;
+      if (!window.confirm(`⚠️ ${worker?.family_name} ${worker?.first_name} לא ביקש לעבוד ב${shiftLabel}.\n\nהאם לשבץ לכל הפעילויות?`)) return;
+    }
+
+    for (const act of targets) {
+      try {
+        const res = await fetch('/api/worker-site-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+          body: JSON.stringify({
+            worker_id: newAssignment.worker_id,
+            date: dateStr,
+            site_id,
+            shift_type,
+            start_time: act.start_time || null,
+            end_time:   act.end_time   || null,
+            notes: null,
+            site_shift_activity_id: act.id,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`שגיאה בשיבוץ לפעילות "${act.activity_name}": ${err.error || ''}`);
+          break;
+        }
+      } catch (err) {
+        alert('שגיאת חיבור לשרת');
+        break;
+      }
+    }
+    fetchAll();
+    setAddingToShiftInSite(null);
+    setNewAssignment({ worker_id: null });
+    setShowAllWorkers(false);
+  }
+
   function getSiteShiftActivities(siteId, shiftType) {
     return siteShiftActivities
       .filter(ssa => ssa.site_id === siteId && ssa.date === dateStr && ssa.shift_type === shiftType)
@@ -1748,6 +1799,25 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             ))}
                           </select>
                           <button className="btn-primary" onClick={saveNewAssignment} disabled={!newAssignment.worker_id} style={{ fontSize: '0.82rem', padding: '0.25rem 0.5rem' }}>שמור</button>
+                          {(() => {
+                            if (!newAssignment.worker_id) return null;
+                            const wAuthIds = workerAuthorizations[newAssignment.worker_id] || [];
+                            const otherAuthorized = activities.filter(a =>
+                              a.id !== act.id &&
+                              a.activity_type_id &&
+                              wAuthIds.includes(a.activity_type_id) &&
+                              !siteAssignments.some(s => s.site_shift_activity_id === a.id && s.worker_id === newAssignment.worker_id)
+                            );
+                            if (otherAuthorized.length === 0) return null;
+                            return (
+                              <button
+                                className="btn-primary"
+                                onClick={saveWorkerToAllActivities}
+                                style={{ fontSize: '0.82rem', padding: '0.25rem 0.5rem', background: '#0369a1' }}
+                                title={`שבץ גם ל: ${otherAuthorized.map(a => a.activity_name).join(', ')}`}
+                              >שבץ לכל הפעילויות ({activities.filter(a => a.activity_type_id && wAuthIds.includes(a.activity_type_id)).length})</button>
+                            );
+                          })()}
                           <button className="btn-secondary" onClick={() => { setAddingToShiftInSite(null); setNewAssignment({ worker_id: null }); setShowAllWorkers(false); }} style={{ fontSize: '0.82rem', padding: '0.25rem 0.5rem' }}>ביטול</button>
                         </div>
                         {selectedWorker && !didWorkerRequestShift(selectedWorker.id, shift_type) && (
