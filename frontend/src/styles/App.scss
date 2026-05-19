@@ -1,5 +1,8 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 button, a, select, input, textarea { touch-action: manipulation; }
+
+/* Force 24-hour format on all time inputs */
+input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
 .required-star { color: #b91c1c; font-weight: 700; margin-right: 2px; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
