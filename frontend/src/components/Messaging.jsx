@@ -483,7 +483,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId, i
                         );
                       }
                       const isOwn = msg.sender_id === currentUser.id;
-                      const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                      const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
                       const hasAttachment = !!msg.file_url || !!msg.link_url;
                       items.push(
                         <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
@@ -523,7 +523,7 @@ export default function Messaging({ authToken, currentUser, workers, branchId, i
                       }
                       const isOwn = msg.sender_id === currentUser.id;
                       const isSidur = msg.sender_username === 'system_sidur';
-                      const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                      const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
                       const hasAttachment = !!msg.file_url || !!msg.link_url;
                       const isApprovalMsg = msg.message_type === 'shift_approval';
                       items.push(

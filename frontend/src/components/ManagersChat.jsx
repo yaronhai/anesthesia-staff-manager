@@ -517,7 +517,7 @@ export default function ManagersChat({ authToken, currentUser, canManageMembers 
       }
       const isOwn = msg.sender_id === currentUser.id;
       const canDelete = isGroup && (isOwn || canManageMembers);
-      const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = msg.time_display || date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
       const hasExtra = !!msg.file_url || !!msg.link_url;
       items.push(
         <div key={msg.id} className={`${styles.msgRow} ${isOwn ? styles.msgRowOwn : styles.msgRowOther}`}>
