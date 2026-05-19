@@ -1986,7 +1986,26 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             </div>
           </div>
         )}
-        {!hideActivityType && (
+        {cardMode && (() => {
+          const acts = getSiteShiftActivities(site.id, shiftType).filter(a => a.activity_type_id);
+          if (acts.length === 0) return null;
+          return (
+            <div style={{display: 'flex', flexDirection: 'column', gap: '0.2rem', padding: '0.3rem 0.5rem'}}>
+              {acts.map(act => (
+                <div key={act.id} style={{display: 'flex', alignItems: 'center', gap: '0.4rem'}}>
+                  {(act.start_time || act.end_time) && (
+                    <span style={{fontSize: '0.75rem', color: '#6b7280', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums'}}>
+                      {act.start_time ? formatTime24(act.start_time) : ''}
+                      {act.end_time ? `–${formatTime24(act.end_time)}` : ''}
+                    </span>
+                  )}
+                  <span style={{fontSize: '0.78rem', fontWeight: 500, color: '#1e40af'}}>{act.activity_name}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+        {!hideActivityType && !cardMode && (
           <div style={{padding: '0.25rem 0.6rem', borderBottom: '1px solid #e5e7eb', background: '#f8fafc'}}>
             {inlineEditingActivity === editKey ? (
               <div style={{display: 'flex', gap: '0.3rem', alignItems: 'center'}}>
