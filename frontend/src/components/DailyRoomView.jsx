@@ -643,6 +643,13 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     return true;
   }
 
+  function areAllActivitiesCovered(siteId, shiftType) {
+    const acts = getSiteShiftActivities(siteId, shiftType).filter(a => a.activity_type_id);
+    if (acts.length === 0) return false;
+    const shiftAssigns = assignments.filter(a => a.site_id === siteId && a.date === dateStr && a.shift_type === shiftType);
+    return acts.every(act => shiftAssigns.some(a => a.site_shift_activity_id === act.id));
+  }
+
   const dayRequests = shiftRequests.filter(r => r.date === dateStr);
   const assignedWorkerIdsByShift = assignments
     .filter(a => a.date === dateStr)
@@ -2389,12 +2396,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
                   const hasMorningActivity = getSiteShiftActivities(site.id, 'morning').some(a => a.activity_type_id);
                   const hasEveningActivity = getSiteShiftActivities(site.id, 'evening').some(a => a.activity_type_id);
-                  const morningCovered = hasMorningActivity
-                    ? isTimeRangeCovered(morningAssignments, shiftDefaults.morning?.default_start || morningStart, shiftDefaults.morning?.default_end || morningEnd)
-                    : true;
-                  const eveningCovered = hasEveningActivity
-                    ? isTimeRangeCovered(eveningAssignments, shiftDefaults.evening?.default_start || eveningStart, shiftDefaults.evening?.default_end || eveningEnd)
-                    : true;
+                  const morningCovered = hasMorningActivity && areAllActivitiesCovered(site.id, 'morning');
+                  const eveningCovered = hasEveningActivity && areAllActivitiesCovered(site.id, 'evening');
 
                   const isCardEmpty = !hasMorningActivity && !hasEveningActivity && morningAssignments.length === 0 && eveningAssignments.length === 0;
                   const groupBg = groupBgMap[site.group_id] || '#ffffff';
@@ -2534,9 +2537,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     const hasActivity = !!activity?.activity_type_id;
                     const defaultStart = shiftDefaults[shiftKey]?.default_start || (isNight ? nightStart : (shiftKey === 'oncall' ? '00:00' : eveningStart));
                     const defaultEnd = shiftDefaults[shiftKey]?.default_end || (isNight ? nightEnd : (shiftKey === 'oncall' ? '23:59' : eveningEnd));
-                    const isCovered = hasActivity
-                      ? isTimeRangeCovered(shiftAssignments, defaultStart, defaultEnd)
-                      : false;
+                    const isCovered = hasActivity && areAllActivitiesCovered(site.id, shiftKey);
                     const isCardEmpty = !hasActivity && shiftAssignments.length === 0;
                     let shiftBgColor = isCardEmpty ? '#d1d5db' : hasActivity && !isCovered ? '#fee2e2' : hasActivity && isCovered ? '#dcfce7' : '#e5e7eb';
 
@@ -2598,8 +2599,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     const fs = v => `${(v * scale).toFixed(3)}rem`;
                     const hasMorningActivity = getSiteShiftActivities(site.id, 'morning').some(a => a.activity_type_id);
                     const hasEveningActivity = getSiteShiftActivities(site.id, 'evening').some(a => a.activity_type_id);
-                    const morningCovered = hasMorningActivity ? isTimeRangeCovered(morningAssignments, shiftDefaults.morning?.default_start || morningStart, shiftDefaults.morning?.default_end || morningEnd) : true;
-                    const eveningCovered = hasEveningActivity ? isTimeRangeCovered(eveningAssignments, shiftDefaults.evening?.default_start || eveningStart, shiftDefaults.evening?.default_end || eveningEnd) : true;
+                    const morningCovered = hasMorningActivity && areAllActivitiesCovered(site.id, 'morning');
+                    const eveningCovered = hasEveningActivity && areAllActivitiesCovered(site.id, 'evening');
                     const isCardEmpty = !hasMorningActivity && !hasEveningActivity && morningAssignments.length === 0 && eveningAssignments.length === 0;
                     const groupBg = groupBgMap[site.group_id] || '#ffffff';
                     let morningBgColor = isCardEmpty ? '#d1d5db' : hasMorningActivity && !morningCovered ? '#fee2e2' : hasMorningActivity && morningCovered ? '#dcfce7' : '#e5e7eb';
