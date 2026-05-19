@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useDraggableModal } from '../hooks/useDraggableModal';
 import { LANGUAGES, T } from './helpTranslations';
 import s from '../styles/HelpModal.module.scss';
 
-export default function HelpModal({ isAdmin, onClose }) {
+export default function HelpModal({ isAdmin, onClose, initialSection }) {
   const [lang, setLang] = useState('he');
   const { modalRef, dragHandleProps, modalStyle, overlayClass } = useDraggableModal();
   const contentRef = useRef(null);
@@ -15,6 +15,13 @@ export default function HelpModal({ isAdmin, onClose }) {
     const el = contentRef.current?.querySelector(`#help-${id}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  useEffect(() => {
+    if (initialSection) {
+      const timer = setTimeout(() => scrollTo(initialSection), 80);
+      return () => clearTimeout(timer);
+    }
+  }, [initialSection]);
 
   return (
     <div className={overlayClass} onClick={onClose}>
@@ -71,6 +78,7 @@ export default function HelpModal({ isAdmin, onClose }) {
                   { id: 'profile-requests', label: t.profileRequests.nav },
                   { id: 'events',           label: t.events.nav },
                   { id: 'settings',         label: t.settings.nav },
+                  { id: 'clusters',         label: t.clusters.nav },
                 ].map(sec => (
                   <button
                     key={sec.id}
@@ -259,6 +267,32 @@ export default function HelpModal({ isAdmin, onClose }) {
                     <thead><tr><th>{t.settings.lockColMode}</th><th>{t.settings.lockColDesc}</th></tr></thead>
                     <tbody>{t.settings.lockRows.map((r, i) => <tr key={i}><td>{r[0]}</td><td>{r[1]}</td></tr>)}</tbody>
                   </table>
+                </section>
+
+                {/* ── Clusters ── */}
+                <section id="help-clusters">
+                  <h2>{t.clusters.h2}</h2>
+                  <p>{t.clusters.desc}</p>
+                  <h3>{t.clusters.h3What}</h3>
+                  <p>{t.clusters.whatDesc}</p>
+                  <h3>{t.clusters.h3SurgeonInShift}</h3>
+                  <p>{t.clusters.surgeonInShiftDesc}</p>
+                  <h3>{t.clusters.h3HowCluster}</h3>
+                  <ul>{t.clusters.clusterItems.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                  <h3>{t.clusters.h3AutoScore}</h3>
+                  <p>{t.clusters.autoScoreDesc}</p>
+                  <table>
+                    <thead><tr><th>{t.clusters.scoreColFactor}</th><th>{t.clusters.scoreColValue}</th><th>{t.clusters.scoreColNote}</th></tr></thead>
+                    <tbody>{t.clusters.scoreFormulaRows.map((r, i) => <tr key={i}><td>{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+                  </table>
+                  <div className={s.tip}>{t.clusters.autoScoreNote}</div>
+                  <h3>{t.clusters.h3Workflow}</h3>
+                  <ol>{t.clusters.workflowItems.map((x, i) => <li key={i}>{x}</li>)}</ol>
+                  <h3>{t.clusters.h3ManageSurgeons}</h3>
+                  <ul>{t.clusters.manageSurgeonsItems.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                  <h3>{t.clusters.h3ManageCluster}</h3>
+                  <ul>{t.clusters.manageClusterItems.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                  <div className={s.tip}>{t.clusters.tip}</div>
                 </section>
               </>
             )}

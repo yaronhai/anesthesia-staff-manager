@@ -464,6 +464,16 @@ async function getConfig(branchId = null) {
       console.warn('event_types not available:', e.message);
     }
 
+    let surgeons = [];
+    try {
+      const sRes = branchId
+        ? await query('SELECT id, name, activity_type_group_id FROM surgeons WHERE branch_id = $1 ORDER BY name', [branchId])
+        : await query('SELECT id, name, activity_type_group_id FROM surgeons ORDER BY name');
+      surgeons = sRes.rows;
+    } catch (e) {
+      console.warn('surgeons not available:', e.message);
+    }
+
     return {
       jobs: res[0].rows,
       employment_types: res[1].rows,
@@ -479,6 +489,7 @@ async function getConfig(branchId = null) {
       activity_type_groups: res[8].rows,
       template_groups: res[9].rows,
       event_types: eventTypes,
+      surgeons,
     };
   } catch (error) {
     console.error('Error in getConfig:', error);
@@ -3570,9 +3581,11 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
     let activitiesQuery = `
       SELECT ssa.id, ssa.site_id, ssa.date, ssa.shift_type,
              ssa.activity_type_id, at.name AS activity_name,
+             ssa.surgeon_id, s.name AS surgeon_name,
              ssa.sort_order, ssa.start_time, ssa.end_time
       FROM site_shift_activities ssa
       LEFT JOIN activity_types at ON ssa.activity_type_id = at.id
+      LEFT JOIN surgeons s ON ssa.surgeon_id = s.id
     `;
 
     const actParams = [];
@@ -3602,7 +3615,16 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
       workerAuthorizations[r.worker_id].push(r.activity_type_id);
     });
 
-    res.json({ workers, siteAssignments, siteShiftActivities, workerAuthorizations });
+    const clusterRes = branchId
+      ? await query(`SELECT sc.surgeon_id, sc.worker_id FROM surgeon_clusters sc JOIN surgeons s ON s.id = sc.surgeon_id WHERE s.branch_id = $1`, [branchId])
+      : await query(`SELECT surgeon_id, worker_id FROM surgeon_clusters`);
+    const surgeonClusters = {};
+    clusterRes.rows.forEach(r => {
+      if (!surgeonClusters[r.surgeon_id]) surgeonClusters[r.surgeon_id] = [];
+      surgeonClusters[r.surgeon_id].push(r.worker_id);
+    });
+
+    res.json({ workers, siteAssignments, siteShiftActivities, workerAuthorizations, surgeonClusters });
   } catch (error) {
     console.error('Get month view error:', error);
     res.status(500).json({ error: 'שגיאה בטעינת תצוגת חודש' });
@@ -3827,8 +3849,23 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       const allowedJobs = siteAllowedJobs.get(site.id) ?? null;
       const hasRestriction = allowedJobs !== null && allowedJobs.size > 0;
       if (!slotsByShift[r.shift_type]) slotsByShift[r.shift_type] = [];
-      slotsByShift[r.shift_type].push({ site, shift: r.shift_type, hasRestriction, allowedJobs, activity_type_id: r.activity_type_id });
+      slotsByShift[r.shift_type].push({ site, shift: r.shift_type, hasRestriction, allowedJobs, activity_type_id: r.activity_type_id, surgeon_id: r.surgeon_id ?? null });
     });
+
+    // Load surgeon clusters for cluster-preference scoring
+    const surgeonClusterSet = new Map(); // surgeon_id -> Set<worker_id>
+    const surgeonIds = [...new Set(openSlotsRes.rows.map(r => r.surgeon_id).filter(Boolean))];
+    if (surgeonIds.length > 0) {
+      const placeholders = surgeonIds.map((_, i) => `$${i + 1}`).join(', ');
+      const scRes = await query(
+        `SELECT surgeon_id, worker_id FROM surgeon_clusters WHERE surgeon_id IN (${placeholders})`,
+        surgeonIds
+      );
+      scRes.rows.forEach(r => {
+        if (!surgeonClusterSet.has(r.surgeon_id)) surgeonClusterSet.set(r.surgeon_id, new Set());
+        surgeonClusterSet.get(r.surgeon_id).add(r.worker_id);
+      });
+    }
 
     const suggestions = [];
     const unassignable = [];
@@ -3844,9 +3881,10 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         .filter(w => !workerAssigned.has(`${w.worker_id}-${shift}`));
 
       // adjacency[slotIdx] = sorted array of eligible workerIdx, ordered by composite score (lower = better):
-      //   score = preference_penalty(prefer=0,can=1) + (5-priority)*0.4 + overqualGap*0.3 + fairnessCount*0.05
+      //   score = preference_penalty(prefer=0,can=1) + (5-priority)*0.4 + overqualGap*0.3 + fairnessCount*0.05 + clusterPenalty(1.5 if not in surgeon cluster)
       let adjacency = shiftSlots.map(slot => {
         const slotLevel = activityLevels.get(slot.activity_type_id) ?? 1;
+        const clusterSet = slot.surgeon_id ? (surgeonClusterSet.get(slot.surgeon_id) ?? null) : null;
         return shiftWorkers
           .map((w, idx) => {
             const jobOk = !slot.hasRestriction || slot.allowedJobs.has(w.job_id);
@@ -3857,10 +3895,12 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             const priority = slot.activity_type_id
               ? (workerAuthPriority.get(w.worker_id)?.get(slot.activity_type_id) ?? 3)
               : 3;
+            const clusterPenalty = clusterSet && !clusterSet.has(w.worker_id) ? 1.5 : 0;
             const score = (w.preference_type === 'prefer' ? 0 : 1)
               + (5 - priority) * 0.4
               + overqualGap * 0.3
-              + (fairnessCountByWorker.get(w.worker_id) ?? 0) * 0.05;
+              + (fairnessCountByWorker.get(w.worker_id) ?? 0) * 0.05
+              + clusterPenalty;
             return { idx, score, eligible: jobOk && authOk };
           })
           .filter(e => e.eligible)
@@ -4431,7 +4471,7 @@ app.delete('/api/worker-site-assignments/:id', requireAdmin, async (req, res) =>
 
 app.post('/api/site-shift-activities', requireAdmin, async (req, res) => {
   try {
-    const { site_id, date, shift_type, activity_type_id } = req.body;
+    const { site_id, date, shift_type, activity_type_id, surgeon_id } = req.body;
 
     if (!site_id || !date || !shift_type) {
       return res.status(400).json({ error: 'שדות חסרים' });
@@ -4440,7 +4480,7 @@ app.post('/api/site-shift-activities', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'סוג משמרת לא תקין' });
     }
 
-    if (!activity_type_id) {
+    if (!activity_type_id && !surgeon_id) {
       // Clear all activities for this shift
       await query(`DELETE FROM site_shift_activities WHERE site_id = $1 AND date = $2 AND shift_type = $3`, [site_id, date, shift_type]);
       return res.json({ ok: true });
@@ -4454,14 +4494,14 @@ app.post('/api/site-shift-activities', requireAdmin, async (req, res) => {
     const sortOrder = maxRes.rows[0].mx + 1;
 
     const r = await query(`
-      INSERT INTO site_shift_activities (site_id, date, shift_type, activity_type_id, sort_order)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO site_shift_activities (site_id, date, shift_type, activity_type_id, surgeon_id, sort_order)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, sort_order
-    `, [site_id, date, shift_type, activity_type_id, sortOrder]);
+    `, [site_id, date, shift_type, activity_type_id || null, surgeon_id || null, sortOrder]);
 
     res.json({ ok: true, id: r.rows[0].id, sort_order: r.rows[0].sort_order });
   } catch (error) {
-    if (error.code === '23505') return res.status(409).json({ error: 'סוג פעילות זה כבר קיים במשמרת' });
+    if (error.code === '23505') return res.status(409).json({ error: 'סוג פעילות/רופא זה כבר קיים במשמרת' });
     console.error('Error saving site shift activity:', error);
     res.status(500).json({ error: 'שגיאה בשמירת פעילות' });
   }
@@ -5708,26 +5748,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const uploadsDir = path.join(__dirname, 'uploads', 'profile-photos');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-const photoStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `worker_${req.user.worker_id}_${Date.now()}${ext}`);
-  },
-});
-const photoUpload = multer({
-  storage: photoStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
-    cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()));
-  },
-});
 
 const chatUploadsDir = path.join(__dirname, 'uploads', 'chat');
 if (!fs.existsSync(chatUploadsDir)) fs.mkdirSync(chatUploadsDir, { recursive: true });
@@ -6227,6 +6248,85 @@ app.get('/api/admin-chat/unread', requireAdminChatAccess, async (req, res) => {
 });
 
 // ── End Admin Chat ─────────────────────────────────────────────────────────────
+
+// ── Surgeons & Clusters ────────────────────────────────────────────────────────
+
+app.get('/api/surgeons', requireAdmin, async (req, res) => {
+  try {
+    const branchId = getEffectiveBranchId(req);
+    const r = branchId
+      ? await query(`SELECT s.id, s.name, s.activity_type_group_id, atg.name AS group_name FROM surgeons s LEFT JOIN activity_type_groups atg ON atg.id = s.activity_type_group_id WHERE s.branch_id = $1 ORDER BY s.name`, [branchId])
+      : await query(`SELECT s.id, s.name, s.activity_type_group_id, atg.name AS group_name FROM surgeons s LEFT JOIN activity_type_groups atg ON atg.id = s.activity_type_group_id ORDER BY s.name`);
+    res.json(r.rows);
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה' }); }
+});
+
+app.post('/api/surgeons', requireAdmin, async (req, res) => {
+  try {
+    const { name, activity_type_group_id } = req.body;
+    const branchId = getEffectiveBranchId(req);
+    if (!name?.trim()) return res.status(400).json({ error: 'שם חסר' });
+    const r = await query(
+      `INSERT INTO surgeons (name, activity_type_group_id, branch_id) VALUES ($1, $2, $3) RETURNING id, name, activity_type_group_id`,
+      [name.trim(), activity_type_group_id || null, branchId]
+    );
+    res.status(201).json(r.rows[0]);
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה בהוספת רופא' }); }
+});
+
+app.put('/api/surgeons/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name, activity_type_group_id } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'שם חסר' });
+    const r = await query(
+      `UPDATE surgeons SET name = $1, activity_type_group_id = $2 WHERE id = $3 RETURNING id`,
+      [name.trim(), activity_type_group_id || null, req.params.id]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: 'רופא לא נמצא' });
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה בעדכון רופא' }); }
+});
+
+app.delete('/api/surgeons/:id', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM surgeons WHERE id = $1', [req.params.id]);
+    res.status(204).send();
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה במחיקת רופא' }); }
+});
+
+app.get('/api/surgeons/:id/cluster', requireAdmin, async (req, res) => {
+  try {
+    const r = await query(`
+      SELECT sc.id, sc.worker_id, w.first_name, w.family_name
+      FROM surgeon_clusters sc
+      JOIN workers w ON w.id = sc.worker_id
+      WHERE sc.surgeon_id = $1
+      ORDER BY w.family_name, w.first_name
+    `, [req.params.id]);
+    res.json(r.rows);
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה' }); }
+});
+
+app.post('/api/surgeons/:id/cluster', requireAdmin, async (req, res) => {
+  try {
+    const { worker_id } = req.body;
+    if (!worker_id) return res.status(400).json({ error: 'עובד חסר' });
+    await query(
+      `INSERT INTO surgeon_clusters (surgeon_id, worker_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [req.params.id, worker_id]
+    );
+    res.status(201).json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה בהוספה לאשכול' }); }
+});
+
+app.delete('/api/surgeons/:id/cluster/:workerId', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM surgeon_clusters WHERE surgeon_id = $1 AND worker_id = $2', [req.params.id, req.params.workerId]);
+    res.status(204).send();
+  } catch (e) { console.error(e); res.status(500).json({ error: 'שגיאה בהסרה מאשכול' }); }
+});
+
+// ── End Surgeons & Clusters ────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 5001;
 

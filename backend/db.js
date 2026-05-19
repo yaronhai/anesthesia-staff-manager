@@ -202,6 +202,22 @@ async function initializeSchema() {
         UNIQUE(template_id, site_id, shift_type)
       );
 
+      CREATE TABLE IF NOT EXISTS surgeons (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        activity_type_group_id INTEGER REFERENCES activity_type_groups(id) ON DELETE SET NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS surgeon_clusters (
+        id SERIAL PRIMARY KEY,
+        surgeon_id INTEGER NOT NULL REFERENCES surgeons(id) ON DELETE CASCADE,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(surgeon_id, worker_id)
+      );
+
       CREATE TABLE IF NOT EXISTS shift_types (
         key TEXT PRIMARY KEY,
         label_he TEXT NOT NULL,
@@ -1075,6 +1091,29 @@ async function runMigrations() {
         END IF;
       END $$
     `);
+
+    // Surgeons and clusters
+    await query(`
+      CREATE TABLE IF NOT EXISTS surgeons (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        activity_type_group_id INTEGER REFERENCES activity_type_groups(id) ON DELETE SET NULL,
+        branch_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS surgeon_clusters (
+        id SERIAL PRIMARY KEY,
+        surgeon_id INTEGER NOT NULL REFERENCES surgeons(id) ON DELETE CASCADE,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(surgeon_id, worker_id)
+      )
+    `);
+    await query(`ALTER TABLE site_shift_activities ADD COLUMN IF NOT EXISTS surgeon_id INTEGER REFERENCES surgeons(id) ON DELETE SET NULL`);
+    // Unique index for surgeon-based activities (surgeon_id replaces activity_type_id)
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS ssa_site_date_shift_surgeon ON site_shift_activities(site_id, date, shift_type, surgeon_id) WHERE surgeon_id IS NOT NULL`);
 
     console.log('✓ Migrations complete');
   } catch (error) {

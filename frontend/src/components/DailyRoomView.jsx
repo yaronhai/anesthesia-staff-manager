@@ -268,6 +268,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [shiftRequests, setShiftRequests] = useState([]);
   const [siteShiftActivities, setSiteShiftActivities] = useState([]);
   const [workerAuthorizations, setWorkerAuthorizations] = useState({}); // worker_id -> [activity_type_id]
+  const [surgeonClusters, setSurgeonClusters] = useState({}); // surgeon_id -> [worker_id]
   const [loading, setLoading] = useState(false);
   const [vacations, setVacations] = useState([]);
 
@@ -449,6 +450,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         setAssignments(d.siteAssignments || []);
         setSiteShiftActivities(d.siteShiftActivities || []);
         setWorkerAuthorizations(d.workerAuthorizations || {});
+        setSurgeonClusters(d.surgeonClusters || {});
       }
       if (shiftRes.ok) {
         const d = await shiftRes.json();
@@ -947,11 +949,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     }
   }
 
-  async function addShiftActivity(siteId, shiftType, activityTypeId) {
+  async function addShiftActivity(siteId, shiftType, payload) {
     const res = await fetch('/api/site-shift-activities', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify({ site_id: siteId, date: dateStr, shift_type: shiftType, activity_type_id: activityTypeId }),
+      body: JSON.stringify({ site_id: siteId, date: dateStr, shift_type: shiftType, ...payload }),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -1076,7 +1078,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
       : config.sites.filter(s => s.group_id === parseInt(selectedGroupId));
 
     const configuredSlots = siteShiftActivities.filter(
-      a => a.date === dateStr && a.activity_type_id && sitesInGroup.some(s => s.id === a.site_id)
+      a => a.date === dateStr && (a.activity_type_id || a.surgeon_id) && sitesInGroup.some(s => s.id === a.site_id)
     );
     const dayAssignments = assignments.filter(a => a.date === dateStr);
     const totalSlots = configuredSlots.length;
@@ -1549,9 +1551,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     const [addingActivity, setAddingActivity] = useState(false);
     const [newActivityId, setNewActivityId] = useState('');
     const [newActivityGroupFilter, setNewActivityGroupFilter] = useState('');
+    const [addingAsSurgeon, setAddingAsSurgeon] = useState(false);
+    const [newSurgeonId, setNewSurgeonId] = useState('');
     const [activityError, setActivityError] = useState('');
     const [timeErrors, setTimeErrors] = useState({}); // actId-field -> error string
     const [editingShiftTimes, setEditingShiftTimes] = useState(false);
+    const [showClusterOnly, setShowClusterOnly] = useState(false);
 
     if (!selectedShiftModal) return null;
     const { site_id, shift_type } = selectedShiftModal;
@@ -1606,12 +1611,18 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     }
 
     async function handleAddActivity() {
-      if (!newActivityId) return;
       try {
-        await addShiftActivity(site_id, shift_type, parseInt(newActivityId));
+        if (addingAsSurgeon) {
+          if (!newSurgeonId) return;
+          await addShiftActivity(site_id, shift_type, { surgeon_id: parseInt(newSurgeonId) });
+          setNewSurgeonId('');
+        } else {
+          if (!newActivityId) return;
+          await addShiftActivity(site_id, shift_type, { activity_type_id: parseInt(newActivityId) });
+          setNewActivityId('');
+          setNewActivityGroupFilter('');
+        }
         setAddingActivity(false);
-        setNewActivityId('');
-        setNewActivityGroupFilter('');
         setActivityError('');
       } catch (e) {
         setActivityError(e.message);
@@ -1668,12 +1679,31 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
     function getActivityCandidates(act) {
       const alreadyInActivity = new Set(siteAssignments.filter(a => a.site_shift_activity_id === act.id).map(a => a.worker_id));
-      const eligible = act.activity_type_id
-        ? baseWorkers.filter(w => (workerAuthorizations[w.id] || []).includes(act.activity_type_id) && !alreadyInActivity.has(w.id))
-        : baseWorkers.filter(w => !alreadyInActivity.has(w.id));
+      let eligible;
+      if (act.surgeon_id) {
+        const clusterIds = new Set(surgeonClusters[act.surgeon_id] || []);
+        if (showClusterOnly) {
+          eligible = baseWorkers.filter(w => clusterIds.has(w.id) && !alreadyInActivity.has(w.id));
+        } else {
+          const inCluster = [], notInCluster = [];
+          baseWorkers.forEach(w => {
+            if (!alreadyInActivity.has(w.id)) (clusterIds.has(w.id) ? inCluster : notInCluster).push(w);
+          });
+          eligible = [...inCluster, ...notInCluster];
+        }
+      } else if (act.activity_type_id) {
+        eligible = baseWorkers.filter(w => (workerAuthorizations[w.id] || []).includes(act.activity_type_id) && !alreadyInActivity.has(w.id));
+      } else {
+        eligible = baseWorkers.filter(w => !alreadyInActivity.has(w.id));
+      }
       const withReq = eligible.filter(w => didWorkerRequestShift(w.id, shift_type));
       const withoutReq = eligible.filter(w => !didWorkerRequestShift(w.id, shift_type));
       return showAllWorkers ? [...withReq, ...withoutReq] : withReq;
+    }
+
+    function isInCluster(act, workerId) {
+      if (!act.surgeon_id) return false;
+      return (surgeonClusters[act.surgeon_id] || []).includes(workerId);
     }
 
     return createPortal(
@@ -1766,7 +1796,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       >▼</button>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#1f2937' }}>{act.activity_name}</span>
+                      <span style={{ fontWeight: 600, fontSize: '0.88rem', color: act.surgeon_id ? '#1e40af' : '#1f2937' }}>
+                        {act.surgeon_id ? `🔬 ${act.surgeon_name || 'רופא'}` : act.activity_name}
+                      </span>
                       {!isCovered && <span style={{ fontSize: '0.7rem', color: '#dc2626', background: '#fee2e2', borderRadius: '4px', padding: '0.1rem 0.3rem', marginRight: '0.4rem', verticalAlign: 'middle' }}>⚠ אין כיסוי</span>}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
                         <label style={{ fontSize: '0.7rem', color: '#6b7280' }}>התחלה:</label>
@@ -1787,7 +1819,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       </div>
                     </div>
                     <button
-                      onClick={() => { if (window.confirm(`האם אתה בטוח שברצונך למחוק את הפעילות "${act.activity_name}"?`)) deleteShiftActivity(act.id); }}
+                      onClick={() => { const label = act.surgeon_id ? (act.surgeon_name || 'רופא') : act.activity_name; if (window.confirm(`האם אתה בטוח שברצונך למחוק את הפעילות "${label}"?`)) deleteShiftActivity(act.id); }}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', padding: '0.1rem 0.3rem', borderRadius: '4px', alignSelf: 'flex-start' }}
                       title="הסר פעילות"
                     >✕</button>
@@ -1812,11 +1844,17 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     {/* Per-activity add worker form */}
                     {isAddingHere ? (
                       <div style={{ marginTop: '0.3rem', padding: '0.5rem', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                        <div style={{ marginBottom: '0.35rem' }}>
+                        <div style={{ marginBottom: '0.35rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: '#6b7280' }}>
                             <input type="checkbox" checked={showAllWorkers} onChange={e => { setShowAllWorkers(e.target.checked); setNewAssignment({ ...newAssignment, worker_id: null }); }} />
                             הצג עובדים ללא בקשת משמרת
                           </label>
+                          {act.surgeon_id && (
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: '#1e40af' }}>
+                              <input type="checkbox" checked={showClusterOnly} onChange={e => { setShowClusterOnly(e.target.checked); setNewAssignment({ ...newAssignment, worker_id: null }); }} />
+                              אשכול בלבד
+                            </label>
+                          )}
                         </div>
                         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                           <select
@@ -1825,9 +1863,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             style={{ flex: 1, fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', minWidth: 130 }}
                           >
                             <option value="">בחר עובד...</option>
-                            {candidates.length === 0 && <option disabled value="">— אין עובדים מורשים —</option>}
+                            {candidates.length === 0 && <option disabled value="">— אין עובדים זמינים —</option>}
                             {candidates.map(w => (
-                              <option key={w.id} value={w.id}>{w.family_name} {w.first_name}</option>
+                              <option key={w.id} value={w.id}>
+                                {isInCluster(act, w.id) ? '★ ' : ''}{w.family_name} {w.first_name}
+                              </option>
                             ))}
                           </select>
                           <button className="btn-primary" onClick={saveNewAssignment} disabled={!newAssignment.worker_id} style={{ fontSize: '0.82rem', padding: '0.25rem 0.5rem' }}>שמור</button>
@@ -1864,6 +1904,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           setAddingToShiftInSite({ site_id, shift_type, activity_id: act.id });
                           setNewAssignment({ worker_id: null, start_time: act.start_time || shiftStart, end_time: act.end_time || shiftEnd, notes: '' });
                           setShowAllWorkers(false);
+                          setShowClusterOnly(false);
                         }}
                       >+ שיבוץ עובד לפעילות זו</button>
                     )}
@@ -1889,28 +1930,53 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
             {/* Add activity */}
             {addingActivity ? (
-              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                {(config.activity_type_groups || []).length > 0 && (
-                  <select
-                    value={newActivityGroupFilter}
-                    onChange={e => setNewActivityGroupFilter(e.target.value)}
-                    style={{ fontSize: '0.78rem', borderRadius: '4px', border: '1px solid #d1d5db', color: '#475569' }}
-                  >
-                    <option value="">כל הקבוצות</option>
-                    {(config.activity_type_groups || []).map(g => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
-                  </select>
-                )}
-                <select
-                  value={newActivityId}
-                  onChange={e => setNewActivityId(e.target.value)}
-                  style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', flex: 1, minWidth: 120 }}
-                >
-                  <option value="">בחר פעילות...</option>
-                  {filteredActivityTypes.map(at => <option key={at.id} value={at.id}>{at.name}</option>)}
-                </select>
-                <button className="btn-primary" onClick={handleAddActivity} disabled={!newActivityId} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>הוסף</button>
-                <button className="btn-secondary" onClick={() => { setAddingActivity(false); setActivityError(''); }} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>ביטול</button>
-                {activityError && <span style={{ fontSize: '0.78rem', color: '#ef4444', width: '100%' }}>{activityError}</span>}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.25rem', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.5rem 0.6rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.8rem', color: '#374151' }}>
+                    <input type="radio" checked={!addingAsSurgeon} onChange={() => { setAddingAsSurgeon(false); setNewSurgeonId(''); }} />
+                    סוג פעילות
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.8rem', color: '#1e40af' }}>
+                    <input type="radio" checked={addingAsSurgeon} onChange={() => { setAddingAsSurgeon(true); setNewActivityId(''); setNewActivityGroupFilter(''); }} />
+                    🔬 רופא מנתח
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {!addingAsSurgeon ? (
+                    <>
+                      {(config.activity_type_groups || []).length > 0 && (
+                        <select
+                          value={newActivityGroupFilter}
+                          onChange={e => setNewActivityGroupFilter(e.target.value)}
+                          style={{ fontSize: '0.78rem', borderRadius: '4px', border: '1px solid #d1d5db', color: '#475569' }}
+                        >
+                          <option value="">כל הקבוצות</option>
+                          {(config.activity_type_groups || []).map(g => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
+                        </select>
+                      )}
+                      <select
+                        value={newActivityId}
+                        onChange={e => setNewActivityId(e.target.value)}
+                        style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', flex: 1, minWidth: 120 }}
+                      >
+                        <option value="">בחר פעילות...</option>
+                        {filteredActivityTypes.map(at => <option key={at.id} value={at.id}>{at.name}</option>)}
+                      </select>
+                    </>
+                  ) : (
+                    <select
+                      value={newSurgeonId}
+                      onChange={e => setNewSurgeonId(e.target.value)}
+                      style={{ fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', flex: 1, minWidth: 120 }}
+                    >
+                      <option value="">בחר רופא...</option>
+                      {(config.surgeons || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  )}
+                  <button className="btn-primary" onClick={handleAddActivity} disabled={addingAsSurgeon ? !newSurgeonId : !newActivityId} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>הוסף</button>
+                  <button className="btn-secondary" onClick={() => { setAddingActivity(false); setActivityError(''); setAddingAsSurgeon(false); }} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>ביטול</button>
+                </div>
+                {activityError && <span style={{ fontSize: '0.78rem', color: '#ef4444' }}>{activityError}</span>}
               </div>
             ) : (
               <button
@@ -1986,7 +2052,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           </div>
         )}
         {cardMode && (() => {
-          const acts = getSiteShiftActivities(site.id, shiftType).filter(a => a.activity_type_id);
+          const acts = getSiteShiftActivities(site.id, shiftType).filter(a => a.activity_type_id || a.surgeon_id);
           if (acts.length === 0) return null;
           return (
             <div style={{display: 'flex', flexDirection: 'column', gap: '0.2rem', padding: '0.3rem 0.5rem'}}>
@@ -1998,7 +2064,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       {act.end_time ? `–${formatTime24(act.end_time)}` : ''}
                     </span>
                   )}
-                  <span style={{fontSize: '0.78rem', fontWeight: 500, color: '#1e40af'}}>{act.activity_name}</span>
+                  <span style={{fontSize: '0.78rem', fontWeight: 500, color: '#1e40af'}}>{act.surgeon_id ? `🔬 ${act.surgeon_name}` : act.activity_name}</span>
                 </div>
               ))}
             </div>

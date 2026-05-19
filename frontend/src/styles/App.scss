@@ -427,6 +427,24 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 }
 .btn-settings:hover { background: rgba(255,255,255,0.25); }
 
+/* Tab-contextual help button */
+.btn-help-tab {
+  background: rgba(255,255,255,0.12);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.35);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.btn-help-tab:hover { background: rgba(255,255,255,0.25); }
+
 /* Settings modal */
 .settings-modal {
   background: #f8fafc;
@@ -3907,6 +3925,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   .header-role { display: none; }
   .btn-logout { padding: 0.22rem 0.5rem; font-size: 0.7rem; white-space: nowrap; }
   .btn-settings { padding: 0.22rem 0.5rem; font-size: 0.85rem; }
+  .btn-help-tab { width: 24px; height: 24px; font-size: 0.75rem; }
 
   /* Tabs – mobile overrides */
   .tabs {

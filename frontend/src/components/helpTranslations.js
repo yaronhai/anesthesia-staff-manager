@@ -275,6 +275,65 @@ export const T = {
         ['חלון חריגה', 'פתיחה זמנית לטווח תאריכים מוגדר'],
       ],
     },
+
+    clusters: {
+      nav: 'ניהול אשכולות', h2: 'ניהול אשכולות — רופאים מנתחים',
+      desc: 'כרטיסייה לניהול רופאים מנתחים ואשכולות עובדים מועדפים. האשכול משפיע ישירות — הן ויזואלית והן אלגוריתמית — על שיבוץ העובדים לניתוחים.',
+
+      h3What: 'מה זה אשכול?',
+      whatDesc: 'אשכול הוא קבוצת עובדים (מרדימים, אחיות, טכנאים) שרופא מנתח מסוים מעדיף לעבוד איתם. המערכת מנצלת רשימה זו כדי לתעדף את אותם עובדים — הן בתצוגה הידנית והן בשיבוץ האוטומטי — כשמשבצים לשורה שנושאת את שמו של אותו רופא.',
+
+      h3SurgeonInShift: 'רופא מנתח כסוג פעילות',
+      surgeonInShiftDesc: 'בחלון ניהול המשמרת של חדר, כשמוסיפים שורת פעילות, ניתן לבחור "🔬 רופא מנתח" במקום "סוג פעילות" רגיל. שורה כזו מוצגת בכחול עם שם הרופא. כל שיבוץ עובד לשורה זו מושפע מהאשכול של אותו רופא.',
+
+      h3HowCluster: 'השפעת האשכול — שיבוץ ידני',
+      clusterItems: [
+        '★ עובדי האשכול מופיעים ראשונים ורמוזים ב-★ ברשימת המועמדים',
+        '"אשכול בלבד" — checkbox שמסנן ומציג רק את עובדי האשכול',
+        'עובדים מחוץ לאשכול מוצגים בהמשך הרשימה, מופרדים ויזואלית',
+      ],
+
+      h3AutoScore: 'השפעת האשכול — שיבוץ אוטומטי',
+      autoScoreDesc: 'האלגוריתם מחשב ציון לכל עובד מועמד לכל שורה. ציון נמוך = עדיפות גבוהה. הנוסחה:',
+      scoreFormulaRows: [
+        ['העדפת משמרת', '0 (מועדף) / 1 (יכול)', 'בסיס לפי בקשת העובד'],
+        ['עדיפות פעילות', '(5 − עדיפות) × 0.4', 'לפי הרשאת פעילות (1–5)'],
+        ['עודף כישורים', 'פער × 0.3', 'עובד מוכשר מדי לשורה פשוטה — עדיפות נמוכה'],
+        ['הוגנות', 'שיבוצים × 0.05', 'מי שעבד פחות — מועדף'],
+        ['קנס אשכול', '+1.5 אם לא באשכול', 'עובד מחוץ לאשכול הרופא — קנס כבד'],
+      ],
+      scoreColFactor: 'גורם', scoreColValue: 'ערך', scoreColNote: 'הסבר',
+      autoScoreNote: 'קנס האשכול (1.5) גדול מההפרש בין "מועדף" ל"יכול" (1.0). כלומר: עובד באשכול שביקש "יכול" יועדף על פני עובד מחוץ לאשכול שביקש "מועדף". האשכול חזק יותר מהעדפת המשמרת. אם אין עובדי אשכול זמינים — האלגוריתם ממשיך לשאר העובדים.',
+
+      h3Workflow: 'תהליך עבודה מקצה לקצה',
+      workflowItems: [
+        'הגדר רופא: כרטיסיית "ניהול אשכולות" ← "הוסף" ← שם + קבוצת פעילות',
+        'בנה אשכול: לחץ על שם הרופא ← הוסף עובדים רלוונטיים (מרדימים, אחיות)',
+        'שבץ רופא לחדר: "שיבוצים לחדרים" ← לחץ על יום ← פתח חלון חדר ← "הוסף שורה" ← בחר "🔬 רופא מנתח" ← בחר רופא',
+        'שבץ עובד ידנית: לחץ "הוסף שיבוץ" בשורת הרופא ← עובדי האשכול מסומנים ★ ומוצגים ראשונים',
+        'שיבוץ אוטומטי: לחץ "שיבוץ אוטומטי" ← האלגוריתם מעדיף עובדי אשכול בציון',
+      ],
+
+      h3ManageSurgeons: 'ניהול רופאים',
+      manageSurgeonsItems: [
+        'הוסף רופא: הזן שם ← בחר קבוצת פעילות (אופציונלי) ← לחץ "הוסף"',
+        'קבוצת פעילות: לסינון ברשימה בלבד — לא מגבילה שיבוץ',
+        'ערוך רופא: לחץ ✏️ ← שנה שם/קבוצה ← לחץ "שמור"',
+        'מחק רופא: לחץ 🗑 — קבוע, מוחק גם את האשכול ומנתק שורות קיימות',
+        'סינון הרשימה: בחר קבוצת פעילות מהפילטר בראש הרשימה',
+      ],
+
+      h3ManageCluster: 'ניהול אשכול',
+      manageClusterItems: [
+        'לחץ על שם רופא ברשימה — פאנל האשכול נפתח',
+        'עובדי האשכול הנוכחיים מוצגים כתגיות כחולות עם לחצן ✕ להסרה',
+        'הוסף עובד: סנן לפי תפקיד ← הקלד שם ← לחץ על שמו ברשימה — נוסף מיד',
+        'אין מגבלה על גודל האשכול',
+        'אותו עובד יכול להופיע באשכולות של מספר רופאים',
+      ],
+
+      tip: 'מומלץ לבנות אשכולות לפני תחילת שיבוץ חודשי. ככל שהאשכול גדול יותר — כך לאלגוריתם יש יותר גמישות לבחור מהעובדים המועדפים.',
+    },
   },
 
   /* ═══════════════════════════════════════════════════ ENGLISH */
@@ -543,6 +602,65 @@ export const T = {
         ['Weekly', 'Locks automatically on a specified day each week'],
         ['Override Window', 'Temporary unlock for a defined date range'],
       ],
+    },
+
+    clusters: {
+      nav: 'Cluster Management', h2: 'Cluster Management — Surgeons',
+      desc: 'A tab for managing surgeons and their preferred worker clusters. The cluster affects assignment both visually (manual) and algorithmically (auto-assignment).',
+
+      h3What: 'What is a Cluster?',
+      whatDesc: 'A cluster is a list of workers (anesthesiologists, nurses, technicians) that a specific surgeon prefers to work with. The system uses this list to prioritize those workers — both in the manual candidate view and in the auto-assignment algorithm — whenever a shift row is linked to that surgeon.',
+
+      h3SurgeonInShift: 'Surgeon as Activity Type',
+      surgeonInShiftDesc: 'In the shift management window, when adding an activity row, you can choose "🔬 Surgeon" instead of a standard activity type. The row is displayed in blue with the surgeon\'s name. Every worker assigned to that row is influenced by the surgeon\'s cluster.',
+
+      h3HowCluster: 'Cluster Effect — Manual Assignment',
+      clusterItems: [
+        '★ Cluster workers appear first in the candidate list, marked with ★',
+        '"Cluster Only" checkbox — filters to show only cluster workers',
+        'Workers outside the cluster are shown below, visually separated',
+      ],
+
+      h3AutoScore: 'Cluster Effect — Auto Assignment',
+      autoScoreDesc: 'The algorithm computes a score for each candidate worker per slot. Lower score = higher priority. The formula:',
+      scoreFormulaRows: [
+        ['Shift preference', '0 (preferred) / 1 (can)', 'Based on the worker\'s shift request'],
+        ['Activity priority', '(5 − priority) × 0.4', 'From activity authorization (1–5)'],
+        ['Overqualification', 'gap × 0.3', 'Over-skilled for a simple slot — lower priority'],
+        ['Fairness', 'assignments × 0.05', 'Less-assigned workers get a slight edge'],
+        ['Cluster penalty', '+1.5 if not in cluster', 'Worker outside the surgeon\'s cluster — heavy penalty'],
+      ],
+      scoreColFactor: 'Factor', scoreColValue: 'Value', scoreColNote: 'Note',
+      autoScoreNote: 'The cluster penalty (1.5) is larger than the "preferred vs can" gap (1.0). This means a cluster worker who requested "can" outscores a non-cluster worker who requested "preferred". The cluster preference overrides shift preference. If no cluster workers are available, the algorithm falls back to all eligible workers.',
+
+      h3Workflow: 'End-to-End Workflow',
+      workflowItems: [
+        'Create surgeon: "Cluster Management" tab → "Add" → name + activity group',
+        'Build cluster: click the surgeon\'s name → add relevant workers (anesthesiologists, nurses)',
+        'Assign surgeon to room: "Room Assignments" → click a day → open room panel → "Add Row" → choose "🔬 Surgeon" → select surgeon',
+        'Manual assignment: click "Add Assignment" on the surgeon row → cluster workers are marked ★ and listed first',
+        'Auto-assignment: click "Auto Assignment" → the algorithm scores cluster workers lower (better) for surgeon rows',
+      ],
+
+      h3ManageSurgeons: 'Managing Surgeons',
+      manageSurgeonsItems: [
+        'Add surgeon: enter name → select activity group (optional) → click "Add"',
+        'Activity group: for list filtering only — does not restrict assignments',
+        'Edit surgeon: click ✏️ → change name/group → click "Save"',
+        'Delete surgeon: click 🗑 — permanent, removes the cluster and disconnects existing rows',
+        'Filter the list: select an activity group from the filter at the top',
+      ],
+
+      h3ManageCluster: 'Managing a Cluster',
+      manageClusterItems: [
+        'Click a surgeon\'s name — the cluster panel opens on the right',
+        'Current cluster workers appear as blue tags with a ✕ remove button',
+        'Add worker: filter by job → type name in search → click the worker\'s name — added immediately',
+        'No limit on cluster size',
+        'The same worker can appear in multiple surgeons\' clusters',
+      ],
+
+      tip: 'Build clusters before the monthly scheduling cycle. The larger the cluster, the more flexibility the algorithm has to find an available preferred worker.',
     },
   },
 
@@ -813,6 +931,65 @@ export const T = {
         ['نافذة استثناء', 'فتح مؤقت لنطاق تواريخ محدد'],
       ],
     },
+
+    clusters: {
+      nav: 'إدارة الكتلة', h2: 'إدارة الكتلة — الجراحون',
+      desc: 'تبويب لإدارة الجراحين وكتل الموظفين المفضلين. تؤثر الكتلة على التكليف بصرياً (يدوي) وخوارزمياً (تلقائي).',
+
+      h3What: 'ما هي الكتلة؟',
+      whatDesc: 'الكتلة هي قائمة موظفين (مخدّرين، ممرضات، فنيين) يفضّل جراح معين العمل معهم. يستخدم النظام هذه القائمة لتقديم هؤلاء الموظفين — في العرض اليدوي وفي خوارزمية التكليف التلقائي — عند تكليف موظف لصف يحمل اسم ذلك الجراح.',
+
+      h3SurgeonInShift: 'الجراح كنوع نشاط',
+      surgeonInShiftDesc: 'في نافذة إدارة الوردية، عند إضافة صف نشاط، يمكن اختيار "🔬 جراح" بدلاً من نوع نشاط عادي. يُعرض الصف باللون الأزرق مع اسم الجراح. كل تكليف موظف لهذا الصف يتأثر بكتلة ذلك الجراح.',
+
+      h3HowCluster: 'تأثير الكتلة — التكليف اليدوي',
+      clusterItems: [
+        '★ يظهر موظفو الكتلة أولاً في قائمة المرشحين، مميزين بـ ★',
+        'خيار "الكتلة فقط" — يصفّي ويعرض موظفي الكتلة حصراً',
+        'يظهر الموظفون خارج الكتلة في أسفل القائمة، مفصولين بصرياً',
+      ],
+
+      h3AutoScore: 'تأثير الكتلة — التكليف التلقائي',
+      autoScoreDesc: 'تحسب الخوارزمية درجة لكل موظف مرشح لكل صف. الدرجة الأدنى = الأولوية الأعلى. المعادلة:',
+      scoreFormulaRows: [
+        ['تفضيل الوردية', '0 (مفضّل) / 1 (قادر)', 'بناءً على طلب الموظف'],
+        ['أولوية النشاط', '(5 − الأولوية) × 0.4', 'من تفويض النشاط (1–5)'],
+        ['فائض المهارة', 'الفجوة × 0.3', 'موظف مؤهل أكثر من اللازم — أولوية أقل'],
+        ['العدالة', 'التكليفات × 0.05', 'الأقل تكليفاً يحظى بميزة طفيفة'],
+        ['غرامة الكتلة', '+1.5 إن لم يكن في الكتلة', 'موظف خارج كتلة الجراح — غرامة ثقيلة'],
+      ],
+      scoreColFactor: 'العامل', scoreColValue: 'القيمة', scoreColNote: 'ملاحظة',
+      autoScoreNote: 'غرامة الكتلة (1.5) أكبر من الفجوة بين "مفضّل" و"قادر" (1.0). أي أن موظف الكتلة الذي طلب "قادر" يتفوق على موظف خارج الكتلة طلب "مفضّل". تفضيل الكتلة يتجاوز تفضيل الوردية. إذا لم يكن أي موظف من الكتلة متاحاً، تنتقل الخوارزمية للموظفين الآخرين المؤهلين.',
+
+      h3Workflow: 'سير العمل من البداية إلى النهاية',
+      workflowItems: [
+        'إنشاء جراح: تبويب "إدارة الكتلة" ← "إضافة" ← الاسم + مجموعة النشاط',
+        'بناء الكتلة: انقر على اسم الجراح ← أضف الموظفين المعنيين',
+        'تعيين جراح للغرفة: "تكليفات الغرف" ← انقر يوماً ← افتح لوحة الغرفة ← "إضافة صف" ← اختر "🔬 جراح" ← اختر الجراح',
+        'التكليف اليدوي: انقر "إضافة تكليف" في صف الجراح ← موظفو الكتلة مميزون بـ ★ ويظهرون أولاً',
+        'التكليف التلقائي: انقر "تكليف تلقائي" ← الخوارزمية تمنح موظفي الكتلة درجة أفضل',
+      ],
+
+      h3ManageSurgeons: 'إدارة الجراحين',
+      manageSurgeonsItems: [
+        'إضافة جراح: أدخل الاسم ← اختر مجموعة النشاط (اختياري) ← انقر "إضافة"',
+        'مجموعة النشاط: للتصفية في القائمة فقط — لا تقيّد التكليف',
+        'تعديل جراح: انقر ✏️ ← غيّر الاسم/المجموعة ← انقر "حفظ"',
+        'حذف جراح: انقر 🗑 — نهائي، يزيل الكتلة ويقطع الصفوف الموجودة',
+        'تصفية القائمة: اختر مجموعة نشاط من الفلتر أعلى القائمة',
+      ],
+
+      h3ManageCluster: 'إدارة الكتلة',
+      manageClusterItems: [
+        'انقر على اسم الجراح — تفتح لوحة الكتلة',
+        'يظهر موظفو الكتلة الحاليون كبطاقات زرقاء مع زر ✕ للإزالة',
+        'إضافة موظف: صفّ حسب الوظيفة ← اكتب الاسم ← انقر على الاسم — يُضاف فوراً',
+        'لا حدّ لحجم الكتلة',
+        'يمكن أن يظهر نفس الموظف في كتل جراحين متعددين',
+      ],
+
+      tip: 'يُنصح ببناء الكتل قبل بدء دورة الجدولة الشهرية. كلما كانت الكتلة أكبر، زادت مرونة الخوارزمية في اختيار موظف مفضّل متاح.',
+    },
   },
 
   /* ═══════════════════════════════════════════════════ SPANISH */
@@ -1082,6 +1259,65 @@ export const T = {
         ['Ventana de Excepción', 'Apertura temporal para un rango de fechas definido'],
       ],
     },
+
+    clusters: {
+      nav: 'Gestión de Clústeres', h2: 'Gestión de Clústeres — Cirujanos',
+      desc: 'Pestaña para gestionar cirujanos y sus clústeres de empleados preferidos. El clúster afecta la asignación visualmente (manual) y algorítmicamente (automática).',
+
+      h3What: '¿Qué es un Clúster?',
+      whatDesc: 'Un clúster es una lista de empleados (anestesiólogos, enfermeras, técnicos) que un cirujano prefiere tener en sus intervenciones. El sistema usa esta lista para priorizar a esos empleados — en la vista manual y en el algoritmo automático — cuando se asigna a una fila vinculada a ese cirujano.',
+
+      h3SurgeonInShift: 'Cirujano como Tipo de Actividad',
+      surgeonInShiftDesc: 'En la ventana de gestión de turno, al agregar una fila de actividad, puedes elegir "🔬 Cirujano" en lugar de un tipo de actividad estándar. La fila se muestra en azul con el nombre del cirujano. Cada asignación a esa fila está influenciada por el clúster del cirujano.',
+
+      h3HowCluster: 'Efecto del Clúster — Asignación Manual',
+      clusterItems: [
+        '★ Los empleados del clúster aparecen primero, marcados con ★',
+        'Checkbox "Solo Clúster" — filtra para mostrar únicamente empleados del clúster',
+        'Los empleados fuera del clúster se muestran debajo, separados visualmente',
+      ],
+
+      h3AutoScore: 'Efecto del Clúster — Asignación Automática',
+      autoScoreDesc: 'El algoritmo calcula una puntuación por empleado candidato por fila. Puntuación más baja = mayor prioridad. La fórmula:',
+      scoreFormulaRows: [
+        ['Preferencia de turno', '0 (preferido) / 1 (puede)', 'Basado en la solicitud del empleado'],
+        ['Prioridad de actividad', '(5 − prioridad) × 0.4', 'De la autorización de actividad (1–5)'],
+        ['Sobrecalificación', 'brecha × 0.3', 'Demasiado calificado para una fila simple — menor prioridad'],
+        ['Equidad', 'asignaciones × 0.05', 'Menos asignado obtiene ligera ventaja'],
+        ['Penalización clúster', '+1.5 si no está en clúster', 'Empleado fuera del clúster del cirujano — penalización fuerte'],
+      ],
+      scoreColFactor: 'Factor', scoreColValue: 'Valor', scoreColNote: 'Nota',
+      autoScoreNote: 'La penalización del clúster (1.5) es mayor que la diferencia entre "preferido" y "puede" (1.0). Un empleado del clúster que solicitó "puede" supera a uno fuera del clúster que solicitó "preferido". La preferencia de clúster anula la preferencia de turno. Si no hay empleados del clúster disponibles, el algoritmo continúa con los demás trabajadores elegibles.',
+
+      h3Workflow: 'Flujo de Trabajo de Extremo a Extremo',
+      workflowItems: [
+        'Crear cirujano: pestaña "Gestión de Clústeres" → "Agregar" → nombre + grupo de actividad',
+        'Construir clúster: clic en el nombre del cirujano → agregar empleados relevantes',
+        'Asignar cirujano a sala: "Asignaciones de Sala" → clic en un día → abrir panel → "Agregar Fila" → elegir "🔬 Cirujano"',
+        'Asignación manual: clic "Agregar Asignación" en la fila del cirujano → empleados del clúster marcados ★ aparecen primero',
+        'Asignación automática: clic "Asignación Automática" → el algoritmo favorece a los empleados del clúster',
+      ],
+
+      h3ManageSurgeons: 'Gestión de Cirujanos',
+      manageSurgeonsItems: [
+        'Agregar cirujano: ingresa nombre → selecciona grupo de actividad (opcional) → clic "Agregar"',
+        'Grupo de actividad: solo para filtrar la lista — no restringe asignaciones',
+        'Editar cirujano: clic ✏️ → cambia nombre/grupo → clic "Guardar"',
+        'Eliminar cirujano: clic 🗑 — permanente, elimina el clúster y desconecta filas existentes',
+        'Filtrar lista: selecciona un grupo de actividad en el filtro superior',
+      ],
+
+      h3ManageCluster: 'Gestión de un Clúster',
+      manageClusterItems: [
+        'Clic en el nombre del cirujano — el panel del clúster se abre',
+        'Los empleados actuales aparecen como etiquetas azules con botón ✕ para eliminar',
+        'Agregar empleado: filtra por cargo → escribe nombre → clic en el nombre — se agrega de inmediato',
+        'Sin límite de tamaño del clúster',
+        'El mismo empleado puede aparecer en los clústeres de varios cirujanos',
+      ],
+
+      tip: 'Se recomienda construir los clústeres antes del ciclo de programación mensual. Cuanto mayor sea el clúster, más flexibilidad tiene el algoritmo para encontrar un empleado preferido disponible.',
+    },
   },
 
   /* ═══════════════════════════════════════════════════ FRENCH */
@@ -1350,6 +1586,65 @@ export const T = {
         ['Hebdomadaire', 'Se verrouille automatiquement un jour précis de chaque semaine'],
         ['Fenêtre d\'Exception', 'Ouverture temporaire pour une plage de dates définie'],
       ],
+    },
+
+    clusters: {
+      nav: 'Gestion des Clusters', h2: 'Gestion des Clusters — Chirurgiens',
+      desc: 'Onglet pour gérer les chirurgiens et leurs clusters d\'employés préférés. Le cluster affecte l\'affectation visuellement (manuelle) et algorithmiquement (automatique).',
+
+      h3What: 'Qu\'est-ce qu\'un Cluster ?',
+      whatDesc: 'Un cluster est une liste d\'employés (anesthésistes, infirmiers, techniciens) qu\'un chirurgien préfère avoir dans ses interventions. Le système utilise cette liste pour prioriser ces employés — dans la vue manuelle et dans l\'algorithme automatique — lors de l\'affectation à une ligne liée à ce chirurgien.',
+
+      h3SurgeonInShift: 'Chirurgien comme Type d\'Activité',
+      surgeonInShiftDesc: 'Dans la fenêtre de gestion des gardes, lors de l\'ajout d\'une ligne d\'activité, vous pouvez choisir "🔬 Chirurgien" à la place d\'un type d\'activité standard. La ligne s\'affiche en bleu avec le nom du chirurgien. Chaque affectation à cette ligne est influencée par le cluster du chirurgien.',
+
+      h3HowCluster: 'Effet du Cluster — Affectation Manuelle',
+      clusterItems: [
+        '★ Les employés du cluster apparaissent en premier, marqués ★',
+        'Case "Cluster Uniquement" — filtre pour afficher seulement les employés du cluster',
+        'Les employés hors cluster sont affichés en dessous, séparés visuellement',
+      ],
+
+      h3AutoScore: 'Effet du Cluster — Affectation Automatique',
+      autoScoreDesc: 'L\'algorithme calcule un score pour chaque employé candidat par ligne. Score plus bas = priorité plus haute. La formule :',
+      scoreFormulaRows: [
+        ['Préférence de garde', '0 (préféré) / 1 (peut)', 'Basé sur la demande de l\'employé'],
+        ['Priorité d\'activité', '(5 − priorité) × 0.4', 'De l\'autorisation d\'activité (1–5)'],
+        ['Surqualification', 'écart × 0.3', 'Trop qualifié pour un poste simple — priorité moindre'],
+        ['Équité', 'affectations × 0.05', 'Le moins affecté bénéficie d\'un léger avantage'],
+        ['Pénalité cluster', '+1.5 si hors cluster', 'Employé hors cluster du chirurgien — pénalité forte'],
+      ],
+      scoreColFactor: 'Facteur', scoreColValue: 'Valeur', scoreColNote: 'Note',
+      autoScoreNote: 'La pénalité du cluster (1.5) est supérieure à l\'écart entre "préféré" et "peut" (1.0). Un employé du cluster ayant demandé "peut" l\'emporte sur un hors-cluster ayant demandé "préféré". La préférence de cluster prime sur la préférence de garde. Si aucun employé du cluster n\'est disponible, l\'algorithme continue avec les autres travailleurs éligibles.',
+
+      h3Workflow: 'Flux de Travail de Bout en Bout',
+      workflowItems: [
+        'Créer chirurgien : onglet "Gestion des Clusters" → "Ajouter" → nom + groupe d\'activité',
+        'Construire le cluster : cliquez sur le nom du chirurgien → ajoutez les employés concernés',
+        'Affecter chirurgien à une salle : "Affectations aux Salles" → clic jour → ouvrir panneau → "Ajouter Ligne" → choisir "🔬 Chirurgien"',
+        'Affectation manuelle : cliquez "Ajouter Affectation" sur la ligne du chirurgien → employés du cluster marqués ★ apparaissent en premier',
+        'Affectation automatique : cliquez "Affectation Automatique" → l\'algorithme favorise les employés du cluster',
+      ],
+
+      h3ManageSurgeons: 'Gestion des Chirurgiens',
+      manageSurgeonsItems: [
+        'Ajouter chirurgien : saisissez le nom → sélectionnez un groupe d\'activité (optionnel) → cliquez "Ajouter"',
+        'Groupe d\'activité : pour le filtrage de la liste uniquement — ne restreint pas les affectations',
+        'Modifier chirurgien : cliquez ✏️ → modifiez le nom/groupe → cliquez "Enregistrer"',
+        'Supprimer chirurgien : cliquez 🗑 — définitif, supprime le cluster et déconnecte les lignes existantes',
+        'Filtrer la liste : sélectionnez un groupe d\'activité dans le filtre en haut',
+      ],
+
+      h3ManageCluster: 'Gestion d\'un Cluster',
+      manageClusterItems: [
+        'Cliquez sur le nom d\'un chirurgien — le panneau du cluster s\'ouvre',
+        'Les employés actuels apparaissent comme des étiquettes bleues avec un bouton ✕ pour supprimer',
+        'Ajouter un employé : filtrez par poste → tapez un nom → cliquez sur le nom — ajouté immédiatement',
+        'Pas de limite de taille pour le cluster',
+        'Le même employé peut apparaître dans les clusters de plusieurs chirurgiens',
+      ],
+
+      tip: 'Il est recommandé de constituer les clusters avant le cycle de planification mensuel. Plus le cluster est grand, plus l\'algorithme a de flexibilité pour trouver un employé préféré disponible.',
     },
   },
 };

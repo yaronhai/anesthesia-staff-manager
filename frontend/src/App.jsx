@@ -27,6 +27,7 @@ import UserProfile from './components/UserProfile';
 import ProfileChangeRequests from './components/ProfileChangeRequests';
 import ManagersChat from './components/ManagersChat';
 import HelpModal from './components/HelpModal';
+import SurgeonsManagement from './components/SurgeonsManagement';
 import WorkerColumnSettings, { DEFAULT_COLUMN_ORDER, DEFAULT_NAME_FORMAT } from './components/WorkerColumnSettings';
 import logoAssuta from './assets/logo-assuta.png';
 import './styles/App.scss';
@@ -702,6 +703,12 @@ export default function App() {
                   </button>
                 )}
                 {isAdmin && selectedBranchId && (
+                  <button className={`${appStyles.navItem}${activeTab === 'clusters' ? ` ${appStyles.navItemActive}` : ''}`}
+                    onClick={() => { setActiveTab('clusters'); setMenuOpen(false); }}>
+                    ניהול אשכולות
+                  </button>
+                )}
+                {isAdmin && selectedBranchId && (
                   <button className={`${appStyles.navItem}${activeTab === 'profile-requests' ? ` ${appStyles.navItemActive}` : ''}`}
                     onClick={() => { setActiveTab('profile-requests'); setMenuOpen(false); }}>
                     בקשות לאישור
@@ -736,6 +743,24 @@ export default function App() {
           {isAdmin && (
             <button onClick={() => setShowSettings(true)} className="btn-settings">⚙️</button>
           )}
+          {(() => {
+            const tabHelpMap = {
+              profile: 'profile', shifts: 'shifts', vacations: 'vacations',
+              messages: 'messages', workers: 'workers', rooms: 'rooms',
+              'special-days': 'special-days', report: 'report',
+              'profile-requests': 'profile-requests', events: 'events',
+              settings: 'settings', clusters: 'clusters',
+            };
+            const section = tabHelpMap[activeTab];
+            if (!section) return null;
+            return (
+              <button
+                className="btn-help-tab"
+                onClick={() => setShowHelp(section)}
+                title="עזרה לכרטיסייה זו"
+              >?</button>
+            );
+          })()}
           <div className="header-user">
             {currentUser?.worker_id && (
               profilePhotoUrl
@@ -775,7 +800,7 @@ export default function App() {
       )}
 
       {showHelp && (
-        <HelpModal isAdmin={isAdmin} onClose={() => setShowHelp(false)} />
+        <HelpModal isAdmin={isAdmin} onClose={() => setShowHelp(false)} initialSection={showHelp === true ? null : showHelp} />
       )}
 
       {showSettings && isAdmin && (
@@ -970,6 +995,10 @@ export default function App() {
 
       {activeTab === 'report' && isAdmin && selectedBranchId && (
         <MonthlyReport token={authToken} config={config} isAdmin={isAdmin} branchId={selectedBranchId} />
+      )}
+
+      {activeTab === 'clusters' && isAdmin && selectedBranchId && (
+        <SurgeonsManagement authToken={authToken} branchId={selectedBranchId} config={config} />
       )}
 
       {activeTab === 'profile' && currentUser?.worker_id && !isAdmin && (
