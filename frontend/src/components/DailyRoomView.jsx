@@ -1698,12 +1698,23 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           </div>
 
           <div className="site-detail-body" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '75vh', overflowY: 'auto' }}>
+            {/* Shift times editor */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.5rem 0.75rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', flexShrink: 0 }}>שעות משמרת:</span>
+              <TimePickerInput
+                value={shiftTimes.start_time || shiftDefaultStart}
+                onChange={val => saveSiteShiftTimes(site_id, shift_type, val, shiftTimes.end_time || shiftDefaultEnd)}
+              />
+              <span style={{ color: '#9ca3af' }}>–</span>
+              <TimePickerInput
+                value={shiftTimes.end_time || shiftDefaultEnd}
+                onChange={val => saveSiteShiftTimes(site_id, shift_type, shiftTimes.start_time || shiftDefaultStart, val)}
+              />
+            </div>
+
             {/* Section header */}
             <div style={{ fontWeight: 700, fontSize: '0.9rem', color: accentColor, borderBottom: `2px solid ${accentColor}20`, paddingBottom: '0.25rem' }}>
               פעילויות ועובדים
-              <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#6b7280', marginRight: '0.5rem' }}>
-                {shiftStart && shiftEnd ? `${shiftStart}–${shiftEnd}` : ''}
-              </span>
             </div>
 
             {sequenceError && (
@@ -1903,36 +1914,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   }
 
   function ShiftHeaderTimes({ site, shiftType, accentColor }) {
-    const editKey = `${site.id}-${shiftType}`;
     const shiftTimes = getSiteShiftTimes(site.id, shiftType);
-    const isEditing = inlineEditingShift === editKey;
-    if (isEditing) {
-      return (
-        <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
-          <input type="time" value={inlineEditTimes.start_time}
-            onChange={e => setInlineEditTimes({...inlineEditTimes, start_time: e.target.value})}
-            style={{width: '80px', fontSize: '0.85rem'}} />
-          <span>–</span>
-          <input type="time" value={inlineEditTimes.end_time}
-            onChange={e => setInlineEditTimes({...inlineEditTimes, end_time: e.target.value})}
-            style={{width: '80px', fontSize: '0.85rem'}} />
-          <button className="btn-primary"
-            onClick={() => { saveSiteShiftTimes(site.id, shiftType, inlineEditTimes.start_time, inlineEditTimes.end_time); setInlineEditingShift(null); }}
-            style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}>✓</button>
-          <button className="btn-secondary" onClick={() => setInlineEditingShift(null)}
-            style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem'}}>✕</button>
-        </div>
-      );
-    }
     return (
-      <div style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}>
-        <span style={{fontSize: '1rem', color: accentColor, fontWeight: 700}}>
-          {formatTime24(shiftTimes.start_time)}–{formatTime24(shiftTimes.end_time)}
-        </span>
-        <button className="btn-edit-small"
-          onClick={() => { setInlineEditingShift(editKey); setInlineEditTimes({start_time: shiftTimes.start_time, end_time: shiftTimes.end_time}); }}
-          title="ערוך שעות" style={{padding: '0.15rem 0.35rem', fontSize: '0.75rem'}}>✏️</button>
-      </div>
+      <span style={{fontSize: '1rem', color: accentColor, fontWeight: 700}}>
+        {formatTime24(shiftTimes.start_time)}–{formatTime24(shiftTimes.end_time)}
+      </span>
     );
   }
 
