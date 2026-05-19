@@ -1787,7 +1787,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       </div>
                     </div>
                     <button
-                      onClick={() => deleteShiftActivity(act.id)}
+                      onClick={() => { if (window.confirm(`האם אתה בטוח שברצונך למחוק את הפעילות "${act.activity_name}"?`)) deleteShiftActivity(act.id); }}
                       style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', padding: '0.1rem 0.3rem', borderRadius: '4px', alignSelf: 'flex-start' }}
                       title="הסר פעילות"
                     >✕</button>
