@@ -1936,7 +1936,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     );
   }
 
-  function ShiftSection({ site, shiftType, label, hideActivityType = false, hideHeader = false }) {
+  function ShiftSection({ site, shiftType, label, hideActivityType = false, hideHeader = false, cardMode = false }) {
     const siteAssignments = getSiteShiftAssignments(site.id, shiftType);
     const activity = getSiteShiftActivity(site.id, shiftType);
     const shiftTimes = getSiteShiftTimes(site.id, shiftType);
@@ -2048,6 +2048,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             )}
           </div>
         )}
+        {!cardMode && (
         <div className="room-card-content">
           {siteAssignments.length === 0 ? (
             <div className="room-empty">אין שיבוצים</div>
@@ -2085,8 +2086,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             </div>
           )}
         </div>
+        )}
 
-        <div style={{borderTop: '1px solid #e5e7eb', paddingTop: '0.75rem', marginTop: '0.75rem'}}>
+        {!cardMode && <div style={{borderTop: '1px solid #e5e7eb', paddingTop: '0.75rem', marginTop: '0.75rem'}}>
           {inlineEditingNotes === editKey ? (
             <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
               <label style={{fontSize: '0.85rem', fontWeight: 500, color: '#1a2e4a'}}>הערות:</label>
@@ -2140,7 +2142,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               )}
             </div>
           )}
-        </div>
+        </div>}
       </div>
     );
   }
@@ -2451,22 +2453,6 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             {morningActivities.length > 2 && <span style={{ fontSize: fs(0.62), color: '#b45309', fontWeight: 600 }}>+{morningActivities.length - 2}</span>}
                           </div>
                         )}
-                        <div className="site-square-names" style={{fontSize: fs(0.58), lineHeight: '1.3'}}>
-                          {morningAssignments.length > 0 ? morningAssignments.map((a, idx) => {
-                            const startTime = a.start_time || (shiftDefaults.morning?.default_start || morningStart);
-                            const endTime = a.end_time || (shiftDefaults.morning?.default_end || morningEnd);
-                            const isExplicitTime = !!(a.start_time && a.end_time);
-                            return (
-                              <div key={idx}>
-                                <strong>{a.first_name} {a.family_name}</strong> ({a.job_name})
-                                <div style={{fontSize: fs(0.54), color: isExplicitTime ? '#666' : '#999', marginTop: '0.1rem', fontStyle: isExplicitTime ? 'normal' : 'italic'}}>
-                                  🕐 {formatTime24(startTime)}–{formatTime24(endTime)}
-                                  {!isExplicitTime && <span style={{marginLeft: '0.3rem'}}>*</span>}
-                                </div>
-                              </div>
-                            );
-                          }) : <div>—</div>}
-                        </div>
                       </div>
                       <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: eveningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%', cursor: 'pointer'}}
                         onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>
@@ -2484,22 +2470,6 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                             {eveningActivities.length > 2 && <span style={{ fontSize: fs(0.62), color: '#0369a1', fontWeight: 600 }}>+{eveningActivities.length - 2}</span>}
                           </div>
                         )}
-                        <div className="site-square-names" style={{fontSize: fs(0.58), lineHeight: '1.3'}}>
-                          {eveningAssignments.length > 0 ? eveningAssignments.map((a, idx) => {
-                            const startTime = a.start_time || (shiftDefaults.evening?.default_start || eveningStart);
-                            const endTime = a.end_time || (shiftDefaults.evening?.default_end || eveningEnd);
-                            const isExplicitTime = !!(a.start_time && a.end_time);
-                            return (
-                              <div key={idx}>
-                                <strong>{a.first_name} {a.family_name}</strong> ({a.job_name})
-                                <div style={{fontSize: fs(0.54), color: isExplicitTime ? '#666' : '#999', marginTop: '0.1rem', fontStyle: isExplicitTime ? 'normal' : 'italic'}}>
-                                  🕐 {formatTime24(startTime)}–{formatTime24(endTime)}
-                                  {!isExplicitTime && <span style={{marginLeft: '0.3rem'}}>*</span>}
-                                </div>
-                              </div>
-                            );
-                          }) : <div>—</div>}
-                        </div>
                       </div>
                     </div>
                   );
@@ -2614,12 +2584,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         <div className="site-square-shift" style={{background: morningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px', cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>☀️</span>{morningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#92400e',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(morningTimes.start_time)}{morningTimes.end_time?`–${formatTime24(morningTimes.end_time)}`:''}</span>}</div>
                           {mActivities.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:`${0.15*scale}rem`}}>{mActivities.slice(0,2).map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#92400e',fontWeight:600}}>{a.activity_name}</span>)}{mActivities.length>2&&<span style={{fontSize:fs(0.62),color:'#92400e'}}>+{mActivities.length-2}</span>}</div>}
-                          <div className="site-square-names" style={{fontSize:fs(0.58),lineHeight:'1.3'}}>{morningAssignments.length>0?morningAssignments.map((a,idx)=><div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>):<div>—</div>}</div>
                         </div>
                         <div className="site-square-shift" style={{background: eveningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px', cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>🌙</span>{eveningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#1e40af',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(eveningTimes.start_time)}{eveningTimes.end_time?`–${formatTime24(eveningTimes.end_time)}`:''}</span>}</div>
                           {eActivities.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:`${0.15*scale}rem`}}>{eActivities.slice(0,2).map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#1e40af',fontWeight:600}}>{a.activity_name}</span>)}{eActivities.length>2&&<span style={{fontSize:fs(0.62),color:'#1e40af'}}>+{eActivities.length-2}</span>}</div>}
-                          <div className="site-square-names" style={{fontSize:fs(0.58),lineHeight:'1.3'}}>{eveningAssignments.length>0?eveningAssignments.map((a,idx)=><div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>):<div>—</div>}</div>
                         </div>
                       </div>
                     );
@@ -2847,10 +2815,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           <h3 style={{color: ctxAccent}}>{ctxLabel}</h3>
                           <ShiftHeaderTimes site={site} shiftType={ctxShift} accentColor={ctxAccent} />
                         </div>
-                        <button className="shift-card__add-btn" style={{background: ctxBorder, color: ctxAccent}} onClick={() => openAddModalInSite(site.id, ctxShift)}>+ שיבוץ עובד</button>
+                        <button className="shift-card__add-btn" style={{background: ctxBorder, color: ctxAccent}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: ctxShift })}>ניהול משמרת</button>
                       </div>
-                      <div className="shift-card__body">
-                        <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideHeader={true}/>
+                      <div className="shift-card__body" style={{cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: ctxShift })}>
+                        <ShiftSection site={site} shiftType={ctxShift} label={ctxLabel} hideHeader={true} cardMode={true}/>
                       </div>
                     </div>
                   </div>
@@ -2865,10 +2833,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         <h3>{shiftDefaults.morning?.label_he}</h3>
                         <ShiftHeaderTimes site={site} shiftType="morning" accentColor="#92400e" />
                       </div>
-                      <button className="shift-card__add-btn shift-card__add-btn--morning" onClick={() => openAddModalInSite(site.id, 'morning')}>+ שיבוץ עובד</button>
+                      <button className="shift-card__add-btn shift-card__add-btn--morning" onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>ניהול משמרת</button>
                     </div>
-                    <div className="shift-card__body">
-                      <ShiftSection site={site} shiftType="morning" label={shiftDefaults.morning?.label_he} hideHeader={true}/>
+                    <div className="shift-card__body" style={{cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>
+                      <ShiftSection site={site} shiftType="morning" label={shiftDefaults.morning?.label_he} hideHeader={true} cardMode={true}/>
                     </div>
                   </div>
 
@@ -2879,10 +2847,10 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         <h3>{shiftDefaults.evening?.label_he}</h3>
                         <ShiftHeaderTimes site={site} shiftType="evening" accentColor="#0369a1" />
                       </div>
-                      <button className="shift-card__add-btn shift-card__add-btn--evening" onClick={() => openAddModalInSite(site.id, 'evening')}>+ שיבוץ עובד</button>
+                      <button className="shift-card__add-btn shift-card__add-btn--evening" onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>ניהול משמרת</button>
                     </div>
-                    <div className="shift-card__body">
-                      <ShiftSection site={site} shiftType="evening" label={shiftDefaults.evening?.label_he} hideHeader={true}/>
+                    <div className="shift-card__body" style={{cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>
+                      <ShiftSection site={site} shiftType="evening" label={shiftDefaults.evening?.label_he} hideHeader={true} cardMode={true}/>
                     </div>
                   </div>
                 </div>
