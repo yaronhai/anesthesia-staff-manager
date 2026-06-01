@@ -3631,6 +3631,19 @@ app.get('/api/staffing/month-view', requireAdmin, async (req, res) => {
   }
 });
 
+// Returns hours of rest between prevDayEnd (HH:MM) and nextDayStart (HH:MM).
+// If prevDayEnd < "12:00" it's treated as already on the target date (overnight shift ending in the morning).
+function restHoursBetweenShifts(prevDayEnd, nextDayStart) {
+  const [eh, em] = prevDayEnd.split(':').map(Number);
+  const [sh, sm] = nextDayStart.split(':').map(Number);
+  const endMin   = eh * 60 + em;
+  const startMin = sh * 60 + sm;
+  const gap = endMin < 12 * 60
+    ? startMin - endMin
+    : startMin + 1440 - endMin;
+  return gap / 60;
+}
+
 // Suggest assignments endpoint
 app.get('/api/staffing/suggest-debug', requireAdmin, (_, res) => {
   res.json({ status: 'suggest endpoint is working', date: new Date().toISOString() });
@@ -3763,6 +3776,15 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         `, [date]);
     console.log('open slots from SQL:', JSON.stringify(openSlotsRes.rows));
 
+    // Load shift default start/end times for rest-gap calculation
+    const shiftDefaultsRes = await query(`SELECT key, default_start, default_end FROM shift_types`);
+    const shiftDefaultStart = new Map();
+    const shiftDefaultEnd   = new Map();
+    shiftDefaultsRes.rows.forEach(r => {
+      shiftDefaultStart.set(r.key, r.default_start);
+      shiftDefaultEnd.set(r.key, r.default_end);
+    });
+
     // Fetch activity authorizations for all workers who requested shifts
     const workerIds = [...new Set(shiftsRes.rows.map(r => r.worker_id))];
     const workerAuthSet = new Map();    // worker_id -> Set<activity_type_id>
@@ -3804,6 +3826,26 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
       }
     } catch (e) {
       console.warn('Fairness fetch failed, skipping:', e.message);
+    }
+
+    // Fetch previous-day night-shift end times for rest-gap warning
+    const prevDate = new Date(date);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateStr = prevDate.toISOString().slice(0, 10);
+    const workerPrevNightEnd = new Map();
+    if (workerIds.length > 0) {
+      const prevNightRes = await query(`
+        SELECT wsa.worker_id,
+               COALESCE(wsa.end_time, st.default_end) AS end_time
+        FROM worker_site_assignments wsa
+        JOIN shift_types st ON wsa.shift_type = st.key
+        WHERE wsa.date = $1
+          AND wsa.shift_type = 'night'
+          AND wsa.worker_id = ANY($2::int[])
+      `, [prevDateStr, workerIds]);
+      prevNightRes.rows.forEach(r => {
+        if (r.end_time) workerPrevNightEnd.set(r.worker_id, r.end_time);
+      });
     }
 
     // Load complexity_level for each activity type used in slots
@@ -3949,6 +3991,17 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
         const wIdx = matchSlot[sIdx];
         if (wIdx !== -1) {
           const worker = shiftWorkers[wIdx];
+          const prevNightEnd = workerPrevNightEnd.get(worker.worker_id);
+          let rest_warning = false;
+          let rest_warning_hours = null;
+          if (prevNightEnd) {
+            const shiftStart = shiftDefaultStart.get(shift) ?? '07:00';
+            const hours = restHoursBetweenShifts(prevNightEnd, shiftStart);
+            if (hours < 8) {
+              rest_warning = true;
+              rest_warning_hours = Math.round(hours * 10) / 10;
+            }
+          }
           suggestions.push({
             site_id: slot.site.id,
             site_name: slot.site.name,
@@ -3959,6 +4012,8 @@ app.get('/api/staffing/suggest', requireAdmin, async (req, res) => {
             preference_type: worker.preference_type,
             fairness_count: fairnessCountByWorker.get(worker.worker_id) ?? 0,
             is_fairness_site: fairnessSiteSet.has(slot.site.id),
+            rest_warning,
+            rest_warning_hours,
           });
         } else {
           const allForShift = availableByShift[shift] || [];

@@ -2518,7 +2518,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     <div
                       key={site.id}
                       className="site-square"
-                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }}
+                      style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: 'none', backgroundColor: '#ffffff' }}
                     >
                       <div className="site-square-title" style={{fontSize: fs(0.78), color: '#8B0000', fontWeight: 700}}>{site.name}</div>
                       <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: morningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%', cursor: 'pointer'}}
@@ -2598,7 +2598,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       <div
                         key={site.id}
                         className="site-square"
-                        style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : accentBg }}
+                        style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}`, backgroundImage: 'none', backgroundColor: '#ffffff' }}
                         onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}
                       >
                         <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
@@ -2661,7 +2661,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     const mActivities = getSiteShiftActivities(site.id, 'morning');
                     const eActivities = getSiteShiftActivities(site.id, 'evening');
                     return (
-                      <div key={site.id} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmpty ? '#d1d5db' : groupBg }}>
+                      <div key={site.id} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: '#ffffff' }}>
                         <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
                         <div className="site-square-shift" style={{background: morningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px', cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>☀️</span>{morningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#92400e',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(morningTimes.start_time)}{morningTimes.end_time?`–${formatTime24(morningTimes.end_time)}`:''}</span>}</div>
@@ -2691,7 +2691,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       const shiftBgColor = isCardEmptyAll ? '#d1d5db' : hasActivity && !isCoveredAll ? '#fee2e2' : hasActivity && isCoveredAll ? '#dcfce7' : '#e5e7eb';
                       const groupBg = groupBgMap[site.group_id] || '#ffffff';
                       return (
-                        <div key={`${shiftKey}-${site.id}`} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: isCardEmptyAll ? '#d1d5db' : accentBg, borderTop: `3px solid ${accentColor}` }} onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}>
+                        <div key={`${shiftKey}-${site.id}`} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: '#ffffff', borderTop: `3px solid ${accentColor}` }} onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}>
                           <div className="site-square-title" style={{fontSize:fs(0.78)}}>{site.name}</div>
                           <div className="site-square-shift" style={{background: shiftBgColor, padding:`${0.3*scale}rem`, borderRadius:'3px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>{isNight?'⭐':'📞'}</span>{times.start_time&&<span style={{fontSize:fs(0.6),color:accentColor,fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(times.start_time)}{times.end_time?`–${formatTime24(times.end_time)}`:''}</span>}</div>
@@ -3395,6 +3395,11 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           {suggestion.is_fairness_site && (
                             <span title={`שיבוצי עובד לאתרי צדק: ${suggestion.fairness_count}`} style={{padding: '0 0.25rem', background: '#fef3c7', border: '1px solid #d97706', borderRadius: '3px', fontSize: '0.68rem', fontWeight: 500, color: '#92400e', whiteSpace: 'nowrap'}}>
                               ⚖️{suggestion.fairness_count}
+                            </span>
+                          )}
+                          {suggestion.rest_warning && (
+                            <span title={`מנוחה של ${suggestion.rest_warning_hours} שעות בלבד לאחר תורנות ביום הקודם`} style={{padding: '0 0.25rem', background: '#fff7ed', border: '1px solid #f97316', borderRadius: '3px', fontSize: '0.68rem', fontWeight: 500, color: '#9a3412', whiteSpace: 'nowrap'}}>
+                              ⚠️ מנוחה קצרה
                             </span>
                           )}
                         </label>
