@@ -319,6 +319,15 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [addingToShiftInSite, setAddingToShiftInSite] = useState(null); // { site_id, shift_type } - for adding within site modal
   const [selectedShiftModal, setSelectedShiftModal] = useState(null); // { site_id, shift_type } for ShiftManagementModal
   const dragShiftMgmt = useDraggableModal();
+  const [showWorkerAvailability, setShowWorkerAvailability] = useState(false);
+  const [waRect, setWaRect] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('waModalSize'));
+      if (s?.width > 0 && s?.height > 0) return { top: null, left: null, width: s.width, height: s.height };
+    } catch {}
+    return { top: null, left: null, width: 560, height: 400 };
+  });
+  const waModalRef = useRef(null);
 
   // Fairness report
   const [fairnessReport, setFairnessReport] = useState(null);
@@ -1124,6 +1133,60 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         };
       })
       .sort((a, b) => a.first_name.localeCompare(b.first_name, 'he'));
+  }
+
+  function closeWaModal() {
+    setShowWorkerAvailability(false);
+    setWaRect(r => ({ top: null, left: null, width: r.width, height: r.height }));
+  }
+
+  function startWaDrag(e) {
+    if (e.button !== 0) return;
+    const tag = e.target.tagName.toLowerCase();
+    if (['select','input','button','textarea','a','label'].includes(tag)) return;
+    e.preventDefault();
+    const modal = waModalRef.current;
+    if (!modal) return;
+    const rect = modal.getBoundingClientRect();
+    const offX = e.clientX - rect.left;
+    const offY = e.clientY - rect.top;
+    function onMove(ev) {
+      setWaRect(r => ({ ...r, top: ev.clientY - offY, left: ev.clientX - offX }));
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  function startWaResize(e, dir) {
+    e.preventDefault();
+    e.stopPropagation();
+    const modal = waModalRef.current;
+    if (!modal) return;
+    const rect = modal.getBoundingClientRect();
+    const startX = e.clientX, startY = e.clientY;
+    const startW = rect.width, startH = rect.height;
+    const startLeft = rect.left, startTop = rect.top;
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      let w = startW, h = startH, left = startLeft, top = startTop;
+      if (dir.includes('e')) w = Math.max(300, startW + dx);
+      if (dir.includes('s')) h = Math.max(180, startH + dy);
+      if (dir.includes('w')) { w = Math.max(300, startW - dx); left = startLeft + startW - w; }
+      if (dir.includes('n')) { h = Math.max(180, startH - dy); top = startTop + startH - h; }
+      setWaRect({ top, left, width: w, height: h });
+      try { localStorage.setItem('waModalSize', JSON.stringify({ width: w, height: h })); } catch {}
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
 
   function formatTime24(timeStr) {
@@ -2373,6 +2436,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
           </div>
           <button onClick={openReportPreview} className="btn-primary btn-sm" title="הדפס דו״ח שיבוצים">🖨️</button>
           <button onClick={fetchFairnessReport} disabled={fairnessLoading} className="btn-secondary btn-sm" title="טבלת צדק לפי אתרים">⚖️</button>
+          <button onClick={() => setShowWorkerAvailability(true)} className="btn-secondary btn-sm worker-avail-btn" title="זמינות עובדים">👥 {!isMobile && 'זמינות עובדים'}</button>
           <div style={{flex: 1}} />
           {!isMobile && statsBarContent}
           </div>{/* room-nav-row2 */}
@@ -2473,6 +2537,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                   const groupBgMap = Object.fromEntries(
                     regularGroups.map((g, i) => [g.id, PALETTE_BG[i % PALETTE_BG.length]])
                   );
+                  const groupColorMap = Object.fromEntries(
+                    regularGroups.map((g, i) => [g.id, GROUP_PALETTE[i % GROUP_PALETTE.length]])
+                  );
                   return (groupSitesByGroup(config.sites)[selectedGroupId] || []).map((site) => {
                   const morningAssignments = getSiteShiftAssignments(site.id, 'morning');
                   const eveningAssignments = getSiteShiftAssignments(site.id, 'evening');
@@ -2520,8 +2587,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       className="site-square"
                       style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25 * scale}rem`, backgroundImage: 'none', backgroundColor: '#ffffff' }}
                     >
-                      <div className="site-square-title" style={{fontSize: fs(0.78), color: '#8B0000', fontWeight: 700}}>{site.name}</div>
-                      <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: morningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%', cursor: 'pointer'}}
+                      <div className="site-square-title" style={{fontSize: fs(0.78), color: groupColorMap[site.group_id] || '#1a2e4a', fontWeight: 700}}>{site.name}</div>
+                      <div className="site-square-shift site-square-shift--clickable" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: morningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}
                         onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>
                         <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                           <span className="site-square-icon" style={{fontSize: fs(0.78)}}>☀</span>
@@ -2537,7 +2604,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                           </div>
                         )}
                       </div>
-                      <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: eveningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%', cursor: 'pointer'}}
+                      <div className="site-square-shift site-square-shift--clickable" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: eveningBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}
                         onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>
                         <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                           <span className="site-square-icon" style={{fontSize: fs(0.78)}}>🌙</span>
@@ -2599,10 +2666,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                         key={site.id}
                         className="site-square"
                         style={{ width: cardSize, padding: `${0.5 * scale}rem ${0.45 * scale}rem`, borderTop: `3px solid ${accentColor}`, backgroundImage: 'none', backgroundColor: '#ffffff' }}
-                        onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}
                       >
-                        <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
-                        <div className="site-square-shift" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: shiftBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}}>
+                        <div className="site-square-title" style={{fontSize: fs(0.78), color: accentColor, fontWeight: 700}}>{site.name}</div>
+                        <div className="site-square-shift site-square-shift--clickable" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: `${0.25 * scale}rem`, background: shiftBgColor, padding: `${0.3 * scale}rem`, borderRadius: '3px', width: '100%'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: shiftKey })}>
                           <div style={{display: 'flex', alignItems: 'center', gap: `${0.3 * scale}rem`, width: '100%'}}>
                             <span className="site-square-icon" style={{fontSize: fs(0.78)}}>{isNight ? '⭐' : '📞'}</span>
                             {times.start_time ? (
@@ -2638,7 +2704,17 @@ export default function DailyRoomView({ config, authToken, branchId }) {
             {selectedGroupId === '__all__' && (() => {
               const allGroups = config.site_groups || [];
               const groupBgMap = Object.fromEntries(allGroups.map((g, i) => [g.id, PALETTE_BG[i % PALETTE_BG.length]]));
-              const regularSites = (config.sites || []).filter(s => { if (!s.group_id) return true; const grp = (config.site_groups || []).find(g => g.id === s.group_id); return !grp || !grp.group_type || grp.group_type === 'regular'; }).sort(sortSites);
+              const groupColorMap = Object.fromEntries(allGroups.map((g, i) => [g.id, GROUP_PALETTE[i % GROUP_PALETTE.length]]));
+              const regularGroupOrder = Object.fromEntries(
+                allGroups.filter(g => !g.group_type || g.group_type === 'regular').map((g, i) => [g.id, i])
+              );
+              const regularSites = (config.sites || [])
+                .filter(s => { if (!s.group_id) return true; const grp = allGroups.find(g => g.id === s.group_id); return !grp || !grp.group_type || grp.group_type === 'regular'; })
+                .sort((a, b) => {
+                  const oa = regularGroupOrder[a.group_id] ?? 999;
+                  const ob = regularGroupOrder[b.group_id] ?? 999;
+                  return oa !== ob ? oa - ob : sortSites(a, b);
+                });
               const nightSites   = (config.sites || []).filter(s => { const grp = (config.site_groups || []).find(g => g.id === s.group_id); return grp?.group_type === 'night'; }).sort(sortSites);
               const oncallSites  = (config.sites || []).filter(s => { const grp = (config.site_groups || []).find(g => g.id === s.group_id); return grp?.group_type === 'oncall'; }).sort(sortSites);
               return (
@@ -2662,12 +2738,12 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                     const eActivities = getSiteShiftActivities(site.id, 'evening');
                     return (
                       <div key={site.id} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: '#ffffff' }}>
-                        <div className="site-square-title" style={{fontSize: fs(0.78)}}>{site.name}</div>
-                        <div className="site-square-shift" style={{background: morningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px', cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>
+                        <div className="site-square-title" style={{fontSize: fs(0.78), color: groupColorMap[site.group_id] || '#1a2e4a', fontWeight: 700}}>{site.name}</div>
+                        <div className="site-square-shift site-square-shift--clickable" style={{background: morningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'morning' })}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>☀️</span>{morningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#92400e',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(morningTimes.start_time)}{morningTimes.end_time?`–${formatTime24(morningTimes.end_time)}`:''}</span>}</div>
                           {mActivities.length>0&&<div style={{display:'flex',flexDirection:'column',gap:`${0.1*scale}rem`}}>{mActivities.map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#92400e',fontWeight:600}}>{a.start_time?`${formatTime24(a.start_time)} `:''}{a.activity_name}</span>)}</div>}
                         </div>
-                        <div className="site-square-shift" style={{background: eveningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px', cursor: 'pointer'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>
+                        <div className="site-square-shift site-square-shift--clickable" style={{background: eveningBgColor, padding: `${0.3*scale}rem`, borderRadius: '3px'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: 'evening' })}>
                           <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>🌙</span>{eveningTimes.start_time&&<span style={{fontSize:fs(0.6),color:'#1e40af',fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(eveningTimes.start_time)}{eveningTimes.end_time?`–${formatTime24(eveningTimes.end_time)}`:''}</span>}</div>
                           {eActivities.length>0&&<div style={{display:'flex',flexDirection:'column',gap:`${0.1*scale}rem`}}>{eActivities.map((a,i)=><span key={i} style={{fontSize:fs(0.62),color:'#1e40af',fontWeight:600}}>{a.start_time?`${formatTime24(a.start_time)} `:''}{a.activity_name}</span>)}</div>}
                         </div>
@@ -2691,9 +2767,9 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       const shiftBgColor = isCardEmptyAll ? '#d1d5db' : hasActivity && !isCoveredAll ? '#fee2e2' : hasActivity && isCoveredAll ? '#dcfce7' : '#e5e7eb';
                       const groupBg = groupBgMap[site.group_id] || '#ffffff';
                       return (
-                        <div key={`${shiftKey}-${site.id}`} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: '#ffffff', borderTop: `3px solid ${accentColor}` }} onClick={() => { setSelectedSiteId(site.id); setModalPos(null); }}>
-                          <div className="site-square-title" style={{fontSize:fs(0.78)}}>{site.name}</div>
-                          <div className="site-square-shift" style={{background: shiftBgColor, padding:`${0.3*scale}rem`, borderRadius:'3px'}}>
+                        <div key={`${shiftKey}-${site.id}`} className="site-square" style={{ width: cardSize, padding: `${0.5*scale}rem ${0.45*scale}rem`, display: 'flex', flexDirection: 'column', gap: `${0.25*scale}rem`, backgroundImage: 'none', backgroundColor: '#ffffff', borderTop: `3px solid ${accentColor}` }}>
+                          <div className="site-square-title" style={{fontSize:fs(0.78), color: accentColor, fontWeight: 700}}>{site.name}</div>
+                          <div className="site-square-shift site-square-shift--clickable" style={{background: shiftBgColor, padding:`${0.3*scale}rem`, borderRadius:'3px'}} onClick={() => setSelectedShiftModal({ site_id: site.id, shift_type: shiftKey })}>
                             <div style={{display:'flex',alignItems:'center',gap:`${0.3*scale}rem`}}><span className="site-square-icon" style={{fontSize:fs(0.78)}}>{isNight?'⭐':'📞'}</span>{times.start_time&&<span style={{fontSize:fs(0.6),color:accentColor,fontWeight:600,whiteSpace:'nowrap'}}>{formatTime24(times.start_time)}{times.end_time?`–${formatTime24(times.end_time)}`:''}</span>}</div>
                             {hasActivity&&<div style={{}}><span style={{fontSize:fs(0.65),color:accentColor,fontWeight:600}}>{(config.activity_types||[]).find(at=>at.id===activity.activity_type_id)?.name}</span></div>}
                             <div className="site-square-names" style={{fontSize:fs(0.58),lineHeight:'1.3'}}>{shiftAssignments.length>0?shiftAssignments.map((a,idx)=><div key={idx}><strong>{a.first_name} {a.family_name}</strong> ({a.job_name})</div>):<div>—</div>}</div>
@@ -2705,72 +2781,6 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 </div>
               );
             })()}
-            </div>
-            <div className="room-view-sidebar">
-              <div className="room-sidebar-bars">
-                {isMobile && (
-                  <div className="room-bars-summary-row">
-                    <span className="room-bars-summary-counts">
-                      <span>זמינים: {Object.values(requestsByShift).reduce((s, a) => s + a.length, 0)}</span>
-                      <span>לא משובצים: {getUnassignedWorkers().length}</span>
-                      <span>חופשה: {getVacationWorkersForDate().length}</span>
-                    </span>
-                    <button className="room-bars-toggle-btn" onClick={() => setBarsCollapsed(c => !c)}>
-                      {barsCollapsed ? '▲' : '▼'}
-                    </button>
-                  </div>
-                )}
-                {(!isMobile || !barsCollapsed) && (<>
-                  <div className="room-requests-bar">
-                    <span className="room-requests-label">עובדים זמינים:</span>
-                    <div className="room-requests-columns">
-                      {availabilityShifts.map(({ key: shiftKey, icon, color, bg_color: bg }) => {
-                        const requests = requestsByShift[shiftKey] || [];
-                        return (
-                          <div key={shiftKey} className="room-requests-col">
-                            <span className="room-requests-col-header" style={{color, background: bg}}>{icon}</span>
-                            {requests.length === 0
-                              ? <span className="room-requests-empty">אין</span>
-                              : requests.map(r => (
-                                  <span key={r.id} className={`room-requests-worker pref-${r.preference_type}`}>
-                                    {r.first_name} {r.family_name}
-                                  </span>
-                                ))
-                            }
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="room-unassigned-bar">
-                    <span className="room-unassigned-label">לא משובצים:</span>
-                    <div className="room-unassigned-content">
-                      {getUnassignedWorkers().length === 0
-                        ? <span className="room-unassigned-empty">כל העובדים משובצים ✓</span>
-                        : getUnassignedWorkers().map(w => (
-                            <span key={w.id} className="room-unassigned-worker">{w.first_name} {w.family_name}</span>
-                          ))
-                      }
-                    </div>
-                  </div>
-                  {(() => {
-                    const vacWorkers = getVacationWorkersForDate();
-                    return (
-                      <div className="room-unassigned-bar room-vacation-bar">
-                        <span className="room-unassigned-label">חופשה מאושרת:</span>
-                        <div className="room-unassigned-content">
-                          {vacWorkers.length === 0
-                            ? <span className="room-unassigned-empty">אין</span>
-                            : vacWorkers.map(w => (
-                                <span key={w.id} className="room-unassigned-worker room-vacation-worker">{w.first_name} {w.family_name}</span>
-                              ))
-                          }
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </>)}
-                </div>
             </div>
           </div>
         </>
@@ -3628,6 +3638,159 @@ export default function DailyRoomView({ config, authToken, branchId }) {
         </div>
       </div>
     )}
+    {showWorkerAvailability && (() => {
+      const unassigned = getUnassignedWorkers();
+      const vacWorkers = getVacationWorkersForDate();
+      const assignedTodayIds = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
+      const totalAvailable = Object.values(requestsByShift).reduce((s, arr) => {
+        arr.forEach(r => s.add(r.worker_id));
+        return s;
+      }, new Set()).size;
+      const assignedCount = assignedTodayIds.size;
+      const displayDate = `${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}/${year}`;
+      const waHasMoved = waRect.top !== null;
+      const waStyle = {
+        position: 'fixed',
+        width: waRect.width,
+        height: waRect.height,
+        ...(waHasMoved ? { top: waRect.top, left: waRect.left, transform: 'none' } : {}),
+      };
+      return (
+        <div
+          className={waHasMoved ? 'form-overlay form-overlay--transparent worker-avail-overlay' : 'form-overlay worker-avail-overlay'}
+          onClick={waHasMoved ? undefined : closeWaModal}
+        >
+          <div
+            className="worker-avail-modal"
+            ref={waModalRef}
+            style={waStyle}
+            onClick={e => e.stopPropagation()}
+          >
+            {['n','ne','e','se','s','sw','w','nw'].map(dir => (
+              <div key={dir} className={`wa-resize-handle wa-resize-handle--${dir}`} onMouseDown={e => startWaResize(e, dir)} />
+            ))}
+            <div className="worker-avail-header" onMouseDown={startWaDrag} style={{ cursor: 'grab' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>👥</span>
+                <h3>זמינות עובדים — {displayDate}</h3>
+              </div>
+              <button
+                className="btn-close"
+                style={{ color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={closeWaModal}
+              >✕</button>
+            </div>
+
+            <div className="worker-avail-body">
+
+              {/* סיכום מספרי */}
+              <div className="worker-avail-summary">
+                <div className="worker-avail-summary-item">
+                  <span className="worker-avail-summary-num">{totalAvailable}</span>
+                  <span>זמינים</span>
+                </div>
+                <div className="worker-avail-summary-sep" />
+                <div className="worker-avail-summary-item">
+                  <span className="worker-avail-summary-num" style={{ color: '#15803d' }}>{assignedCount}</span>
+                  <span>משובצים</span>
+                </div>
+                <div className="worker-avail-summary-sep" />
+                <div className="worker-avail-summary-item">
+                  <span className="worker-avail-summary-num" style={{ color: '#b45309' }}>{unassigned.length}</span>
+                  <span>לא משובצים</span>
+                </div>
+                <div className="worker-avail-summary-sep" />
+                <div className="worker-avail-summary-item">
+                  <span className="worker-avail-summary-num" style={{ color: '#6b7280' }}>{vacWorkers.length}</span>
+                  <span>חופשה</span>
+                </div>
+              </div>
+
+              {/* עובדים זמינים לפי משמרת */}
+              <div className="worker-avail-section">
+                <div className="worker-avail-section-title">עובדים זמינים לפי משמרת</div>
+                <div className="worker-avail-shifts-grid">
+                  {availabilityShifts.map(({ key: shiftKey, label_he, icon, color, bg_color: bg }) => {
+                    const requests = requestsByShift[shiftKey] || [];
+                    return (
+                      <div key={shiftKey} className="worker-avail-shift-col">
+                        <div className="worker-avail-shift-header" style={{ color, background: bg }}>
+                          <span>{icon}</span>
+                          <span>{label_he}</span>
+                          <span className="worker-avail-shift-count">{requests.length}</span>
+                        </div>
+                        {requests.length === 0 ? (
+                          <div className="worker-avail-empty">אין</div>
+                        ) : (
+                          requests.map(r => {
+                            const workerJob = workers.find(w => w.id === r.worker_id)?.job || '';
+                            const isAssigned = assignedTodayIds.has(r.worker_id);
+                            return (
+                              <div key={r.id} className={`worker-avail-worker-row${isAssigned ? ' worker-avail-worker-row--assigned' : ''}`}>
+                                <div className="worker-avail-worker-name">
+                                  {r.family_name} {r.first_name}
+                                  {isAssigned && <span className="worker-avail-assigned-badge">משובץ ✓</span>}
+                                </div>
+                                <div className="worker-avail-worker-meta">
+                                  {workerJob && <span className="worker-avail-job">{workerJob}</span>}
+                                  <span className={`worker-avail-pref pref-${r.preference_type}`}>
+                                    {r.preference_type === 'prefer' ? '🌟 מעדיף' : '✓ יכול'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* לא משובצים */}
+              <div className="worker-avail-section">
+                <div className="worker-avail-section-title" style={{ color: '#b45309' }}>
+                  לא משובצים ({unassigned.length})
+                </div>
+                {unassigned.length === 0 ? (
+                  <div className="worker-avail-all-ok">✓ כל העובדים הזמינים משובצים</div>
+                ) : (
+                  <div className="worker-avail-worker-list">
+                    {unassigned.map(w => (
+                      <div key={w.id} className="worker-avail-worker-row">
+                        <div className="worker-avail-worker-name">{w.family_name} {w.first_name}</div>
+                        {w.job && <span className="worker-avail-job">{w.job}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* חופשה מאושרת */}
+              <div className="worker-avail-section">
+                <div className="worker-avail-section-title" style={{ color: '#6b7280' }}>
+                  חופשה מאושרת ({vacWorkers.length})
+                </div>
+                {vacWorkers.length === 0 ? (
+                  <div className="worker-avail-empty">אין עובדים בחופשה</div>
+                ) : (
+                  <div className="worker-avail-worker-list">
+                    {vacWorkers.map(w => (
+                      <div key={w.id} className="worker-avail-worker-row worker-avail-worker-row--vacation">
+                        <div className="worker-avail-worker-name">{w.family_name} {w.first_name}</div>
+                        {w.job && <span className="worker-avail-job">{w.job}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      );
+    })()}
     </>
   );
 }
