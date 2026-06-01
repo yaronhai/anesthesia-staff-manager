@@ -334,6 +334,17 @@ export const T = {
 
       tip: 'מומלץ לבנות אשכולות לפני תחילת שיבוץ חודשי. ככל שהאשכול גדול יותר — כך לאלגוריתם יש יותר גמישות לבחור מהעובדים המועדפים.',
     },
+
+    workerAvailability: {
+      nav: 'זמינות עובדים', h2: 'חלון זמינות עובדים',
+      desc: 'חלון זה מסכם את מצב העובדים לתאריך הנבחר. הוא מחולק לארבע קבוצות:',
+      groupRows: [
+        ['זמינים לפי משמרת', 'עובדים שהגישו בקשת "יכול" או "מעדיף" לתאריך זה — מוצגים לפי סוג המשמרת שביקשו'],
+        ['לא משובצים', 'עובדים שביקשו לעבוד אך טרם שובצו לאתר כלשהו. כל עובד מלווה בסיבה: "לא נבחר" (יש אתרים פנויים), "אתרים מלאים" (אין אתרים פנויים), "אין פעילות" (לא הוגדרה פעילות למשמרת)'],
+        ['חופשה מאושרת', 'עובדים עם חופשה מאושרת בתאריך זה'],
+        ['לא זמינים / לא ביקשו', 'עובדים שסימנו "לא יכול" (מופיעים עם תגית "לא יכול") או שלא הגישו בקשה כלל (תגית "לא ביקש")'],
+      ],
+    },
   },
 
   /* ═══════════════════════════════════════════════════ ENGLISH */
@@ -661,6 +672,17 @@ export const T = {
       ],
 
       tip: 'Build clusters before the monthly scheduling cycle. The larger the cluster, the more flexibility the algorithm has to find an available preferred worker.',
+    },
+
+    workerAvailability: {
+      nav: 'Worker Availability', h2: 'Worker Availability Window',
+      desc: 'This window summarises worker status for the selected date. It is divided into four groups:',
+      groupRows: [
+        ['Available by shift', 'Workers who submitted a "can" or "prefer" request for this date — shown by the shift they requested'],
+        ['Unassigned', 'Workers who requested to work but have not yet been assigned to any site. Each worker shows a reason: "Not selected" (open slots exist), "Sites full" (no open slots), "No activity" (no activity configured for the shift)'],
+        ['Approved vacation', 'Workers with an approved vacation on this date'],
+        ['Unavailable / No request', 'Workers who marked "cannot" (shown with a "Cannot" badge) or submitted no request at all (badge: "No request")'],
+      ],
     },
   },
 
@@ -990,6 +1012,17 @@ export const T = {
 
       tip: 'يُنصح ببناء الكتل قبل بدء دورة الجدولة الشهرية. كلما كانت الكتلة أكبر، زادت مرونة الخوارزمية في اختيار موظف مفضّل متاح.',
     },
+
+    workerAvailability: {
+      nav: 'توفر الموظفين', h2: 'نافذة توفر الموظفين',
+      desc: 'تلخّص هذه النافذة حالة الموظفين للتاريخ المحدد. وهي مقسّمة إلى أربع مجموعات:',
+      groupRows: [
+        ['المتاحون حسب الوردية', 'الموظفون الذين قدّموا طلب "يستطيع" أو "يفضّل" لهذا التاريخ — يُعرضون حسب نوع الوردية المطلوبة'],
+        ['غير مُعيَّنين', 'الموظفون الذين طلبوا العمل ولم يُعيَّنوا بعد في أي موقع. يظهر مع كل موظف سبب: "غير مُختار" (توجد فتحات مفتوحة)، "المواقع ممتلئة" (لا فتحات)، "لا نشاط" (لم يُحدَّد أي نشاط للوردية)'],
+        ['إجازة معتمدة', 'الموظفون الذين لديهم إجازة معتمدة في هذا التاريخ'],
+        ['غير متوفرين / لم يطلبوا', 'الموظفون الذين حددوا "لا يستطيع" (يظهرون بشارة "لا يستطيع") أو لم يقدّموا أي طلب (شارة "لم يطلب")'],
+      ],
+    },
   },
 
   /* ═══════════════════════════════════════════════════ SPANISH */
@@ -1318,6 +1351,17 @@ export const T = {
 
       tip: 'Se recomienda construir los clústeres antes del ciclo de programación mensual. Cuanto mayor sea el clúster, más flexibilidad tiene el algoritmo para encontrar un empleado preferido disponible.',
     },
+
+    workerAvailability: {
+      nav: 'Disponibilidad de empleados', h2: 'Ventana de disponibilidad de empleados',
+      desc: 'Esta ventana resume el estado de los empleados para la fecha seleccionada. Se divide en cuatro grupos:',
+      groupRows: [
+        ['Disponibles por turno', 'Empleados que enviaron una solicitud "puede" o "prefiere" para esta fecha — agrupados por el turno solicitado'],
+        ['No asignados', 'Empleados que pidieron trabajar pero aún no han sido asignados a ningún sitio. Cada empleado muestra una razón: "No seleccionado" (hay lugares disponibles), "Sitios llenos" (sin lugares), "Sin actividad" (no hay actividad configurada para el turno)'],
+        ['Vacaciones aprobadas', 'Empleados con vacaciones aprobadas en esta fecha'],
+        ['No disponibles / Sin solicitud', 'Empleados que marcaron "no puede" (etiqueta "No puede") o que no enviaron ninguna solicitud (etiqueta "Sin solicitud")'],
+      ],
+    },
   },
 
   /* ═══════════════════════════════════════════════════ FRENCH */
@@ -1645,6 +1689,17 @@ export const T = {
       ],
 
       tip: 'Il est recommandé de constituer les clusters avant le cycle de planification mensuel. Plus le cluster est grand, plus l\'algorithme a de flexibilité pour trouver un employé préféré disponible.',
+    },
+
+    workerAvailability: {
+      nav: 'Disponibilité des employés', h2: 'Fenêtre de disponibilité des employés',
+      desc: 'Cette fenêtre résume le statut des employés pour la date sélectionnée. Elle est divisée en quatre groupes :',
+      groupRows: [
+        ['Disponibles par quart', 'Employés ayant soumis une demande "peut" ou "préfère" pour cette date — affichés par quart demandé'],
+        ['Non affectés', 'Employés ayant demandé à travailler mais pas encore affectés à un site. Chaque employé affiche une raison : "Non sélectionné" (des créneaux sont disponibles), "Sites complets" (pas de créneau), "Pas d\'activité" (aucune activité configurée pour le quart)'],
+        ['Congés approuvés', 'Employés avec un congé approuvé à cette date'],
+        ['Indisponibles / Sans demande', 'Employés ayant marqué "ne peut pas" (badge "Ne peut pas") ou n\'ayant soumis aucune demande (badge "Sans demande")'],
+      ],
     },
   },
 };

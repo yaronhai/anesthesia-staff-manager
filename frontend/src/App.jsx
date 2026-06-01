@@ -956,7 +956,7 @@ export default function App() {
 
       {isAdmin && selectedBranchId && (
         <div className={appStyles.roomsTab} style={{ '--rooms-display': activeTab === 'rooms' ? 'block' : 'none' }}>
-          <DailyRoomView config={config} authToken={authToken} branchId={selectedBranchId} />
+          <DailyRoomView config={config} authToken={authToken} branchId={selectedBranchId} onOpenHelp={section => setShowHelp(section)} />
         </div>
       )}
 

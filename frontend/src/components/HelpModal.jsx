@@ -78,7 +78,8 @@ export default function HelpModal({ isAdmin, onClose, initialSection }) {
                   { id: 'profile-requests', label: t.profileRequests.nav },
                   { id: 'events',           label: t.events.nav },
                   { id: 'settings',         label: t.settings.nav },
-                  { id: 'clusters',         label: t.clusters.nav },
+                  { id: 'clusters',             label: t.clusters.nav },
+                  { id: 'worker-availability', label: t.workerAvailability.nav },
                 ].map(sec => (
                   <button
                     key={sec.id}
@@ -293,6 +294,15 @@ export default function HelpModal({ isAdmin, onClose, initialSection }) {
                   <h3>{t.clusters.h3ManageCluster}</h3>
                   <ul>{t.clusters.manageClusterItems.map((x, i) => <li key={i}>{x}</li>)}</ul>
                   <div className={s.tip}>{t.clusters.tip}</div>
+                </section>
+                {/* ── Worker Availability ── */}
+                <section id="help-worker-availability">
+                  <h2>{t.workerAvailability.h2}</h2>
+                  <p>{t.workerAvailability.desc}</p>
+                  <table>
+                    <thead><tr><th>{t.colName}</th><th>{t.colDesc}</th></tr></thead>
+                    <tbody>{t.workerAvailability.groupRows.map((r, i) => <tr key={i}><td>{r[0]}</td><td>{r[1]}</td></tr>)}</tbody>
+                  </table>
                 </section>
               </>
             )}

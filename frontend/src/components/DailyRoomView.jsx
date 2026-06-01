@@ -261,7 +261,7 @@ function DrvTimePickerInput({ value, onChange }) {
   );
 }
 
-export default function DailyRoomView({ config, authToken, branchId }) {
+export default function DailyRoomView({ config, authToken, branchId, onOpenHelp }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [workers, setWorkers] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -320,6 +320,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   const [selectedShiftModal, setSelectedShiftModal] = useState(null); // { site_id, shift_type } for ShiftManagementModal
   const dragShiftMgmt = useDraggableModal();
   const [showWorkerAvailability, setShowWorkerAvailability] = useState(false);
+  const [waShiftFilter, setWaShiftFilter] = useState('all'); // 'all' | 'assigned' | 'unassigned'
+  const [waPrefFilter, setWaPrefFilter] = useState('all'); // 'all' | 'prefer' | 'can'
   const [waRect, setWaRect] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('waModalSize'));
@@ -1110,14 +1112,66 @@ export default function DailyRoomView({ config, authToken, branchId }) {
 
   function getUnassignedWorkers() {
     const assignedWorkerIds = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
-    const requestedWorkerIds = new Set(
-      shiftRequests.filter(r => r.date === dateStr && (r.preference_type === 'can' || r.preference_type === 'prefer')).map(r => r.worker_id)
-    );
+    const dayReqs = shiftRequests.filter(r => r.date === dateStr && (r.preference_type === 'can' || r.preference_type === 'prefer'));
+
+    // Per shift type: how many sites have open slots vs. are full vs. have no activity
+    const shiftSlotStatus = {};
+    for (const st of (config.shift_types || [])) {
+      let open = 0, full = 0, noActivity = 0;
+      for (const site of (config.sites || [])) {
+        const acts = siteShiftActivities.filter(a =>
+          a.site_id === site.id && a.date === dateStr && a.shift_type === st.key && (a.activity_type_id || a.surgeon_id)
+        );
+        if (acts.length === 0) { noActivity++; continue; }
+        const assigns = assignments.filter(a => a.site_id === site.id && a.date === dateStr && a.shift_type === st.key);
+        const isFull = acts.every(act => assigns.some(a => a.site_shift_activity_id === act.id));
+        if (isFull) full++; else open++;
+      }
+      shiftSlotStatus[st.key] = { open, full, noActivity };
+    }
+
     return workers
-      .filter(w => !assignedWorkerIds.has(w.id) && requestedWorkerIds.has(w.id))
-      .sort((a, b) => a.first_name.localeCompare(b.first_name, 'he'));
+      .filter(w => !assignedWorkerIds.has(w.id) && dayReqs.some(r => r.worker_id === w.id))
+      .map(w => {
+        const workerReqs = dayReqs.filter(r => r.worker_id === w.id);
+        const anyOpen = workerReqs.some(r => (shiftSlotStatus[r.shift_type]?.open ?? 0) > 0);
+        const anyFull = workerReqs.some(r => (shiftSlotStatus[r.shift_type]?.full ?? 0) > 0);
+        let reason;
+        if (anyOpen) reason = 'לא שובץ';
+        else if (anyFull) reason = 'אתרים מלאים';
+        else reason = 'אין פעילות';
+        return { ...w, reason };
+      })
+      .sort((a, b) => a.family_name.localeCompare(b.family_name, 'he'));
   }
 
+
+  function getUnavailableOrNoRequestWorkers() {
+    const assignedWorkerIds = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
+    const vacWorkerIds = new Set(
+      vacations
+        .filter(v => v.approved_start <= dateStr && v.approved_end >= dateStr)
+        .map(v => v.worker_id)
+    );
+    const dayReqs = shiftRequests.filter(r => r.date === dateStr);
+    const canPreferIds = new Set(
+      dayReqs.filter(r => r.preference_type === 'can' || r.preference_type === 'prefer').map(r => r.worker_id)
+    );
+    const cannotIds = new Set(
+      dayReqs.filter(r => r.preference_type === 'cannot').map(r => r.worker_id)
+    );
+    return workers
+      .filter(w =>
+        !assignedWorkerIds.has(w.id) &&
+        !vacWorkerIds.has(w.id) &&
+        !canPreferIds.has(w.id)
+      )
+      .map(w => ({
+        ...w,
+        reason: cannotIds.has(w.id) ? 'לא יכול' : 'לא ביקש',
+      }))
+      .sort((a, b) => a.family_name.localeCompare(b.family_name, 'he'));
+  }
 
   function getVacationWorkersForDate() {
     const workerIds = new Set(workers.map(w => w.id));
@@ -1138,6 +1192,8 @@ export default function DailyRoomView({ config, authToken, branchId }) {
   function closeWaModal() {
     setShowWorkerAvailability(false);
     setWaRect(r => ({ top: null, left: null, width: r.width, height: r.height }));
+    setWaShiftFilter('all');
+    setWaPrefFilter('all');
   }
 
   function startWaDrag(e) {
@@ -3640,8 +3696,17 @@ export default function DailyRoomView({ config, authToken, branchId }) {
     )}
     {showWorkerAvailability && (() => {
       const unassigned = getUnassignedWorkers();
+      const unassignedReasonMap = new Map(unassigned.map(w => [w.id, w.reason]));
       const vacWorkers = getVacationWorkersForDate();
+      const unavailable = getUnavailableOrNoRequestWorkers();
       const assignedTodayIds = new Set(assignments.filter(a => a.date === dateStr).map(a => a.worker_id));
+      const assignedByShift = assignments
+        .filter(a => a.date === dateStr)
+        .reduce((map, a) => {
+          if (!map[a.shift_type]) map[a.shift_type] = new Set();
+          map[a.shift_type].add(a.worker_id);
+          return map;
+        }, {});
       const totalAvailable = Object.values(requestsByShift).reduce((s, arr) => {
         arr.forEach(r => s.add(r.worker_id));
         return s;
@@ -3674,12 +3739,23 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 <span style={{ fontSize: '1.25rem' }}>👥</span>
                 <h3>זמינות עובדים — {displayDate}</h3>
               </div>
-              <button
-                className="btn-close"
-                style={{ color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
-                onMouseDown={e => e.stopPropagation()}
-                onClick={closeWaModal}
-              >✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                {onOpenHelp && (
+                  <button
+                    className="btn-close"
+                    style={{ color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', fontWeight: 700, fontSize: '0.9rem' }}
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={() => onOpenHelp('worker-availability')}
+                    title="הסבר על הקבוצות"
+                  >?</button>
+                )}
+                <button
+                  className="btn-close"
+                  style={{ color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={closeWaModal}
+                >✕</button>
+              </div>
             </div>
 
             <div className="worker-avail-body">
@@ -3698,7 +3774,7 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                 <div className="worker-avail-summary-sep" />
                 <div className="worker-avail-summary-item">
                   <span className="worker-avail-summary-num" style={{ color: '#b45309' }}>{unassigned.length}</span>
-                  <span>לא משובצים</span>
+                  <span>לא שובצו</span>
                 </div>
                 <div className="worker-avail-summary-sep" />
                 <div className="worker-avail-summary-item">
@@ -3708,67 +3784,77 @@ export default function DailyRoomView({ config, authToken, branchId }) {
               </div>
 
               {/* עובדים זמינים לפי משמרת */}
-              <div className="worker-avail-section">
-                <div className="worker-avail-section-title">עובדים זמינים לפי משמרת</div>
+              <div className="worker-avail-section worker-avail-section--shifts">
+                <div className="worker-avail-section-title worker-avail-section-title--with-filter">
+                  <span>עובדים זמינים לפי משמרת</span>
+                  <div className="wa-shift-filter">
+                    <select className="wa-filter-select" value={waShiftFilter} onChange={e => setWaShiftFilter(e.target.value)}>
+                      <option value="all">הכל</option>
+                      <option value="assigned">שובצו</option>
+                      <option value="unassigned">לא שובצו</option>
+                    </select>
+                    <select className="wa-filter-select" value={waPrefFilter} onChange={e => setWaPrefFilter(e.target.value)}>
+                      <option value="all">כל ההעדפות</option>
+                      <option value="prefer">מעדיף</option>
+                      <option value="can">יכול</option>
+                    </select>
+                  </div>
+                </div>
                 <div className="worker-avail-shifts-grid">
                   {availabilityShifts.map(({ key: shiftKey, label_he, icon, color, bg_color: bg }) => {
-                    const requests = requestsByShift[shiftKey] || [];
+                    const shiftAssignedIds = assignedByShift[shiftKey] || new Set();
+                    const allRequests = requestsByShift[shiftKey] || [];
+                    const requests = allRequests.filter(r => {
+                      if (waShiftFilter === 'assigned'   && !shiftAssignedIds.has(r.worker_id)) return false;
+                      if (waShiftFilter === 'unassigned' &&  shiftAssignedIds.has(r.worker_id)) return false;
+                      if (waPrefFilter !== 'all' && r.preference_type !== waPrefFilter) return false;
+                      return true;
+                    });
                     return (
                       <div key={shiftKey} className="worker-avail-shift-col">
                         <div className="worker-avail-shift-header" style={{ color, background: bg }}>
                           <span>{icon}</span>
                           <span>{label_he}</span>
-                          <span className="worker-avail-shift-count">{requests.length}</span>
+                          <span className="worker-avail-shift-count">
+                            {(waShiftFilter === 'all' && waPrefFilter === 'all') ? allRequests.length : `${requests.length}/${allRequests.length}`}
+                          </span>
                         </div>
-                        {requests.length === 0 ? (
-                          <div className="worker-avail-empty">אין</div>
-                        ) : (
-                          requests.map(r => {
-                            const workerJob = workers.find(w => w.id === r.worker_id)?.job || '';
-                            const isAssigned = assignedTodayIds.has(r.worker_id);
-                            return (
-                              <div key={r.id} className={`worker-avail-worker-row${isAssigned ? ' worker-avail-worker-row--assigned' : ''}`}>
-                                <div className="worker-avail-worker-name">
-                                  {r.family_name} {r.first_name}
-                                  {isAssigned && <span className="worker-avail-assigned-badge">משובץ ✓</span>}
+                        <div className="worker-avail-shift-workers">
+                          {requests.length === 0 ? (
+                            <div className="worker-avail-empty">{waShiftFilter === 'all' ? 'אין' : '—'}</div>
+                          ) : (
+                            requests.map(r => {
+                              const workerJob = workers.find(w => w.id === r.worker_id)?.job || '';
+                              const isAssigned = shiftAssignedIds.has(r.worker_id);
+                              const reason = !isAssigned ? unassignedReasonMap.get(r.worker_id) : null;
+                              return (
+                                <div key={r.id} className={`worker-avail-worker-row${isAssigned ? ' worker-avail-worker-row--assigned' : ''}`}>
+                                  <div className="worker-avail-worker-name">
+                                    {r.family_name} {r.first_name}
+                                    {isAssigned && <span className="worker-avail-assigned-badge">משובץ ✓</span>}
+                                    {reason && (
+                                      <span className={`worker-avail-reason worker-avail-reason--${reason === 'לא שובץ' ? 'notchosen' : reason === 'אתרים מלאים' ? 'full' : 'noact'}`}>{reason}</span>
+                                    )}
+                                  </div>
+                                  <div className="worker-avail-worker-meta">
+                                    {workerJob && <span className="worker-avail-job">{workerJob}</span>}
+                                    <span className={`worker-avail-pref pref-${r.preference_type}`}>
+                                      {r.preference_type === 'prefer' ? '🌟 מעדיף' : '✓ יכול'}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="worker-avail-worker-meta">
-                                  {workerJob && <span className="worker-avail-job">{workerJob}</span>}
-                                  <span className={`worker-avail-pref pref-${r.preference_type}`}>
-                                    {r.preference_type === 'prefer' ? '🌟 מעדיף' : '✓ יכול'}
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
+                              );
+                            })
+                          )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* לא משובצים */}
-              <div className="worker-avail-section">
-                <div className="worker-avail-section-title" style={{ color: '#b45309' }}>
-                  לא משובצים ({unassigned.length})
-                </div>
-                {unassigned.length === 0 ? (
-                  <div className="worker-avail-all-ok">✓ כל העובדים הזמינים משובצים</div>
-                ) : (
-                  <div className="worker-avail-worker-list">
-                    {unassigned.map(w => (
-                      <div key={w.id} className="worker-avail-worker-row">
-                        <div className="worker-avail-worker-name">{w.family_name} {w.first_name}</div>
-                        {w.job && <span className="worker-avail-job">{w.job}</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {/* חופשה מאושרת */}
-              <div className="worker-avail-section">
+              <div className="worker-avail-section worker-avail-section--vacation">
                 <div className="worker-avail-section-title" style={{ color: '#6b7280' }}>
                   חופשה מאושרת ({vacWorkers.length})
                 </div>
@@ -3780,6 +3866,28 @@ export default function DailyRoomView({ config, authToken, branchId }) {
                       <div key={w.id} className="worker-avail-worker-row worker-avail-worker-row--vacation">
                         <div className="worker-avail-worker-name">{w.family_name} {w.first_name}</div>
                         {w.job && <span className="worker-avail-job">{w.job}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* לא זמינים / לא ביקשו */}
+              <div className="worker-avail-section">
+                <div className="worker-avail-section-title" style={{ color: '#6b7280' }}>
+                  לא זמינים / לא ביקשו ({unavailable.length})
+                </div>
+                {unavailable.length === 0 ? (
+                  <div className="worker-avail-empty">כל העובדים הגישו בקשה</div>
+                ) : (
+                  <div className="worker-avail-worker-list worker-avail-worker-list--grid">
+                    {unavailable.map(w => (
+                      <div key={w.id} className="worker-avail-worker-row">
+                        <div className="worker-avail-worker-name">{w.family_name} {w.first_name}</div>
+                        <div className="worker-avail-worker-meta">
+                          {w.job && <span className="worker-avail-job">{w.job}</span>}
+                          <span className={`worker-avail-reason worker-avail-reason--${w.reason === 'לא יכול' ? 'full' : 'noact'}`}>{w.reason}</span>
+                        </div>
                       </div>
                     ))}
                   </div>

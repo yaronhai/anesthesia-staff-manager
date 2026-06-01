@@ -4333,7 +4333,7 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
 .worker-avail-body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0.4rem 0.5rem;
   display: flex;
   flex-direction: column;
@@ -4381,6 +4381,18 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   border: 1px solid #e2e8f0;
   border-radius: 7px;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.worker-avail-section--shifts {
+  flex: 3;
+}
+
+.worker-avail-section--vacation {
+  flex: 0.4;
 }
 
 .worker-avail-section-title {
@@ -4390,10 +4402,40 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   padding: 0.25rem 0.5rem;
   background: #f1f5f9;
   border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.worker-avail-section-title--with-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.wa-shift-filter {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.wa-filter-select {
+  font-size: 0.62rem;
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: white;
+  color: #1a2e4a;
+  cursor: pointer;
+  font-weight: 600;
+  outline: none;
+  &:focus { border-color: #1a2e4a; }
 }
 
 .worker-avail-shifts-grid {
   display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   > * { flex: 1; border-left: 1px solid #e2e8f0; &:last-child { border-left: none; } }
 }
 
@@ -4401,6 +4443,13 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+}
+
+.worker-avail-shift-workers {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .worker-avail-shift-header {
@@ -4430,7 +4479,11 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   border-bottom: 1px solid #f1f5f9;
   font-size: 0.7rem;
   &:last-child { border-bottom: none; }
-  &--assigned { background: #f0fdf4; }
+  &--assigned {
+    background: #dcfce7;
+    border-right: 3px solid #16a34a;
+    .worker-avail-worker-name { color: #14532d; font-weight: 700; }
+  }
   &--vacation { background: #f9fafb; opacity: 0.85; }
 }
 
@@ -4465,25 +4518,54 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   border-radius: 3px;
   padding: 0 0.25rem;
   &.pref-prefer { background: #fef3c7; color: #92400e; }
-  &.pref-can    { background: #d1fae5; color: #065f46; }
+  &.pref-can    { background: #dbeafe; color: #1e40af; }
 }
 
 .worker-avail-assigned-badge {
   font-size: 0.6rem;
-  font-weight: 600;
-  color: #15803d;
-  background: #dcfce7;
+  font-weight: 700;
+  color: white;
+  background: #16a34a;
   border-radius: 3px;
-  padding: 0 0.25rem;
+  padding: 0.05rem 0.3rem;
 }
 
-.worker-avail-worker-list { padding: 0; }
+.worker-avail-worker-list {
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.worker-avail-worker-list--grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-content: start;
+  > .worker-avail-worker-row {
+    border-bottom: 1px solid #f1f5f9;
+    &:last-child { border-bottom: none; }
+    // Remove the default last-child rule that assumes a single column
+    &:nth-last-child(2):nth-child(odd) { border-bottom: none; }
+  }
+}
+
+.worker-avail-reason {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  &--notchosen { background: #fee2e2; color: #991b1b; }
+  &--full      { background: #fee2e2; color: #991b1b; }
+  &--noact     { background: #f1f5f9; color: #64748b; }
+}
 
 .worker-avail-empty {
   padding: 0.3rem 0.5rem;
   font-size: 0.7rem;
   color: #9ca3af;
   font-style: italic;
+  flex-shrink: 0;
 }
 
 .worker-avail-all-ok {
@@ -4491,11 +4573,28 @@ header .subtitle { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
   font-size: 0.72rem;
   color: #15803d;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 @media (max-width: 600px) {
+  .worker-avail-body {
+    overflow-y: auto;
+  }
+  .worker-avail-section {
+    flex: none;
+  }
+  .worker-avail-section--shifts {
+    flex: none;
+  }
   .worker-avail-shifts-grid {
     flex-direction: column;
+    overflow: visible;
     > * { border-left: none; border-bottom: 1px solid #e2e8f0; &:last-child { border-bottom: none; } }
+  }
+  .worker-avail-shift-workers {
+    max-height: 160px;
+  }
+  .worker-avail-worker-list {
+    max-height: 120px;
   }
 }
