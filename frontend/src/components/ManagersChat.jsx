@@ -392,11 +392,14 @@ export default function ManagersChat({ authToken, currentUser, canManageMembers 
     const panel = panelRef.current;
     if (!panel) return;
     const rect = panel.getBoundingClientRect();
+    const headerH = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--header-h') || '78', 10
+    );
     dragState.current = {
       startX: e.clientX,
       startY: e.clientY,
       origLeft: panelPos ? panelPos.left : rect.left,
-      origTop: panelPos ? panelPos.top : rect.top,
+      origTop: Math.max(headerH + 4, panelPos ? panelPos.top : rect.top),
     };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -406,9 +409,12 @@ export default function ManagersChat({ authToken, currentUser, canManageMembers 
     if (!dragState.current) return;
     const dx = e.clientX - dragState.current.startX;
     const dy = e.clientY - dragState.current.startY;
+    const headerH = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--header-h') || '78', 10
+    );
     setPanelPos({
       left: dragState.current.origLeft + dx,
-      top: dragState.current.origTop + dy,
+      top: Math.max(headerH + 4, dragState.current.origTop + dy),
     });
   }
 
