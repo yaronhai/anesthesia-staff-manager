@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from '../styles/ShiftRequests.module.scss';
 import PermanentShiftsModal from './PermanentShiftsModal';
 import WorkerShiftModal from './WorkerShiftModal';
@@ -9,6 +9,7 @@ const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יו
                 'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 const WEEK_HEADERS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const DAYS_HE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+const DAYS_HE_SHORT = ['א','ב','ג','ד','ה','ו','ש'];
 const SHIFT_ICONS = { morning: '☀️', evening: '🌙', oncall: '📞', night: '⭐' };
 
 function toDateStr(year, month, day) {
@@ -397,29 +398,6 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
   const dragBlocked  = useDraggableModal();
   const dragVacation = useDraggableModal();
   const dragEditor   = useDraggableModal();
-  const bodyWrapRef = useRef(null);
-  const headerWrapRef = useRef(null);
-
-  useLayoutEffect(() => {
-    function syncGutter() {
-      if (!bodyWrapRef.current || !headerWrapRef.current) return;
-      const sw = bodyWrapRef.current.offsetWidth - bodyWrapRef.current.clientWidth;
-      headerWrapRef.current.style.paddingLeft = sw + 'px';
-    }
-    syncGutter();
-    const ro = new ResizeObserver(syncGutter);
-    if (bodyWrapRef.current) ro.observe(bodyWrapRef.current);
-    return () => ro.disconnect();
-  }, [workers, requests]);
-
-  useEffect(() => {
-    const body = bodyWrapRef.current;
-    const header = headerWrapRef.current;
-    if (!body || !header) return;
-    function onBodyScroll() { header.scrollLeft = body.scrollLeft; }
-    body.addEventListener('scroll', onBodyScroll, { passive: true });
-    return () => body.removeEventListener('scroll', onBodyScroll);
-  }, []);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -666,75 +644,48 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
 
   const colgroup = (
     <colgroup>
-      <col style={{ width: '90px' }} />
+      <col className="admin-grid-name-coldef" />
       {days.map(d => <col key={d} />)}
     </colgroup>
+  );
+
+  const headerRow = (
+    <tr>
+      <th className="admin-grid-name-col">שם העובד/ת</th>
+      {days.map(d => {
+        const dow = new Date(year, month, d).getDay();
+        const isSaturday = dow === 6;
+        const isFriday = dow === 5;
+        const dateStr = toDateStr(year, month, d);
+        const sd = (specialDays || []).find(s => s.date === dateStr);
+        const isWeekend = isSaturday || isFriday;
+        const locked = isDayLocked(d);
+        const reopened = isDayReopened(d);
+        return (
+          <th
+            key={d}
+            className={`admin-grid-day-col admin-grid-day-col--clickable${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}${locked ? ` ${styles.lockedDayCol}` : ''}${reopened ? ` ${styles.reopenedDayCol}` : ''}`}
+            style={sd && !isWeekend ? { '--sd-header-bg': sd.color + '44', background: 'var(--sd-header-bg)' } : undefined}
+            onClick={() => setDayModal({ day: d })}
+          >
+            <div>{d}</div>
+            <div className="admin-grid-day-letter">{DAYS_HE_SHORT[dow]}</div>
+            {locked && <div className={styles.lockedDayLabel} title="נעול לעריכת עובדים">🔒</div>}
+            {reopened && <div className={styles.reopenedDayLabel} title="נפתח מחדש לעריכה">🔓</div>}
+            {sd && <div className="special-day-label" title={sd.name}>{sd.name}</div>}
+          </th>
+        );
+      })}
+    </tr>
   );
 
   return (
     <>
       <div className="admin-grid-scroll-wrap">
-        {/* Fixed header — never scrolls vertically */}
-        <div className="admin-grid-header-wrap" ref={headerWrapRef}>
-          <table className="admin-grid">
-            {colgroup}
-            <thead>
-              <tr>
-                <td className={`admin-grid-name-col ${styles.summaryLabelCell}`}>סיכום</td>
-                {days.map(d => {
-                  const dow = new Date(year, month, d).getDay();
-                  const isSaturday = dow === 6;
-                  return (
-                    <td key={d} className={styles.summaryDayCell} style={{ '--summary-day-bg': isSaturday ? '#9ca3af' : '#e5e7eb' }}>
-                      <div className={styles.summaryCountsCol}>
-                        {shifts.map(s => {
-                          const count = summaryMap[d][s.key];
-                          return count > 0 ? (
-                            <span key={s.key} className={styles.summaryCount}>
-                              {s.label_short}{count}
-                            </span>
-                          ) : null;
-                        })}
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-              <tr>
-                <th className="admin-grid-name-col">עובד</th>
-                {days.map(d => {
-                  const dow = new Date(year, month, d).getDay();
-                  const isSaturday = dow === 6;
-                  const isFriday = dow === 5;
-                  const dateStr = toDateStr(year, month, d);
-                  const sd = (specialDays || []).find(s => s.date === dateStr);
-                  const isWeekend = isSaturday || isFriday;
-                  const locked = isDayLocked(d);
-                  const reopened = isDayReopened(d);
-                  return (
-                    <th
-                      key={d}
-                      className={`admin-grid-day-col admin-grid-day-col--clickable${isSaturday ? ' admin-grid-saturday' : isFriday ? ' admin-grid-friday' : ''}${sd && !isWeekend ? ' admin-grid-special-day' : ''}${locked ? ` ${styles.lockedDayCol}` : ''}${reopened ? ` ${styles.reopenedDayCol}` : ''}`}
-                      style={sd && !isWeekend ? { '--sd-header-bg': sd.color + '44', background: 'var(--sd-header-bg)' } : undefined}
-                      onClick={() => setDayModal({ day: d })}
-                    >
-                      <div>{d}</div>
-                      <div className="admin-grid-day-letter">{DAYS_HE[dow]}</div>
-                      {locked && <div className={styles.lockedDayLabel} title="נעול לעריכת עובדים">🔒</div>}
-                      {reopened && <div className={styles.reopenedDayLabel} title="נפתח מחדש לעריכה">🔓</div>}
-                      {sd && <div className="special-day-label" title={sd.name}>{sd.name}</div>}
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-          </table>
-        </div>
-        {/* Scrollable body — only worker rows scroll */}
-        <div className="admin-grid-body-wrap" ref={bodyWrapRef}>
-          <table className="admin-grid">
-            {colgroup}
-            <tbody>
+        <table className="admin-grid">
+          {colgroup}
+          <thead>{headerRow}</thead>
+          <tbody>
             {primaryJobGroups.map(job => ([
               ...primaryJobMap[job].map(row => (
                 <tr key={row.userId}>
@@ -824,8 +775,30 @@ function AdminGrid({ workers, requests, vacations, token, viewDate, onRefresh, s
               ])).flat()
             ]}
             </tbody>
-          </table>
-        </div>
+          <tfoot>
+            <tr>
+              <td className={`admin-grid-name-col ${styles.summaryLabelCell}`}>סיכום</td>
+              {days.map(d => {
+                const dow = new Date(year, month, d).getDay();
+                const isSaturday = dow === 6;
+                return (
+                  <td key={d} className={styles.summaryDayCell} style={{ '--summary-day-bg': isSaturday ? '#374151' : '#1e3a5f' }}>
+                    <div className={styles.summaryCountsCol}>
+                      {shifts.map(s => {
+                        const count = summaryMap[d][s.key];
+                        return count > 0 ? (
+                          <span key={s.key} className={styles.summaryCount}>
+                            {s.label_short}{count}
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
+          </tfoot>
+        </table>
       </div>
 
       {dayModal && (

@@ -171,30 +171,31 @@
 
 // Admin: summary row header cell
 .summaryLabelCell {
-  background: #e0f2fe;
-  color: #0c4a6e;
+  background: #0c4a6e;
+  color: #fff;
   font-weight: 700;
   font-size: 0.68rem;
   padding: 0.25rem 0.4rem;
-  border-bottom: 2px solid #7dd3fc;
+  border-top: 2px solid #0369a1;
 }
 .summaryDayCell {
-  background: var(--summary-day-bg, #e5e7eb);
-  border-bottom: 2px solid #7dd3fc;
+  background: var(--summary-day-bg, #1e3a5f);
+  border-top: 2px solid #0369a1;
   text-align: center;
-  padding: 0.15rem 0.05rem;
+  padding: 0.25rem 0.05rem;
 }
 .summaryCountsCol {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   align-items: center;
 }
 .summaryCount {
-  color: #991b1b;
+  color: #fbbf24;
   padding: 0 2px;
   display: inline-block;
   font-weight: 700;
+  font-size: 0.72rem;
 }
 
 // Admin: borrowed worker label
@@ -306,6 +307,7 @@
 
 // Admin legend
 .legendRow {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 0.4rem;
